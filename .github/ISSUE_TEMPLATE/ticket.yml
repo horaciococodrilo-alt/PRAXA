@@ -1,0 +1,48 @@
+name: Praxa implementation ticket
+description: Ticket verificable para Company Brain v0
+title: "[CB-XXX] "
+labels: ["planned"]
+body:
+  - type: input
+    id: outcome
+    attributes:
+      label: Resultado observable
+      description: ¿Qué podrá demostrarse cuando termine?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Incluye
+    validations:
+      required: true
+  - type: textarea
+    id: non_scope
+    attributes:
+      label: No incluye
+    validations:
+      required: true
+  - type: textarea
+    id: spec
+    attributes:
+      label: Especificación y ADRs relevantes
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Criterios de aceptación
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Pruebas y verificación
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Riesgos, seguridad y tenancy
+    validations:
+      required: true
