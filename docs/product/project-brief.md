@@ -1,8 +1,7 @@
 # Praxa — Project Brief
 
 **Estado:** iniciativa en validación; cero product-market fit demostrado.  
-**Entrega actual:** Company Brain v0 como proyecto académico de seis meses.  
-**Nombre anterior:** AGECI.  
+**Entrega actual:** Company Brain v0 como proyecto académico de seis meses.   
 **Equipo:** Simón Alfandari, Matías Guiter, Juan Grimberg y Gonzalo Mayer.
 
 ## Descripción breve
