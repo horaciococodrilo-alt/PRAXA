@@ -1,7 +1,7 @@
 # Praxa — Project Brief
 
 **Estado:** iniciativa en validación; cero product-market fit demostrado.  
-**Entrega actual:** Company Brain v0 como proyecto académico de seis meses.   
+**Entrega actual:** Company Brain v0 como MVP académico vertical (R0 + VS-01 a VS-07); plazo dependiente de horas humanas y disponibilidad, detallado en `docs/plans/company-brain-build-plan.md`.<br>
 **Equipo:** Simón Alfandari, Matías Guiter, Juan Grimberg y Gonzalo Mayer.
 
 ## Descripción breve
@@ -53,11 +53,11 @@ Los umbrales de volumen, canales y empleados no están validados y no deben codi
 | Responsable de operaciones | Champion y usuario experto del flujo real |
 | Operaciones, administración, atención, logística y finanzas | Usuarios diarios potenciales |
 | Contador, IT, agencia o integrador | Influenciadores y aprobadores según el caso |
-| Agente futuro | Consumidor limitado de contexto; nunca propietario de credenciales o permisos |
+| Agente controlado | Consumidor limitado de contexto en el vertical v0; nunca propietario de credenciales o permisos |
 
 ## Alcance técnico actual
 
-Construir únicamente Company Brain v0:
+Construir únicamente Company Brain v0, implementado como un **corte vertical de divergencia y riesgo de sobreventa de inventario** (ADR-011):
 
 - Ingesta estructurada y documental.
 - Evidencia original inmutable y citable.
@@ -72,11 +72,15 @@ Construir únicamente Company Brain v0:
 - Answerability explícita.
 - Cobertura, búsqueda, revisión y auditoría mínimas.
 - Aislamiento multi-tenant y RLS.
+- Un agente controlado, sin credenciales ni acceso a la base de datos, detrás de una interfaz de tres capacidades.
+- Una skill de producto versionada: `investigate_inventory_divergence`.
+- Propuestas internas append-only, separadas de cualquier acción, y decisión humana auditada.
 
 ## Fuera del alcance actual
 
 - Agentes autónomos en producción.
-- Skills ejecutables.
+- Runtime o registry genérico de skills.
+- Memoria persistente del agente entre ejecuciones.
 - Credenciales entregadas al LLM.
 - Escritura real en marketplaces, tiendas, ERP o ARCA.
 - Rollback contra APIs externas.
@@ -97,16 +101,23 @@ Praxa debe:
 3. Recuperar la política vigente.
 4. Calcular stock vendible mediante código determinístico.
 5. Mostrar contradicción, evidencia y lagunas.
-6. Producir un ContextPacket citado.
-7. Permitir inspección y corrección humana.
-8. No modificar ningún sistema externo.
+6. Producir un ContextPacket citado, con payload determinístico y envelope operativo separados.
+7. Permitir que un agente controlado investigue el caso y registre una propuesta interna marcada como no ejecutada.
+8. Permitir inspección, corrección y una decisión humana auditada, distinguible de la propuesta.
+9. No modificar ningún sistema externo.
 
-## Dos líneas de trabajo que no deben confundirse
+## Dos carriles que no deben confundirse
 
-### Proyecto técnico académico
+Las estimaciones, los criterios de éxito y las decisiones de cada carril son independientes. Un avance en uno no valida el otro.
 
-Construir y demostrar un Company Brain v0 con datos sintéticos, arquitectura segura y alcance controlado.
+### Carril técnico académico
 
-### Validación de startup
+Construir y demostrar un Company Brain v0 con datos sintéticos, arquitectura segura y alcance controlado, siguiendo el camino R0 → VS-01 … VS-07 de `docs/plans/company-brain-build-plan.md`.
 
-Entrevistar y observar ecommerce para descubrir una excepción recurrente, costosa, comparable y comprable. El software académico no prueba por sí mismo deseabilidad, disposición a pagar ni tamaño de mercado.
+El éxito se mide por gates verificables: aislamiento entre tenants, política seleccionada determinísticamente, citas que abren la evidencia exacta, abstención ante evidencia insuficiente y una demo reproducible desde checkout limpio.
+
+### Carril de validación comercial
+
+Entrevistar y observar ecommerce para descubrir una excepción recurrente, costosa, comparable y comprable.
+
+El software académico no prueba por sí mismo deseabilidad, disposición a pagar ni tamaño de mercado. El código no debe decidir cuál es la primera cuña comercial, y una hipótesis comercial que cambie no autoriza por sí sola una modificación del backlog técnico.

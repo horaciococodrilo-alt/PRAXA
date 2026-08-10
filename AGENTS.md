@@ -2,9 +2,11 @@
 
 ## Mission
 
-Build Praxa incrementally. The current authorized product scope is **Company Brain v0**: a read-only, evidence-grounded operational knowledge system for multichannel ecommerce.
+Build Praxa incrementally. The current authorized product scope is **Company Brain v0**, implemented as a **single vertical slice** of inventory divergence and oversell risk (ADR-011): an evidence-grounded operational knowledge system for multichannel ecommerce.
 
-The full Praxa vision includes controlled agents, skills, approvals and team workflows. Those are future context, not current implementation scope.
+The vertical includes one controlled agent and one versioned product skill, `investigate_inventory_divergence`. The system performs **no external writes**; it does perform a closed set of internal, append-only, audited writes for agent proposals, human decisions and audit events.
+
+The full Praxa vision includes a generic agent runtime, autonomy, multi-agent systems and real external actions. Those are future context, not current implementation scope.
 
 ## Sources of truth
 
@@ -15,7 +17,7 @@ Use these sources in this order:
 3. Approved ADRs that are also reflected in the master specification.
 4. `docs/plans/current.md`.
 5. `docs/plans/company-brain-build-plan.md`.
-6. `docs/product/project-brief.md` and `docs/product/lean-canvas-v6.1.md` as product hypotheses.
+6. `docs/product/project-brief.md` as the single active source of product hypotheses.
 
 `docs/product/future-vision.md` is non-normative. `docs/research/archive/` contains superseded material and must not be used as requirements unless a human explicitly requests it.
 
@@ -28,7 +30,7 @@ Before the first implementation:
 - Read this file.
 - Read `docs/product/project-brief.md`.
 - Read sections 0 through 7 of the master specification.
-- Read the milestone, repository, standards and testing sections relevant to the current work.
+- Read the phase, repository, standards and testing sections relevant to the current work.
 - Read `docs/plans/current.md`.
 
 Before each ticket, read only the current ticket and relevant specification sections. Inspect existing code and tests before proposing changes.
@@ -43,17 +45,23 @@ Before each ticket, read only the current ticket and relevant specification sect
 - Current operational state and historical knowledge remain distinguishable.
 - Deterministic logic owns normalization, joins, calculation, validation, authorization and publication state.
 - LLMs may extract or propose structured candidates; they never publish approved knowledge or decide permissions.
+- An LLM may **communicate** values returned by deterministic tools, but never compute, originate, adjust or become the authoritative source for them.
+- The effective policy is selected by deterministic code from an approved, in-force version. FTS and vector retrieve the passage that supports it; they never decide which rule governs a calculation.
+- No global RRF in v0: ranking, limits and deduplication happen **within** each retrieval channel.
+- The `ContextPacket` separates a deterministic, hashable payload from an operational execution envelope. Reproducibility tests compare the normalized payload.
+- Authorization is applied before retrieval, and citations are re-authorized before serializing a response. Unauthorized content must not influence ranking, answerability or the answer.
 - `unknown`, `partial` and `conflicted` are valid outcomes.
 - Verified facts included in context have citations.
-- Company Brain v0 performs no external writes.
+- Company Brain v0 performs no external writes. Internal append-only, audited writes for proposals, decisions and audit events are permitted; a proposal is never presented as an executed action.
 - Secrets and production customer data never enter the repository, frontend bundle, prompts or logs.
 
 ## Current non-goals
 
 Do not add unless an approved future ticket and ADR require them:
 
-- Production agent runtime or multi-agent system.
-- Executable skills or autonomous learning.
+- Production agent runtime, generic skill registry or multi-agent system.
+- Agent autonomy, persistent agent memory across runs, or autonomous learning from corrections.
+- Any second skill beyond `investigate_inventory_divergence`.
 - Tool Gateway with real writes.
 - Real refunds, invoices, stock changes or ARCA actions.
 - Microservices, Redis, Kafka, Temporal or Kubernetes.
@@ -102,18 +110,25 @@ Do not broaden a ticket because a future feature appears useful.
 
 ## Expected commands
 
-`CB-001` must establish or document equivalent commands:
+Each phase must establish or document equivalent commands as it introduces them.
+
+Available today:
 
 - `uv sync --all-groups`
 - `uv run ruff check .`
 - `uv run ruff format --check .`
+- `uv run mypy .`
 - `uv run pytest`
-- `docker compose up -d postgres`
-- `uv run alembic upgrade head`
 - `npm ci`
 - `npm run lint`
+- `npm run typecheck`
 - `npm test`
 - `npm run build`
+
+Introduced in `VS-01`, not available yet:
+
+- `docker compose up -d postgres`
+- `uv run alembic upgrade head`
 
 Do not claim success without running the relevant available commands.
 

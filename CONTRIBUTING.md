@@ -13,8 +13,8 @@
 
 ## Convención de ramas
 
-- `feat/cb-001-monorepo-tooling`
-- `fix/cb-XXX-descripcion`
+- `feat/vs-02-evidence-ingestion`
+- `fix/vs-XX-descripcion`
 - `docs/descripcion`
 - `chore/descripcion`
 

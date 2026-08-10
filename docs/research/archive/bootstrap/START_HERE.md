@@ -1,3 +1,9 @@
+> **ARCHIVADO Y NO NORMATIVO.** Este documento describe el arranque de un repositorio que
+> todavía no existía y su primera tarea era `CB-001`. Se conserva como material histórico.
+> No define alcance, no autoriza trabajo y sus referencias —incluido el Lean Canvas y el orden
+> de lectura— están desactualizadas. El alcance vigente está en
+> `docs/architecture/company-brain-spec.md` y `docs/plans/current.md`.
+
 # Praxa — kit de arranque para Codex y Claude Code
 
 Este paquete convierte la investigación y arquitectura de Praxa en un repositorio que un agente de código puede comprender sin depender del historial de un chat.

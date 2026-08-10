@@ -18,11 +18,11 @@ Un agente escribe; otro revisa. No permitir que ambos editen la misma rama al mi
 
 ## Roles iniciales sugeridos
 
-- Codex: implementador de CB-001.
+- Codex: implementador de la fase autorizada (R0 o VS-01 a VS-07).
 - Claude Code: revisor independiente.
 - En el ticket siguiente pueden invertirse.
 
-La asignación no implica superioridad de un modelo; busca independencia entre creación y revisión.
+La asignación no implica superioridad de un modelo; busca independencia entre creación y revisión. En ambos roles, el agente actúa como asistente o revisor bajo autoridad humana: no aprueba su propio trabajo, no decide arquitectura, permisos, política activa ni el estado de una ADR.
 
 ## No depender del chat
 
