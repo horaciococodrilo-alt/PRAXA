@@ -5,7 +5,7 @@
 **Fecha:** 5 de agosto de 2026  
 **Estado:** contrato de implementación propuesto  
 **Audiencia:** Codex, Claude Code y equipo de desarrollo de Praxa  
-**Horizonte:** proyecto académico de seis meses; arquitectura preparada para evolucionar sin obligar a construir la plataforma completa  
+**Horizonte:** MVP académico vertical (R0 + VS-01 a VS-07); plazo dependiente de horas humanas y disponibilidad, detallado en `docs/plans/company-brain-build-plan.md`; arquitectura preparada para evolucionar sin obligar a construir la plataforma completa<br>
 **Equipo:** Simón Alfandari, Matías Guiter, Juan Grimberg y Gonzalo Mayer
 
 > **Instrucción de precedencia.** Para construir el Company Brain, este documento prevalece sobre blueprints, cuadernos, Lean Canvas y diagramas anteriores. Esos materiales conservan valor como visión e investigación, pero no autorizan a ampliar el alcance de la versión actual. Si dos requisitos se contradicen, aplicar en este orden: seguridad e invariantes; alcance v0; contratos de datos y API; decisiones arquitectónicas; backlog; visión futura.
@@ -39,7 +39,7 @@
 22. Estructura del repositorio
 23. Estándares de implementación
 24. Entorno local, CI y despliegue
-25. Plan de seis meses
+25. Plan del MVP vertical (R0 y VS-01 a VS-07)
 26. Roles y responsabilidades
 27. Definition of Ready y Definition of Done
 28. Gates para impedir sobreconstrucción
@@ -57,7 +57,7 @@ Este documento no es una descripción inspiracional. Es la fuente de verdad para
 Antes de escribir código, el agente **DEBE**:
 
 1. Leer completamente las secciones 1 a 14.
-2. Identificar el milestone y los tickets autorizados para la iteración.
+2. Identificar la fase (R0 o VS-01 a VS-07) y los tickets autorizados para la iteración.
 3. Inspeccionar el repositorio y comparar el estado real con esta especificación.
 4. Informar cualquier contradicción, requisito imposible o decisión abierta que bloquee el trabajo.
 5. Proponer un plan corto con archivos, migraciones, pruebas y riesgos.
@@ -121,7 +121,7 @@ La hipótesis de producto subyacente es que un agente solo puede realizar trabaj
 3. evidencia y permisos asociados;
 4. una forma explícita de admitir contradicción, desactualización o ausencia.
 
-## 1.1 Resultado esperado al finalizar los seis meses
+## 1.1 Resultado esperado al completar el MVP vertical
 
 Debe existir una demostración reproducible en la que:
 
@@ -131,10 +131,11 @@ Debe existir una demostración reproducible en la que:
 4. Detecta una diferencia de inventario o publicación entre canales.
 5. Recupera la regla vigente que determina la fuente autoritativa o el stock de seguridad.
 6. Produce un `context_packet` con hechos, regla, estado de cada canal, citas, contradicciones, brechas y nivel de respuesta posible.
-7. Un usuario puede inspeccionar por qué Praxa llegó a esa conclusión y aprobar o corregir el conocimiento candidato.
-8. Todas las operaciones quedan aisladas por tenant y registradas en auditoría.
+7. Un agente controlado consume ese contexto mediante la skill `investigate_inventory_divergence` y registra una propuesta interna no ejecutada.
+8. Un usuario puede inspeccionar por qué Praxa llegó a esa conclusión, aprobar o corregir el conocimiento candidato, y dejar una decisión auditada sobre la propuesta.
+9. Todas las operaciones quedan aisladas por tenant y registradas en auditoría.
 
-El demo **no necesita modificar un marketplace real**. Puede generar una propuesta de acción o ejecutar una acción simulada en un sandbox. La calidad del Company Brain se demuestra por la fidelidad, vigencia, procedencia y utilidad del contexto, no por una animación de agente.
+El demo **no modifica ningún sistema externo**. El agente registra una propuesta interna no ejecutada; una persona revisa esa propuesta y deja una decisión auditada. Ninguna acción, real ni simulada, se ejecuta. La calidad del Company Brain se demuestra por la fidelidad, vigencia, procedencia y utilidad del contexto, no por una animación de agente.
 
 ---
 
@@ -175,7 +176,7 @@ Esta definición orienta el vocabulario, las entidades y el caso de demo. Todav�
 | Responsable de operaciones | Consultar estado y reglas, resolver gaps, corregir relaciones | Puede aprobar conocimiento dentro de su área |
 | Empleado | Buscar contexto permitido y aportar evidencia | No publica políticas sin revisión |
 | Administrador técnico | Configurar fuentes, credenciales y sincronizaciones | No convierte automáticamente datos en reglas de negocio |
-| Agente de IA futuro | Pedir contexto task-scoped mediante API o MCP | No recibe credenciales ni autoridad propia |
+| Agente de IA controlado | Pedir contexto task-scoped mediante API y registrar una propuesta interna | No recibe credenciales ni autoridad propia; no accede a PostgreSQL |
 | Sistema fuente | Mantener estado transaccional vivo | Sigue siendo system of record de sus datos |
 
 ---
@@ -183,6 +184,10 @@ Esta definición orienta el vocabulario, las entidades y el caso de demo. Todav�
 # 3. Alcance normativo
 
 ## 3.1 Alcance v0 obligatorio
+
+Conforme ADR-011, Company Brain v0 se implementa como un **único corte vertical** de divergencia y riesgo de sobreventa de inventario. El alcance obligatorio de esta sección se realiza dentro de ese vertical: un dominio, una pregunta canónica, una familia de políticas, una skill y un agente controlado.
+
+La arquitectura completa del Company Brain sigue siendo el norte, pero el código de v0 implementa solo el vertical. Regla: **future-compatible, no future-built.**
 
 ### A. Ingesta y evidencia
 
@@ -220,9 +225,10 @@ Esta definición orienta el vocabulario, las entidades y el caso de demo. Todav�
 - Búsqueda semántica mediante pgvector.
 - Consultas relacionales mediante tablas de edges en PostgreSQL.
 - Filtrado temporal.
-- Fusión y reranking de candidatos.
-- Filtrado por tenant y ACL antes y después del retrieval.
-- `context_packet` task-scoped con citas y answerability.
+- Canales de retrieval segmentados con ranking, límites y deduplicación **dentro de cada canal**, conforme ADR-013. No hay fusión global por un único score en v0.
+- Selección determinística de la política efectiva desde una versión aprobada y vigente; FTS y vector recuperan el pasaje que la respalda, no deciden qué regla gobierna.
+- Filtrado por tenant y ACL antes del retrieval, y reautorización de citas antes de serializar la respuesta.
+- `context_packet` task-scoped con citas y answerability, separado en payload determinístico y envelope operativo.
 - Respuesta explícita `supported`, `partial`, `conflicted` o `unknown`.
 
 ### E. Experiencia y gobernanza mínimas
@@ -246,6 +252,20 @@ Esta definición orienta el vocabulario, las entidades y el caso de demo. Todav�
 - Pruebas unitarias, integración, seguridad y end-to-end.
 - Docker Compose y CI.
 
+### G. Agente controlado y skill de producto v0
+
+Conforme ADR-011, el vertical incluye un consumidor de IA acotado que demuestra que el Brain es consumible:
+
+- Un **único** agente detrás de una interfaz de herramientas pequeña: `resolve_inventory_entity`, `get_inventory_context` y `create_resolution_proposal`.
+- Una **única** skill de producto versionada: `investigate_inventory_divergence` v1.
+- El agente no recibe credenciales, no accede a PostgreSQL y no ejecuta acciones externas.
+- Salida estructurada validada, con límites de tool calls, tokens, tiempo y presupuesto.
+- Abstención explícita ante evidencia insuficiente.
+- Escrituras **internas** limitadas, append-only y auditadas para propuestas del agente, decisiones humanas y trazas. Una propuesta nunca se presenta como una acción ejecutada.
+- Revisión humana y auditoría de la propuesta.
+
+Quedan fuera: runtime o registry genérico de skills, memoria persistente entre ejecuciones, autonomía, multiagente y cualquier escritura en sistemas externos.
+
 ## 3.2 Alcance opcional v0.2, solo si v0 está terminado
 
 - Conector read-only real de Mercado Libre o Tiendanube.
@@ -257,9 +277,13 @@ Esta definición orienta el vocabulario, las entidades y el caso de demo. Todav�
 
 ## 3.3 No construir ahora
 
+Esta lista excluye la autonomía, la generalización y las escrituras externas. **No** excluye el agente controlado único ni la skill de producto v0 definidos en §3.1.G, que sí forman parte del alcance obligatorio.
+
 - Tool Gateway con escrituras reales.
 - Agente autónomo de larga duración.
 - Multiagente, subagentes o blackboard.
+- Runtime o registry genérico de skills.
+- Memoria persistente del agente entre ejecuciones.
 - Facturación, conciliación fiscal o acciones en ARCA.
 - Aprobación por impacto económico real.
 - Rollback contra APIs externas.
@@ -342,7 +366,8 @@ Si una funcionalidad solo hace que la demo “parezca más agente” pero no mej
 | Fact version | Versión inmutable de un hecho con vigencia, estado y evidencia. |
 | Policy | Regla normativa que condiciona decisiones o acciones. |
 | Procedure | Secuencia descriptiva de trabajo; en v0 no es ejecutable. |
-| Skill | Capacidad ejecutable versionada; solo visión futura. |
+| Skill de producto v0 | Procedimiento de investigación versionado que el agente controlado ejecuta contra la interfaz de herramientas del Brain. En v0 existe exactamente una: `investigate_inventory_divergence`. No produce efectos externos. |
+| Runtime genérico de skills | Registro, descubrimiento y ejecución arbitraria de skills por un agente autónomo; permanece como visión futura y fuera de v0. |
 | Contradiction | Dos afirmaciones incompatibles dentro de alcance temporal y contextual comparable. |
 | Knowledge gap | Dato, regla o relación necesaria que no puede determinarse. |
 | Coverage map | Medición de qué fuentes, entidades, períodos y tipos de conocimiento están representados. |
@@ -401,6 +426,12 @@ El sistema debe devolver, como mínimo:
 - gap si no se conoce la latencia de sincronización de un canal;
 - answerability `partial` mientras exista ese gap, o `supported` si se provee la información;
 - propuesta no ejecutable: revisar o ajustar los listings a 7.
+
+El vertical completa el caso hasta la decisión humana:
+
+- el agente controlado invoca `investigate_inventory_divergence` sobre el `ContextPacket` y registra una `resolution_proposal` interna, append-only, marcada explícitamente como **no ejecutada**;
+- una persona revisa el expediente —valores por fuente, política vigente con su cita, cálculo y gaps— y registra una `review_decision` auditada: confirmar, corregir, descartar, marcar fuente o política incorrecta, o solicitar evidencia;
+- ningún sistema externo se modifica en ningún punto del flujo.
 
 ## 6.4 Por qué este demo requiere un Company Brain
 
@@ -548,6 +579,11 @@ No fijar versiones patch en este documento. El repositorio debe usar rangos comp
 | ADR-008 | Retrieval híbrido | IDs, semántica y relaciones requieren técnicas distintas | Evaluaciones indiquen otra combinación |
 | ADR-009 | MCP después de REST estable | Evita duplicar contratos | API y autorización estén probadas |
 | ADR-010 | Write actions fuera de v0 | Company Brain debe validarse solo | Brain alcance definición de terminado |
+| ADR-011 | Corte vertical de inventario con agente y skill controlados | Demuestra la hipótesis sin construir una plataforma horizontal | El vertical cumpla su definición de terminado |
+| ADR-012 | Append-only operacional, identidad de origen, retención y borrado | Idempotencia por objeto y borrado gobernado sin retención eterna | Se incorporen datos reales |
+| ADR-013 | Retrieval segmentado autorizado y autoridad determinística de políticas | La autoridad no puede depender de similitud | Un dataset demuestre que la fusión mejora sin romper seguridad |
+
+ADR-011 a ADR-013 están `Accepted`.
 
 ---
 
@@ -740,6 +776,8 @@ Uno de los mocks PUEDE reemplazarse por un conector real read-only si las creden
 ---
 
 # 10. Modelo de datos
+
+Esta sección describe el modelo de datos horizontal del Company Brain completo, con nombres genéricos (`source_object_versions`, `evidence_items`, `observations`, `policies`/`policy_versions`, etc.). El vertical v0 (ADR-011) implementa este modelo **acotado a inventario**, con nombres de tabla específicos del dominio: `evidence_source`, `source_object`, `evidence_version` y `evidence_chunk` (VS-02, ADR-012); `canonical_variant`, `external_entity_ref` e `inventory_observation` (VS-03); `inventory_policy_candidate` e `inventory_policy_version` (VS-03, ADR-013); `detected_conflict`, `knowledge_gap` y `case` (VS-03); y `resolution_proposal` y `review_decision` (VS-05, VS-06). Las convenciones globales, la identidad de tenancy, RLS y los principios de esta sección aplican sin cambios; los nombres de tabla del vertical son la instancia concreta que se crea en cada fase, no una tabla adicional.
 
 ## 10.1 Convenciones globales
 
@@ -1220,12 +1258,10 @@ La documentación oficial de PostgreSQL establece que RLS debe habilitarse para 
 
 Los siguientes son criterios internos de ingeniería, no hechos de mercado:
 
-- Match determinístico exacto y sin conflicto: auto-link permitido.
-- Score probabilístico >= 0.98 con dos señales independientes: puede auto-linkearse solo en datos de demo de bajo riesgo; en producción inicial, revisión.
-- 0.75 a 0.98: review obligatorio.
-- < 0.75: no proponer salvo búsqueda manual.
+- Match determinístico exacto por SKU normalizado y sin conflicto: auto-link permitido.
+- Cualquier otro caso, incluido un score probabilístico alto: nunca auto-link. Va a cola de revisión.
 
-Los thresholds deben configurarse y evaluarse contra un dataset etiquetado. Nunca mezclar score con autorización.
+Conforme ADR-011, el vertical de inventario v0 usa exclusivamente matching exacto; el matching probabilístico queda deferred (ver ADR-011, sección Deferred). Los thresholds probabilísticos anteriores no aplican a v0 y quedan reservados para una fase posterior con dataset etiquetado. Nunca mezclar score con autorización.
 
 ## 11.4 Merge y split
 
@@ -1386,36 +1422,40 @@ Los campos añadidos por servidor no se aceptan desde el body público.
    - facts/policies bitemporales;
    - relationships;
    - observations.
-5. Aplicar filtros de tenant/ACL dentro de cada query.
-6. Normalizar scores a rank positions.
-7. Fusionar con Reciprocal Rank Fusion configurable.
+5. Aplicar filtros de tenant/ACL dentro de cada query, antes de recuperar candidatos.
+6. Seleccionar la política efectiva por código determinístico, no por similitud.
+7. Ordenar y limitar candidatos **dentro de cada canal**; en v0 no se fusionan canales en una lista global.
 8. Deduplicar por fact version, evidence hash y canonical entity.
 9. Aplicar post-filter por información derivada y propósito.
 10. Evaluar freshness y abrir gaps.
 11. Rerankear top-N opcionalmente; v0 comienza con función determinística.
 12. Enviar al Context Compiler con explain data.
 
-## 13.4 Reciprocal Rank Fusion v0
+## 13.4 Canales segmentados v0
 
-```text
-rrf_score(d) = sum( weight_i / (k + rank_i(d)) )
-```
+Conforme ADR-013, **v0 no implementa Reciprocal Rank Fusion global**. Objetos con roles semánticos distintos —una observación de stock, una política aprobada, un conflicto y un pasaje documental— no compiten en una única lista ordenada por un solo score.
 
-Valores iniciales configurables:
+El Context Compiler usa cuatro canales separados que llenan campos tipados del `ContextPacket`:
 
-- `k = 60`;
-- exact identifiers weight 2.0;
-- active facts/policies weight 1.8;
-- full-text 1.2;
-- vector 1.0;
-- relationships 1.2;
-- stale candidates reciben penalización, no exclusión si se necesitan para explicar historia.
+1. **exacto** para SKU e identificadores;
+2. **SQL estructurado** para entidades, observaciones, casos y política efectiva;
+3. **FTS** para términos y pasajes explícitos;
+4. **vector** para significado y redacción alternativa de evidencia documental.
 
-Estos valores son una baseline de ingeniería y deben optimizarse con el eval set, no con intuición.
+Dentro de cada canal sí hay ranking: FTS conserva su ranking propio y el canal vectorial su distancia/similitud. Cada canal aplica límites, deduplicación y criterios de frescura. La combinación de pasajes FTS/vector se resuelve de forma determinística y reproducible. Los parámetros son hipótesis evaluables, no verdades arquitectónicas.
+
+### Autoridad de políticas
+
+La política efectiva se selecciona **por código** desde una versión aprobada y vigente, considerando como mínimo tenant, estado aprobado/activo, dominio y alcance, entidad aplicable, `valid_from`/`valid_to`, prioridad o excepción explícita y ausencia de solapamientos inválidos.
+
+FTS y vector recuperan el pasaje documental que explica y respalda la versión ya seleccionada. **No eligen qué regla gobierna el cálculo.** Un LLM puede proponer extracción estructurada; nunca aprueba ni activa una política.
+
+RRF vuelve a considerarse solo si una evaluación con dataset versionado demuestra una mejora neta sin romper seguridad.
 
 ## 13.5 Reglas de seguridad del retrieval
 
 - No recuperar primero todo y filtrar al final.
+- Tenant, principal, membership, rol y scope se derivan del contexto autenticado y se aplican dentro de cada consulta, antes de recuperar candidatos.
 - La query vectorial siempre incluye `tenant_id` y scope autorizado.
 - Los chunks derivados heredan la ACL más restrictiva de su evidencia.
 - Un resumen que combina dos fuentes hereda la intersección de permisos o se divide.
@@ -1427,9 +1467,8 @@ Estos valores son una baseline de ingeniería y deben optimizarse con el eval se
 
 En modo debug autorizado, cada candidato puede incluir:
 
-- métodos que lo recuperaron;
-- rank por método;
-- RRF score;
+- canal que lo recuperó;
+- rank y score dentro de ese canal;
 - filtros temporales/frescura;
 - razón de inclusión o exclusión;
 - ACL decision ID.
@@ -1446,13 +1485,22 @@ El Context Compiler transforma candidatos heterogéneos en un paquete pequeño, 
 
 ## 14.2 Contrato `ContextPacket`
 
+Conforme ADR-011, el contrato se separa en dos partes que no deben mezclarse:
+
+- un **payload determinístico y hasheable**: dado el mismo estado de la base y la misma pregunta, es idéntico;
+- un **envelope operativo**: identificadores de ejecución, timestamps, modelo, prompt, skill y métricas, que cambian en cada corrida.
+
+Las pruebas de reproducibilidad comparan el **payload normalizado**, nunca el envelope.
+
+### Payload determinístico
+
 ```json
 {
-  "request_id": "ctx_01",
-  "trace_id": "uuid",
+  "payload_version": "InventoryContextPayloadV1",
   "tenant_id": "uuid",
   "task_type": "inventory_reconciliation",
   "as_of": "2026-08-05T12:00:00Z",
+  "normalized_question": "stock vendible de REM-BAS-NEG-M",
   "answerability": {
     "status": "partial",
     "confidence": 0.91,
@@ -1537,6 +1585,25 @@ El Context Compiler transforma candidatos heterogéneos en un paquete pequeño, 
 }
 ```
 
+### Envelope de ejecución
+
+```json
+{
+  "envelope_version": "ContextExecutionEnvelopeV1",
+  "request_id": "ctx_01",
+  "trace_id": "uuid",
+  "compiled_at": "2026-08-05T12:00:00.412Z",
+  "compiler_version": "context-compiler.v1",
+  "payload_hash": "sha256:...",
+  "model": null,
+  "prompt_version": null,
+  "skill_version": null,
+  "metrics": {"duration_ms": 184, "channel_calls": 4}
+}
+```
+
+`model`, `prompt_version` y `skill_version` se completan solo cuando la ejecución involucra al agente. El `payload_hash` es el hash canónico del payload normalizado: permite verificar que dos ejecuciones distintas produjeron el mismo contexto aunque su envelope difiera.
+
 ## 14.3 Answerability
 
 | Estado | Condición | Comportamiento |
@@ -1582,6 +1649,8 @@ Nunca truncar todas las citas de un hecho incluido. Si el paquete no cabe, reduc
 ---
 
 # 15. Contratos externos
+
+La API v0 lee contexto y evidencia, y admite un conjunto **cerrado de escrituras internas** append-only y auditadas: propuestas del agente, decisiones humanas de revisión y trazas de auditoría. Conforme ADR-010 y ADR-011, **no realiza ninguna escritura en sistemas empresariales externos**. Una propuesta registrada nunca se presenta ni se documenta como una acción ejecutada.
 
 ## 15.1 Convenciones REST
 
@@ -1748,7 +1817,19 @@ Contrato descrito en sección 14. Debe aceptar `required_information` y retornar
 
 ### `GET /context/{request_id}/explain`
 
-Solo roles autorizados. Devuelve query plan, candidatos, filtros, ranking y exclusiones sin revelar datos no autorizados.
+Solo roles autorizados. Devuelve query plan, candidatos, filtros, ranking por canal y exclusiones sin revelar datos no autorizados.
+
+## 15.7.1 Superficie del agente y escrituras internas
+
+El agente controlado del vertical accede únicamente a tres capacidades, cada una autorizada por llamada (ADR-011):
+
+| Capacidad | Efecto |
+|---|---|
+| `resolve_inventory_entity` | Solo lectura |
+| `get_inventory_context` | Solo lectura; devuelve payload y envelope |
+| `create_resolution_proposal` | Escritura **interna** append-only de una propuesta |
+
+El agente no accede a PostgreSQL, no recibe credenciales y no dispone de ninguna capacidad externa. La decisión humana se registra por un endpoint distinto, también append-only, y se distingue explícitamente de la propuesta.
 
 ## 15.8 Auditoría
 
@@ -1782,10 +1863,18 @@ Para transporte HTTP protegido, el MCP server debe actuar como resource server, 
 - Formular una pregunta concreta para cubrir un gap.
 - Reranking opcional de un top-N pequeño si demuestra mejora en evals.
 - Generar una explicación para el usuario basada exclusivamente en `ContextPacket`.
+- **Comunicar** valores devueltos por herramientas determinísticas, citándolos exactamente como fueron recibidos.
+- Ejecutar la skill `investigate_inventory_divergence` y proponer una resolución estructurada no ejecutada.
+
+El límite es la diferencia entre comunicar y originar: el LLM puede transmitir un número que una herramienta determinística calculó, pero no puede calcularlo, derivarlo, corregirlo ni convertirse en su fuente autoritativa. Si un valor material no proviene de una herramienta, no puede aparecer en la respuesta.
 
 ## 16.2 Casos prohibidos
 
 - Calcular stock vendible, márgenes o diferencias.
+- Originar, ajustar o recalcular cualquier valor material devuelto por una herramienta.
+- Seleccionar la política efectiva.
+- Decidir matches de identidad.
+- Ejecutar acciones sobre sistemas externos.
 - Validar permisos o roles.
 - Elegir tenant.
 - Generar SQL libre.
@@ -1919,6 +2008,14 @@ Autorización se evalúa en este orden:
 8. post-filter de derivados.
 
 Una respuesta `404` puede ser preferible a `403` si revelar la existencia del recurso es sensible.
+
+Reglas adicionales del vertical (ADR-013):
+
+- La membership activa en el tenant es condición necesaria; su ausencia deniega por defecto, sin distinguir "no existe" de "no autorizado".
+- Los chunks heredan el permiso **más restrictivo** de su evidencia; la herencia se prueba en el nivel del chunk, no solo del documento.
+- El contenido no autorizado no puede influir en ranking, answerability ni respuesta, aunque no se cite: no basta con omitirlo del resultado, debe quedar fuera del cálculo.
+- Toda cita se reautoriza inmediatamente antes de serializar la respuesta.
+- El agente controlado no posee credenciales, no accede a la base de datos y solo dispone de las capacidades autorizadas por llamada.
 
 ## 17.5 Secretos
 
@@ -2055,12 +2152,17 @@ La interfaz no debe parecer una consola de embeddings ni una herramienta de obse
 - Fuentes.
 - Entidades.
 - Buscar.
+- Casos y propuestas del agente.
 - Revisiones.
 - Contradicciones y gaps.
 - Auditoría.
 - Configuración.
 
 ## 19.3 Pantallas
+
+### Expediente de caso (VS-06)
+
+Conforme al vertical de inventario (ADR-011), muestra: valores por fuente y fecha, la política vigente con su cita, el cálculo determinístico y sus dependencias, la propuesta interna del agente marcada como no ejecutada, gaps e incertidumbre, y las acciones de revisión humana (confirmar, corregir, descartar, marcar fuente o política incorrecta, solicitar evidencia). La decisión registrada queda visible y distinguible de la propuesta.
 
 ### Coverage dashboard
 
@@ -2144,7 +2246,8 @@ No mostrar un porcentaje global de “conocimiento de la empresa” sin definici
 - freshness classification;
 - policy functions registradas;
 - answerability;
-- RRF;
+- ranking y deduplicación dentro de cada canal de retrieval;
+- hash canónico del payload del ContextPacket;
 - ACL composition;
 - error mapping.
 
@@ -2254,6 +2357,12 @@ La comparación debe medir tareas, no estética del chat:
 | Cross-tenant leakage | 0 | Gate duro |
 | Repeat sync duplicate versions | 0 | Gate duro |
 | Prompt injection changes authority | 0 | Gate duro |
+| Unauthorized content influences result | 0 | Gate duro |
+| Payload hash reproducible ante mismo estado | 1.00 | Gate duro; compara payload normalizado, no envelope |
+
+Conforme ADR-013, la evaluación se ejecuta **por gate separado** —resolución exacta, selección de política, recall/precision de pasajes por canal, deduplicación, citas, no-influencia de contenido no autorizado y answerability— y no como un único número agregado que pueda ocultar una regresión de seguridad.
+
+Los umbrales numéricos que no son gates duros son **targets provisionales**: solo tienen sentido acompañados de dataset versionado, baseline y método. Un target sin esos tres elementos no es evidencia. Los gates duros no se negocian con promedios.
 
 Estos thresholds son criterios de aceptación del prototipo y pueden revisarse con un eval set más real. No son métricas de product-market fit.
 
@@ -2535,286 +2644,48 @@ Publicar como artifacts:
 
 ---
 
-# 25. Plan de seis meses
-
-El cronograma presupone 24 semanas y entregas semanales. La prioridad es un corte vertical demostrable, no terminar cada subsistema en profundidad antes de integrar.
-
-## 25.1 Milestones
-
-| Milestone | Semanas | Resultado verificable |
-|---|---:|---|
-| M0 — Fundación | 1–2 | Repo, Compose, CI, auth/tenant skeleton, ADRs |
-| M1 — Evidencia | 3–5 | Import + raw versions + sync runs + blob store |
-| M2 — Estado canónico | 6–8 | Normalizers, entities, refs y observations |
-| M3 — Entity resolution | 9–10 | Exact matches, review candidates, merge/split |
-| M4 — Conocimiento | 11–14 | facts, policies, bitemporalidad, review y conflicts |
-| M5 — Retrieval/context | 15–18 | FTS/vector/edges, answerability y ContextPacket |
-| M6 — Experiencia y seguridad | 19–21 | Coverage, search, review UI, audit y RLS suite |
-| M7 — Evaluación/demo | 22–24 | Gold set, hard gates, docs, deploy y demo final |
-
-## 25.2 Backlog detallado
-
-### M0 — Fundación
-
-**CB-001 — Crear monorepo y tooling**  
-Owner: Simón. Dependencias: ninguna.  
-Aceptar cuando backend/frontend levantan, lint y tests vacíos corren en CI.
-
-**CB-002 — Docker Compose con PostgreSQL + pgvector**  
-Owner: Gonzalo.  
-Aceptar cuando healthchecks pasan y una migración habilita extensiones.
-
-**CB-003 — Config y manejo de secretos**  
-Owner: Simón.  
-Aceptar cuando `.env.example` funciona, faltantes fallan claro y secret scan pasa.
-
-**CB-004 — Tenants, principals y memberships**  
-Owner: Gonzalo.  
-Aceptar cuando dos tenants y roles se crean mediante seed.
-
-**CB-005 — Request context y RLS skeleton**  
-Owner: Simón + Gonzalo.  
-Aceptar cuando una prueba demuestra default deny sin tenant y aislamiento entre tenants.
-
-**CB-006 — Telemetría base**  
-Owner: Simón.  
-Aceptar cuando request/job comparten trace en logs JSON.
-
-### M1 — Evidencia
-
-**CB-010 — Interfaces `SourceConnector` y `BlobStore`**  
-Owner: Gonzalo.  
-Aceptar con fakes y contract tests.
-
-**CB-011 — Modelo source connections/sync runs**  
-Owner: Gonzalo.  
-Aceptar con migración, repository y endpoints.
-
-**CB-012 — Source objects y versiones append-only**  
-Owner: Gonzalo.  
-Aceptar cuando payload se recupera por hash y una repetición no crea versión.
-
-**CB-013 — File import CSV/JSON**  
-Owner: Gonzalo.  
-Aceptar con límites, mapping y errores por fila.
-
-**CB-014 — Job queue PostgreSQL**  
-Owner: Simón.  
-Aceptar con dos workers sin doble claim y retry/dead-letter.
-
-**CB-015 — Evidence items/chunks**  
-Owner: Juan.  
-Aceptar cuando JSON pointers/rows son citables y el texto está sanitizado.
-
-**CB-016 — Tombstone y revocación**  
-Owner: Gonzalo.  
-Aceptar cuando re-sync no resucita objeto borrado.
-
-### M2 — Estado canónico
-
-**CB-020 — Fixture/adaptador marketplace**  
-Owner: Gonzalo.  
-Aceptar con productos, listings e inventario paginado.
-
-**CB-021 — Fixture/adaptador storefront**  
-Owner: Gonzalo.  
-Aceptar con IDs distintos y casos de drift.
-
-**CB-022 — Event envelope y normalizer registry**  
-Owner: Simón.  
-Aceptar cuando un conector nuevo no cambia ingestion core.
-
-**CB-023 — Modelo entities/external refs/relationships**  
-Owner: Simón + Gonzalo.  
-Aceptar con migraciones, repositorios y RLS.
-
-**CB-024 — Observations append-only**  
-Owner: Gonzalo.  
-Aceptar con query current/as_of y freshness.
-
-**CB-025 — UI de fuentes/sync health**  
-Owner: Matías.  
-Aceptar con success, partial, degraded y error states.
-
-### M3 — Entity resolution
-
-**CB-030 — Normalización SKU**  
-Owner: Juan.  
-Aceptar con property tests y casos que preserven ceros/símbolos.
-
-**CB-031 — Exact matcher**  
-Owner: Juan.  
-Aceptar con gold set y zero high-risk false merge.
-
-**CB-032 — Candidate scorer**  
-Owner: Juan.  
-Aceptar como propuesta; no auto-merge ambiguo.
-
-**CB-033 — Review merge/keep separate**  
-Owner: Simón + Matías.  
-Aceptar con optimistic concurrency y audit.
-
-**CB-034 — Merge/split reversible**  
-Owner: Simón.  
-Aceptar cuando refs y dependencias vuelven a estado correcto.
-
-### M4 — Conocimiento
-
-**CB-040 — Facts/fact versions/evidence**  
-Owner: Juan + Simón.  
-Aceptar con invariantes y as_of/known_at.
-
-**CB-041 — Policies/policy versions**  
-Owner: Juan.  
-Aceptar con JSON Schema, reviewer obligatorio y test cases.
-
-**CB-042 — Importador de reglas**  
-Owner: Juan.  
-Aceptar cuando genera candidates con citas, nunca active directo.
-
-**CB-043 — Review workflow genérico**  
-Owner: Simón + Matías.  
-Aceptar con approve/edit/reject/request evidence.
-
-**CB-044 — Supersession y temporalidad**  
-Owner: Simón.  
-Aceptar cuando regla v1/v2 responde correctamente por fecha.
-
-**CB-045 — Detector de state divergence/conflict**  
-Owner: Juan.  
-Aceptar con casos positivos y false positives controlados.
-
-**CB-046 — Knowledge gaps**  
-Owner: Juan + Matías.  
-Aceptar cuando un requirement ausente produce gap visible.
-
-**CB-047 — Dependencias/recompute del demo**  
-Owner: Simón.  
-Aceptar cuando cambiar safety buffer invalida y recalcula sellable stock.
-
-### M5 — Retrieval y Context Compiler
-
-**CB-050 — Exact/FTS search**  
-Owner: Juan.  
-Aceptar con ID/SKU/name query gold set.
-
-**CB-051 — Embeddings/pgvector adapter**  
-Owner: Juan.  
-Aceptar con fake offline, model version y reindex path.
-
-**CB-052 — Relationship/time retrieval**  
-Owner: Simón.  
-Aceptar con joins entity→listing y historical policy.
-
-**CB-053 — RRF y dedupe**  
-Owner: Juan.  
-Aceptar con métricas reproducibles.
-
-**CB-054 — ACL pre/post filters**  
-Owner: Simón.  
-Aceptar con security tests que un dato oculto no cambia output.
-
-**CB-055 — ContextPacket schema**  
-Owner: Simón + Juan.  
-Aceptar con JSON Schema, examples y backward compatibility test.
-
-**CB-056 — Answerability**  
-Owner: Juan.  
-Aceptar con supported/partial/conflicted/unknown gold cases.
-
-**CB-057 — Citation assembler**  
-Owner: Juan.  
-Aceptar con 100% coverage para verified facts.
-
-### M6 — UX, auditoría y hardening
-
-**CB-060 — Coverage service/dashboard**  
-Owner: Simón + Matías.  
-Aceptar con source freshness, entity resolution, facts/gaps/conflicts.
-
-**CB-061 — Entity explorer**  
-Owner: Matías.  
-Aceptar con refs, state, knowledge e history.
-
-**CB-062 — Context inspector**  
-Owner: Matías.  
-Aceptar con citations, answerability y explain mode.
-
-**CB-063 — Review queue UI**  
-Owner: Matías.  
-Aceptar con keyboard/accessibility y concurrency conflict.
-
-**CB-064 — Audit service/UI**  
-Owner: Simón + Matías.  
-Aceptar con timeline y sin delete.
-
-**CB-065 — Prompt injection suite**  
-Owner: Juan.  
-Aceptar con zero authority changes.
-
-**CB-066 — Rate/size/budget limits**  
-Owner: Gonzalo.  
-Aceptar con tests y errores estructurados.
-
-**CB-067 — Retention/delete job**  
-Owner: Gonzalo.  
-Aceptar con reporte y no reappearance.
-
-### M7 — Evaluación y entrega
-
-**CB-070 — Dataset gold v0**  
-Owner: Juan.  
-Aceptar con manifest, labels y changelog.
-
-**CB-071 — Eval runner/report**  
-Owner: Juan + Simón.  
-Aceptar con gates en CI.
-
-**CB-072 — Demo E2E inventario**  
-Owner: equipo.  
-Aceptar mediante guion reproducible desde seed limpio.
-
-**CB-073 — Documentación técnica y API**  
-Owner: Simón.  
-Aceptar con setup, architecture, runbooks y OpenAPI.
-
-**CB-074 — Deploy/backup/restore**  
-Owner: Gonzalo.  
-Aceptar con restore probado.
-
-**CB-075 — QA visual y accesibilidad**  
-Owner: Matías.  
-Aceptar sin blockers en flujo de demo.
-
-**CB-076 — Security review final**  
-Owner: equipo.  
-Aceptar con gates duros verdes y riesgos residuales escritos.
-
-## 25.3 Gantt de referencia
-
-```mermaid
-gantt
-    title Praxa Company Brain — 24 semanas
-    dateFormat  YYYY-MM-DD
-    axisFormat  %d/%m
-    section Fundación
-    Repo, CI, tenancy, RLS        :m0, 2026-08-10, 2w
-    section Evidencia
-    Conectores, sync, raw store   :m1, after m0, 3w
-    section Estado
-    Entidades y observaciones     :m2, after m1, 3w
-    Entity resolution             :m3, after m2, 2w
-    section Conocimiento
-    Facts, policies, review       :m4, after m3, 4w
-    section Contexto
-    Retrieval y compiler          :m5, after m4, 4w
-    section Producto
-    UI, audit y seguridad         :m6, after m5, 3w
-    section Entrega
-    Evals, demo y documentación   :m7, after m6, 3w
+# 25. Plan del MVP vertical (R0 y VS-01 a VS-07)
+
+El plan de v0 es un único camino crítico vertical: R0 seguido de VS-01 a VS-07. La prioridad es un corte vertical demostrable, no terminar cada subsistema en profundidad antes de integrar. El detalle operativo de cada fase vive en `docs/plans/company-brain-build-plan.md`; esta sección fija la secuencia normativa.
+
+## 25.1 Fases
+
+| Fase | Resultado demostrable | Horas humanas |
+|---|---|---:|
+| R0 | Fuentes de verdad, ADR, roadmap y CI alineados | 10–16 |
+| VS-01 | PostgreSQL, extensiones, tenancy, membership, roles y RLS verificables | 20–30 |
+| VS-02 | Fuentes y documentos se ingieren con evidencia, chunks, embeddings y ACL sin duplicar | 30–45 |
+| VS-03 | Variante, observaciones, política aprobada y detector determinístico funcionan | 28–42 |
+| VS-04 | Retrieval autorizado y Context Compiler producen un ContextPacket citado y reproducible | 35–50 |
+| VS-05 | API, agente y skill investigan y registran una propuesta sin ejecutar | 28–42 |
+| VS-06 | Una persona revisa el expediente y deja una decisión auditada | 25–38 |
+| VS-07 | El flujo completo pasa evaluación, hardening y demo reproducible | 25–35 |
+| **Subtotal** | | **201–298** |
+| **Con contingencia del 20%** | | **241–358** |
+
+Para planificación se usa un punto realista de aproximadamente 300 horas humanas, incluida contingencia. Las estimaciones no son compromisos: se recalibran al terminar R0, VS-02, VS-04 y VS-05 con horas humanas reales.
+
+## 25.2 Camino crítico
+
+```text
+R0 → VS-01 → VS-02 → VS-03 → VS-04 → VS-05 → VS-06 → VS-07
 ```
 
-El equipo debe integrar semanalmente. Aunque el Gantt muestra predominio secuencial, frontend, tests y fixtures avanzan en paralelo desde M0.
+La paralelización segura es limitada: los fixtures y casos de evaluación pueden diseñarse junto con VS-02 y VS-03; la interfaz de VS-06 puede comenzar contra un `ContextPacket` mockeado una vez que VS-04 congele el schema; la revisión independiente corre en cada fase.
+
+No debe paralelizarse: dos agentes editando la misma rama; VS-03 antes de que VS-02 fije identidad y evidencia; VS-04 antes de que la política efectiva tenga selección determinística; VS-05 antes de que ContextPacket y autorización estén probados.
+
+## 25.3 Regla de recorte
+
+Los recortes se deciden en un gate de planificación, nunca de forma silenciosa. Orden recomendado si el proyecto se atrasa:
+
+1. pulido visual no esencial;
+2. cantidad de casos del dataset, conservando todas las clases críticas;
+3. detección sofisticada de stale, manteniendo al menos freshness explícita;
+4. búsqueda FTS, solo si exacto + SQL + vector cumplen los casos y se documenta la pérdida;
+5. permisos por rol dentro del tenant; si se quitan, el producto deja de llamarse permission-aware y se mantiene el aislamiento por tenant.
+
+No se recorta nunca: aislamiento entre tenants, política seleccionada determinísticamente, evidencia y citas con localizadores, idempotencia por objeto de origen, cálculos determinísticos, abstención ante evidencia insuficiente, ausencia de influencia de contenido no autorizado, propuesta separada de acción y decisión humana auditada.
 
 ---
 
@@ -2843,7 +2714,9 @@ El equipo debe integrar semanalmente. Aunque el Gantt muestra predominio secuenc
 - Taxonomía y schemas de extraction.
 - Entity resolution y gold data.
 - Facts, policies, contradictions y gaps.
-- FTS/vector retrieval, RRF y answerability.
+- Retrieval segmentado por canales: selección, ranking y deduplicación dentro de cada canal, sin RRF global en v0 (ADR-013).
+- Autorización previa al retrieval y reautorización de citas.
+- Answerability y evaluaciones por gates separados.
 - Prompt injection/evals y provider adapters.
 
 ## Matías Guiter — frontend y diseño
@@ -2856,6 +2729,14 @@ El equipo debe integrar semanalmente. Aunque el Gantt muestra predominio secuenc
 ## 26.1 Regla de ownership
 
 Owner no significa trabajar solo. El owner define la interfaz, mantiene el ticket actualizado y consigue revisión. Cambios de RLS, knowledge state, ContextPacket o policy schema requieren revisión cruzada de al menos dos áreas.
+
+## 26.2 Agentes de IA
+
+Los agentes de código son asistentes o revisores, nunca propietarios. No figuran como owner de un área, un ticket ni un contrato; no aprueban su propio trabajo ni sustituyen la revisión cruzada humana; y no deciden arquitectura, permisos, política activa, alcance ni el estado de una ADR. Una ADR no queda aprobada porque un agente la haya escrito.
+
+Cuando un agente actúa como revisor independiente, su salida es un insumo para una persona, no un veredicto.
+
+El detalle operativo está en `docs/team/ownership.md`, que no puede contradecir esta sección.
 
 ---
 
@@ -2902,6 +2783,11 @@ Se considera terminado solo si:
 13. Audit reconstruye sync, review y query del demo.
 14. La demostración de inventario corre end-to-end con datos sintéticos.
 15. No se construyeron write actions externas como atajo.
+16. El agente controlado investiga el caso usando solo capacidades autorizadas, sin credenciales ni acceso a la base de datos.
+17. `investigate_inventory_divergence` v1 está versionada y produce salida estructurada validada.
+18. El agente registra una `resolution_proposal` interna marcada como no ejecutada, y se abstiene cuando la evidencia es insuficiente.
+19. Una persona registra una `review_decision` auditada, distinguible de la propuesta.
+20. Ningún valor material comunicado por el LLM difiere del devuelto por la herramienta determinística correspondiente.
 
 ---
 
@@ -2946,15 +2832,22 @@ Decisiones específicas:
 
 ## 29.2 Decisiones abiertas no bloqueantes
 
-Estas deben resolverse mediante ADR en M0/M1:
+Estas se resuelven en el gate de la fase indicada, y no justifican detener la alineación documental:
 
-1. Storage local content-addressed vs MinIO en demo.
-2. Proveedor de auth de demo.
-3. Modelo y dimensión de embeddings; debe existir fake local.
-4. Formato exacto de condition DSL v0.
-5. Si el conector real será Mercado Libre, Tiendanube o ninguno.
-6. Política de retención del entorno compartido.
-7. Librería de frontend y componentes accesibles.
+| Decisión | Gate |
+|---|---|
+| SQLAlchemy sync o async | Antes de VS-01 |
+| Imagen y versión de PostgreSQL + pgvector | Antes de VS-01 |
+| Storage local content-addressed vs MinIO en demo | Antes de VS-02 |
+| Proveedor y dimensión de embeddings; debe existir fake local | Antes de VS-02 |
+| Proveedor de auth de demo | Antes de VS-05 |
+| Proveedor y modelo del agente | Antes de VS-05 |
+| Límites de tokens, tool calls, tiempo y costo | Antes de VS-05 |
+| Librería de frontend y componentes accesibles | Antes de VS-06 |
+| Política de retención del entorno compartido | Antes de usar datos reales |
+| Hosting de demo | Antes de VS-07 |
+
+El formato de un condition DSL universal y la decisión sobre un conector real quedan fuera del vertical v0 conforme ADR-011.
 
 ## 29.3 Preguntas de producto que el código no debe responder
 
@@ -2976,20 +2869,28 @@ Copiar este bloque junto con el repositorio:
 Estás trabajando en Praxa Company Brain. La fuente de verdad es
 docs/architecture/company-brain-spec.md. Leela completa antes de modificar código.
 
-Tu objetivo actual NO es construir la visión completa de Praxa. Implementá únicamente
-el ticket que te indique dentro del alcance v0. No agregues agentes autónomos,
-write actions externas, microservicios, Redis, Neo4j, una vector DB dedicada, Temporal
-ni MCP salvo que el ticket y una ADR aprobada lo autoricen.
+Tu objetivo actual NO es construir la visión completa de Praxa. Company Brain v0 es un
+único corte vertical de inventario que sí incluye un agente controlado y la skill
+investigate_inventory_divergence. Implementá únicamente el ticket que te indique dentro
+de ese alcance. No agregues autonomía, multiagente, runtime genérico de skills, memoria
+persistente del agente, write actions externas, microservicios, Redis, Neo4j, una vector
+DB dedicada, Temporal ni MCP salvo que el ticket y una ADR aprobada lo autoricen.
 
 Reglas no negociables:
 - tenant_id y RLS desde el primer dato;
 - evidencia append-only antes de interpretación;
 - estado, hechos, políticas y chunks son objetos diferentes;
 - LLM solo propone outputs estructurados y nunca publica verdad ni decide permisos;
+- el LLM puede comunicar valores devueltos por herramientas determinísticas, pero nunca
+  calcularlos, originarlos ni ser su fuente autoritativa;
+- la política efectiva se selecciona por código, nunca por similitud ni por LLM;
+- el ContextPacket separa payload determinístico de envelope operativo;
 - toda afirmación verificada tiene evidencia y cita;
 - bitemporalidad para facts y policies;
 - unknown/conflicted son resultados válidos;
 - lógica determinística para normalización, joins, cálculo y autorización;
+- las escrituras internas de propuesta y decisión son append-only y auditadas; no hay
+  escrituras en sistemas externos;
 - tests y documentación forman parte de cada cambio.
 
 Antes de implementar:
@@ -3006,7 +2907,7 @@ próximo ticket desbloqueado. No declares éxito sin ejecutar la verificación r
 
 # 31. Referencias técnicas oficiales
 
-Estas referencias fundamentan decisiones de implementación; revisar sus versiones al ejecutar cada milestone.
+Estas referencias fundamentan decisiones de implementación; revisar sus versiones al ejecutar cada fase.
 
 1. Model Context Protocol, autorización y OAuth 2.1: <https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization>
 2. MCP, consideraciones de seguridad: <https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/security-considerations>
@@ -3025,13 +2926,13 @@ Estas referencias fundamentan decisiones de implementación; revisar sus version
 
 - [ ] Copiar este documento a `docs/architecture/company-brain-spec.md`.
 - [ ] Crear `AGENTS.md` y `CLAUDE.md` apuntando a la spec.
-- [ ] Crear ADR-001 a ADR-010.
-- [ ] Crear tablero con CB-001 a CB-076.
-- [ ] Implementar M0 sin crear módulos futuros vacíos innecesarios.
+- [ ] Crear ADR-001 a ADR-013.
+- [ ] Crear tablero con R0 y VS-01 a VS-07.
+- [ ] Implementar R0 y luego VS-01 sin crear módulos futuros vacíos innecesarios.
 - [ ] Preparar fixture del caso canónico antes de diseñar UI.
 - [ ] Crear test de dos tenants antes de la primera tabla de negocio.
 - [ ] Crear fake LLM/embedding antes de integrar un proveedor pago.
-- [ ] Ejecutar demo vertical al final de cada milestone.
+- [ ] Ejecutar demo vertical al final de cada fase.
 - [ ] Registrar toda desviación de alcance.
 
 **Fin de la especificación v0.1.**

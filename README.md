@@ -5,9 +5,9 @@ Praxa es una iniciativa para convertir datos y conocimiento operativo dispersos 
 ## Estado
 
 - Etapa comercial: hipótesis, prevalidación y sin product-market fit demostrado.
-- Entrega académica actual: Company Brain v0 en seis meses.
-- Alcance técnico actual: ingesta, evidencia, estado canónico, conocimiento gobernado, retrieval híbrido, ContextPacket, revisión y auditoría.
-- Fuera del alcance actual: agentes autónomos, skills ejecutables y escrituras en sistemas empresariales.
+- Entrega académica actual: Company Brain v0 como corte vertical de divergencia de inventario.
+- Alcance técnico actual: ingesta, evidencia, estado canónico, conocimiento gobernado, retrieval autorizado por canales, ContextPacket, un agente controlado, la skill `investigate_inventory_divergence`, propuestas internas, revisión humana y auditoría.
+- Fuera del alcance actual: autonomía, multiagente, runtime genérico de skills, memoria persistente del agente y escrituras en sistemas empresariales externos.
 
 ## Documentos principales
 
@@ -15,22 +15,24 @@ Praxa es una iniciativa para convertir datos y conocimiento operativo dispersos 
 |---|---|
 | `AGENTS.md` | Reglas comunes de trabajo para agentes de código |
 | `CLAUDE.md` | Adaptación de las reglas para Claude Code |
-| `docs/product/project-brief.md` | Qué es Praxa y qué problema investiga |
-| `docs/product/lean-canvas-v6.1.md` | Hipótesis comerciales vigentes |
+| `docs/product/project-brief.md` | Qué es Praxa, qué problema investiga y única fuente activa de hipótesis de producto |
 | `docs/product/future-vision.md` | Visión de largo plazo, no normativa |
 | `docs/architecture/company-brain-spec.md` | Contrato técnico del Company Brain v0 |
-| `docs/plans/company-brain-build-plan.md` | Secuencia de milestones |
+| `docs/architecture/adr/` | Decisiones arquitectónicas registradas (ADR-001 a ADR-013) |
+| `docs/plans/company-brain-build-plan.md` | Secuencia de fases R0 y VS-01 a VS-07 |
 | `docs/plans/current.md` | Único ticket autorizado actualmente |
 
 ## Primer objetivo
 
-Completar `CB-001`: establecer estructura del monorepo, backend y frontend mínimos, linting, pruebas y CI reproducible.
+Completar `R0`: alinear especificación, ADR, roadmap, ticket, README, ownership, reglas de agentes y CI con el MVP vertical, sin implementar nada funcional. Ninguna fase posterior queda autorizada automáticamente.
 
 ## Caso de demostración canónico
 
-Dos canales reportan inventario diferente para una misma variante. Praxa conserva ambas observaciones, resuelve la entidad canónica, recupera una política aprobada de fuente autoritativa y stock de seguridad, calcula el stock vendible de forma determinística y devuelve un contexto citado sin modificar ningún sistema externo.
+Dos canales reportan inventario diferente para una misma variante. Praxa conserva ambas observaciones, resuelve la entidad canónica, recupera una política aprobada de fuente autoritativa y stock de seguridad, calcula el stock vendible de forma determinística y devuelve un contexto citado.
 
-## Cómo levantar el entorno (CB-001)
+Sobre ese contexto, un agente controlado investiga el caso mediante la skill `investigate_inventory_divergence` y registra una propuesta interna marcada como no ejecutada. Una persona revisa el expediente y deja una decisión auditada. Ningún sistema externo se modifica en ningún punto del flujo.
+
+## Cómo levantar el entorno
 
 ### Prerrequisitos
 
@@ -81,12 +83,12 @@ make build
 make ci
 ```
 
-`make ci` encadena instalación, lint, format check, typecheck, tests y build de ambas aplicaciones.
+`make ci` encadena, para backend y frontend, instalación, lint, format check del backend, typecheck y tests; y además el **build del frontend**. No existe un build del backend: `make build` equivale hoy a `frontend-build`.
 
 ### Todavía no disponible
 
-`docker compose up -d postgres` y `uv run alembic upgrade head` no aplican en `CB-001`. PostgreSQL, Docker Compose y las migraciones se incorporan a partir de `CB-002`.
+`docker compose up -d postgres` y `uv run alembic upgrade head` no aplican todavía. PostgreSQL, Docker Compose y las migraciones se incorporan en `VS-01`.
 
-`.env.example` está reservado para tickets posteriores y no se utiliza en `CB-001`: el backend todavía no lee configuración desde el entorno. Sus variables se irán incorporando a medida que los tickets correspondientes las necesiten.
+`.env.example` está reservado para fases posteriores y no se utiliza todavía: el backend aún no lee configuración desde el entorno. Sus variables se irán incorporando a medida que las fases correspondientes las necesiten.
 
 No conectar datos reales antes de completar aislamiento por tenant, threat model, política de borrado y consentimiento.

@@ -31,7 +31,7 @@ Se eligió ecommerce multicanal argentino como segmento de investigación porque
 
 El Company Brain no debe venderse únicamente como «organizar conocimiento». El posible motivo de compra es resolver trabajo y excepciones operativas con menos búsqueda, retrabajo y dependencia del dueño.
 
-La arquitectura completa conserva valor como visión, pero la startup no debe construirla antes de identificar una cuña repetible. Paralelamente, el proyecto académico sí construirá un Company Brain v0 acotado, demostrable y read-only.
+La arquitectura completa conserva valor como visión, pero la startup no debe construirla antes de identificar una cuña repetible. Paralelamente, el proyecto académico sí construirá un Company Brain v0 acotado y demostrable, implementado como un corte vertical de inventario: sin escrituras en sistemas empresariales externos, con lectura controlada de contexto y evidencia, y con escrituras internas append-only y auditadas para propuestas, revisiones y decisiones.
 
 ## Terminología
 

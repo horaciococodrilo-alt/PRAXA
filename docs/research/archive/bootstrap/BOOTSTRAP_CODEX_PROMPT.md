@@ -1,3 +1,8 @@
+> **ARCHIVADO Y NO NORMATIVO.** Este prompt corresponde al arranque original del repositorio y
+> su primera tarea era `CB-001`, ya fusionado. Se conserva como material histórico. No define
+> alcance, no autoriza trabajo y contiene referencias rotas, incluido el Lean Canvas eliminado.
+> El alcance vigente está en `docs/architecture/company-brain-spec.md` y `docs/plans/current.md`.
+
 # Prompt maestro para iniciar Praxa con Codex
 
 Copiar desde «Inicio del prompt» hasta «Fin del prompt» y pegarlo en Codex abierto desde la raíz del repositorio.

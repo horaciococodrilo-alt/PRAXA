@@ -26,11 +26,37 @@
 - [ ] Incluye migración
 - [ ] Modifica contrato público
 
+## Declaración de alcance
+
+- Fase: <!-- R0 o VS-01..VS-07 -->
+- Archivos autorizados por el ticket:
+- [ ] El diff no contiene archivos fuera del alcance autorizado
+- [ ] Las desviaciones respecto del alcance están listadas abajo y aprobadas
+
+## Horas humanas
+
+- Estimadas:
+- Reales:
+
+El tiempo de ejecución autónomo de un agente no cuenta como hora humana. Sí cuentan revisión, corrección, QA, integración y decisiones.
+
 ## Verificación
 
-```text
-Comando — resultado
-```
+Un comando por fila, con su resultado real. No escribir "pasa" sin haberlo ejecutado.
+
+| Comando | Exit code | Duración | Resultado |
+|---|---:|---:|---|
+|  |  |  |  |
+
+Comandos que no pudieron ejecutarse y por qué:
+
+-
+
+## Criterios de aceptación mapeados a evidencia
+
+| Criterio | Evidencia | Estado |
+|---|---|---|
+|  |  | cumplido / pendiente / requiere decisión humana |
 
 ## Seguridad y tenancy
 
