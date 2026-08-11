@@ -4,7 +4,6 @@ Praxa es una iniciativa para convertir datos y conocimiento operativo dispersos 
 
 ## Estado
 
-- Etapa comercial: hipótesis, prevalidación y sin product-market fit demostrado.
 - Entrega académica actual: Company Brain v0 como corte vertical de divergencia de inventario.
 - Alcance técnico actual: ingesta, evidencia, estado canónico, conocimiento gobernado, retrieval autorizado por canales, ContextPacket, un agente controlado, la skill `investigate_inventory_divergence`, propuestas internas, revisión humana y auditoría.
 - Fuera del alcance actual: autonomía, multiagente, runtime genérico de skills, memoria persistente del agente y escrituras en sistemas empresariales externos.
