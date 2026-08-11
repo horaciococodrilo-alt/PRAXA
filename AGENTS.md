@@ -114,7 +114,7 @@ Each phase must establish or document equivalent commands as it introduces them.
 
 Available today:
 
-- `uv sync --all-groups`
+- `uv sync --locked --all-groups`
 - `uv run ruff check .`
 - `uv run ruff format --check .`
 - `uv run mypy .`
