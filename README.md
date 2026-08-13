@@ -68,26 +68,69 @@ npm run dev
 
 `npm test` ejecuta la suite una sola vez y termina; no abre watch mode.
 
-### Makefile (opcional)
-
-Desde la raíz del repositorio:
+### El contrato de verificación
 
 ```bash
-make install
-make lint
-make format
-make typecheck
-make test
-make build
-make ci
+make ci-full
 ```
 
-`make ci` encadena, para backend y frontend, instalación, lint, format check del backend, typecheck y tests; y además el **build del frontend**. No existe un build del backend: `make build` equivale hoy a `frontend-build`.
+**`make ci-full` es la única receta canónica.** GitHub Actions la invoca una sola vez y no duplica ninguno de sus pasos: el workflow prepara checkout, uv/Python y Node, y nada más. Si el contrato cambia, cambia en el `Makefile` y CI lo hereda sin editarse.
 
-### Todavía no disponible
+La receta ejecuta, en este orden y en serie:
 
-`docker compose up -d postgres` y `uv run alembic upgrade head` no aplican todavía. PostgreSQL, Docker Compose y las migraciones se incorporan en `VS-01`.
+| # | Paso | Comando |
+|---:|---|---|
+| 1 | Instalación desde lockfiles | `uv sync --locked --all-groups`, `npm ci` |
+| 2 | Ruff lint | `uv run ruff check .` |
+| 3 | Ruff formato | `uv run ruff format --check .` |
+| 4 | Tipos | `uv run mypy .` |
+| 5 | Unit | `uv run pytest -m "not integration and not security"` |
+| 6 | Frontend lint | `npm run lint` |
+| 7 | Frontend tipos | `npm run typecheck` |
+| 8 | Frontend test | `npm test` |
+| 9 | Frontend build | `npm run build` |
+| 10 | Guards de seguridad | `uv run pytest tests/unit/test_no_forbidden_patterns.py` |
+| 11 | PostgreSQL real y **healthy** | `docker compose up -d --wait postgres` |
+| 12 | Bootstrap, dos veces (idempotencia) | `uv run python scripts/bootstrap_db.py` ×2 |
+| 13 | Migración desde vacío, ida y vuelta | `alembic upgrade head`, `downgrade base`, `upgrade head` |
+| 14 | Deriva entre modelos y schema | `alembic check` |
+| 15 | Integración | `uv run pytest -m integration` |
+| 16 | Seguridad | `uv run pytest -m security` |
+| 17 | Árbol de trabajo | `git diff --check` |
+| 18 | Limpieza | `docker compose down --remove-orphans` |
 
-`.env.example` está reservado para fases posteriores y no se utiliza todavía: el backend aún no lee configuración desde el entorno. Sus variables se irán incorporando a medida que las fases correspondientes las necesiten.
+La limpieza corre desde un `trap` del shell, así que ocurre también cuando un gate falla, sin alterar el código de salida. `down` va **sin** `--volumes`: conserva el volumen de datos y no toca recursos de otros proyectos.
+
+Requiere Docker. Los targets granulares del `Makefile` (`backend-lint`, `frontend-test`, `db-up`, `migrate`, …) existen para el trabajo diario y **no** constituyen el contrato. Make es opcional en el sentido de que cada target es un comando directo de `uv`, `npm` o `docker compose`, y la tabla de arriba los enumera todos.
+
+### Base de datos
+
+```bash
+cp .env.example .env      # completar las tres contraseñas
+docker compose up -d postgres
+cd backend && uv run alembic upgrade head
+```
+
+El contenedor usa `pgvector/pgvector:0.8.6-pg16` fijada por digest inmutable, la misma imagen que CI. En el primer arranque de un volumen vacío, `infra/docker/postgres/initdb/01-bootstrap.sh` crea los roles, el ownership y la extensión `vector`. Para reaplicar el bootstrap sobre una base ya creada —los scripts de initdb no vuelven a correr— el camino es `make db-bootstrap`, que es idempotente.
+
+Tres credenciales, una por contexto, que **no se comparten**:
+
+| Variable | Rol | Quién la usa |
+|---|---|---|
+| `DATABASE_URL` | `praxa_app` | El proceso de API. En VS-01 es de solo lectura sobre todas las tablas. |
+| `MIGRATION_DATABASE_URL` | `praxa_owner` | Alembic y CI. Ausente del entorno de la API. |
+| `SEED_DATABASE_URL` | superusuario | Bootstrap y semilla de fixtures. Solo desarrollo y CI. |
+
+Si la máquina ya tiene un PostgreSQL propio en 5432, definir `POSTGRES_HOST_PORT` en el `.env` y ajustar el puerto de las tres URLs.
+
+### Pruebas
+
+```bash
+cd backend
+uv run pytest -m "not integration and not security"   # sin base de datos
+uv run pytest -m "integration or security"            # requiere PostgreSQL
+```
+
+Las pruebas de integración y seguridad **nunca** usan SQLite: se corren contra PostgreSQL real porque RLS y `FORCE ROW LEVEL SECURITY` no existen en SQLite. Sin base disponible hacen skip en local, pero fallan en CI.
 
 No conectar datos reales antes de completar aislamiento por tenant, threat model, política de borrado y consentimiento.
