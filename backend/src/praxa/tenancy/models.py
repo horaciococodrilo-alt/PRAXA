@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import (
     CheckConstraint,
+    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     String,
@@ -19,22 +20,35 @@ class Base(DeclarativeBase):
 
 class Tenant(Base):
     __tablename__ = "tenants"
-    __table_args__ = (CheckConstraint("status IN ('active', 'suspended', 'deleted')"),)
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('active', 'suspended', 'deleted')",
+            name="tenants_status_check",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=uuid4
     )
     slug: Mapped[str] = mapped_column(String(100), unique=True)
     name: Mapped[str] = mapped_column(String(200))
-    status: Mapped[str] = mapped_column(String(20), default="active")
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    status: Mapped[str] = mapped_column(
+        String(20), default="active", server_default="active"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Principal(Base):
     __tablename__ = "principals"
     __table_args__ = (
-        CheckConstraint("kind IN ('human', 'service', 'agent')"),
-        CheckConstraint("status IN ('active', 'disabled')"),
+        CheckConstraint(
+            "kind IN ('human', 'service', 'agent')", name="principals_kind_check"
+        ),
+        CheckConstraint(
+            "status IN ('active', 'disabled')", name="principals_status_check"
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -42,13 +56,22 @@ class Principal(Base):
     )
     kind: Mapped[str] = mapped_column(String(20))
     display_name: Mapped[str] = mapped_column(String(200))
-    status: Mapped[str] = mapped_column(String(20), default="active")
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    status: Mapped[str] = mapped_column(
+        String(20), default="active", server_default="active"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class TenantMembership(Base):
     __tablename__ = "tenant_memberships"
-    __table_args__ = (CheckConstraint("status IN ('active', 'inactive')"),)
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('active', 'inactive')",
+            name="tenant_memberships_status_check",
+        ),
+    )
 
     tenant_id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True),
@@ -60,8 +83,12 @@ class TenantMembership(Base):
         ForeignKey("principals.id", ondelete="RESTRICT"),
         primary_key=True,
     )
-    status: Mapped[str] = mapped_column(String(20), default="active")
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    status: Mapped[str] = mapped_column(
+        String(20), default="active", server_default="active"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Role(Base):

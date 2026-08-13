@@ -30,7 +30,10 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.func.now(),
         ),
-        sa.CheckConstraint("status IN ('active', 'suspended', 'deleted')"),
+        sa.CheckConstraint(
+            "status IN ('active', 'suspended', 'deleted')",
+            name="tenants_status_check",
+        ),
     )
     op.create_table(
         "principals",
@@ -44,8 +47,12 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.func.now(),
         ),
-        sa.CheckConstraint("kind IN ('human', 'service', 'agent')"),
-        sa.CheckConstraint("status IN ('active', 'disabled')"),
+        sa.CheckConstraint(
+            "kind IN ('human', 'service', 'agent')", name="principals_kind_check"
+        ),
+        sa.CheckConstraint(
+            "status IN ('active', 'disabled')", name="principals_status_check"
+        ),
     )
     op.create_table(
         "tenant_memberships",
@@ -58,7 +65,10 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.func.now(),
         ),
-        sa.CheckConstraint("status IN ('active', 'inactive')"),
+        sa.CheckConstraint(
+            "status IN ('active', 'inactive')",
+            name="tenant_memberships_status_check",
+        ),
         sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(
             ["principal_id"], ["principals.id"], ondelete="RESTRICT"
