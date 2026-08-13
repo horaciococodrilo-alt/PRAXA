@@ -107,9 +107,20 @@ Requiere Docker. Los targets granulares del `Makefile` (`backend-lint`, `fronten
 
 ```bash
 cp .env.example .env      # completar las tres contraseñas
-docker compose up -d postgres
-cd backend && uv run alembic upgrade head
+make db-up
+make db-bootstrap
+make migrate
 ```
+
+Los targets cargan el `.env` explícitamente. Si preferís invocar `uv` a mano, el `.env` **no** se carga solo: Docker Compose lo lee para su propia interpolación, pero no exporta nada al proceso que lo invoca, así que hay que pasarlo:
+
+```bash
+cd backend && uv run --env-file ../.env alembic upgrade head
+```
+
+Una variable ya exportada en el entorno gana sobre el archivo, así que CI —que no tiene ni debe tener un `.env` versionado— toma sus valores del entorno del job. Si faltan el `.env` y las variables, el bootstrap falla antes de conectarse, con un mensaje que nombra la variable ausente y no imprime valores.
+
+Un detalle del formato: `uv` expande variables en los valores sin comillas, de modo que una contraseña con `$` se altera. Entrecomillala en el `.env` si la tuya lo lleva.
 
 El contenedor usa `pgvector/pgvector:0.8.6-pg16` fijada por digest inmutable, la misma imagen que CI. En el primer arranque de un volumen vacío, `infra/docker/postgres/initdb/01-bootstrap.sh` crea los roles, el ownership y la extensión `vector`. Para reaplicar el bootstrap sobre una base ya creada —los scripts de initdb no vuelven a correr— el camino es `make db-bootstrap`, que es idempotente.
 

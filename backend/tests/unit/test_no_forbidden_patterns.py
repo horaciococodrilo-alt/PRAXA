@@ -93,3 +93,47 @@ def test_the_scan_actually_reaches_the_source_tree() -> None:
 
     assert "src/praxa/shared/db/session.py" in scanned
     assert len(scanned) > 10
+
+
+# --- El .env de los comandos host-side --------------------------------------------------
+#
+# Docker Compose lee .env solo para su propia interpolacion: no exporta nada al proceso que lo
+# invoca. Los comandos que corren en el host leen su DSN del entorno, asi que sin un
+# --env-file explicito el recorrido local falla desde un shell limpio, aunque el .env exista.
+# Esta regresion no la detecta ninguna suite: en CI las variables vienen del entorno del job y
+# el contrato pasa igual. Por eso se verifica el Makefile como texto.
+
+MAKEFILE = BACKEND_ROOT.parent / "Makefile"
+
+# Cada `uv run` que necesita un DSN. Los que no lo necesitan -ruff, mypy, pytest unitario- no
+# figuran a proposito: exigirles el flag solo agregaria ruido.
+UV_RUN_NEEDING_ENV = re.compile(
+    r"uv run (?!.*--env-file)(?:\$\(UV_ENV\) )?"
+    r"(python scripts/bootstrap_db\.py|alembic |pytest -q -m (?:integration|security))"
+)
+
+
+def test_host_side_commands_load_the_dotenv() -> None:
+    text = MAKEFILE.read_text(encoding="utf-8")
+
+    offenders = [
+        line.strip()
+        for line in text.splitlines()
+        if UV_RUN_NEEDING_ENV.search(line) and "$(UV_ENV)" not in line
+    ]
+
+    assert not offenders, (
+        "Estos comandos leen su DSN del entorno y corren en el host, donde el .env no se "
+        f"carga solo. Sin $(UV_ENV) fallan desde un shell limpio: {offenders}"
+    )
+
+
+def test_the_dotenv_flag_is_conditional() -> None:
+    """uv trata un --env-file inexistente como error, y en CI no hay .env."""
+    text = MAKEFILE.read_text(encoding="utf-8")
+
+    assert "DOTENV := $(wildcard" in text, (
+        "UV_ENV debe derivar de un wildcard sobre .env. Un --env-file incondicional rompe CI, "
+        "donde el archivo no existe y no debe existir."
+    )
+    assert "$(if $(DOTENV)," in text

@@ -10,6 +10,23 @@ SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
 .ONESHELL:
 
+# =========================================================================================
+# Carga de .env para los comandos host-side
+# =========================================================================================
+#
+# Docker Compose lee .env por su cuenta, pero solo para SU propia interpolacion: no exporta
+# nada al proceso que lo invoca. Los comandos que corren en el host -bootstrap, Alembic y las
+# suites de integracion y seguridad- leen SEED_DATABASE_URL, MIGRATION_DATABASE_URL,
+# DATABASE_URL y APP_ENV del entorno, asi que desde un shell limpio no las verian.
+#
+# `uv run --env-file` es el mecanismo nativo y tiene la precedencia correcta: una variable ya
+# exportada gana sobre el archivo, de modo que el entorno de CI manda sobre cualquier .env.
+#
+# La carga es condicional porque uv trata un --env-file inexistente como error: en CI no hay
+# .env -y no debe haberlo- asi que ahi el flag queda vacio y las variables vienen del entorno.
+DOTENV := $(wildcard $(CURDIR)/.env)
+UV_ENV := $(if $(DOTENV),--env-file $(DOTENV),)
+
 .PHONY: ci-full install backend-install frontend-install \
 	backend-lint backend-format backend-typecheck backend-test-unit backend-guards \
 	backend-test-integration backend-test-security \
@@ -99,14 +116,14 @@ verify-db:
 	trap 'docker compose down --remove-orphans' EXIT
 	docker compose up -d --wait postgres
 	cd backend
-	uv run python scripts/bootstrap_db.py
-	uv run python scripts/bootstrap_db.py
-	uv run alembic upgrade head
-	uv run alembic downgrade base
-	uv run alembic upgrade head
-	uv run alembic check
-	uv run pytest -q -m integration
-	uv run pytest -q -m security
+	uv run $(UV_ENV) python scripts/bootstrap_db.py
+	uv run $(UV_ENV) python scripts/bootstrap_db.py
+	uv run $(UV_ENV) alembic upgrade head
+	uv run $(UV_ENV) alembic downgrade base
+	uv run $(UV_ENV) alembic upgrade head
+	uv run $(UV_ENV) alembic check
+	uv run $(UV_ENV) pytest -q -m integration
+	uv run $(UV_ENV) pytest -q -m security
 
 # =========================================================================================
 # 15. Arbol de trabajo
@@ -128,16 +145,16 @@ db-down:
 # Reaplica el bootstrap sobre una base ya creada: los scripts de initdb solo corren en la
 # inicializacion de un volumen vacio. Es idempotente.
 db-bootstrap:
-	cd backend && uv run python scripts/bootstrap_db.py
+	cd backend && uv run $(UV_ENV) python scripts/bootstrap_db.py
 
 db-psql:
 	docker compose exec postgres psql -U postgres -d praxa
 
 migrate:
-	cd backend && uv run alembic upgrade head
+	cd backend && uv run $(UV_ENV) alembic upgrade head
 
 backend-test-integration:
-	cd backend && uv run pytest -q -m integration
+	cd backend && uv run $(UV_ENV) pytest -q -m integration
 
 backend-test-security:
-	cd backend && uv run pytest -q -m security
+	cd backend && uv run $(UV_ENV) pytest -q -m security
