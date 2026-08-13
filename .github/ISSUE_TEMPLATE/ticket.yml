@@ -4,22 +4,6 @@ title: "[VS-XX] "
 labels: ["planned"]
 body:
   - type: input
-    id: estimated_hours
-    attributes:
-      label: Estimación de horas humanas
-      description: Rango estimado. El tiempo de ejecución autónomo de un agente no cuenta como hora humana.
-      placeholder: "por ejemplo 20–30"
-    validations:
-      required: true
-  - type: input
-    id: actual_hours
-    attributes:
-      label: Horas humanas reales al cierre
-      description: Completar al cerrar el ticket. Incluye revisión, corrección, QA, integración y decisiones.
-      placeholder: "completar al cerrar"
-    validations:
-      required: false
-  - type: input
     id: outcome
     attributes:
       label: Resultado observable

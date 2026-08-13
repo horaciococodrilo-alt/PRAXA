@@ -16,33 +16,16 @@ Regla rectora:
 
 ## Fases
 
-| Fase | Resultado demostrable | Horas humanas |
-|---|---|---:|
-| R0 | Fuentes de verdad, ADR, roadmap y CI alineados | 10–16 |
-| VS-01 | PostgreSQL, extensiones, tenancy, membership, roles y RLS verificables | 20–30 |
-| VS-02 | Fuentes y documentos se ingieren con evidencia, chunks, embeddings y ACL sin duplicar | 30–45 |
-| VS-03 | Variante, observaciones, política aprobada y detector determinístico funcionan | 28–42 |
-| VS-04 | Retrieval autorizado y Context Compiler producen un ContextPacket citado y reproducible | 35–50 |
-| VS-05 | API, agente y skill investigan y registran una propuesta sin ejecutar | 28–42 |
-| VS-06 | Una persona revisa el expediente y deja una decisión auditada | 25–38 |
-| VS-07 | El flujo completo pasa evaluación, hardening y demo reproducible | 25–35 |
-| **Subtotal** | | **201–298** |
-| **Con contingencia del 20%** | | **241–358** |
-
-Para planificación se usa un punto realista de **aproximadamente 300 horas humanas**, incluida contingencia.
-
-### Calendario por disponibilidad
-
-| Disponibilidad | Optimista (241 h) | Realista (300 h) | Pesimista (358 h) | Veredicto |
-|---:|---:|---:|---:|---|
-| 8 h/semana | 30,1 semanas | 37,5 semanas | 44,8 semanas | No entra en seis meses |
-| 10 h/semana | 24,1 semanas | 30 semanas | 35,8 semanas | Solo entra en el extremo optimista |
-| 20 h/semana | 12,1 semanas | 15 semanas | 17,9 semanas | Entra con margen razonable |
-| 30 h/semana | 8,0 semanas | 10 semanas | 11,9 semanas | Entra, sujeto a revisión y disponibilidad sostenida |
-
-> Con 8–10 horas semanales, el alcance completo no debe prometerse como entrega de 24 semanas. Para sostener seis meses se necesitan unas 13 horas semanales en el escenario realista, o un recorte explícito posterior basado en evidencia.
-
-Las estimaciones no son compromisos. Se recalibran al terminar R0, VS-02, VS-04 y VS-05 usando horas humanas reales. El tiempo autónomo de un agente no cuenta como hora humana; revisión, corrección, QA, integración y decisiones sí.
+| Fase | Resultado demostrable |
+|---|---|
+| R0 | Fuentes de verdad, ADR, roadmap y CI alineados |
+| VS-01 | PostgreSQL, extensiones, tenancy, membership, roles y RLS verificables |
+| VS-02 | Fuentes y documentos se ingieren con evidencia, chunks, embeddings y ACL sin duplicar |
+| VS-03 | Variante, observaciones, política aprobada y detector determinístico funcionan |
+| VS-04 | Retrieval autorizado y Context Compiler producen un ContextPacket citado y reproducible |
+| VS-05 | API, agente y skill investigan y registran una propuesta sin ejecutar |
+| VS-06 | Una persona revisa el expediente y deja una decisión auditada |
+| VS-07 | El flujo completo pasa evaluación, hardening y demo reproducible |
 
 ## Camino crítico y paralelización
 
@@ -71,7 +54,7 @@ No debe paralelizarse:
 
 **Dependencias:** aprobación humana de los borradores de ADR y del contenido de `current.md`; working tree local inspeccionado.
 
-**Entregables:** ADR-011, ADR-012 y ADR-013; índice ADR actualizado; enmiendas focalizadas de spec, brief, `AGENTS.md`, ownership y README; build plan vertical; `current.md` actualizado; bootstrap obsoleto archivado; CI endurecida; registro de horas humanas.
+**Entregables:** ADR-011, ADR-012 y ADR-013; índice ADR actualizado; enmiendas focalizadas de spec, brief, `AGENTS.md`, ownership y README; build plan vertical; `current.md` actualizado; bootstrap obsoleto archivado; CI endurecida.
 
 **Migraciones:** ninguna.
 
@@ -81,27 +64,23 @@ No debe paralelizarse:
 
 **Exclusiones:** código funcional, dependencias, servicios y datos.
 
-**Estimación:** 10–16 horas humanas.
-
 ---
 
 ## VS-01 — Fundación de datos, seguridad y contratos
 
 **Objetivo:** demostrar aislamiento de datos desde la primera tabla y fijar la frontera de persistencia.
 
-**Dependencias:** R0 fusionado y VS-01 autorizado; ADR corta sobre SQLAlchemy sync o async aprobada antes de crear la sesión.
+**Dependencias:** R0 fusionado; VS-01 autorizado; ADR-014 aceptada; imagen pgvector fijada por digest.
 
-**Entregables:** Docker Compose con PostgreSQL 16+; extensiones `vector` y `pg_trgm`; FTS nativo; SQLAlchemy 2 y Alembic; configuración tipada; roles SQL separados (owner/migración, y aplicación sin ownership ni `BYPASSRLS`); tablas mínimas `tenant`, `principal`, `tenant_membership` y roles; contexto transaccional derivado del usuario autenticado; `ENABLE`/`FORCE ROW LEVEL SECURITY`; esqueleto versionado de contratos de evidencia y ContextPacket; PostgreSQL como servicio en CI.
+**Entregables:** Docker Compose con PostgreSQL 16/pgvector fijado por digest; extensión `vector` y FTS nativo; SQLAlchemy 2 síncrono con `psycopg` y Alembic; configuración separada por proceso; roles SQL separados (bootstrap, owner/migración y aplicación sin ownership ni `BYPASSRLS`); tablas mínimas `tenant`, `principal`, `tenant_membership`, roles, permisos y relaciones; contexto transaccional con `SET LOCAL`; limpieza probada del pool; `ENABLE`/`FORCE ROW LEVEL SECURITY`; policies explícitas `TO praxa_app`; membership self-only y fail-closed; bootstrap idempotente; guard estático de seguridad; contrato canónico `make ci-full` compartido con GitHub Actions.
 
 **Migraciones:** extensiones; tenancy, principals, memberships y roles; funciones/contexto RLS y policies mínimas.
 
-**Pruebas:** tenant A no lee, inserta ni actualiza filas de B; sin tenant/principal se deniega por defecto; membership inexistente se deniega; rol restringido del mismo tenant no accede al recurso protegido de fixture; la suite afirma que usa el rol de aplicación, no el owner; migración desde base vacía.
+**Pruebas:** tenant A no lee, inserta, actualiza ni elimina filas de B; sin tenant/principal se deniega por defecto; principal o membership inexistente/inactiva no obtiene acceso; UUID inválido no rompe la transacción ni habilita acceso; `app.role` no participa en policies; la suite usa el rol de aplicación, no el owner; ninguna policy se destina a `{public}`; el pool no filtra contexto y existe un control negativo sin listener; bootstrap repetido; migraciones desde vacío con upgrade/downgrade/upgrade y `alembic check` final; no se usa SQLite.
 
-**Criterios de aceptación:** el rol de aplicación no es owner ni tiene `BYPASSRLS`; todas las pruebas de aislamiento pasan sobre PostgreSQL real; SQLite no sustituye pruebas de integración o seguridad; configuración ausente falla con error claro y sin imprimir secretos.
+**Criterios de aceptación:** el rol de aplicación no es owner ni tiene `BYPASSRLS`; todas las pruebas de aislamiento pasan sobre PostgreSQL real; configuración ausente o inválida falla antes de conectar y no imprime secretos; API, Alembic y seed no mezclan credenciales; `make ci-full` y GitHub Actions ejecutan una sola receta y una sola estrategia PostgreSQL; el gate por rol sobre un recurso de negocio queda explícitamente no aplicable en VS-01 y obligatorio en VS-02.
 
 **Exclusiones:** evidencia, ingesta, entidades, retrieval, agente, UI y cola.
-
-**Estimación:** 20–30 horas humanas.
 
 ---
 
@@ -119,8 +98,6 @@ La prueba completa de que un chunk oculto no aparece por FTS/vector pertenece a 
 
 **Exclusiones:** conectores reales, OAuth, webhooks, jobs, retrieval, agente y UI.
 
-**Estimación:** 30–45 horas humanas.
-
 ---
 
 ## VS-03 — Memoria canónica, política y detector determinístico
@@ -136,8 +113,6 @@ La prueba completa de que un chunk oculto no aparece por FTS/vector pertenece a 
 **Criterios de aceptación:** la policy efectiva nunca se elige por FTS, vector o LLM; cada policy activa tiene reviewer o fixture aprobado y cita; la salida determinística explica las dependencias del cálculo.
 
 **Exclusiones:** matching probabilístico, facts universales, policy DSL, motor de reglas, segunda familia de casos y agente.
-
-**Estimación:** 28–42 horas humanas.
 
 ---
 
@@ -159,8 +134,6 @@ La prueba completa de que un chunk oculto no aparece por FTS/vector pertenece a 
 
 **Exclusiones:** clasificador general de intención, RRF, reranker aprendido, packet multidominio, agente y MCP.
 
-**Estimación:** 35–50 horas humanas.
-
 ---
 
 ## VS-05 — Brain API, agente y skill versionada
@@ -177,8 +150,6 @@ La prueba completa de que un chunk oculto no aparece por FTS/vector pertenece a 
 
 **Exclusiones:** MCP, segunda skill, memoria entre ejecuciones, autonomía, multiagente y escrituras externas.
 
-**Estimación:** 28–42 horas humanas.
-
 ---
 
 ## VS-06 — Revisión humana, decisiones y auditoría
@@ -194,8 +165,6 @@ La prueba completa de que un chunk oculto no aparece por FTS/vector pertenece a 
 **Criterios de aceptación:** una persona ajena a la implementación comprende el expediente; propuesta y decisión se distinguen; la auditoría reconstruye consulta, respuesta y decisión.
 
 **Exclusiones:** dashboard ejecutivo, exportaciones, búsqueda global, design system completo y aprendizaje desde feedback.
-
-**Estimación:** 25–38 horas humanas.
 
 ---
 
@@ -227,8 +196,6 @@ Los umbrales de calidad son targets provisionales acompañados por dataset, base
 
 **Exclusiones:** despliegue productivo, datos reales, SLA comercial, conectores productivos y nuevas features.
 
-**Estimación:** 25–35 horas humanas.
-
 ---
 
 ## Regla de recorte
@@ -257,7 +224,7 @@ No se recorta nunca:
 
 `praxa-deliver-ticket` y `praxa-review-ticket` pueden empaquetar los prompts existentes si el entorno real de Claude o Codex demuestra que eso reduce errores. No constituyen una fase del producto, no bloquean VS-01 y no deben confundirse con `investigate_inventory_divergence`.
 
-Si se autorizan: estimar 3–5 horas humanas, mantener implementador y revisor distintos, y no duplicar reglas entre `AGENTS.md`, prompts y skills.
+Si se autorizan, mantener implementador y revisor distintos y no duplicar reglas entre `AGENTS.md`, prompts y skills.
 
 ## Gates de alcance
 

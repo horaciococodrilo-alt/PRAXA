@@ -5,7 +5,7 @@
 **Fecha:** 5 de agosto de 2026  
 **Estado:** contrato de implementación propuesto  
 **Audiencia:** Codex, Claude Code y equipo de desarrollo de Praxa  
-**Horizonte:** MVP académico vertical (R0 + VS-01 a VS-07); plazo dependiente de horas humanas y disponibilidad, detallado en `docs/plans/company-brain-build-plan.md`; arquitectura preparada para evolucionar sin obligar a construir la plataforma completa<br>
+**Horizonte:** MVP académico vertical (R0 + VS-01 a VS-07), secuenciado en `docs/plans/company-brain-build-plan.md`; arquitectura preparada para evolucionar sin obligar a construir la plataforma completa<br>
 **Equipo:** Simón Alfandari, Matías Guiter, Juan Grimberg y Gonzalo Mayer
 
 > **Instrucción de precedencia.** Para construir el Company Brain, este documento prevalece sobre blueprints, cuadernos, Lean Canvas y diagramas anteriores. Esos materiales conservan valor como visión e investigación, pero no autorizan a ampliar el alcance de la versión actual. Si dos requisitos se contradicen, aplicar en este orden: seguridad e invariantes; alcance v0; contratos de datos y API; decisiones arquitectónicas; backlog; visión futura.
@@ -535,7 +535,7 @@ Para desarrollo y demo se permiten cuatro procesos lógicos:
 1. `api`: FastAPI y endpoints REST.
 2. `worker`: trabajos de sync, parsing, embeddings, extracción y coverage.
 3. `web`: React/Vite.
-4. `postgres`: PostgreSQL con extensiones `vector`, `pg_trgm` y `uuid-ossp` o generación UUID en aplicación.
+4. `postgres`: PostgreSQL con la extensión `vector`; los UUID se generan en la aplicación o con funciones nativas disponibles.
 
 El object store v0 puede ser:
 
@@ -550,10 +550,10 @@ La interfaz `BlobStore` debe ocultar la implementación. No guardar binarios gra
 |---|---|---|
 | Lenguaje backend | Python 3.12+ | Usar typing estricto y `pyproject.toml` |
 | API | FastAPI + Pydantic v2 | OpenAPI generado desde contratos |
-| ORM/migraciones | SQLAlchemy 2 + Alembic | Sesiones y transacciones explícitas |
+| ORM/migraciones | SQLAlchemy 2 síncrono + `psycopg` + Alembic | Una sola estrategia de sesiones y transacciones explícitas (ADR-014) |
 | Base | PostgreSQL 16+ | Fuente de verdad del Brain |
 | Vector | pgvector | Sin vector DB dedicada |
-| FTS | PostgreSQL `tsvector` + `pg_trgm` | Exactitud, IDs, nombres y texto |
+| FTS | PostgreSQL `tsvector` | Texto; IDs y SKU usan igualdad e índices B-tree |
 | Jobs | Tabla PostgreSQL + `FOR UPDATE SKIP LOCKED` | Sin Redis en v0 |
 | Frontend | React + TypeScript + Vite | UI mínima, accesible y tipada |
 | Estilos | Tailwind o CSS Modules | Elegir uno, no ambos sin necesidad |
@@ -582,8 +582,9 @@ No fijar versiones patch en este documento. El repositorio debe usar rangos comp
 | ADR-011 | Corte vertical de inventario con agente y skill controlados | Demuestra la hipótesis sin construir una plataforma horizontal | El vertical cumpla su definición de terminado |
 | ADR-012 | Append-only operacional, identidad de origen, retención y borrado | Idempotencia por objeto y borrado gobernado sin retención eterna | Se incorporen datos reales |
 | ADR-013 | Retrieval segmentado autorizado y autoridad determinística de políticas | La autoridad no puede depender de similitud | Un dataset demuestre que la fusión mejora sin romper seguridad |
+| ADR-014 | SQLAlchemy 2 síncrono con `psycopg` | Un solo camino de sesiones, transacciones, pool y tests de RLS | Carga medida incumpla un objetivo operativo |
 
-ADR-011 a ADR-013 están `Accepted`.
+ADR-011 a ADR-014 están `Accepted`.
 
 ---
 
@@ -944,7 +945,7 @@ Un evidence item hace citable una versión o una parte lógica de ella.
 Índices:
 
 - GIN sobre `search_vector`.
-- trigram sobre `text` si el volumen lo justifica.
+- No se crea un índice trigram en v0; sólo se reconsidera ante un caso medido que no resuelvan exact match y FTS.
 - HNSW sobre `embedding` cuando el dataset supere el punto donde scan exacto deje de cumplir latencia.
 - B-tree `(tenant_id, evidence_item_id, ordinal)`.
 
@@ -982,7 +983,7 @@ Unique activo: `(tenant_id, source_connection_id, object_type, external_id)`.
 ### `entity_aliases`
 
 - `entity_id`, `alias`, `normalized_alias`, `alias_type`, `source`, `confidence`, `status`.
-- GIN/trigram para candidatos; una coincidencia de nombre sola no autoriza merge.
+- B-tree sobre alias normalizado para coincidencia exacta; una coincidencia de nombre sola no autoriza merge.
 
 ### `entity_relationships`
 
@@ -1363,7 +1364,7 @@ El retrieval no intenta “contestar con documentos”. Debe recuperar los objet
 
 | Necesidad | Mecanismo principal |
 |---|---|
-| ID, SKU, pedido, nombre exacto | B-tree, exact match, trigram |
+| ID, SKU, pedido, nombre exacto | B-tree y exact match |
 | Frase o término | PostgreSQL full-text/BM25-like ranking |
 | Concepto expresado distinto | Vector similarity |
 | Relación producto–variante–listing | Tablas de edges y joins |
@@ -2568,7 +2569,7 @@ Variables mínimas:
 
 ```text
 APP_ENV=development
-DATABASE_URL=postgresql+asyncpg://...
+DATABASE_URL=postgresql+psycopg://...
 BLOB_STORE_BACKEND=local
 BLOB_STORE_PATH=/data/evidence
 JWT_ISSUER=praxa-local
@@ -2650,20 +2651,16 @@ El plan de v0 es un único camino crítico vertical: R0 seguido de VS-01 a VS-07
 
 ## 25.1 Fases
 
-| Fase | Resultado demostrable | Horas humanas |
-|---|---|---:|
-| R0 | Fuentes de verdad, ADR, roadmap y CI alineados | 10–16 |
-| VS-01 | PostgreSQL, extensiones, tenancy, membership, roles y RLS verificables | 20–30 |
-| VS-02 | Fuentes y documentos se ingieren con evidencia, chunks, embeddings y ACL sin duplicar | 30–45 |
-| VS-03 | Variante, observaciones, política aprobada y detector determinístico funcionan | 28–42 |
-| VS-04 | Retrieval autorizado y Context Compiler producen un ContextPacket citado y reproducible | 35–50 |
-| VS-05 | API, agente y skill investigan y registran una propuesta sin ejecutar | 28–42 |
-| VS-06 | Una persona revisa el expediente y deja una decisión auditada | 25–38 |
-| VS-07 | El flujo completo pasa evaluación, hardening y demo reproducible | 25–35 |
-| **Subtotal** | | **201–298** |
-| **Con contingencia del 20%** | | **241–358** |
-
-Para planificación se usa un punto realista de aproximadamente 300 horas humanas, incluida contingencia. Las estimaciones no son compromisos: se recalibran al terminar R0, VS-02, VS-04 y VS-05 con horas humanas reales.
+| Fase | Resultado demostrable |
+|---|---|
+| R0 | Fuentes de verdad, ADR, roadmap y CI alineados |
+| VS-01 | PostgreSQL, extensiones, tenancy, membership, roles y RLS verificables |
+| VS-02 | Fuentes y documentos se ingieren con evidencia, chunks, embeddings y ACL sin duplicar |
+| VS-03 | Variante, observaciones, política aprobada y detector determinístico funcionan |
+| VS-04 | Retrieval autorizado y Context Compiler producen un ContextPacket citado y reproducible |
+| VS-05 | API, agente y skill investigan y registran una propuesta sin ejecutar |
+| VS-06 | Una persona revisa el expediente y deja una decisión auditada |
+| VS-07 | El flujo completo pasa evaluación, hardening y demo reproducible |
 
 ## 25.2 Camino crítico
 
@@ -2836,7 +2833,6 @@ Estas se resuelven en el gate de la fase indicada, y no justifican detener la al
 
 | Decisión | Gate |
 |---|---|
-| SQLAlchemy sync o async | Antes de VS-01 |
 | Imagen y versión de PostgreSQL + pgvector | Antes de VS-01 |
 | Storage local content-addressed vs MinIO en demo | Antes de VS-02 |
 | Proveedor y dimensión de embeddings; debe existir fake local | Antes de VS-02 |

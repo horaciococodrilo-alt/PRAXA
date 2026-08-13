@@ -33,13 +33,6 @@
 - [ ] El diff no contiene archivos fuera del alcance autorizado
 - [ ] Las desviaciones respecto del alcance están listadas abajo y aprobadas
 
-## Horas humanas
-
-- Estimadas:
-- Reales:
-
-El tiempo de ejecución autónomo de un agente no cuenta como hora humana. Sí cuentan revisión, corrección, QA, integración y decisiones.
-
 ## Verificación
 
 Un comando por fila, con su resultado real. No escribir "pasa" sin haberlo ejecutado.

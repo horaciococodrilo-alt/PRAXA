@@ -1,7 +1,7 @@
 # Praxa — Project Brief
 
 **Estado:** iniciativa en validación; cero product-market fit demostrado.  
-**Entrega actual:** Company Brain v0 como MVP académico vertical (R0 + VS-01 a VS-07); plazo dependiente de horas humanas y disponibilidad, detallado en `docs/plans/company-brain-build-plan.md`.<br>
+**Entrega actual:** Company Brain v0 como MVP académico vertical (R0 + VS-01 a VS-07), secuenciado en `docs/plans/company-brain-build-plan.md`.<br>
 **Equipo:** Simón Alfandari, Matías Guiter, Juan Grimberg y Gonzalo Mayer.
 
 ## Descripción breve

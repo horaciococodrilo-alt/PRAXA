@@ -1,240 +1,171 @@
 # Trabajo actual
 
-**Última actualización:** 2026-08-10
+**Última actualización:** 2026-08-13
 
-**Fase:** R0 — Reconciliación de la fuente de verdad
+**Fase:** VS-01 — Fundación de datos, seguridad y contratos
 
-**Ticket autorizado:** R0 — Alinear PRAXA con el MVP vertical del Company Brain
+**Rama:** `feat/vs-01-data-security-foundation`
 
-**Estado:** autorizado después de aprobación humana de este contenido
+**Ticket autorizado:** completar la fundación PostgreSQL, tenancy, roles, RLS,
+configuración y contexto transaccional; verificarla en CI y dejar un draft PR listo para
+auditoría.
 
-**Siguiente gate:** ninguna fase funcional comienza sin una aprobación separada
+**Estado:** autorizado
+
+**Siguiente gate:** auditoría independiente del draft PR de VS-01 sobre el mismo SHA que
+pasó CI. VS-02 permanece no autorizada.
 
 ## Resultado esperado
 
-Todas las fuentes normativas y operativas del repositorio describen el mismo MVP:
-un corte vertical de inventario que conserva evidencia, resuelve una variante,
-selecciona una política aprobada y vigente, recupera evidencia autorizada, compila
-un ContextPacket citado y permite que un agente controlado proponga una resolución
-sin ejecutar escrituras externas.
+Una base PostgreSQL 16 con pgvector demuestra aislamiento entre tenants usando el rol de
+aplicación, con credenciales separadas, migraciones reproducibles, RLS habilitada y forzada,
+policies explícitas para `praxa_app`, contexto transaccional fail-closed y limpieza real del
+pool.
 
-R0 no implementa ese flujo. R0 deja contratos, decisiones, roadmap, CI y reglas de
-trabajo coherentes para que VS-01 pueda comenzar sin contradicciones.
+## Principio
 
-## Principio de producto
-
-La arquitectura completa del Company Brain es el norte. El código del MVP implementa
-solo el vertical de divergencia de inventario.
-
-Regla:
+La arquitectura completa del Company Brain es el norte. VS-01 implementa únicamente la
+fundación necesaria para el vertical de divergencia de inventario.
 
 > Future-compatible, no future-built.
 
 ## Incluye
 
-- Registrar ADR-011: corte vertical del Company Brain de inventario.
-- Registrar ADR-012: append-only operacional, identidad de origen, retención y borrado auditado.
-- Registrar ADR-013: alcance v0 de retrieval híbrido, autoridad determinística de políticas y ranking por canal.
-- Conservar sin cambios históricos ADR-002, ADR-008, ADR-009 y ADR-010.
-- Actualizar el índice de ADR.
-- Enmendar de forma focalizada `company-brain-spec.md`.
-- Reescribir `company-brain-build-plan.md` como R0 + VS-01 a VS-07.
-- Actualizar `AGENTS.md`, README, project brief, ownership y decision log.
-- Eliminar referencias activas al Lean Canvas inexistente.
-- Archivar el kit de bootstrap que describe un repositorio aún no creado.
-- Corregir documentación de `make ci`.
-- Fortalecer CI: push solo a `main`, PR, concurrency, actions por SHA,
-  `persist-credentials: false`, timeouts y `uv sync --locked --all-groups`.
-- Agregar registro de horas humanas reales al template de PR/ticket.
-- Ejecutar `make ci` desde un checkout limpio y conservar salida real.
+- Docker Compose con PostgreSQL 16 y pgvector fijado por digest.
+- Extensión `vector`; FTS nativo no requiere extensión adicional.
+- SQLAlchemy 2 síncrono con `psycopg` y Alembic.
+- Configuración separada por proceso:
+  - API: `DATABASE_URL`;
+  - migraciones: `MIGRATION_DATABASE_URL`;
+  - bootstrap/seed de CI y tests: `SEED_DATABASE_URL`.
+- `APP_ENV` obligatorio y limitado a `development`, `test` o `ci` para bootstrap.
+- Roles SQL separados para bootstrap, ownership/migraciones y aplicación.
+- Tablas mínimas de tenant, principal, membership, roles, permisos y relaciones.
+- RLS habilitada y forzada en las tablas de negocio de la fase.
+- Policies explícitas `TO praxa_app`; ninguna policy destinada a `{public}`.
+- Membership no recursiva, fail-closed y self-only cuando no puede verificarse de forma
+  segura desde PostgreSQL.
+- Contexto con `SET LOCAL` dentro de una transacción.
+- Limpieza de contexto al devolver conexiones al pool y control negativo del riesgo sin
+  listener.
+- Bootstrap idempotente.
+- Guard estático contra patrones de seguridad prohibidos.
+- Un único contrato ejecutable de integración y seguridad, `make ci-full`, compartido con
+  GitHub Actions.
+- ADR-014 como decisión aceptada sobre sesiones síncronas.
 
 ## No incluye
 
-- Migraciones o tablas de dominio.
-- PostgreSQL, pgvector o contenedores funcionales.
-- Ingesta, chunks o embeddings.
-- Retrieval funcional.
-- Context Compiler o ContextPacket implementados.
-- API de dominio.
-- LLM, agente o skill implementados.
-- Interfaz.
-- Nuevas dependencias de producto.
-- Conectores reales.
-- MCP.
-- Escrituras externas.
-- Configuración web de rulesets, CodeQL, secret scanning, push protection o Dependabot.
-- Commit, push o pull request sin autorización explícita.
+- Evidencia, ingesta, source objects, versiones, chunks o embeddings.
+- Recursos de inventario o restricción por rol sobre un recurso de negocio; ese gate se
+  introduce en VS-02.
+- Retrieval, Context Compiler o ContextPacket implementados.
+- API de dominio, agente, skill o UI.
+- `pg_trgm`.
+- Datos reales, conectores productivos o escrituras externas.
+- Infraestructura de doble auditoría automatizada; VS-01 usa el proceso manual aprobado.
+- Merge o inicio de VS-02.
 
-## Decisiones normativas que R0 debe reflejar
+## Decisiones aplicables
 
-1. El MVP sí incluye pgvector, FTS, retrieval autorizado, Context Compiler,
-   ContextPacket, un agente y `investigate_inventory_divergence`.
-2. El agente no tiene credenciales, no accede a PostgreSQL y no ejecuta acciones externas.
-3. Se permiten escrituras internas append-only para propuestas y decisiones.
-4. El LLM puede comunicar valores devueltos por herramientas determinísticas,
-   pero no calcularlos, originarlos ni ser su fuente autoritativa.
-5. La política efectiva se selecciona por código desde una versión aprobada y vigente.
-6. FTS/vector recuperan evidencia de respaldo; no deciden autoridad.
-7. No hay RRF global en v0; sí hay ranking, límites y deduplicación dentro de canales.
-8. El ContextPacket separa payload determinístico de envelope operativo.
-9. Autorización ocurre antes del retrieval y las citas se reautorizan antes de responder.
-10. Ninguna ADR aceptada se reescribe retroactivamente.
+- ADR-001: monolito modular.
+- ADR-002: PostgreSQL como núcleo.
+- ADR-011: vertical de inventario.
+- ADR-014: SQLAlchemy 2 síncrono con `psycopg`.
+- Imagen: `pgvector/pgvector:0.8.6-pg16@sha256:a36250871de0833b8757561c72f2477ef1ddd1101afa4e617fb552e0de514c6b`.
+- Un GUC manipulable no es autenticación.
+- `app.role` no participa en policies ni amplía acceso.
+- La aplicación no posee tablas y no tiene `BYPASSRLS`.
+- PostgreSQL real es obligatorio para integración y seguridad; SQLite no es sustituto.
 
-## Fuente de verdad después de R0
+## Archivos y módulos previstos
 
-1. Seguridad e invariantes de `AGENTS.md` y la especificación.
-2. `docs/architecture/company-brain-spec.md`.
-3. ADR aceptadas reflejadas en la especificación.
-4. `docs/plans/current.md`.
-5. `docs/plans/company-brain-build-plan.md`.
-6. `docs/product/project-brief.md` como hipótesis de producto.
-7. Visión futura y archivo histórico como contexto no normativo.
-
-## Archivos previstos
-
-### Nuevos
-
-- `docs/architecture/adr/ADR-011-inventory-company-brain-vertical.md`
-- `docs/architecture/adr/ADR-012-operational-append-only-retention-deletion.md`
-- `docs/architecture/adr/ADR-013-authorized-segmented-retrieval.md`
-
-### Modificados
-
-- `docs/architecture/adr/README.md`
-- `docs/architecture/company-brain-spec.md`
-- `docs/plans/company-brain-build-plan.md`
-- `docs/plans/current.md`
-- `docs/plans/decision-log.md`
-- `docs/product/project-brief.md`
-- `docs/product/ageci-to-praxa-context.md`
-- `docs/team/ownership.md`
-- `docs/team/working-with-agents.md`
-- `AGENTS.md`
-- `README.md`
+- `docker-compose.yml`
+- `.env.example`
+- `Makefile`
 - `.github/workflows/ci.yml`
-- `.github/ISSUE_TEMPLATE/ticket.yml`
-- `.github/pull_request_template.md`
-- `CONTRIBUTING.md` (desviación aprobada: reemplazo de los ejemplos de rama `cb-XXX` por
-  ejemplos `vs-XX`, sin cambios al resto del flujo de contribución)
+- `backend/pyproject.toml` y `backend/uv.lock`
+- configuración y DB compartida bajo `backend/src/praxa/`
+- Alembic y migraciones bajo `backend/migrations/`
+- bootstrap y guards bajo `scripts/`
+- tests unitarios, de integración y seguridad bajo `backend/tests/`
+- `docs/architecture/adr/ADR-014-sqlalchemy-sync-sessions.md`
+- índice ADR, spec, build plan, decision log y documentación operativa afectada.
 
-### Movidos al archivo histórico
+No se crean módulos futuros vacíos.
 
-- `START_HERE.md` → `docs/research/archive/bootstrap/START_HERE.md`
-- `BOOTSTRAP_CODEX_PROMPT.md` → `docs/research/archive/bootstrap/BOOTSTRAP_CODEX_PROMPT.md`
+## Pruebas obligatorias
+
+- Tenant A no lee datos de B.
+- Tenant A no inserta `tenant_id` de B.
+- Tenant A no actualiza ni elimina datos de B.
+- Sin contexto se deniega por defecto.
+- Principal o membership inexistentes no obtienen acceso.
+- Principal inactivo no obtiene acceso al tenant.
+- UUID inválido en GUC no rompe la transacción ni habilita acceso.
+- `app.role` no influye en policies.
+- Las pruebas usan `praxa_app`, no el owner.
+- Ninguna policy aplica a `{public}`.
+- El pool reutiliza backend sin filtrar contexto.
+- Un control negativo demuestra el riesgo cuando falta la limpieza.
+- Bootstrap shell/Python puede ejecutarse dos veces.
+- Migraciones pasan upgrade/downgrade/upgrade y `alembic check` después del upgrade final.
+- IDs de Alembic caben en `version_num`.
+- No hay SQLite en integración o seguridad.
 
 ## Criterios de aceptación
 
-- `current.md` ya no presenta CB-001 como planificado.
-- El índice contiene ADR-001 a ADR-013 sin huecos ficticios.
-- ADR-002 y ADR-008 conservan su texto e historia.
-- Ninguna fuente activa excluye el agente controlado o la skill del MVP.
-- Ninguna fuente activa autoriza autonomía, multiagente o escrituras externas.
-- La spec diferencia política autoritativa de evidencia recuperada.
-- La spec diferencia payload y envelope del ContextPacket.
-- La spec no exige RRF global en v0.
-- Las referencias activas al Lean Canvas eliminado son cero.
-- README describe con precisión lo que ejecuta `make ci`.
-- CI usa actions críticas fijadas por SHA, permisos mínimos, credenciales no persistentes,
-  timeouts, lockfile y concurrency.
-- Un PR genera una sola ejecución de CI para su commit; el push a `main` genera la de integración.
-- `make ci` pasa desde un checkout limpio.
-- `git diff --check` pasa.
-- El diff contiene solo los archivos previstos o una desviación aprobada.
+1. Roles y grants cumplen mínimo privilegio.
+2. RLS aísla tenants y falla cerrado con el rol de aplicación.
+3. Configuración ausente o inválida falla antes de conectar y no imprime secretos.
+4. Las credenciales de app, migración y seed no se mezclan.
+5. `make ci-full` espera health, ejecuta bootstrap dos veces, prueba el ciclo completo de
+   migraciones, ejecuta `alembic check` y corre integración/seguridad.
+6. GitHub Actions invoca el mismo contrato sin duplicar PostgreSQL ni la receta.
+7. La limitación self-only de membership queda documentada con precisión.
+8. El gate por rol sobre recurso de negocio queda explícitamente pendiente para VS-02.
+9. La suite local disponible y CI del SHA exacto están verdes.
+10. El draft PR queda listo para auditoría independiente, sin merge.
 
 ## Verificación obligatoria
 
-Antes de editar:
-
 ```bash
-git status --short --branch
-git diff --stat
-git log -5 --oneline --decorate
-```
-
-Durante y después:
-
-```bash
-rg -n "lean-canvas-v6\.1" --glob '!docs/research/archive/**' .
-rg -n "skills ejecutables.*fuera|Skill.*solo visión futura|CB-001.*planificado" \
-  AGENTS.md README.md docs
+uv sync --locked --all-groups
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy .
+uv run pytest backend/tests/unit
+docker compose config
+make ci-full
 git diff --check
-make ci
-git status --short
-git diff --stat
 ```
 
-La salida real debe incluirse en el handoff. No escribir “pasa” sin haber ejecutado el comando.
+Si Docker no está disponible en el host de implementación, debe declararse la limitación y
+los mismos gates PostgreSQL deben ejecutarse en GitHub Actions sobre el SHA exacto. No se
+reemplazan con SQLite ni se declaran ejecutados localmente.
 
-## Riesgos
+## Condiciones de parada
 
-- Una enmienda demasiado amplia de la spec puede introducir nuevas contradicciones.
-- Archivar documentos puede romper enlaces no detectados.
-- Fijar actions por un SHA incorrecto puede romper CI.
-- El working tree local puede contener trabajo ajeno.
-- Cambiar scope sin actualizar todas las fuentes puede dejar dos MVP simultáneos.
+Detenerse ante:
 
-## Regla de edición
+- cambio no aprobado de arquitectura o contrato público;
+- dependencia productiva nueva;
+- migración destructiva;
+- bypass de RLS o autenticación basada sólo en GUC;
+- necesidad de implementar evidencia, inventario, retrieval, agente o UI;
+- imposibilidad de ejecutar un gate obligatorio tanto localmente como en CI.
 
-- Cambios focalizados.
-- No reescribir ADR aceptadas.
-- No agregar dependencias o servicios.
-- No tocar código funcional.
-- No convertir supuestos en hechos.
-- Detenerse ante cambios locales ajenos o contradicciones nuevas.
+## Definition of Done de la fase
 
-## Definition of Done
-
-R0 termina cuando:
-
-1. todos los criterios de aceptación tienen evidencia;
-2. `make ci` y `git diff --check` pasan;
-3. un revisor distinto inspecciona el diff;
-4. las observaciones bloqueantes se resuelven;
-5. las horas humanas reales quedan registradas;
-6. el cambio se fusiona solo con autorización humana;
-7. `current.md` queda en estado de handoff y no autoriza VS-01 automáticamente.
-
-## Punto de parada
-
-Después del reporte y revisión de R0:
+- Implementación y documentación alineadas.
+- Controles rápidos de rama, base, diff, untracked, secretos, guards y
+  `git diff --check` ejecutados antes del primer push.
+- Draft PR abierto contra `main`.
+- CI verde sobre el SHA candidato.
+- Auditoría independiente y segunda verificación ejecutadas sobre ese mismo SHA.
+- Hallazgos P0/P1 resueltos.
+- Merge únicamente con autorización humana explícita.
 
 ```text
-ESTADO: R0 COMPLETADO — VS-01 NO AUTORIZADO
-```
-
-No comenzar VS-01 hasta recibir una instrucción humana explícita.
-
----
-
-## Estado de la preparación local (2026-08-10)
-
-Esta sección registra el estado real de la ejecución, sin sustituir los criterios de arriba.
-
-La preparación local de R0 fue ejecutada en la rama `docs/r0-company-brain-alignment`, creada
-desde `origin/main` (`69e6139`). Los criterios verificables sin red están cumplidos.
-
-ADR-011, ADR-012 y ADR-013 fueron auditadas y aprobadas por revisión humana explícita, y quedan
-`Accepted` mediante este gate. La jerarquía normativa ya no es transitoriamente incoherente.
-
-`git diff --check` devuelve exit code 0, sin errores: los saltos de línea duros de Markdown que
-antes producían avisos de *trailing whitespace* fueron eliminados sin alterar el texto aprobado.
-
-**No** están cumplidos, y por lo tanto R0 **no está cerrado**:
-
-- `make ci` literal, porque Make no está instalado en el entorno de ejecución; se corrieron sus
-  targets equivalentes uno por uno, con exit code y duración registrados.
-- Validación desde un checkout limpio.
-- CI remoto en runner limpio y verificación de una sola corrida por commit de PR.
-- Registro definitivo de horas humanas.
-- Commit, push, Draft PR y merge.
-
-Sobre el segundo comando del bloque «Durante y después»: al ejecutarse sobre `docs`, ese `rg`
-también inspecciona este archivo y siempre devuelve al menos dos coincidencias propias —el texto
-del criterio y el texto del comando—. El resultado esperado es cero coincidencias **fuera** de
-`docs/plans/current.md` y fuera de `docs/research/archive/**`.
-
-Estado de la ejecución local:
-
-```text
-ESTADO: R0 CORREGIDO Y PREPARADO PARA COMMIT LOCAL — COMMIT, PUSH, PR Y VS-01 NO AUTORIZADOS
+ESTADO: VS-01 AUTORIZADA — VS-02 NO AUTORIZADA
 ```

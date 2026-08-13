@@ -46,7 +46,6 @@ Los agentes de código son **asistentes o revisores**, nunca propietarios.
 - No aprueban su propio trabajo ni sustituyen la revisión cruzada humana.
 - No deciden arquitectura, permisos, política activa, alcance ni el estado de una ADR.
 - Una ADR no queda aprobada porque un agente la haya escrito: la aprobación es humana.
-- Su tiempo de ejecución autónomo no cuenta como horas humanas. Sí cuentan la revisión, la corrección, el QA, la integración y las decisiones.
 
 Cuando un agente actúa como revisor independiente, su salida es un insumo para una persona, no un veredicto.
 
