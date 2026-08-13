@@ -81,7 +81,14 @@ def bootstrap() -> None:
         connection.execute(sql.SQL("REVOKE ALL ON DATABASE {} FROM PUBLIC").format(database))
         connection.execute(sql.SQL("GRANT CONNECT ON DATABASE {} TO {}, {}").format(database, owner, app))
 
-    print("Database roles and ownership are ready for the selected non-production environment.")
+    target_seed = seed.set(database=migration.database)
+    with psycopg.connect(_psycopg_dsn(target_seed), autocommit=True) as connection:
+        connection.execute("CREATE EXTENSION IF NOT EXISTS vector")
+
+    print(
+        "Database roles, ownership, and required extensions are ready for the selected "
+        "non-production environment."
+    )
 
 
 def main() -> int:

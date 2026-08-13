@@ -80,7 +80,9 @@ uv run python ../scripts/bootstrap_db.py
 uv run alembic upgrade head
 ```
 
-El bootstrap sólo admite `APP_ENV=development`, `test` o `ci`. La API, Alembic y bootstrap usan
+El bootstrap sólo admite `APP_ENV=development`, `test` o `ci`. También instala `vector` con la
+conexión privilegiada de bootstrap antes de que Alembic opere sin privilegios elevados. La API,
+Alembic y bootstrap usan
 credenciales separadas. Los tests de integración y seguridad requieren PostgreSQL real.
 
 ### Makefile (opcional)

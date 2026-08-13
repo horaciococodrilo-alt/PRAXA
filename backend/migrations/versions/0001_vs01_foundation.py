@@ -18,8 +18,6 @@ def _enable_rls(table: str) -> None:
 
 
 def upgrade() -> None:
-    op.execute("CREATE EXTENSION IF NOT EXISTS vector")
-
     op.create_table(
         "tenants",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
@@ -247,4 +245,3 @@ def downgrade() -> None:
         op.drop_table(table)
     op.execute("DROP FUNCTION praxa_current_principal_id()")
     op.execute("DROP FUNCTION praxa_current_tenant_id()")
-    op.execute("DROP EXTENSION IF EXISTS vector")
