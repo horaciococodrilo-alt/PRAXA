@@ -68,6 +68,21 @@ npm run dev
 
 `npm test` ejecuta la suite una sola vez y termina; no abre watch mode.
 
+### PostgreSQL y migraciones
+
+Copiar `.env.example` a `.env` para desarrollo local y mantener sincronizado el puerto de
+`POSTGRES_HOST_PORT` con las tres URLs. Luego:
+
+```bash
+docker compose up -d postgres
+cd backend
+uv run python ../scripts/bootstrap_db.py
+uv run alembic upgrade head
+```
+
+El bootstrap sólo admite `APP_ENV=development`, `test` o `ci`. La API, Alembic y bootstrap usan
+credenciales separadas. Los tests de integración y seguridad requieren PostgreSQL real.
+
 ### Makefile (opcional)
 
 Desde la raíz del repositorio:
@@ -80,14 +95,13 @@ make typecheck
 make test
 make build
 make ci
+make ci-full
 ```
 
 `make ci` encadena, para backend y frontend, instalación, lint, format check del backend, typecheck y tests; y además el **build del frontend**. No existe un build del backend: `make build` equivale hoy a `frontend-build`.
 
-### Todavía no disponible
-
-`docker compose up -d postgres` y `uv run alembic upgrade head` no aplican todavía. PostgreSQL, Docker Compose y las migraciones se incorporan en `VS-01`.
-
-`.env.example` está reservado para fases posteriores y no se utiliza todavía: el backend aún no lee configuración desde el entorno. Sus variables se irán incorporando a medida que las fases correspondientes las necesiten.
+`make ci-full` es el contrato canónico de VS-01: además levanta PostgreSQL, espera health,
+ejecuta bootstrap dos veces, prueba upgrade/downgrade/upgrade, corre `alembic check` y ejecuta las
+suites de integración y seguridad. No elimina el volumen automáticamente.
 
 No conectar datos reales antes de completar aislamiento por tenant, threat model, política de borrado y consentimiento.

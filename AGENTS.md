@@ -80,6 +80,7 @@ Approved stack:
 - Python 3.12+
 - FastAPI and Pydantic v2
 - SQLAlchemy 2 and Alembic
+- Synchronous SQLAlchemy sessions with `psycopg` (ADR-014)
 - PostgreSQL 16+ with pgvector, full-text search and RLS
 - PostgreSQL-backed jobs initially
 - React, TypeScript and Vite
@@ -125,10 +126,9 @@ Available today:
 - `npm test`
 - `npm run build`
 
-Introduced in `VS-01`, not available yet:
-
 - `docker compose up -d postgres`
 - `uv run alembic upgrade head`
+- `make ci-full`
 
 Do not claim success without running the relevant available commands.
 
