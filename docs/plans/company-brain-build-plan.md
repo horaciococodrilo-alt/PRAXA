@@ -2,7 +2,7 @@
 
 **Fuente técnica:** `docs/architecture/company-brain-spec.md`.
 
-**Decisiones aplicables:** ADR-011, ADR-012 y ADR-013.
+**Decisiones aplicables:** ADR-011, ADR-012, ADR-013 y ADR-014.
 
 **Regla:** este plan ordena la implementación, pero no puede modificar la especificación.
 
@@ -19,7 +19,7 @@ Regla rectora:
 | Fase | Resultado demostrable | Horas humanas |
 |---|---|---:|
 | R0 | Fuentes de verdad, ADR, roadmap y CI alineados | 10–16 |
-| VS-01 | PostgreSQL, extensiones, tenancy, membership, roles y RLS verificables | 20–30 |
+| VS-01 | PostgreSQL, extensiones, tenancy, membership, roles y RLS verificables | 30–44 † |
 | VS-02 | Fuentes y documentos se ingieren con evidencia, chunks, embeddings y ACL sin duplicar | 30–45 |
 | VS-03 | Variante, observaciones, política aprobada y detector determinístico funcionan | 28–42 |
 | VS-04 | Retrieval autorizado y Context Compiler producen un ContextPacket citado y reproducible | 35–50 |
@@ -28,6 +28,8 @@ Regla rectora:
 | VS-07 | El flujo completo pasa evaluación, hardening y demo reproducible | 25–35 |
 | **Subtotal** | | **201–298** |
 | **Con contingencia del 20%** | | **241–358** |
+
+† VS-01 se reestimó al planificar la fase. El subtotal, la contingencia y el calendario de abajo conservan los valores originales a propósito: la regla de este plan es recalibrar los agregados en el gate correspondiente con **horas reales**, no acumular reestimaciones previas a la ejecución. La diferencia queda visible en la fila y se incorporará al cerrar VS-01.
 
 Para planificación se usa un punto realista de **aproximadamente 300 horas humanas**, incluida contingencia.
 
@@ -89,19 +91,21 @@ No debe paralelizarse:
 
 **Objetivo:** demostrar aislamiento de datos desde la primera tabla y fijar la frontera de persistencia.
 
-**Dependencias:** R0 fusionado y VS-01 autorizado; ADR corta sobre SQLAlchemy sync o async aprobada antes de crear la sesión.
+**Dependencias:** R0 fusionado y VS-01 autorizado; ADR-014 aceptada antes de crear la sesión.
 
-**Entregables:** Docker Compose con PostgreSQL 16+; extensiones `vector` y `pg_trgm`; FTS nativo; SQLAlchemy 2 y Alembic; configuración tipada; roles SQL separados (owner/migración, y aplicación sin ownership ni `BYPASSRLS`); tablas mínimas `tenant`, `principal`, `tenant_membership` y roles; contexto transaccional derivado del usuario autenticado; `ENABLE`/`FORCE ROW LEVEL SECURITY`; esqueleto versionado de contratos de evidencia y ContextPacket; PostgreSQL como servicio en CI.
+**Entregables:** Docker Compose con PostgreSQL 16 y la imagen pgvector fijada por digest inmutable; extensión `vector`; SQLAlchemy 2 síncrono con `psycopg` 3 y Alembic; configuración tipada y separada por contexto, de modo que la aplicación reciba una sola credencial; roles SQL separados (owner/migración, y aplicación sin ownership ni `BYPASSRLS`); tablas mínimas `tenant`, `principal`, `tenant_membership` y catálogos de roles y permisos; contexto transaccional derivado del usuario autenticado, con protección contra fuga al reutilizar conexiones del pool; `ENABLE`/`FORCE ROW LEVEL SECURITY`; PostgreSQL como servicio en CI.
 
-**Migraciones:** extensiones; tenancy, principals, memberships y roles; funciones/contexto RLS y policies mínimas.
+**Migraciones:** verificación de extensiones; funciones de contexto de sesión; tenancy, principals, memberships y catálogos; policies RLS por tabla.
 
-**Pruebas:** tenant A no lee, inserta ni actualiza filas de B; sin tenant/principal se deniega por defecto; membership inexistente se deniega; rol restringido del mismo tenant no accede al recurso protegido de fixture; la suite afirma que usa el rol de aplicación, no el owner; migración desde base vacía.
+**Pruebas:** tenant A no lee filas de B; ninguna escritura de la aplicación es posible sobre ninguna tabla; sin tenant/principal se deniega por defecto en las tablas de negocio; membership inexistente se deniega; la suite afirma que usa el rol de aplicación, no el owner; el contexto no sobrevive a la reutilización de una conexión física del pool; migración desde base vacía.
 
 **Criterios de aceptación:** el rol de aplicación no es owner ni tiene `BYPASSRLS`; todas las pruebas de aislamiento pasan sobre PostgreSQL real; SQLite no sustituye pruebas de integración o seguridad; configuración ausente falla con error claro y sin imprimir secretos.
 
-**Exclusiones:** evidencia, ingesta, entidades, retrieval, agente, UI y cola.
+**Exclusiones:** evidencia, ingesta, entidades, retrieval, agente, UI y cola. Tampoco incluye `pg_trgm`, que se instala en la fase que introduzca matching difuso; el esqueleto versionado de contratos de evidencia y ContextPacket, que se define donde tenga consumidor, en VS-02 y VS-04; ni ninguna escritura desde el rol de aplicación.
 
-**Estimación:** 20–30 horas humanas.
+**Limitaciones conocidas que VS-01 deja abiertas:** el listado del padrón de un tenant no es posible, porque `tenant_membership` sólo expone la fila del propio principal; la autorización por rol dentro del tenant vive en la capa de servicio y llega con VS-05. Ambas son consecuencia de no derivar privilegio de una variable de sesión manipulable.
+
+**Estimación:** 30–44 horas humanas, con punto realista en 36. Recalibra la estimación original de 20–30, que no contemplaba la separación de configuración por contexto, la prueba de reutilización del pool con control negativo ni el inventario de postura de seguridad.
 
 ---
 
@@ -116,6 +120,8 @@ No debe paralelizarse:
 **Pruebas:** reimportar mismo objeto/hash no crea versión; mismo contenido en dos objetos conserva dos identidades; cambio real crea versión nueva; tombstone no reaparece; reconstrucción completa produce estado derivado equivalente; `normalize()` no usa red, DB, reloj ni aleatoriedad; cada chunk conserva un localizador válido; la ACL de evidencia se hereda al chunk; el rol de aplicación no actualiza ni elimina evidencia; fixtures sin datos reales.
 
 La prueba completa de que un chunk oculto no aparece por FTS/vector pertenece a VS-04. En VS-02 solo se prueba almacenamiento, RLS, ACL e índices.
+
+**Gate obligatorio heredado de VS-01:** un rol restringido del mismo tenant no accede al recurso protegido de fixture. El criterio se enunciaba en VS-01, pero allí no existe ningún recurso de negocio protegido por rol —no hay evidencia, entidades ni casos—, y satisfacerlo dentro de PostgreSQL habría exigido derivar privilegio de una variable de sesión manipulable o introducir una policy recursiva. VS-02 es la primera fase que crea ese recurso, con ACL de fuente y evidencia heredada al chunk, y por lo tanto la primera que puede probarlo de verdad. No se considera cumplido por pruebas de escritura de membership.
 
 **Exclusiones:** conectores reales, OAuth, webhooks, jobs, retrieval, agente y UI.
 

@@ -1,0 +1,41 @@
+# Praxa VS-01 — entorno local de base de datos.
+#
+# VS-01 no contenedoriza api, worker ni web: todavia no hay nada que levantar ahi.
+#
+# Requiere un .env local (ignorado por Git) con POSTGRES_PASSWORD, PRAXA_OWNER_PASSWORD y
+# PRAXA_APP_PASSWORD. La sintaxis ${VAR:?...} hace que `docker compose up` falle de inmediato
+# si falta alguna, en vez de arrancar con un valor por defecto silencioso.
+
+services:
+  postgres:
+    # Fijada por tag y por digest inmutable del indice OCI multi-arch.
+    # Un tag suelto permitiria que la base cambie sin que ningun cambio del repositorio lo registre.
+    # Verificar con: docker buildx imagetools inspect pgvector/pgvector:0.8.6-pg16
+    image: pgvector/pgvector:0.8.6-pg16@sha256:a36250871de0833b8757561c72f2477ef1ddd1101afa4e617fb552e0de514c6b
+    container_name: praxa-postgres
+    environment:
+      POSTGRES_DB: praxa
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD en .env}
+      PRAXA_OWNER_PASSWORD: ${PRAXA_OWNER_PASSWORD:?falta PRAXA_OWNER_PASSWORD en .env}
+      PRAXA_APP_PASSWORD: ${PRAXA_APP_PASSWORD:?falta PRAXA_APP_PASSWORD en .env}
+    ports:
+      # Ligado a loopback: la base no se expone a la red local.
+      # El puerto del host es configurable porque una maquina puede tener ya un PostgreSQL
+      # propio en 5432. El default es el convencional; se sobrescribe en el .env local.
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - praxa_pgdata:/var/lib/postgresql/data
+      # Solo el .sh va a initdb. bootstrap.sql se monta aparte para que el entrypoint
+      # no lo ejecute ademas de la invocacion explicita del script.
+      - ./infra/docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
+      - ./infra/db:/opt/praxa/db:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d praxa"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+volumes:
+  praxa_pgdata:

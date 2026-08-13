@@ -15,12 +15,24 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  backend:
+  # Un unico job que invoca una sola vez el contrato canonico.
+  #
+  # El workflow solo prepara el entorno: checkout, uv/Python y Node. No levanta PostgreSQL por
+  # su cuenta, no corre bootstrap ni migraciones aparte y no ejecuta ninguna suite fuera de
+  # `make ci-full`. Si el contrato cambia, cambia en el Makefile y CI lo hereda sin editarse.
+  ci:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: backend
+    timeout-minutes: 30
+    env:
+      # Credenciales sinteticas del PostgreSQL efimero del runner. Viven y mueren con el job.
+      POSTGRES_PASSWORD: ci-superuser
+      PRAXA_OWNER_PASSWORD: ci-owner
+      PRAXA_APP_PASSWORD: ci-app
+      POSTGRES_HOST_PORT: "5432"
+      # Tres credenciales, una por contexto, igual que en desarrollo.
+      DATABASE_URL: postgresql+psycopg://praxa_app:ci-app@127.0.0.1:5432/praxa
+      MIGRATION_DATABASE_URL: postgresql+psycopg://praxa_owner:ci-owner@127.0.0.1:5432/praxa
+      SEED_DATABASE_URL: postgresql+psycopg://postgres:ci-superuser@127.0.0.1:5432/praxa
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -29,30 +41,9 @@ jobs:
         with:
           version: "0.11.17"
           python-version: "3.12"
-      - run: uv sync --locked --all-groups
-      - run: uv run python --version
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run mypy .
-      - run: uv run pytest
-
-  frontend:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
+      - run: make ci-full

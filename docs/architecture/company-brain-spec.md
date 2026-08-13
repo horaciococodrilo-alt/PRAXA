@@ -535,7 +535,7 @@ Para desarrollo y demo se permiten cuatro procesos lógicos:
 1. `api`: FastAPI y endpoints REST.
 2. `worker`: trabajos de sync, parsing, embeddings, extracción y coverage.
 3. `web`: React/Vite.
-4. `postgres`: PostgreSQL con extensiones `vector`, `pg_trgm` y `uuid-ossp` o generación UUID en aplicación.
+4. `postgres`: PostgreSQL con la extensión `vector` y generación de UUID en aplicación. `pg_trgm` se instala en la fase que introduzca matching difuso de texto, no antes; VS-01 no lo requiere.
 
 El object store v0 puede ser:
 
@@ -550,14 +550,14 @@ La interfaz `BlobStore` debe ocultar la implementación. No guardar binarios gra
 |---|---|---|
 | Lenguaje backend | Python 3.12+ | Usar typing estricto y `pyproject.toml` |
 | API | FastAPI + Pydantic v2 | OpenAPI generado desde contratos |
-| ORM/migraciones | SQLAlchemy 2 + Alembic | Sesiones y transacciones explícitas |
+| ORM/migraciones | SQLAlchemy 2 síncrono + `psycopg` 3 + Alembic | Sesiones y transacciones explícitas (ADR-014) |
 | Base | PostgreSQL 16+ | Fuente de verdad del Brain |
 | Vector | pgvector | Sin vector DB dedicada |
-| FTS | PostgreSQL `tsvector` + `pg_trgm` | Exactitud, IDs, nombres y texto |
+| FTS | PostgreSQL `tsvector`; `pg_trgm` cuando se introduzca matching difuso | Exactitud, IDs, nombres y texto |
 | Jobs | Tabla PostgreSQL + `FOR UPDATE SKIP LOCKED` | Sin Redis en v0 |
 | Frontend | React + TypeScript + Vite | UI mínima, accesible y tipada |
 | Estilos | Tailwind o CSS Modules | Elegir uno, no ambos sin necesidad |
-| Tests backend | pytest, pytest-asyncio, Hypothesis, Testcontainers | Separar unit/integration/security |
+| Tests backend | pytest, Hypothesis; PostgreSQL real por Docker Compose en local y por `services:` en CI | Separar unit/integration/security |
 | Tests frontend | Vitest + Testing Library; Playwright E2E | Flujos críticos |
 | Observabilidad | OpenTelemetry + logs JSON | Langfuse opcional para llamadas LLM |
 | Contenedores | Docker Compose | Un comando para levantar entorno |
@@ -582,8 +582,9 @@ No fijar versiones patch en este documento. El repositorio debe usar rangos comp
 | ADR-011 | Corte vertical de inventario con agente y skill controlados | Demuestra la hipótesis sin construir una plataforma horizontal | El vertical cumpla su definición de terminado |
 | ADR-012 | Append-only operacional, identidad de origen, retención y borrado | Idempotencia por objeto y borrado gobernado sin retención eterna | Se incorporen datos reales |
 | ADR-013 | Retrieval segmentado autorizado y autoridad determinística de políticas | La autoridad no puede depender de similitud | Un dataset demuestre que la fusión mejora sin romper seguridad |
+| ADR-014 | Sesiones síncronas de SQLAlchemy con `psycopg` 3 | La disciplina de contexto transaccional de RLS es verificable por inspección en código síncrono | Una medición demuestre bloqueo por I/O contra un SLO interno |
 
-ADR-011 a ADR-013 están `Accepted`.
+ADR-011 a ADR-014 están `Accepted`.
 
 ---
 
@@ -2568,7 +2569,8 @@ Variables mínimas:
 
 ```text
 APP_ENV=development
-DATABASE_URL=postgresql+asyncpg://...
+DATABASE_URL=postgresql+psycopg://...          # rol de aplicación, sólo lectura en VS-01
+MIGRATION_DATABASE_URL=postgresql+psycopg://.. # rol owner/migración; ausente del proceso de API
 BLOB_STORE_BACKEND=local
 BLOB_STORE_PATH=/data/evidence
 JWT_ISSUER=praxa-local
@@ -2653,7 +2655,7 @@ El plan de v0 es un único camino crítico vertical: R0 seguido de VS-01 a VS-07
 | Fase | Resultado demostrable | Horas humanas |
 |---|---|---:|
 | R0 | Fuentes de verdad, ADR, roadmap y CI alineados | 10–16 |
-| VS-01 | PostgreSQL, extensiones, tenancy, membership, roles y RLS verificables | 20–30 |
+| VS-01 | PostgreSQL, extensiones, tenancy, membership, roles y RLS verificables | 30–44 † |
 | VS-02 | Fuentes y documentos se ingieren con evidencia, chunks, embeddings y ACL sin duplicar | 30–45 |
 | VS-03 | Variante, observaciones, política aprobada y detector determinístico funcionan | 28–42 |
 | VS-04 | Retrieval autorizado y Context Compiler producen un ContextPacket citado y reproducible | 35–50 |
@@ -2662,6 +2664,8 @@ El plan de v0 es un único camino crítico vertical: R0 seguido de VS-01 a VS-07
 | VS-07 | El flujo completo pasa evaluación, hardening y demo reproducible | 25–35 |
 | **Subtotal** | | **201–298** |
 | **Con contingencia del 20%** | | **241–358** |
+
+† VS-01 se reestimó al planificar la fase. El subtotal y la contingencia conservan a propósito los valores originales: los agregados se recalibran en el gate correspondiente con horas reales, no con reestimaciones previas a la ejecución.
 
 Para planificación se usa un punto realista de aproximadamente 300 horas humanas, incluida contingencia. Las estimaciones no son compromisos: se recalibran al terminar R0, VS-02, VS-04 y VS-05 con horas humanas reales.
 
@@ -2836,8 +2840,8 @@ Estas se resuelven en el gate de la fase indicada, y no justifican detener la al
 
 | Decisión | Gate |
 |---|---|
-| SQLAlchemy sync o async | Antes de VS-01 |
-| Imagen y versión de PostgreSQL + pgvector | Antes de VS-01 |
+| ~~SQLAlchemy sync o async~~ | Resuelta en ADR-014: síncrono con `psycopg` 3 |
+| ~~Imagen y versión de PostgreSQL + pgvector~~ | Resuelta en VS-01: `pgvector/pgvector:0.8.6-pg16` fijada por digest |
 | Storage local content-addressed vs MinIO en demo | Antes de VS-02 |
 | Proveedor y dimensión de embeddings; debe existir fake local | Antes de VS-02 |
 | Proveedor de auth de demo | Antes de VS-05 |
