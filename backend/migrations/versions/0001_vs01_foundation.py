@@ -233,6 +233,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute("DROP POLICY principals_self_active_member_select ON principals")
+    op.execute("DROP POLICY tenants_active_member_select ON tenants")
+
     for table in (
         "role_permissions",
         "membership_roles",
