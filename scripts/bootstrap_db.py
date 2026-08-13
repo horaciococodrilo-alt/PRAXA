@@ -38,15 +38,20 @@ def _ensure_login_role(connection: psycopg.Connection[tuple[object, ...]], url: 
     assert url.password is not None
     exists = connection.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (url.username,)).fetchone()
     role = sql.Identifier(url.username)
+    password = sql.Literal(url.password)
     if exists is None:
         connection.execute(
-            sql.SQL("CREATE ROLE {} LOGIN PASSWORD %s NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS").format(role),
-            (url.password,),
+            sql.SQL(
+                "CREATE ROLE {} LOGIN PASSWORD {} "
+                "NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS"
+            ).format(role, password)
         )
     else:
         connection.execute(
-            sql.SQL("ALTER ROLE {} WITH LOGIN PASSWORD %s NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS").format(role),
-            (url.password,),
+            sql.SQL(
+                "ALTER ROLE {} WITH LOGIN PASSWORD {} "
+                "NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS"
+            ).format(role, password)
         )
 
 
@@ -85,8 +90,13 @@ def main() -> int:
     except BootstrapConfigurationError as exc:
         print(f"bootstrap configuration error: {exc}", file=sys.stderr)
         return 2
-    except psycopg.Error:
-        print("bootstrap database operation failed; credentials were not displayed", file=sys.stderr)
+    except psycopg.Error as exc:
+        sqlstate = exc.sqlstate or "unknown"
+        print(
+            f"bootstrap database operation failed (SQLSTATE {sqlstate}); "
+            "credentials were not displayed",
+            file=sys.stderr,
+        )
         return 1
     return 0
 
