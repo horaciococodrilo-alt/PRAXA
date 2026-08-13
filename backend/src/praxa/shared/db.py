@@ -4,6 +4,7 @@ from uuid import UUID
 
 import psycopg
 from sqlalchemy import Engine, create_engine, event, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
 
@@ -17,7 +18,12 @@ def _reset_connection(
 
 
 def build_engine(database_url: str, *, reset_on_checkin: bool = True) -> Engine:
-    engine = create_engine(database_url, pool_pre_ping=True)
+    url = make_url(database_url)
+    if url.drivername == "postgresql":
+        url = url.set(drivername="postgresql+psycopg")
+    elif url.drivername != "postgresql+psycopg":
+        raise ValueError("database URL must select the synchronous psycopg driver")
+    engine = create_engine(url, pool_pre_ping=True)
     if reset_on_checkin:
         event.listen(engine.pool, "checkin", _reset_connection)
     return engine
