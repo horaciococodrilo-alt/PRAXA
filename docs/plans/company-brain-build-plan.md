@@ -16,33 +16,16 @@ Regla rectora:
 
 ## Fases
 
-| Fase | Resultado demostrable | Horas humanas |
+| Fase | Resultado demostrable | |
 |---|---|---:|
-| R0 | Fuentes de verdad, ADR, roadmap y CI alineados | 10–16 |
-| VS-01 | PostgreSQL, extensiones, tenancy, membership, roles y RLS verificables | 20–30 |
-| VS-02 | Fuentes y documentos se ingieren con evidencia, chunks, embeddings y ACL sin duplicar | 30–45 |
-| VS-03 | Variante, observaciones, política aprobada y detector determinístico funcionan | 28–42 |
-| VS-04 | Retrieval autorizado y Context Compiler producen un ContextPacket citado y reproducible | 35–50 |
-| VS-05 | API, agente y skill investigan y registran una propuesta sin ejecutar | 28–42 |
-| VS-06 | Una persona revisa el expediente y deja una decisión auditada | 25–38 |
-| VS-07 | El flujo completo pasa evaluación, hardening y demo reproducible | 25–35 |
-| **Subtotal** | | **201–298** |
-| **Con contingencia del 20%** | | **241–358** |
-
-Para planificación se usa un punto realista de **aproximadamente 300 horas humanas**, incluida contingencia.
-
-### Calendario por disponibilidad
-
-| Disponibilidad | Optimista (241 h) | Realista (300 h) | Pesimista (358 h) | Veredicto |
-|---:|---:|---:|---:|---|
-| 8 h/semana | 30,1 semanas | 37,5 semanas | 44,8 semanas | No entra en seis meses |
-| 10 h/semana | 24,1 semanas | 30 semanas | 35,8 semanas | Solo entra en el extremo optimista |
-| 20 h/semana | 12,1 semanas | 15 semanas | 17,9 semanas | Entra con margen razonable |
-| 30 h/semana | 8,0 semanas | 10 semanas | 11,9 semanas | Entra, sujeto a revisión y disponibilidad sostenida |
-
-> Con 8–10 horas semanales, el alcance completo no debe prometerse como entrega de 24 semanas. Para sostener seis meses se necesitan unas 13 horas semanales en el escenario realista, o un recorte explícito posterior basado en evidencia.
-
-Las estimaciones no son compromisos. Se recalibran al terminar R0, VS-02, VS-04 y VS-05 usando horas humanas reales. El tiempo autónomo de un agente no cuenta como hora humana; revisión, corrección, QA, integración y decisiones sí.
+| R0 | Fuentes de verdad, ADR, roadmap y CI alineados | 
+| VS-01 | PostgreSQL, extensiones, tenancy, membership, roles y RLS verificables | 
+| VS-02 | Fuentes y documentos se ingieren con evidencia, chunks, embeddings y ACL sin duplicar | 
+| VS-03 | Variante, observaciones, política aprobada y detector determinístico funcionan |
+| VS-04 | Retrieval autorizado y Context Compiler producen un ContextPacket citado y reproducible | 
+| VS-05 | API, agente y skill investigan y registran una propuesta sin ejecutar | 
+| VS-06 | Una persona revisa el expediente y deja una decisión auditada | 
+| VS-07 | El flujo completo pasa evaluación, hardening y demo reproducible | 
 
 ## Camino crítico y paralelización
 
