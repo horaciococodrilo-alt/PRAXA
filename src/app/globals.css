@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7f8fa;
+  --surface: #ffffff;
+  --surface-muted: #f1f3f6;
+  --foreground: #14181f;
+  --muted: #5b6472;
+  --border: #dfe3ea;
+  --accent: #10574f;
+  --accent-strong: #0b3f39;
+  --accent-soft: #e6f2f0;
+  --warning-soft: #fdf5e6;
+  --warning-border: #e8d5a8;
+  --warning-text: #6b4e12;
+  --danger: #b3261e;
+  --danger-soft: #fdecea;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-border: var(--warning-border);
+  --color-warning-text: var(--warning-text);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0d1116;
+    --surface: #151b22;
+    --surface-muted: #1c242d;
+    --foreground: #e8ecf1;
+    --muted: #97a3b2;
+    --border: #2a333e;
+    --accent: #4bbfae;
+    --accent-strong: #6fd4c4;
+    --accent-soft: #14312d;
+    --warning-soft: #2c2415;
+    --warning-border: #4d4126;
+    --warning-text: #e3c98a;
+    --danger: #f0837a;
+    --danger-soft: #33191a;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Foco visible y consistente en toda la aplicación. */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

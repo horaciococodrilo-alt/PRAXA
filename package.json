@@ -1,0 +1,44 @@
+{
+  "name": "praxa",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --project unit",
+    "test:app": "vitest run --project app",
+    "test:policies": "node scripts/run-pgtap.mjs",
+    "env:prepare": "node scripts/prepare-env.mjs",
+    "db:check": "node scripts/check-target.mjs",
+    "db:check:test": "node scripts/check-target.mjs test",
+    "db:preview": "node scripts/db-push.mjs --dry-run",
+    "db:push": "node scripts/db-push.mjs",
+    "db:push:test": "node scripts/db-push.mjs --test",
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run build"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.116.0",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "^4.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^24.13.4",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "dotenv": "^17.4.2",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.4",
+    "pg": "^8.23.0",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^5.0.0"
+  }
+}
