@@ -104,10 +104,10 @@ export function Callout({
   } as const;
 
   return (
-    <div className={cn('rounded-lg border px-4 py-3 text-sm', tones[tone])} role="status">
-      {title ? <p className="mb-1 font-medium">{title}</p> : null}
-      <div className="[&_p+p]:mt-2">{children}</div>
-    </div>
+    <div
+      className={cn('rounded-lg border px-4 py-3 text-sm', tones[tone])}
+      role={tone === 'danger' ? 'alert' : 'status'}
+    >
   );
 }
 
