@@ -106,8 +106,13 @@ export function Callout({
   return (
     <div
       className={cn('rounded-lg border px-4 py-3 text-sm', tones[tone])}
+      // `alert` interrumpe al lector de pantalla; `status` espera una pausa. Un error de
+      // formulario tiene que anunciarse enseguida, un aviso informativo no.
       role={tone === 'danger' ? 'alert' : 'status'}
     >
+      {title ? <p className="mb-1 font-medium">{title}</p> : null}
+      <div className="[&_p+p]:mt-2">{children}</div>
+    </div>
   );
 }
 
