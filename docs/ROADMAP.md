@@ -7,7 +7,7 @@ Estados reales, sin optimismo:
 - **Pendiente** — no existe.
 - **Sin verificar** — está escrito y no se ejecutó todavía; dice qué falta para hacerlo.
 
-Última actualización: 2026-09-10 (segunda revisión externa aplicada).
+Última actualización: 2026-09-10 (tercera revisión externa aplicada).
 
 ---
 
@@ -28,8 +28,8 @@ Estados reales, sin optimismo:
 | `proxy.ts` (Next 16) para refresco y redirección | **Implementado** |
 | Alta de empresa idempotente | **Verificado** — pgTAP y, vía API con sesiones reales, reintento y 5 llamadas concurrentes |
 | Guarda de credenciales privilegiadas | **Verificado** — `npm test` |
-| Pruebas pgTAP de RLS y privilegios (6 archivos, 129 aserciones) | **Verificado** — 129/129 contra PostgreSQL del proyecto **desechable**, sin contenedores |
-| Pruebas de aislamiento y onboarding vía Supabase JS | **Verificado** — 17/17 contra el proyecto desechable; la corrida no dejó residuos |
+| Pruebas pgTAP de RLS y privilegios (7 archivos, 145 aserciones) | **Verificado** — 145/145 contra PostgreSQL del proyecto **desechable**, sin contenedores |
+| Pruebas de aislamiento, onboarding y concurrencia vía Supabase JS | **Verificado** — 23/23 contra el proyecto desechable; la corrida no dejó residuos |
 
 ## Fase 2 — Landing, registro y setup
 
@@ -49,7 +49,8 @@ Estados reales, sin optimismo:
 | Contrato del reporte, versionado y validado | **Verificado** — 23 pruebas en `npm test` |
 | Integridad de la activación y vías de escritura (migraciones 0006–0009) | **Verificado** — `06_activation_integrity.test.sql`, 18 aserciones |
 | Coordinación de edición y activación entre transacciones | **Verificado** — `tests/app/concurrency.test.ts`, 5 pruebas con dos conexiones y barreras |
-| Cambios sin guardar, por paso | **Verificado** — `tests/component/onboarding-wizard.test.tsx`, 7 pruebas de comportamiento en jsdom |
+| Cambios sin guardar, por paso | **Verificado** — `tests/component/onboarding-wizard.test.tsx`, 9 pruebas de comportamiento en jsdom |
+| Confirmar exactamente la revisión vista (migraciones 0010–0011) | **Verificado** — `07_context_revision.test.sql` (16 aserciones), pruebas de concurrencia y recorrido de dos pestañas en navegador |
 
 **Dos capas verificadas, una pendiente.** Las reglas están probadas en PostgreSQL
 (`npm run test:policies`, 111/111) y a través de la API con sesiones de usuarios reales
@@ -100,6 +101,15 @@ Hecho también: proyecto desechable creado y migrado, y `npm run test:app` en ve
 | `start_context_draft()` perdió el privilegio de clonar y habría roto "editar contexto" | La copia se delega en una función privada que revalida la pertenencia (`0009`) |
 | `Promise.allSettled` + `fulfilled` no probaba éxito; encontrar una versión activa no probaba que fuera la del borrador | Las pruebas inspeccionan el campo `error`, verifican identidad y número de versión, y coordinan dos transacciones con barreras |
 | pgTAP corría contra el proyecto de la aplicación, que tiene datos reales | `npm run test:policies` apunta al proyecto desechable |
+
+**Tercera revisión externa aplicada** (migraciones `0010`–`0011`):
+
+| Hallazgo | Corrección |
+|---|---|
+| El aviso de cambio externo no bloqueaba la confirmación, y `confirmContext()` activaba "lo que hubiera" sin saber qué se revisó | La confirmación recibe identificador y revisión; la base las comprueba dentro de la transacción que activa, con el cerrojo tomado |
+| `draftSignature` dependía de `updated_at`, que no cambia al escribir objetivos o sistemas | La revisión resume la fila y sus dos listas. Comprobado en vivo: cambiar solo sistemas dejó `updated_at` igual y movió la revisión |
+| `run-pgtap.mjs` seguía usando `requireTarget('app')` y `SUPABASE_DB_URL` | Usa solo `SUPABASE_TEST_DB_URL`, valida el destino y rechaza el proyecto de la aplicación. Sin respaldo silencioso |
+| La prueba de inmutabilidad encadenaba intentos en una transacción, así que del segundo en adelante fallaban por `25P02` | Cada intento en su propia transacción, con el código de error verificado; `25P02` nunca cuenta como protección |
 
 Queda una sola cosa:
 

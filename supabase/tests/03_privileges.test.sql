@@ -146,7 +146,7 @@ select ok(
   'anon NO puede ejecutar start_context_draft'
 );
 select ok(
-  not has_function_privilege('anon', 'public.activate_context_draft(uuid)', 'EXECUTE'),
+  not has_function_privilege('anon', 'public.activate_context_draft(uuid, text)', 'EXECUTE'),
   'anon NO puede ejecutar activate_context_draft'
 );
 select ok(
@@ -189,9 +189,9 @@ select is(
     where n.nspname = 'public'
       and p.proname in ('create_company_for_current_user', 'start_context_draft',
                         'activate_context_draft', 'replace_draft_objectives',
-                        'replace_draft_systems')),
-  5,
-  'Las cinco RPC del producto existen en public'
+                        'replace_draft_systems', 'context_revision')),
+  6,
+  'Las seis RPC del producto existen en public'
 );
 
 select is(
@@ -202,7 +202,7 @@ select is(
       and p.prosecdef
       and p.proname in ('create_company_for_current_user', 'start_context_draft',
                         'activate_context_draft', 'replace_draft_objectives',
-                        'replace_draft_systems')),
+                        'replace_draft_systems', 'context_revision')),
   0,
   'Ninguna RPC expuesta en public es SECURITY DEFINER'
 );

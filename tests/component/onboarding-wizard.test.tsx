@@ -45,7 +45,8 @@ function initialState(): OnboardingInitialState {
     companyName: 'Mi Tienda',
     hasDraft: true,
     hasActive: false,
-    draftSignature: 'draft-1:2026-09-10T00:00:00Z',
+    draftId: '11111111-1111-4111-8111-111111111111',
+    draftSignature: 'rev-inicial',
     context: {
       hasDefinedObjective: true,
       problems: [],
@@ -222,6 +223,12 @@ describe('cambios sin guardar por paso', () => {
 
     await user.click(confirmButton());
     await waitFor(() => expect(confirmContext).toHaveBeenCalledTimes(1));
+
+    // Se confirma QUÉ borrador y con QUÉ revisión, no "lo que haya".
+    expect(confirmContext).toHaveBeenCalledWith({
+      versionId: '11111111-1111-4111-8111-111111111111',
+      expectedRevision: 'rev-inicial',
+    });
   });
 
   it('la revisión muestra el contenido guardado, no el editado sin guardar', async () => {
@@ -264,12 +271,31 @@ describe('cambios del servidor durante la edición', () => {
     // El servidor responde con el borrador ya creado.
     const conBorrador = initialState();
     conBorrador.companyName = 'Tienda Nueva';
-    conBorrador.draftSignature = 'draft-1:2026-09-10T12:00:00Z';
+    conBorrador.draftSignature = 'rev-tras-nuestro-guardado';
     rerender(<OnboardingWizard initial={conBorrador} />);
 
     expect(
       screen.queryByText(/el borrador cambió fuera de esta pestaña/i),
     ).not.toBeInTheDocument();
+  });
+
+  it('bloquea la confirmación cuando el borrador cambió en otra pestaña', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<OnboardingWizard initial={initialState()} />);
+
+    await goToStep(user, '5. Revisión');
+    expect(confirmButton()).toBeEnabled();
+
+    // Otra pestaña guardó algo: la revisión del servidor ya no es la que se revisó.
+    const cambiado = initialState();
+    cambiado.draftSignature = 'rev-de-la-otra-pestania';
+    rerender(<OnboardingWizard initial={cambiado} />);
+
+    expect(confirmButton()).toBeDisabled();
+    expect(
+      screen.getByText(/el contenido guardado cambió desde que abriste esta pantalla/i),
+    ).toBeInTheDocument();
+    expect(confirmContext).not.toHaveBeenCalled();
   });
 
   it('avisa si el borrador cambió en otra pestaña, sin pisar lo local', async () => {
@@ -283,7 +309,7 @@ describe('cambios del servidor durante la edición', () => {
 
     // El Server Component se re-renderiza con un borrador distinto.
     const cambiado = initialState();
-    cambiado.draftSignature = 'draft-1:2026-09-10T11:00:00Z';
+    cambiado.draftSignature = 'rev-cambiada-en-otra-pestania';
     rerender(<OnboardingWizard initial={cambiado} />);
 
     expect(screen.getByText(/el borrador cambió fuera de esta pestaña/i)).toBeInTheDocument();

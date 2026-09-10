@@ -74,6 +74,36 @@ El privilegio de escritura vive en funciones `SECURITY DEFINER` dentro de `priva
 no está expuesto por la Data API y que vuelve a verificar la pertenencia con `auth.uid()`
 —el usuario final sigue siendo el mismo aunque cambie el rol de ejecución—.
 
+## Confirmar exactamente lo que se revisó
+
+Activar un contexto exige, además del identificador del borrador, la **revisión** que el
+usuario tenía a la vista. La revisión es un resumen de todo el contexto —la fila y sus dos
+listas—, así que cambiar solo objetivos o solo sistemas la invalida. `updated_at` no
+servía: las escrituras en las tablas hijas no tocan la fila de contexto.
+
+La comprobación ocurre **dentro de la misma transacción que activa**, después de tomar el
+cerrojo de la empresa y justo antes del UPDATE. No hay ventana entre comprobar y activar:
+cualquier escritura concurrente tuvo que soltar el cerrojo antes, y su efecto ya está en
+la revisión que se recalcula ahí.
+
+La revisión se calcula, no se guarda: una columna habría que mantenerla sincronizada con
+triggers en tres tablas, y cualquier camino que se olvidara de tocarla dejaría pasar un
+conflicto en silencio.
+
+Dos cosas que la revisión **no** hace:
+
+- **No autoriza.** El identificador viene del navegador; la pertenencia la resuelve RLS a
+  partir de la sesión. Un usuario con el id y la revisión correctos de otra empresa
+  sigue recibiendo "inexistente o ajena".
+- **No se exige en el reintento.** Activar cambia la revisión, así que un reintento
+  legítimo traería la anterior. Si la versión ya está activa se devuelve tal cual, que es
+  lo que conserva la idempotencia.
+
+El conflicto se señala con `PT409` (409 Conflict), no con un código de la clase 40. Esa
+clase significa "transitorio, reintentá" y PostgREST la reintenta automáticamente: con un
+conflicto de revisión eso produce un bucle que termina en `upstream request timeout`, en
+lugar de un error que el usuario pueda entender.
+
 ## Autorización en el servidor
 
 **El proxy no es la autorización final.** `proxy.ts` refresca la sesión y redirige, nada

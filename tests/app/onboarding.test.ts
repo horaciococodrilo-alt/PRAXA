@@ -127,8 +127,12 @@ describe.skipIf(!canRun)('persistencia y reanudación del onboarding (proyecto r
       .single<{ id: string }>();
 
     // has_defined_objective = true pero sin ningún objetivo cargado.
+    const { data: revision } = await user.client.rpc('context_revision', {
+      p_version_id: draft!.id,
+    });
     const { error } = await user.client.rpc('activate_context_draft', {
       p_version_id: draft!.id,
+      p_expected_revision: revision,
     });
 
     expect(error).not.toBeNull();
@@ -144,8 +148,14 @@ describe.skipIf(!canRun)('persistencia y reanudación del onboarding (proyecto r
       p_objectives: [{ kind: 'primary', title: 'Aumentar la conversión', position: 0 }],
     });
 
+    const { data: revision } = await user.client.rpc('context_revision', {
+      p_version_id: draft!.id,
+    });
     const { data: activated, error } = await user.client
-      .rpc('activate_context_draft', { p_version_id: draft!.id })
+      .rpc('activate_context_draft', {
+        p_version_id: draft!.id,
+        p_expected_revision: revision,
+      })
       .single<{ id: string; status: string; version: number }>();
 
     expect(error).toBeNull();
@@ -189,10 +199,20 @@ describe.skipIf(!canRun)('persistencia y reanudación del onboarding (proyecto r
       .rpc('start_context_draft', { p_context_schema_version: '1.0.0' })
       .single<{ id: string }>();
 
-    // Dos pestañas confirmando a la vez.
+    const { data: revision } = await user.client.rpc('context_revision', {
+      p_version_id: draft!.id,
+    });
+
+    // Dos pestañas confirmando a la vez, con la MISMA revisión: ninguna es tardía.
     const results = await Promise.all([
-      user.client.rpc('activate_context_draft', { p_version_id: draft!.id }),
-      user.client.rpc('activate_context_draft', { p_version_id: draft!.id }),
+      user.client.rpc('activate_context_draft', {
+        p_version_id: draft!.id,
+        p_expected_revision: revision,
+      }),
+      user.client.rpc('activate_context_draft', {
+        p_version_id: draft!.id,
+        p_expected_revision: revision,
+      }),
     ]);
 
     // Supabase resuelve la promesa aunque haya error: hay que mirar el campo `error`,
@@ -219,4 +239,11 @@ describe.skipIf(!canRun)('persistencia y reanudación del onboarding (proyecto r
     expect(drafts).toEqual([]);
   });
 
+});
+
+describe.skipIf(canRun)('onboarding', () => {
+  it('NO EJECUTADA: falta el proyecto remoto de pruebas', () => {
+    console.warn(`[praxa] pruebas de onboarding omitidas: ${skipReason}`);
+    expect(canRun).toBe(false);
+  });
 });

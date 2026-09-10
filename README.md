@@ -261,12 +261,15 @@ Abrir el enlace del correo es lo único que la suite no puede cubrir:
 4. **Guardar fuera de orden** — editá un objetivo sin guardarlo, saltá a Sistemas, guardá
    ese paso y andá a Revisión: tiene que seguir avisando que Objetivos está pendiente y el
    botón de confirmar tiene que estar bloqueado.
-5. **Objetivo sin definir** — marcá "todavía no tengo un objetivo definido" y confirmá.
-6. **Aplicación** — `/app`: Inicio, Objetivos y contexto, Integraciones, Reportes. Las dos
+5. **Dos pestañas** — abrí el mismo borrador en dos pestañas, guardá algo en una (alcanza
+   con marcar un sistema) y confirmá desde la otra: tiene que rechazarlo diciendo que el
+   borrador cambió, sin activar nada.
+6. **Objetivo sin definir** — marcá "todavía no tengo un objetivo definido" y confirmá.
+7. **Aplicación** — `/app`: Inicio, Objetivos y contexto, Integraciones, Reportes. Las dos
    últimas deben decir que no están implementadas.
-7. **Edición** — `/app/contexto` → "Editar contexto" clona la versión vigente; la vigente
+8. **Edición** — `/app/contexto` → "Editar contexto" clona la versión vigente; la vigente
    no cambia hasta confirmar.
-8. **Logout y recuperación** — cerrá sesión y probá `/forgot-password`.
+9. **Logout y recuperación** — cerrá sesión y probá `/forgot-password`.
 
 ### Borrar los datos de prueba
 

@@ -67,7 +67,9 @@ select lives_ok(
 -- ...pero no se puede ACTIVAR.
 select throws_ok(
   $$select public.activate_context_draft(
-      (select id from public.company_context_versions where status = 'draft'))$$,
+      (select id from public.company_context_versions where status = 'draft'),
+      public.context_revision(
+        (select id from public.company_context_versions where status = 'draft')))$$,
   '23514',
   null,
   'Activar con objetivo declarado y cero objetivos: rechazado'
@@ -85,7 +87,9 @@ select public.replace_draft_objectives(
 
 select throws_ok(
   $$select public.activate_context_draft(
-      (select id from public.company_context_versions where status = 'draft'))$$,
+      (select id from public.company_context_versions where status = 'draft'),
+      public.context_revision(
+        (select id from public.company_context_versions where status = 'draft')))$$,
   '23514',
   null,
   'Activar con "sin objetivo definido" y objetivos cargados: rechazado'
@@ -125,7 +129,9 @@ update public.company_context_versions
 
 select lives_ok(
   $$select public.activate_context_draft(
-      (select id from public.company_context_versions where status = 'draft'))$$,
+      (select id from public.company_context_versions where status = 'draft'),
+      public.context_revision(
+        (select id from public.company_context_versions where status = 'draft')))$$,
   'Activar un borrador coherente: aceptado'
 );
 
@@ -144,7 +150,9 @@ select is(
 -- Idempotencia de la activación.
 select is(
   (select version from public.activate_context_draft(
-     (select id from public.company_context_versions where status = 'active'))),
+     (select id from public.company_context_versions where status = 'active'),
+     public.context_revision(
+       (select id from public.company_context_versions where status = 'active')))),
   1,
   'Activar una versión ya activa es idempotente y no la renumera'
 );
@@ -207,7 +215,9 @@ select is(
 
 -- Activar el clon reemplaza a la anterior, que queda como superseded.
 select public.activate_context_draft(
-  (select id from public.company_context_versions where status = 'draft'));
+  (select id from public.company_context_versions where status = 'draft'),
+  public.context_revision(
+    (select id from public.company_context_versions where status = 'draft')));
 
 select results_eq(
   $$select version, status::text from public.company_context_versions

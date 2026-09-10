@@ -57,6 +57,14 @@ export type ContextSnapshot = {
   version: ContextVersion;
   objectives: ObjectiveRow[];
   systems: SystemRow[];
+  /**
+   * Huella de todo el contexto: la fila y sus dos listas.
+   *
+   * La calcula la base. Es lo que la confirmación tiene que devolver para demostrar qué
+   * versión del contenido revisó el usuario. `updated_at` no sirve: cambiar solo
+   * objetivos o sistemas no toca la fila de contexto.
+   */
+  revision: string;
 };
 
 const VERSION_COLUMNS =
@@ -106,8 +114,21 @@ async function loadVersionByStatus(status: ContextStatus): Promise<ContextSnapsh
   if (!data) return null;
 
   const version = data as ContextVersion;
-  const children = await loadChildren(version.id);
-  return { version, ...children };
+  const [children, revision] = await Promise.all([
+    loadChildren(version.id),
+    readRevision(version.id),
+  ]);
+
+  return { version, ...children, revision };
+}
+
+/** Revisión calculada por la base, sujeta a RLS como cualquier otra consulta. */
+async function readRevision(versionId: string): Promise<string> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('context_revision', { p_version_id: versionId });
+
+  if (error) throw new Error(`No se pudo leer la revisión del contexto: ${error.message}`);
+  return data as string;
 }
 
 /** El borrador en curso, si existe. Es lo que permite retomar el onboarding. */
@@ -136,8 +157,12 @@ export async function startOrResumeDraft(): Promise<ContextSnapshot> {
 
   if (error) throw new Error(`No se pudo abrir el borrador: ${error.message}`);
 
-  const children = await loadChildren(data.id);
-  return { version: data, ...children };
+  const [children, revision] = await Promise.all([
+    loadChildren(data.id),
+    readRevision(data.id),
+  ]);
+
+  return { version: data, ...children, revision };
 }
 
 export async function saveDraftContextFields(
@@ -210,13 +235,25 @@ export async function replaceDraftSystems(
   return (data ?? []) as SystemRow[];
 }
 
-/** Confirma el borrador. Acá la base valida la integridad completa del contexto. */
-export async function activateDraft(versionId: string): Promise<ContextVersion> {
+/**
+ * Confirma el borrador.
+ *
+ * `expectedRevision` es la huella del contenido que el usuario revisó. La base la vuelve
+ * a calcular con el cerrojo tomado y dentro de la misma transacción que activa, así que
+ * no queda ventana entre comprobar y activar.
+ */
+export async function activateDraft(
+  versionId: string,
+  expectedRevision: string,
+): Promise<ContextVersion> {
   await requireCompanyMembership();
   const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase
-    .rpc('activate_context_draft', { p_version_id: versionId })
+    .rpc('activate_context_draft', {
+      p_version_id: versionId,
+      p_expected_revision: expectedRevision,
+    })
     .single<ContextVersion>();
 
   if (error) throw new Error(error.message.replace(/^praxa:\s*/, ''));

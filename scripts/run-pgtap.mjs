@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import pg from 'pg';
 
 import { loadEnv } from './lib/env.mjs';
-import { requireTarget } from './lib/target.mjs';
+import { resolveSqlTestTarget } from './lib/sql-target.mjs';
 
 /**
  * Ejecutor de pruebas pgTAP contra PostgreSQL REMOTO, sin contenedores.
@@ -146,18 +146,17 @@ function report(run) {
 }
 
 async function main() {
-  requireTarget('app');
-  const env = loadEnv();
+  // Solo el proyecto de PRUEBAS, comprobado antes de abrir ninguna conexion.
+  const target = resolveSqlTestTarget(loadEnv());
 
-  const connectionString = env.SUPABASE_DB_URL;
-  if (!connectionString) {
-    console.error(
-      '\nFalta SUPABASE_DB_URL: la cadena de conexión directa a PostgreSQL.\n' +
-        'Dashboard → Connect → elegí "Session pooler" (funciona sobre IPv4) y pegá la URI,\n' +
-        'reemplazando [YOUR-PASSWORD] por la contraseña de la base.\n',
-    );
+  if (!target.ok) {
+    console.error('No se puede elegir el destino de las pruebas SQL:');
+    for (const problem of target.problems) console.error(`  - ${problem}`);
+    console.error('Ver README.md, seccion "Pruebas contra el proyecto remoto".');
     process.exit(1);
   }
+
+  const connectionString = target.connectionString;
 
   let files;
   try {
@@ -181,12 +180,12 @@ async function main() {
   try {
     await client.connect();
   } catch (error) {
-    console.error(`\nNo se pudo conectar a la base remota: ${error.message}`);
-    console.error('Revisá SUPABASE_DB_URL (usuario, contraseña y host del pooler).\n');
+    console.error(`\nNo se pudo conectar a la base de pruebas: ${error.message}`);
+    console.error('Revisá SUPABASE_TEST_DB_URL (usuario, contraseña y host del pooler).\n');
     process.exit(1);
   }
 
-  console.log(`Ejecutando ${files.length} archivo(s) pgTAP contra el proyecto remoto.\n`);
+  console.log(`Ejecutando ${files.length} archivo(s) pgTAP contra el proyecto de pruebas ${target.projectRef}.\n`);
 
   const failures = [];
   let totalAssertions = 0;

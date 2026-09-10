@@ -123,7 +123,9 @@ select lives_ok(
 
 select throws_ok(
   $$select public.activate_context_draft(
-      (select id from public.company_context_versions where status = 'draft'))$$,
+      (select id from public.company_context_versions where status = 'draft'),
+      public.context_revision(
+        (select id from public.company_context_versions where status = 'draft')))$$,
   '23514',
   null,
   'activar con objetivo declarado y cero objetivos: rechazado'
@@ -138,7 +140,9 @@ select public.replace_draft_objectives(
 
 select throws_ok(
   $$select public.activate_context_draft(
-      (select id from public.company_context_versions where status = 'draft'))$$,
+      (select id from public.company_context_versions where status = 'draft'),
+      public.context_revision(
+        (select id from public.company_context_versions where status = 'draft')))$$,
   '23514',
   null,
   'activar con "sin objetivo definido" y objetivos cargados: rechazado'
@@ -152,7 +156,9 @@ update public.company_context_versions set has_defined_objective = true where st
 
 select lives_ok(
   $$select public.activate_context_draft(
-      (select id from public.company_context_versions where status = 'draft'))$$,
+      (select id from public.company_context_versions where status = 'draft'),
+      public.context_revision(
+        (select id from public.company_context_versions where status = 'draft')))$$,
   'activar el borrador coherente: aceptado'
 );
 
@@ -215,7 +221,9 @@ select is(
 -- ---------------------------------------------------------------------------
 
 select public.activate_context_draft(
-  (select id from public.company_context_versions where status = 'draft'));
+  (select id from public.company_context_versions where status = 'draft'),
+  public.context_revision(
+    (select id from public.company_context_versions where status = 'draft')));
 
 select results_eq(
   $$select version from public.company_context_versions order by version$$,

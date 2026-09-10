@@ -43,6 +43,7 @@ function fail(error: unknown): ActionResult {
   return { ok: false, message: 'Ocurrió un error inesperado.' };
 }
 
+
 function zodErrors(issues: { path: PropertyKey[]; message: string }[]) {
   const fieldErrors: Record<string, string[]> = {};
   for (const issue of issues) {
@@ -169,14 +170,39 @@ export async function saveContextStep(input: unknown): Promise<ActionResult> {
   }
 }
 
-/** Confirma el borrador y lo convierte en el contexto vigente. */
-export async function confirmContext(): Promise<ActionResult> {
+/**
+ * Confirma el borrador y lo convierte en el contexto vigente.
+ *
+ * Recibe QUÉ se está confirmando: el identificador del borrador y la revisión que el
+ * usuario tenía a la vista. El identificador no autoriza nada —la pertenencia la resuelve
+ * RLS a partir de la sesión—; sirve para que no se active un borrador distinto del que se
+ * revisó. La revisión la vuelve a comprobar la base dentro de la transacción que activa.
+ */
+export async function confirmContext(input: {
+  versionId: string;
+  expectedRevision: string;
+}): Promise<ActionResult> {
   try {
     await requireUserForAction();
+
+    if (!input?.versionId || !input?.expectedRevision) {
+      return {
+        ok: false,
+        message: 'Falta indicar qué borrador y qué revisión se están confirmando.',
+      };
+    }
 
     const draft = await getDraft();
     if (!draft) {
       return { ok: false, message: 'No hay un borrador abierto para confirmar.' };
+    }
+
+    if (draft.version.id !== input.versionId) {
+      return {
+        ok: false,
+        message:
+          'El borrador abierto no es el que estabas revisando. Recargá la página antes de confirmar.',
+      };
     }
 
     // Chequeo previo solo para dar un mensaje útil: la validación que manda es la de
@@ -189,7 +215,7 @@ export async function confirmContext(): Promise<ActionResult> {
       return { ok: false, message: readiness.reason };
     }
 
-    await activateDraft(draft.version.id);
+    await activateDraft(input.versionId, input.expectedRevision);
 
     revalidatePath('/app');
     revalidatePath('/app/contexto');

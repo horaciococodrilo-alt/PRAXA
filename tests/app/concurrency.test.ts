@@ -95,6 +95,41 @@ class UserSession {
   end() {
     return this.client.end();
   }
+
+  /**
+   * Ejecuta una sentencia en su PROPIA transacción y devuelve el código de error real.
+   *
+   * Encadenar intentos dentro de una misma transacción no sirve para probar
+   * protecciones: tras el primer error PostgreSQL aborta la transacción y todo lo que
+   * siga falla con 25P02 ("current transaction is aborted"), que no dice nada sobre
+   * autorización ni inmutabilidad. Acá cada intento arranca limpio.
+   */
+  async attempt(sql: string, params: unknown[] = []) {
+    await this.begin();
+    try {
+      const result = await this.query(sql, params);
+      await this.rollbackQuietly();
+      return { ok: true as const, code: null as string | null, rowCount: result.rowCount ?? 0 };
+    } catch (error) {
+      const code = (error as { code?: string }).code ?? null;
+      await this.rollbackQuietly();
+      return { ok: false as const, code, rowCount: 0 };
+    }
+  }
+}
+
+/** 25P02 significa "la transacción ya estaba rota", nunca "la protección funcionó". */
+function expectRejectedWith(
+  attempt: { ok: boolean; code: string | null },
+  expected: string,
+  what: string,
+) {
+  expect(attempt.ok, `prosperó una operación que debía rechazarse: ${what}`).toBe(false);
+  expect(
+    attempt.code,
+    `${what}: se esperaba ${expected} y llegó ${attempt.code}. ` +
+      '25P02 indicaría una transacción abortada por un error anterior, no una protección.',
+  ).toBe(expected);
 }
 
 describe.skipIf(!canRun)('carrera entre editar y confirmar (dos transacciones reales)', () => {
@@ -157,6 +192,32 @@ describe.skipIf(!canRun)('carrera entre editar y confirmar (dos transacciones re
     return data;
   }
 
+  async function revisionOf(versionId: string): Promise<string> {
+    const { data, error } = await user.client.rpc('context_revision', {
+      p_version_id: versionId,
+    });
+    expect(error).toBeNull();
+    return data as string;
+  }
+
+  async function systemsOf(versionId: string) {
+    const { data } = await user.client
+      .from('company_systems')
+      .select('system_key, label')
+      .eq('context_version_id', versionId)
+      .order('system_key');
+    return data ?? [];
+  }
+
+  async function versionRow(versionId: string) {
+    const { data } = await user.client
+      .from('company_context_versions')
+      .select('id, status, version, has_defined_objective, problems, constraints, additional_context')
+      .eq('id', versionId)
+      .single();
+    return data;
+  }
+
   async function objectivesOf(versionId: string) {
     const { data } = await user.client
       .from('company_objectives')
@@ -167,6 +228,7 @@ describe.skipIf(!canRun)('carrera entre editar y confirmar (dos transacciones re
 
   it('edición primero: la confirmación espera y valida el contenido ya commiteado', async () => {
     const draftId = await draftReadyToActivate();
+    const revision = await revisionOf(draftId);
 
     // T1 empieza a vaciar los objetivos y NO confirma.
     await t1.begin();
@@ -175,7 +237,7 @@ describe.skipIf(!canRun)('carrera entre editar y confirmar (dos transacciones re
     // T2 intenta activar. Con el cerrojo compartido tiene que quedar esperando a T1.
     await t2.begin();
     const activation = t2
-      .query('select public.activate_context_draft($1)', [draftId])
+      .query('select public.activate_context_draft($1, $2)', [draftId, revision])
       .then(() => ({ ok: true as const }))
       .catch((error: Error & { code?: string }) => ({
         ok: false as const,
@@ -198,13 +260,15 @@ describe.skipIf(!canRun)('carrera entre editar y confirmar (dos transacciones re
     const outcome = await activation;
     await t2.rollbackQuietly();
 
-    // T2 validó DESPUÉS del commit de T1, es decir contra cero objetivos con
-    // has_defined_objective = true: tiene que rechazar, no activar.
-    expect(outcome.ok, 'se activó un contexto que quedó incoherente tras la edición').toBe(
-      false,
-    );
+    // T2 esperó al cerrojo y recalculó la revisión con el contenido YA commiteado por T1,
+    // que difiere del que T2 tenía a la vista: rechaza por revisión desactualizada (40001)
+    // antes incluso de llegar a la comprobación de coherencia. Sin cerrojo ni revisión,
+    // T2 habría activado el contenido viejo sin enterarse.
+    expect(outcome.ok, 'se activó un contexto que cambió durante la confirmación').toBe(false);
     if (!outcome.ok) {
-      expect(outcome.code).toBe('23514');
+      // PT409, no un código de la clase 40: esa clase se interpreta como transitoria y
+      // la infraestructura la reintenta sola, en un bucle que nunca resuelve.
+      expect(outcome.code).toBe('PT409');
     }
 
     // Y no quedó ninguna versión activa.
@@ -216,19 +280,18 @@ describe.skipIf(!canRun)('carrera entre editar y confirmar (dos transacciones re
 
     // T2 activa y confirma.
     await t2.begin();
-    await t2.query('select public.activate_context_draft($1)', [draftId]);
+    await t2.query('select public.activate_context_draft($1, $2)', [
+      draftId,
+      await revisionOf(draftId),
+    ]);
     await t2.commit();
 
     // T1 intenta editar esa misma versión, que ya no es borrador.
-    await t1.begin();
-    const edit = await t1
-      .query('select public.replace_draft_objectives($1, $2::jsonb)', [draftId, '[]'])
-      .then(() => ({ ok: true as const }))
-      .catch((error: Error & { code?: string }) => ({ ok: false as const, code: error.code }));
-    await t1.rollbackQuietly();
-
-    expect(edit.ok, 'se pudo editar una versión ya activada').toBe(false);
-    if (!edit.ok) expect(edit.code).toBe('42501');
+    const edit = await t1.attempt('select public.replace_draft_objectives($1, $2::jsonb)', [
+      draftId,
+      '[]',
+    ]);
+    expectRejectedWith(edit, '42501', 'editar una versión ya activada');
 
     // La versión activada es exactamente la que se probó, con su contenido intacto.
     const active = await activeVersion();
@@ -244,79 +307,120 @@ describe.skipIf(!canRun)('carrera entre editar y confirmar (dos transacciones re
   it('la escritura directa a las tablas hijas no es una vía alternativa', async () => {
     const draftId = await draftReadyToActivate();
 
-    await t1.begin();
-    const direct = await t1
-      .query(
-        `delete from public.company_objectives where context_version_id = $1`,
-        [draftId],
-      )
-      .then(() => ({ ok: true as const }))
-      .catch((error: Error & { code?: string }) => ({ ok: false as const, code: error.code }));
-    await t1.rollbackQuietly();
-
     // Si esta vía existiera, esquivaría el cerrojo y la carrera seguiría abierta.
-    expect(direct.ok, 'la escritura directa sigue disponible y elude el cerrojo').toBe(false);
-    if (!direct.ok) expect(direct.code).toBe('42501');
+    const direct = await t1.attempt(
+      'delete from public.company_objectives where context_version_id = $1',
+      [draftId],
+    );
+    expectRejectedWith(direct, '42501', 'escritura directa a las tablas hijas');
   }, 60_000);
 
   it('la activación directa por UPDATE tampoco es una vía alternativa', async () => {
     const draftId = await draftReadyToActivate();
 
-    await t1.begin();
-    const direct = await t1
-      .query(
-        `update public.company_context_versions
-            set status = 'active', version = 1, activated_at = now()
-          where id = $1`,
-        [draftId],
-      )
-      .then(() => ({ ok: true as const }))
-      .catch((error: Error & { code?: string }) => ({ ok: false as const, code: error.code }));
-    await t1.rollbackQuietly();
-
-    expect(direct.ok, 'se activó con un UPDATE directo, sin pasar por el cerrojo').toBe(false);
-    if (!direct.ok) expect(direct.code).toBe('42501');
+    const direct = await t1.attempt(
+      `update public.company_context_versions
+          set status = 'active', version = 1, activated_at = now()
+        where id = $1`,
+      [draftId],
+    );
+    expectRejectedWith(direct, '42501', 'activación por UPDATE directo');
 
     expect(await activeVersion()).toBeNull();
   }, 60_000);
 
   it('un contexto ya activado no cambia después', async () => {
     const draftId = await draftReadyToActivate();
+    const revision = await revisionOf(draftId);
 
     await t2.begin();
-    await t2.query('select public.activate_context_draft($1)', [draftId]);
+    await t2.query('select public.activate_context_draft($1, $2)', [draftId, revision]);
     await t2.commit();
 
-    const before = await objectivesOf(draftId);
+    const objetivosAntes = await objectivesOf(draftId);
+    const sistemasAntes = await systemsOf(draftId);
+    const filaAntes = await versionRow(draftId);
 
-    // Todos los caminos de modificación, uno por uno.
-    await t1.begin();
-    const attempts = await Promise.all(
-      [
-        `select public.replace_draft_objectives('${draftId}', '[]'::jsonb)`,
-        `select public.replace_draft_systems('${draftId}', '[]'::jsonb)`,
-        `update public.company_context_versions set additional_context = 'inyectado' where id = '${draftId}'`,
-      ].map((sql) =>
-        t1
-          .query(sql)
-          .then(() => ({ ok: true as const, sql }))
-          .catch(() => ({ ok: false as const, sql })),
-      ),
-    );
-    await t1.rollbackQuietly();
+    // Cada intento en su propia transacción: si fueran encadenados, del segundo en
+    // adelante fallarían con 25P02 y no probarían nada.
+    const intentos = [
+      {
+        que: 'reemplazar objetivos por RPC',
+        sql: `select public.replace_draft_objectives('${draftId}', '[]'::jsonb)`,
+        codigo: '42501',
+      },
+      {
+        que: 'reemplazar sistemas por RPC',
+        sql: `select public.replace_draft_systems('${draftId}', '[]'::jsonb)`,
+        codigo: '42501',
+      },
+      {
+        que: 'editar un campo del contexto',
+        sql: `update public.company_context_versions set additional_context = 'inyectado' where id = '${draftId}'`,
+        codigo: '42501',
+      },
+      {
+        que: 'borrar objetivos directamente',
+        sql: `delete from public.company_objectives where context_version_id = '${draftId}'`,
+        codigo: '42501',
+      },
+    ];
 
-    for (const attempt of attempts) {
-      expect(attempt.ok, `prosperó una modificación sobre un contexto activo: ${attempt.sql}`).toBe(
-        false,
-      );
+    for (const intento of intentos) {
+      expectRejectedWith(await t1.attempt(intento.sql), intento.codigo, intento.que);
     }
 
-    const after = await objectivesOf(draftId);
-    expect(after).toEqual(before);
+    // Borrar una versión activa es una denegación SILENCIOSA: la política de DELETE solo
+    // alcanza borradores, así que la fila queda fuera del alcance y no hay excepción.
+    const borrado = await t1.attempt(
+      `delete from public.company_context_versions where id = '${draftId}'`,
+    );
+    expect(borrado.ok, 'el borrado debería no encontrar filas, no fallar').toBe(true);
+    expect(borrado.rowCount, 'se borró una versión activa').toBe(0);
+
+    // Nada se movió: ni las listas, ni los campos, ni la identidad de la versión.
+    expect(await objectivesOf(draftId)).toEqual(objetivosAntes);
+    expect(await systemsOf(draftId)).toEqual(sistemasAntes);
+    expect(await versionRow(draftId)).toEqual(filaAntes);
 
     const active = await activeVersion();
     expect(active!.id).toBe(draftId);
-  }, 60_000);
+    expect(active!.version).toBe(1);
+  }, 90_000);
+
+  it('una revisión desactualizada no confirma, aunque se omita la interfaz', async () => {
+    // La segunda pestaña: leyó la revisión, otra guardó después, y confirma igual.
+    const draftId = await draftReadyToActivate();
+    const revisionVieja = await revisionOf(draftId);
+
+    // Otra pestaña cambia SOLO los sistemas: no toca la fila de contexto.
+    const { error } = await user.client.rpc('replace_draft_systems', {
+      p_version_id: draftId,
+      p_systems: [{ system_key: 'shopify' }],
+    });
+    expect(error).toBeNull();
+
+    const conflicto = await t1.attempt(
+      'select public.activate_context_draft($1, $2)',
+      [draftId, revisionVieja],
+    );
+    expectRejectedWith(conflicto, 'PT409', 'confirmar con una revisión vieja');
+
+    expect(await activeVersion()).toBeNull();
+
+    // Con la revisión al día sí confirma, y activa exactamente ese borrador.
+    const revisionNueva = await revisionOf(draftId);
+    expect(revisionNueva).not.toBe(revisionVieja);
+
+    await t1.begin();
+    await t1.query('select public.activate_context_draft($1, $2)', [draftId, revisionNueva]);
+    await t1.commit();
+
+    const active = await activeVersion();
+    expect(active!.id).toBe(draftId);
+    expect(active!.version).toBe(1);
+    expect(await systemsOf(draftId)).toHaveLength(1);
+  }, 90_000);
 });
 
 describe.skipIf(canRun)('carrera entre editar y confirmar', () => {

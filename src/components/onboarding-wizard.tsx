@@ -50,7 +50,12 @@ export type OnboardingInitialState = {
   companyName: string;
   hasDraft: boolean;
   hasActive: boolean;
-  /** Identidad del borrador persistido, para detectar cambios hechos en otra pestaña. */
+  /** Identificador del borrador persistido, para decir QUÉ se confirma. */
+  draftId: string | null;
+  /**
+   * Revisión del borrador según el servidor: resume la fila y sus dos listas. Cambiar
+   * solo objetivos o sistemas también la mueve.
+   */
   draftSignature: string | null;
   context: {
     hasDefinedObjective: boolean;
@@ -238,6 +243,16 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
 
   const serverChangedElsewhere = serverSignature !== acceptedSignature;
 
+  const readiness = checkReadyForActivation({
+    has_defined_objective: hasDefinedObjective,
+    objectives: hasDefinedObjective ? objectives : [],
+  });
+
+  // Confirmar con una revisión vieja activaría contenido que el usuario no miró. La base
+  // lo rechaza igual —esa es la garantía—; acá se evita el viaje y se explica antes.
+  const blockedFromConfirming =
+    !readiness.ready || hasUnsavedChanges || serverChangedElsewhere || !initial?.draftId;
+
   /**
    * @param persists  qué paso persiste esta acción. Solo ese se marca como guardado.
    */
@@ -272,7 +287,10 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
   function runConfirm() {
     setResult(null);
     startTransition(async () => {
-      const outcome = await confirmContext();
+      const outcome = await confirmContext({
+        versionId: initial?.draftId ?? '',
+        expectedRevision: acceptedSignature ?? '',
+      });
       setResult(outcome);
       if (outcome.ok) {
         expectingOwnUpdate.current = true;
@@ -287,11 +305,7 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
     setStep(next);
   }
 
-  const objectivesForCheck = hasDefinedObjective ? objectives : [];
-  const readiness = checkReadyForActivation({
-    has_defined_objective: hasDefinedObjective,
-    objectives: objectivesForCheck,
-  });
+
 
   return (
     <div className="space-y-8">
@@ -791,6 +805,16 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
 
           {!readiness.ready ? <Callout tone="warning">{readiness.reason}</Callout> : null}
 
+          {serverChangedElsewhere ? (
+            <Callout tone="danger" title="No se puede confirmar: el borrador cambió">
+              <p>
+                El contenido guardado cambió desde que abriste esta pantalla, así que lo
+                que ves acá ya no es lo que se activaría. Recargá para ver la versión
+                actual antes de confirmar.
+              </p>
+            </Callout>
+          ) : null}
+
           {hasUnsavedChanges ? (
             <Callout tone="danger" title="No se puede confirmar todavía">
               <p>
@@ -810,7 +834,7 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
             </Button>
             <Button
               onClick={() => runConfirm()}
-              disabled={pending || !readiness.ready || hasUnsavedChanges}
+              disabled={pending || blockedFromConfirming}
             >
               {pending ? 'Confirmando…' : 'Confirmar contexto'}
             </Button>
