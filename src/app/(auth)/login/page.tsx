@@ -39,7 +39,8 @@ function LoginForm() {
       }
 
       // El servidor tiene que volver a leer la sesión desde las cookies.
-      router.replace(next && next.startsWith('/') ? next : '/app');
+      const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/app';
+      router.replace(safeNext);
       router.refresh();
     } finally {
       setPending(false);
