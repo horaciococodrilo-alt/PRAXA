@@ -78,10 +78,10 @@ update public.company_context_versions
    set has_defined_objective = false
  where status = 'draft';
 
-insert into public.company_objectives (company_id, context_version_id, kind, title)
-values ('c0a00000-0000-4000-8000-00000000000a',
-        (select id from public.company_context_versions where status = 'draft'),
-        'primary', 'Objetivo contradictorio');
+-- Desde 0007 las listas se escriben por RPC, que es la vía que toma el cerrojo.
+select public.replace_draft_objectives(
+  (select id from public.company_context_versions where status = 'draft'),
+  '[{"kind":"primary","title":"Objetivo contradictorio"}]'::jsonb);
 
 select throws_ok(
   $$select public.activate_context_draft(
@@ -93,25 +93,23 @@ select throws_ok(
 
 -- Dos objetivos principales: lo frena el índice único, antes de llegar a activar.
 select throws_ok(
-  $$insert into public.company_objectives (company_id, context_version_id, kind, title)
-    values ('c0a00000-0000-4000-8000-00000000000a',
-            (select id from public.company_context_versions where status = 'draft'),
-            'primary', 'Segundo principal')$$,
+  $$select public.replace_draft_objectives(
+      (select id from public.company_context_versions where status = 'draft'),
+      '[{"kind":"primary","title":"Uno"},{"kind":"primary","title":"Dos"}]'::jsonb)$$,
   '23505',
   null,
   'Dos objetivos principales en la misma versión: rechazado'
 );
 
 -- Sistemas duplicados dentro de la misma versión.
-insert into public.company_systems (company_id, context_version_id, system_key)
-values ('c0a00000-0000-4000-8000-00000000000a',
-        (select id from public.company_context_versions where status = 'draft'), 'shopify');
+select public.replace_draft_systems(
+  (select id from public.company_context_versions where status = 'draft'),
+  '[{"system_key":"shopify"}]'::jsonb);
 
 select throws_ok(
-  $$insert into public.company_systems (company_id, context_version_id, system_key)
-    values ('c0a00000-0000-4000-8000-00000000000a',
-            (select id from public.company_context_versions where status = 'draft'),
-            'shopify')$$,
+  $$select public.replace_draft_systems(
+      (select id from public.company_context_versions where status = 'draft'),
+      '[{"system_key":"shopify"},{"system_key":"shopify"}]'::jsonb)$$,
   '23505',
   null,
   'Sistema duplicado en la misma versión: rechazado'
@@ -170,17 +168,16 @@ select throws_ok(
        (select id from public.company_context_versions where status = 'active')$$,
   '42501',
   null,
-  'Borrar objetivos de una versión activa: rechazado'
+  'Borrar objetivos directamente: sin privilegio'
 );
 
 select throws_ok(
-  $$insert into public.company_objectives (company_id, context_version_id, kind, title)
-    values ('c0a00000-0000-4000-8000-00000000000a',
-            (select id from public.company_context_versions where status = 'active'),
-            'secondary', 'Agregado tarde')$$,
+  $$select public.replace_draft_objectives(
+      (select id from public.company_context_versions where status = 'active'),
+      '[{"kind":"primary","title":"Agregado tarde"}]'::jsonb)$$,
   '42501',
   null,
-  'Agregar objetivos a una versión activa: rechazado'
+  'Editar los objetivos de una versión activa por RPC: rechazado'
 );
 
 -- ---------------------------------------------------------------------------

@@ -179,6 +179,26 @@ export async function cleanupRun(): Promise<void> {
   }
 }
 
+/**
+ * Deja la empresa sin ninguna versión de contexto.
+ *
+ * Solo para preparar fixtures entre pruebas. Usa la clave secreta porque un usuario
+ * normal no puede borrar versiones activas —esa es justamente la inmutabilidad que se
+ * está probando— y la excepción administrativa exige que no haya sesión de usuario
+ * detrás, que es el caso de este cliente.
+ */
+export async function resetCompanyContext(companyId: string): Promise<void> {
+  const admin = fixtureAdminClient();
+  const { error } = await admin
+    .from('company_context_versions')
+    .delete()
+    .eq('company_id', companyId);
+
+  if (error) {
+    throw new Error(`No se pudo limpiar el contexto de ${companyId}: ${error.message}`);
+  }
+}
+
 /** Cuántos registros de esta corrida siguen vivos. Para comprobar la limpieza. */
 export function pendingCleanupCount(): number {
   return createdUserIds.size;

@@ -7,7 +7,7 @@ Estados reales, sin optimismo:
 - **Pendiente** — no existe.
 - **Sin verificar** — está escrito y no se ejecutó todavía; dice qué falta para hacerlo.
 
-Última actualización: 2026-09-10 (revisión externa aplicada).
+Última actualización: 2026-09-10 (segunda revisión externa aplicada).
 
 ---
 
@@ -28,8 +28,8 @@ Estados reales, sin optimismo:
 | `proxy.ts` (Next 16) para refresco y redirección | **Implementado** |
 | Alta de empresa idempotente | **Verificado** — pgTAP y, vía API con sesiones reales, reintento y 5 llamadas concurrentes |
 | Guarda de credenciales privilegiadas | **Verificado** — `npm test` |
-| Pruebas pgTAP de RLS y privilegios (6 archivos, 128 aserciones) | **Verificado** — 128/128 contra PostgreSQL remoto, sin contenedores |
-| Pruebas de aislamiento vía Supabase JS | **Verificado** — 18/18 contra el proyecto desechable; la corrida no dejó residuos |
+| Pruebas pgTAP de RLS y privilegios (6 archivos, 129 aserciones) | **Verificado** — 129/129 contra PostgreSQL del proyecto **desechable**, sin contenedores |
+| Pruebas de aislamiento y onboarding vía Supabase JS | **Verificado** — 17/17 contra el proyecto desechable; la corrida no dejó residuos |
 
 ## Fase 2 — Landing, registro y setup
 
@@ -47,8 +47,9 @@ Estados reales, sin optimismo:
 | Navegación Inicio / Objetivos y contexto / Integraciones / Reportes | **Implementado** |
 | Estados vacíos honestos en Integraciones y Reportes | **Implementado** |
 | Contrato del reporte, versionado y validado | **Verificado** — 23 pruebas en `npm test` |
-| Integridad de la activación (migración 0006) | **Verificado** — `06_activation_integrity.test.sql`, 17 aserciones |
-| Confirmación bloqueada con cambios sin guardar | **Verificado** en la lógica (`onboarding-dirty-state.test.ts`); en pantalla, sin verificar |
+| Integridad de la activación y vías de escritura (migraciones 0006–0009) | **Verificado** — `06_activation_integrity.test.sql`, 18 aserciones |
+| Coordinación de edición y activación entre transacciones | **Verificado** — `tests/app/concurrency.test.ts`, 5 pruebas con dos conexiones y barreras |
+| Cambios sin guardar, por paso | **Verificado** — `tests/component/onboarding-wizard.test.tsx`, 7 pruebas de comportamiento en jsdom |
 
 **Dos capas verificadas, una pendiente.** Las reglas están probadas en PostgreSQL
 (`npm run test:policies`, 111/111) y a través de la API con sesiones de usuarios reales
@@ -80,7 +81,7 @@ Hecho el 2026-09-10: proyecto creado, migraciones aplicadas y pgTAP en verde (11
 Hecho también: proyecto desechable creado y migrado, y `npm run test:app` en verde
 (18/18), sin dejar residuos.
 
-**Revisión externa del PR #6 aplicada** (migración `0006_activation_integrity.sql`):
+**Primera revisión externa aplicada** (migración `0006_activation_integrity.sql`):
 
 | Hallazgo | Corrección |
 |---|---|
@@ -88,6 +89,17 @@ Hecho también: proyecto desechable creado y migrado, y `npm run test:app` en ve
 | Una versión activa podía perder objetivos o sistemas moviéndolos a un borrador | El trigger valida origen **y** destino, y prohíbe reasignar filas hijas entre versiones o empresas |
 | Edición y activación no compartían cerrojo | `replace_draft_*` toma el mismo lock consultivo que `activate_context_draft` y relee el estado bajo cerrojo |
 | Revisión mostraba el estado de pantalla y confirmaba el de la base | Se compara la huella de lo guardado contra lo editado; con cambios pendientes no se puede confirmar y se explica por qué |
+
+**Segunda revisión externa aplicada** (migraciones `0007`–`0009`):
+
+| Hallazgo | Corrección |
+|---|---|
+| Guardar un paso marcaba como guardado TODO el formulario, así que un objetivo editado y sin persistir dejaba de avisar | El seguimiento pasó a ser por paso: cada acción solo limpia la referencia de lo que ella escribe (`0007` no aplica acá; es cambio de interfaz) |
+| `authenticated` conservaba escritura directa sobre las tablas hijas y podía activar por UPDATE, sin pasar por el cerrojo | Esas vías se cerraron: las listas se escriben solo por RPC y la activación solo por `activate_context_draft()` (`0007`) |
+| La siembra administrativa quedó bloqueada por lo anterior | Excepción con la misma condición doble que el borrado, sin relajar la validación de coherencia (`0008`) |
+| `start_context_draft()` perdió el privilegio de clonar y habría roto "editar contexto" | La copia se delega en una función privada que revalida la pertenencia (`0009`) |
+| `Promise.allSettled` + `fulfilled` no probaba éxito; encontrar una versión activa no probaba que fuera la del borrador | Las pruebas inspeccionan el campo `error`, verifican identidad y número de versión, y coordinan dos transacciones con barreras |
+| pgTAP corría contra el proyecto de la aplicación, que tiene datos reales | `npm run test:policies` apunta al proyecto desechable |
 
 Queda una sola cosa:
 

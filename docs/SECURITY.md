@@ -21,8 +21,8 @@ conceder operación por operación.
 | `companies` | — | SELECT, INSERT, UPDATE |
 | `company_members` | — | SELECT |
 | `company_context_versions` | — | SELECT, INSERT, UPDATE, DELETE |
-| `company_objectives` | — | SELECT, INSERT, UPDATE, DELETE |
-| `company_systems` | — | SELECT, INSERT, UPDATE, DELETE |
+| `company_objectives` | — | SELECT (escritura solo por RPC) |
+| `company_systems` | — | SELECT (escritura solo por RPC) |
 | `reports` | — | SELECT |
 
 `anon` no accede a ninguna tabla del producto: un visitante sin sesión no debe poder ni
@@ -50,6 +50,29 @@ lectura hasta que exista el worker de generación.
   hijas.
 - A lo sumo un borrador y una versión activa por empresa (índices únicos parciales), que
   son además el respaldo real ante activaciones concurrentes.
+
+## Una sola vía de escritura para las listas del contexto
+
+Objetivos y sistemas **no se escriben directamente**: `authenticated` solo los lee. Toda
+escritura pasa por `replace_draft_objectives()` / `replace_draft_systems()`, y la
+activación solo por `activate_context_draft()`.
+
+No es una preferencia de estilo, es lo que hace posible coordinar edición y confirmación:
+
+- Cada una de esas funciones toma un cerrojo consultivo por empresa **antes** de tocar
+  ninguna fila, y relee el estado una vez adquirido.
+- Un trigger no sirve para eso: `FOR EACH ROW` corre *después* de que la sentencia ya
+  tomó el bloqueo de fila, así que tomar ahí el cerrojo invierte el orden de adquisición
+  y abre un interbloqueo real.
+
+**Orden de adquisición, único para todo el sistema:** (1) cerrojo consultivo de la
+empresa, (2) bloqueos de fila. Los UPDATE directos sobre `company_context_versions`
+—editar campos del borrador— no toman el cerrojo a propósito: operan sobre la misma fila
+que la activación, así que el bloqueo de fila ya los serializa.
+
+El privilegio de escritura vive en funciones `SECURITY DEFINER` dentro de `private`, que
+no está expuesto por la Data API y que vuelve a verificar la pertenencia con `auth.uid()`
+—el usuario final sigue siendo el mismo aunque cambie el rol de ejecución—.
 
 ## Autorización en el servidor
 

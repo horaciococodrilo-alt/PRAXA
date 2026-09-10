@@ -184,9 +184,11 @@ Se reportan por separado según lo que realmente pasó.
 npm run verify
 ```
 
-Encadena lint, typecheck, pruebas unitarias y build. **Esto no es evidencia de que
-funcionen la autenticación, RLS ni el recorrido completo**: solo cubre el contrato del
-reporte, los esquemas del onboarding, los formatos de clave y la guarda de credenciales.
+Encadena lint, typecheck, pruebas (unitarias y de componente) y build. **Esto no es evidencia de que
+funcionen la autenticación, RLS ni el recorrido completo**: cubre el contrato del reporte,
+los esquemas del onboarding, los formatos de clave, la guarda de credenciales y el
+comportamiento del asistente en jsdom (qué se guarda, qué queda pendiente, cuándo se
+puede confirmar).
 
 ### Contra el proyecto remoto
 
@@ -223,6 +225,10 @@ Salvaguardas:
 4. **Limpieza acotada**: al terminar borra exactamente lo suyo — primero las empresas,
    después los usuarios.
 
+`tests/app/concurrency.test.ts` abre **dos conexiones directas** a PostgreSQL y las
+coordina con barreras para reproducir la intercalación entre editar y confirmar. Necesita
+`SUPABASE_TEST_DB_URL` además de las credenciales REST.
+
 Las pruebas de correo son opt-in porque consumen la cuota de envío del proyecto:
 
 ```bash
@@ -252,12 +258,15 @@ Abrir el enlace del correo es lo único que la suite no puede cubrir:
    confirmar, `/login` tiene que rechazarte.
 3. **Onboarding** — completá los pasos y probá **cerrar la pestaña a mitad de camino y
    volver**: el borrador tiene que estar donde lo dejaste.
-4. **Objetivo sin definir** — marcá "todavía no tengo un objetivo definido" y confirmá.
-5. **Aplicación** — `/app`: Inicio, Objetivos y contexto, Integraciones, Reportes. Las dos
+4. **Guardar fuera de orden** — editá un objetivo sin guardarlo, saltá a Sistemas, guardá
+   ese paso y andá a Revisión: tiene que seguir avisando que Objetivos está pendiente y el
+   botón de confirmar tiene que estar bloqueado.
+5. **Objetivo sin definir** — marcá "todavía no tengo un objetivo definido" y confirmá.
+6. **Aplicación** — `/app`: Inicio, Objetivos y contexto, Integraciones, Reportes. Las dos
    últimas deben decir que no están implementadas.
-6. **Edición** — `/app/contexto` → "Editar contexto" clona la versión vigente; la vigente
+7. **Edición** — `/app/contexto` → "Editar contexto" clona la versión vigente; la vigente
    no cambia hasta confirmar.
-7. **Logout y recuperación** — cerrá sesión y probá `/forgot-password`.
+8. **Logout y recuperación** — cerrá sesión y probá `/forgot-password`.
 
 ### Borrar los datos de prueba
 

@@ -95,19 +95,21 @@ select ok(
   and has_table_privilege('authenticated', 'public.company_context_versions', 'DELETE'),
   'authenticated tiene CRUD sobre company_context_versions'
 );
+-- Desde 0007 las listas se escriben SOLO por RPC, que es la vía que toma el cerrojo.
+-- La escritura directa quedaría fuera de esa coordinación, así que no existe.
 select ok(
   has_table_privilege('authenticated', 'public.company_objectives', 'SELECT')
-  and has_table_privilege('authenticated', 'public.company_objectives', 'INSERT')
-  and has_table_privilege('authenticated', 'public.company_objectives', 'UPDATE')
-  and has_table_privilege('authenticated', 'public.company_objectives', 'DELETE'),
-  'authenticated tiene CRUD sobre company_objectives'
+  and not has_table_privilege('authenticated', 'public.company_objectives', 'INSERT')
+  and not has_table_privilege('authenticated', 'public.company_objectives', 'UPDATE')
+  and not has_table_privilege('authenticated', 'public.company_objectives', 'DELETE'),
+  'authenticated solo LEE company_objectives; escribe por RPC'
 );
 select ok(
   has_table_privilege('authenticated', 'public.company_systems', 'SELECT')
-  and has_table_privilege('authenticated', 'public.company_systems', 'INSERT')
-  and has_table_privilege('authenticated', 'public.company_systems', 'UPDATE')
-  and has_table_privilege('authenticated', 'public.company_systems', 'DELETE'),
-  'authenticated tiene CRUD sobre company_systems'
+  and not has_table_privilege('authenticated', 'public.company_systems', 'INSERT')
+  and not has_table_privilege('authenticated', 'public.company_systems', 'UPDATE')
+  and not has_table_privilege('authenticated', 'public.company_systems', 'DELETE'),
+  'authenticated solo LEE company_systems; escribe por RPC'
 );
 
 select ok(

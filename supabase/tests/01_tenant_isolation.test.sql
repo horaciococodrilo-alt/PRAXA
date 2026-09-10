@@ -37,6 +37,20 @@ end;
 $fn$;
 
 
+
+-- Ejecuta una sentencia como el rol de la prueba (postgres), para poder ejercitar
+-- comprobaciones que ya no son alcanzables desde `authenticated`.
+-- Ojo: adentro se omite RLS, así que toda consulta debe acotarse por empresa.
+create function pg_temp.as_admin(p_sql text)
+returns void
+language plpgsql
+security definer
+as $fn$
+begin
+  execute p_sql;
+end;
+$fn$;
+
 -- ---------------------------------------------------------------------------
 -- Semilla (como postgres, antes de asumir ningún rol)
 -- ---------------------------------------------------------------------------
@@ -85,6 +99,14 @@ update public.company_context_versions
    set status = 'active', version = 1, activated_at = now()
  where id in ('11110000-0000-4000-8000-00000000000a',
               '22220000-0000-4000-8000-00000000000b');
+
+-- Un borrador de la empresa B. Sirve para ejercitar la clave foránea compuesta: si el
+-- padre estuviera activo, el trigger de inmutabilidad cortaría antes y no se llegaría a
+-- probar la FK.
+insert into public.company_context_versions
+  (id, company_id, context_schema_version, created_by)
+values ('33330000-0000-4000-8000-00000000000b', 'c0b00000-0000-4000-8000-00000000000b',
+        '1.0.0', 'bbbbbbbb-0000-4000-8000-000000000002');
 
 insert into public.reports
   (id, company_id, context_version_id, status, report_schema_version, methodology_version)
@@ -169,16 +191,22 @@ select is(
   'UPDATE contexto ajeno: afecta cero filas'
 );
 
-select is(
-  pg_temp.affected($sql$update public.company_objectives set title = 'Objetivo secuestrado' where id = '0b1e0000-0000-4000-8000-00000000000a'$sql$),
-  0,
-  'UPDATE objetivo ajeno: afecta cero filas'
+-- Desde 0007 las listas se escriben solo por RPC: la escritura directa no tiene
+-- privilegio, así que el corte llega antes que RLS, como excepción y no como cero filas.
+select throws_ok(
+  $$update public.company_objectives set title = 'Objetivo secuestrado'
+     where id = '0b1e0000-0000-4000-8000-00000000000a'$$,
+  '42501',
+  null,
+  'UPDATE directo de un objetivo: sin privilegio'
 );
 
-select is(
-  pg_temp.affected($sql$delete from public.company_objectives where id = '0b1e0000-0000-4000-8000-00000000000a'$sql$),
-  0,
-  'DELETE objetivo ajeno: afecta cero filas'
+select throws_ok(
+  $$delete from public.company_objectives
+     where id = '0b1e0000-0000-4000-8000-00000000000a'$$,
+  '42501',
+  null,
+  'DELETE directo de un objetivo: sin privilegio'
 );
 
 select is(
@@ -214,17 +242,20 @@ select throws_ok(
             '11110000-0000-4000-8000-00000000000a', 'secondary', 'Colado')$$,
   '42501',
   null,
-  'INSERT de objetivo en el contexto de A: rechazado'
+  'INSERT directo de un objetivo: sin privilegio'
 );
 
--- Usar una FK de otra empresa desde la propia: lo frena la FK compuesta.
+-- La FK compuesta sigue siendo la última línea: impide cruzar empresas incluso para
+-- quien SÍ tiene privilegio de escritura. Se comprueba con el rol administrativo, que es
+-- el único que queda con escritura directa.
 select throws_ok(
-  $$insert into public.company_objectives (company_id, context_version_id, kind, title)
-    values ('c0b00000-0000-4000-8000-00000000000b',
-            '11110000-0000-4000-8000-00000000000a', 'secondary', 'FK cruzada')$$,
+  $$select pg_temp.as_admin($adm$insert into public.company_objectives
+      (company_id, context_version_id, kind, title)
+    values ('c0a00000-0000-4000-8000-00000000000a',
+            '33330000-0000-4000-8000-00000000000b', 'secondary', 'FK cruzada')$adm$)$$,
   '23503',
   null,
-  'INSERT con company_id propio y context_version_id ajeno: lo frena la FK compuesta'
+  'company_id de una empresa con context_version_id de otra: lo frena la FK compuesta'
 );
 
 -- Escalada de permisos: darse membresía en la empresa de A.

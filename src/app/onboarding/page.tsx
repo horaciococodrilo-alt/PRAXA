@@ -32,6 +32,9 @@ export default async function OnboardingPage() {
         companyName: company.name,
         hasDraft: Boolean(draft),
         hasActive: Boolean(active),
+        // Identidad de lo que el servidor tiene guardado. Si cambia mientras el usuario
+        // edita, el asistente avisa en vez de pisar sus cambios locales.
+        draftSignature: draft ? `${draft.version.id}:${draft.version.updated_at}` : null,
         context: snapshot
           ? {
               hasDefinedObjective: snapshot.version.has_defined_objective,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 
 import {
   Button,
@@ -50,6 +50,8 @@ export type OnboardingInitialState = {
   companyName: string;
   hasDraft: boolean;
   hasActive: boolean;
+  /** Identidad del borrador persistido, para detectar cambios hechos en otra pestaña. */
+  draftSignature: string | null;
   context: {
     hasDefinedObjective: boolean;
     problems: string[];
@@ -59,6 +61,9 @@ export type OnboardingInitialState = {
     systems: DraftSystem[];
   } | null;
 };
+
+/** Separador de las listas que se editan como texto multilínea. */
+const NEWLINE = String.fromCharCode(10);
 
 const linesToList = (value: string) =>
   value
@@ -81,13 +86,65 @@ function emptyObjective(position: number, kind: 'primary' | 'secondary'): DraftO
 }
 
 /**
- * Huella del contenido del formulario.
+ * Huella del contenido de UN paso.
  *
- * Se compara contra la del último guardado para saber si hay cambios pendientes. Sin
- * esto, la pantalla de Revisión mostraba el estado local mientras "Confirmar contexto"
- * activaba lo que había en la base: podías ver un objetivo y confirmar otro.
+ * Es por paso, no global, porque cada Server Action persiste solamente su paso. Con una
+ * huella global, guardar Sistemas marcaba como guardado también un objetivo editado y sin
+ * persistir: Revisión mostraba el objetivo nuevo y Confirmar activaba el viejo.
+ *
+ * Cada rama incluye exactamente los campos que su acción escribe, y nada más.
  */
-export function fingerprint(state: {
+export function stepFingerprint(step: OnboardingStep, state: WizardState): string {
+  switch (step) {
+    case 'company':
+      return JSON.stringify({ companyName: state.companyName.trim() });
+
+    case 'systems':
+      return JSON.stringify(
+        [...state.systems]
+          .map((system) => ({ k: system.system_key, l: system.label, n: system.notes }))
+          .sort((a, b) => a.k.localeCompare(b.k)),
+      );
+
+    case 'objectives':
+      return JSON.stringify({
+        hasDefinedObjective: state.hasDefinedObjective,
+        // Con "sin objetivo definido" la acción persiste una lista vacía, así que lo que
+        // haya quedado escrito en pantalla no cuenta como cambio pendiente.
+        objectives: state.hasDefinedObjective
+          ? state.objectives
+              .filter((objective) => objective.title.trim().length > 0)
+              .map((objective) => ({
+                kind: objective.kind,
+                title: objective.title.trim(),
+                description: objective.description,
+                priority: objective.priority,
+                horizon: objective.horizon,
+                indicator_name: objective.indicator_name,
+                target_value: objective.target_value,
+                target_unit: objective.target_unit,
+              }))
+          : [],
+      });
+
+    case 'context':
+      return JSON.stringify({
+        problems: linesToList(state.problems),
+        constraints: linesToList(state.constraints),
+        additionalContext: state.additionalContext.trim(),
+      });
+
+    // Revisión no persiste nada propio: su contenido sale de los otros pasos.
+    case 'review':
+      return '';
+  }
+}
+
+/** Pasos que efectivamente guardan datos. Revisión no. */
+export const PERSISTING_STEPS = ['company', 'systems', 'objectives', 'context'] as const;
+export type PersistingStep = (typeof PERSISTING_STEPS)[number];
+
+export type WizardState = {
   companyName: string;
   systems: DraftSystem[];
   hasDefinedObjective: boolean;
@@ -95,31 +152,13 @@ export function fingerprint(state: {
   problems: string;
   constraints: string;
   additionalContext: string;
-}): string {
-  return JSON.stringify({
-    companyName: state.companyName.trim(),
-    systems: [...state.systems]
-      .map((s) => ({ k: s.system_key, l: s.label, n: s.notes }))
-      .sort((a, b) => a.k.localeCompare(b.k)),
-    hasDefinedObjective: state.hasDefinedObjective,
-    objectives: state.hasDefinedObjective
-      ? state.objectives
-          .filter((o) => o.title.trim().length > 0)
-          .map((o) => ({
-            kind: o.kind,
-            title: o.title.trim(),
-            description: o.description,
-            priority: o.priority,
-            horizon: o.horizon,
-            indicator_name: o.indicator_name,
-            target_value: o.target_value,
-            target_unit: o.target_unit,
-          }))
-      : [],
-    problems: linesToList(state.problems),
-    constraints: linesToList(state.constraints),
-    additionalContext: state.additionalContext.trim(),
-  });
+};
+
+export function pendingSteps(
+  state: WizardState,
+  saved: Record<PersistingStep, string>,
+): PersistingStep[] {
+  return PERSISTING_STEPS.filter((step) => stepFingerprint(step, state) !== saved[step]);
 }
 
 export function OnboardingWizard({ initial }: { initial: OnboardingInitialState | null }) {
@@ -145,7 +184,7 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
 
   const stepIndex = ONBOARDING_STEPS.indexOf(step);
 
-  const currentState = {
+  const currentState: WizardState = {
     companyName,
     systems,
     hasDefinedObjective,
@@ -155,22 +194,90 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
     additionalContext,
   };
 
-  // Huella de lo que está guardado en la base. Arranca en el estado inicial, que viene
-  // del borrador persistido, y se actualiza en cada guardado exitoso.
-  const [savedFingerprint, setSavedFingerprint] = useState(() => fingerprint(currentState));
-  const hasUnsavedChanges = fingerprint(currentState) !== savedFingerprint;
+  // Huella de lo persistido, POR PASO. Cada Server Action escribe solo su paso, así que
+  // un guardado exitoso solo puede limpiar la referencia de ese paso.
+  const [savedByStep, setSavedByStep] = useState<Record<PersistingStep, string>>(() => {
+    const initialState: WizardState = {
+      companyName: initial?.companyName ?? '',
+      systems: initial?.context?.systems ?? [],
+      hasDefinedObjective: initial?.context?.hasDefinedObjective ?? true,
+      objectives: initial?.context?.objectives ?? [],
+      problems: (initial?.context?.problems ?? []).join(NEWLINE),
+      constraints: (initial?.context?.constraints ?? []).join(NEWLINE),
+      additionalContext: initial?.context?.additionalContext ?? '',
+    };
+    return {
+      company: stepFingerprint('company', initialState),
+      systems: stepFingerprint('systems', initialState),
+      objectives: stepFingerprint('objectives', initialState),
+      context: stepFingerprint('context', initialState),
+    };
+  });
 
-  function run(action: () => Promise<ActionResult>, onSuccess?: () => void) {
+  const pending_ = pendingSteps(currentState, savedByStep);
+  const hasUnsavedChanges = pending_.length > 0;
+
+  // El servidor puede haber cambiado bajo nuestros pies (otra pestaña confirmó, por
+  // ejemplo). No se pisan los cambios locales en silencio: se avisa y se deja decidir.
+  //
+  // Ojo con el falso positivo: nuestros propios guardados también cambian la firma —el
+  // primero incluso crea el borrador, pasando de null a un id—. Por eso, tras un guardado
+  // exitoso se acepta la firma que traiga el servidor a continuación, y solo se avisa
+  // cuando cambia SIN que hubiera un guardado nuestro en curso.
+  const serverSignature = initial?.draftSignature ?? null;
+  const [acceptedSignature, setAcceptedSignature] = useState(serverSignature);
+  const expectingOwnUpdate = useRef(false);
+
+  useEffect(() => {
+    if (serverSignature === acceptedSignature) return;
+    if (expectingOwnUpdate.current) {
+      expectingOwnUpdate.current = false;
+      setAcceptedSignature(serverSignature);
+    }
+  }, [serverSignature, acceptedSignature]);
+
+  const serverChangedElsewhere = serverSignature !== acceptedSignature;
+
+  /**
+   * @param persists  qué paso persiste esta acción. Solo ese se marca como guardado.
+   */
+  function run(
+    persists: PersistingStep,
+    action: () => Promise<ActionResult>,
+    onSuccess?: () => void,
+  ) {
     setResult(null);
-    const snapshot = fingerprint(currentState);
+    // Instantánea al momento de disparar: si el usuario sigue editando mientras se
+    // guarda, esos cambios posteriores quedan pendientes, como corresponde.
+    const snapshot = stepFingerprint(persists, currentState);
 
     startTransition(async () => {
       const outcome = await action();
       setResult(outcome);
+
+      // Un guardado fallido no marca nada como persistido.
+      if (!outcome.ok) return;
+
+      setSavedByStep((previous) => ({ ...previous, [persists]: snapshot }));
+      // Lo que el servidor devuelva a continuación es consecuencia de ESTE guardado.
+      expectingOwnUpdate.current = true;
+      // refresh() vuelve a renderizar el Server Component, pero no remonta este cliente:
+      // el estado local del formulario se conserva a propósito.
+      router.refresh();
+      onSuccess?.();
+    });
+  }
+
+  /** Confirmar no persiste campos: activa lo que ya está guardado. */
+  function runConfirm() {
+    setResult(null);
+    startTransition(async () => {
+      const outcome = await confirmContext();
+      setResult(outcome);
       if (outcome.ok) {
-        setSavedFingerprint(snapshot);
+        expectingOwnUpdate.current = true;
         router.refresh();
-        onSuccess?.();
+        router.push('/app');
       }
     });
   }
@@ -207,8 +314,8 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
               type="button"
               onClick={() => goTo(item)}
               title={
-                hasUnsavedChanges
-                  ? 'Tenés cambios sin guardar en este paso'
+                item !== 'review' && pending_.includes(item as PersistingStep)
+                  ? 'Este paso tiene cambios sin guardar'
                   : undefined
               }
               className={cn(
@@ -229,11 +336,32 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
       {result && !result.ok ? <Callout tone="danger">{result.message}</Callout> : null}
       {result?.ok && result.message ? <Callout>{result.message}</Callout> : null}
 
+      {serverChangedElsewhere ? (
+        <Callout tone="warning" title="El borrador cambió fuera de esta pestaña">
+          <p>
+            Alguien —o vos, en otra pestaña— modificó este contexto mientras lo editabas.
+            Lo que ves acá sigue siendo tu versión local: no se pisó nada.
+          </p>
+          <p>
+            <Button
+              variant="secondary"
+              className="mt-2"
+              onClick={() => window.location.reload()}
+            >
+              Recargar y descartar mis cambios locales
+            </Button>
+          </p>
+        </Callout>
+      ) : null}
+
       {hasUnsavedChanges ? (
         <Callout tone="warning" title="Tenés cambios sin guardar">
           <p>
-            Lo que ves en pantalla todavía no está en el borrador. Usá &ldquo;Guardar y
-            continuar&rdquo; en el paso correspondiente antes de confirmar.
+            Estos pasos tienen cambios que todavía no están en el borrador:{' '}
+            <strong>
+              {pending_.map((item) => ONBOARDING_STEP_LABELS[item]).join(', ')}
+            </strong>
+            . Usá &ldquo;Guardar y continuar&rdquo; en cada uno antes de confirmar.
           </p>
         </Callout>
       ) : null}
@@ -252,7 +380,7 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
           <div className="flex flex-wrap gap-3">
             <Button
               onClick={() =>
-                run(() => saveCompanyStep({ name: companyName }), () => goTo('systems'))
+                run('company', () => saveCompanyStep({ name: companyName }), () => goTo('systems'))
               }
               disabled={pending || companyName.trim().length < 2}
             >
@@ -324,7 +452,7 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
               Volver
             </Button>
             <Button
-              onClick={() => run(() => saveSystemsStep({ systems }), () => goTo('objectives'))}
+              onClick={() => run('systems', () => saveSystemsStep({ systems }), () => goTo('objectives'))}
               disabled={pending}
             >
               {pending ? 'Guardando…' : 'Guardar y continuar'}
@@ -542,6 +670,7 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
             <Button
               onClick={() =>
                 run(
+                  'objectives',
                   () =>
                     saveObjectivesStep({
                       has_defined_objective: hasDefinedObjective,
@@ -596,6 +725,7 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
             <Button
               onClick={() =>
                 run(
+                  'context',
                   () =>
                     saveContextStep({
                       problems: linesToList(problems),
@@ -665,8 +795,11 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
             <Callout tone="danger" title="No se puede confirmar todavía">
               <p>
                 Confirmar activa lo que está guardado en el borrador, no lo que ves acá.
-                Como hay cambios sin guardar, las dos cosas no coinciden: guardalos y
-                volvé a esta pantalla.
+                Falta guardar:{' '}
+                <strong>
+                  {pending_.map((item) => ONBOARDING_STEP_LABELS[item]).join(', ')}
+                </strong>
+                .
               </p>
             </Callout>
           ) : null}
@@ -676,7 +809,7 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
               Volver
             </Button>
             <Button
-              onClick={() => run(confirmContext, () => router.push('/app'))}
+              onClick={() => runConfirm()}
               disabled={pending || !readiness.ready || hasUnsavedChanges}
             >
               {pending ? 'Confirmando…' : 'Confirmar contexto'}
