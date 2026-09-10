@@ -80,6 +80,48 @@ function emptyObjective(position: number, kind: 'primary' | 'secondary'): DraftO
   };
 }
 
+/**
+ * Huella del contenido del formulario.
+ *
+ * Se compara contra la del último guardado para saber si hay cambios pendientes. Sin
+ * esto, la pantalla de Revisión mostraba el estado local mientras "Confirmar contexto"
+ * activaba lo que había en la base: podías ver un objetivo y confirmar otro.
+ */
+export function fingerprint(state: {
+  companyName: string;
+  systems: DraftSystem[];
+  hasDefinedObjective: boolean;
+  objectives: DraftObjective[];
+  problems: string;
+  constraints: string;
+  additionalContext: string;
+}): string {
+  return JSON.stringify({
+    companyName: state.companyName.trim(),
+    systems: [...state.systems]
+      .map((s) => ({ k: s.system_key, l: s.label, n: s.notes }))
+      .sort((a, b) => a.k.localeCompare(b.k)),
+    hasDefinedObjective: state.hasDefinedObjective,
+    objectives: state.hasDefinedObjective
+      ? state.objectives
+          .filter((o) => o.title.trim().length > 0)
+          .map((o) => ({
+            kind: o.kind,
+            title: o.title.trim(),
+            description: o.description,
+            priority: o.priority,
+            horizon: o.horizon,
+            indicator_name: o.indicator_name,
+            target_value: o.target_value,
+            target_unit: o.target_unit,
+          }))
+      : [],
+    problems: linesToList(state.problems),
+    constraints: linesToList(state.constraints),
+    additionalContext: state.additionalContext.trim(),
+  });
+}
+
 export function OnboardingWizard({ initial }: { initial: OnboardingInitialState | null }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -103,12 +145,30 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
 
   const stepIndex = ONBOARDING_STEPS.indexOf(step);
 
+  const currentState = {
+    companyName,
+    systems,
+    hasDefinedObjective,
+    objectives,
+    problems,
+    constraints,
+    additionalContext,
+  };
+
+  // Huella de lo que está guardado en la base. Arranca en el estado inicial, que viene
+  // del borrador persistido, y se actualiza en cada guardado exitoso.
+  const [savedFingerprint, setSavedFingerprint] = useState(() => fingerprint(currentState));
+  const hasUnsavedChanges = fingerprint(currentState) !== savedFingerprint;
+
   function run(action: () => Promise<ActionResult>, onSuccess?: () => void) {
     setResult(null);
+    const snapshot = fingerprint(currentState);
+
     startTransition(async () => {
       const outcome = await action();
       setResult(outcome);
       if (outcome.ok) {
+        setSavedFingerprint(snapshot);
         router.refresh();
         onSuccess?.();
       }
@@ -146,6 +206,11 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
             <button
               type="button"
               onClick={() => goTo(item)}
+              title={
+                hasUnsavedChanges
+                  ? 'Tenés cambios sin guardar en este paso'
+                  : undefined
+              }
               className={cn(
                 'rounded-full border px-3 py-1 text-xs transition-colors',
                 item === step
@@ -163,6 +228,15 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
 
       {result && !result.ok ? <Callout tone="danger">{result.message}</Callout> : null}
       {result?.ok && result.message ? <Callout>{result.message}</Callout> : null}
+
+      {hasUnsavedChanges ? (
+        <Callout tone="warning" title="Tenés cambios sin guardar">
+          <p>
+            Lo que ves en pantalla todavía no está en el borrador. Usá &ldquo;Guardar y
+            continuar&rdquo; en el paso correspondiente antes de confirmar.
+          </p>
+        </Callout>
+      ) : null}
 
       {step === 'company' ? (
         <Card className="space-y-5">
@@ -587,13 +661,23 @@ export function OnboardingWizard({ initial }: { initial: OnboardingInitialState 
 
           {!readiness.ready ? <Callout tone="warning">{readiness.reason}</Callout> : null}
 
+          {hasUnsavedChanges ? (
+            <Callout tone="danger" title="No se puede confirmar todavía">
+              <p>
+                Confirmar activa lo que está guardado en el borrador, no lo que ves acá.
+                Como hay cambios sin guardar, las dos cosas no coinciden: guardalos y
+                volvé a esta pantalla.
+              </p>
+            </Callout>
+          ) : null}
+
           <div className="flex flex-wrap gap-3">
             <Button variant="secondary" onClick={() => goTo('context')} disabled={pending}>
               Volver
             </Button>
             <Button
               onClick={() => run(confirmContext, () => router.push('/app'))}
-              disabled={pending || !readiness.ready}
+              disabled={pending || !readiness.ready || hasUnsavedChanges}
             >
               {pending ? 'Confirmando…' : 'Confirmar contexto'}
             </Button>

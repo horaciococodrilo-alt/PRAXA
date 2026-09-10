@@ -7,7 +7,7 @@ Estados reales, sin optimismo:
 - **Pendiente** — no existe.
 - **Sin verificar** — está escrito y no se ejecutó todavía; dice qué falta para hacerlo.
 
-Última actualización: 2026-09-10.
+Última actualización: 2026-09-10 (revisión externa aplicada).
 
 ---
 
@@ -28,8 +28,8 @@ Estados reales, sin optimismo:
 | `proxy.ts` (Next 16) para refresco y redirección | **Implementado** |
 | Alta de empresa idempotente | **Verificado** — pgTAP y, vía API con sesiones reales, reintento y 5 llamadas concurrentes |
 | Guarda de credenciales privilegiadas | **Verificado** — `npm test` |
-| Pruebas pgTAP de RLS y privilegios (5 archivos, 111 aserciones) | **Verificado** — 111/111 contra PostgreSQL remoto, sin contenedores, el 2026-09-10 |
-| Pruebas de aislamiento vía Supabase JS | **Verificado** — 17/17 contra el proyecto desechable `wtnixbnlwxfwgjdimhrd` el 2026-09-10; la corrida no dejó residuos |
+| Pruebas pgTAP de RLS y privilegios (6 archivos, 128 aserciones) | **Verificado** — 128/128 contra PostgreSQL remoto, sin contenedores |
+| Pruebas de aislamiento vía Supabase JS | **Verificado** — 18/18 contra el proyecto desechable; la corrida no dejó residuos |
 
 ## Fase 2 — Landing, registro y setup
 
@@ -47,6 +47,8 @@ Estados reales, sin optimismo:
 | Navegación Inicio / Objetivos y contexto / Integraciones / Reportes | **Implementado** |
 | Estados vacíos honestos en Integraciones y Reportes | **Implementado** |
 | Contrato del reporte, versionado y validado | **Verificado** — 23 pruebas en `npm test` |
+| Integridad de la activación (migración 0006) | **Verificado** — `06_activation_integrity.test.sql`, 17 aserciones |
+| Confirmación bloqueada con cambios sin guardar | **Verificado** en la lógica (`onboarding-dirty-state.test.ts`); en pantalla, sin verificar |
 
 **Dos capas verificadas, una pendiente.** Las reglas están probadas en PostgreSQL
 (`npm run test:policies`, 111/111) y a través de la API con sesiones de usuarios reales
@@ -76,7 +78,16 @@ muestre un estado vacío respaldado por una consulta real.
 Hecho el 2026-09-10: proyecto creado, migraciones aplicadas y pgTAP en verde (111/111).
 
 Hecho también: proyecto desechable creado y migrado, y `npm run test:app` en verde
-(17/17), sin dejar residuos.
+(18/18), sin dejar residuos.
+
+**Revisión externa del PR #6 aplicada** (migración `0006_activation_integrity.sql`):
+
+| Hallazgo | Corrección |
+|---|---|
+| Se podía activar un borrador incoherente con un UPDATE directo, salteando la RPC | La validación bajó al trigger: corre en todos los caminos de escritura. La numeración y el sello de activación los asigna la base, no el llamador |
+| Una versión activa podía perder objetivos o sistemas moviéndolos a un borrador | El trigger valida origen **y** destino, y prohíbe reasignar filas hijas entre versiones o empresas |
+| Edición y activación no compartían cerrojo | `replace_draft_*` toma el mismo lock consultivo que `activate_context_draft` y relee el estado bajo cerrojo |
+| Revisión mostraba el estado de pantalla y confirmaba el de la base | Se compara la huella de lo guardado contra lo editado; con cambios pendientes no se puede confirmar y se explica por qué |
 
 Queda una sola cosa:
 

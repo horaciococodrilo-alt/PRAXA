@@ -205,6 +205,55 @@ describe.skipIf(!canRun)('persistencia y reanudación del onboarding (proyecto r
       .eq('status', 'draft');
     expect(drafts).toEqual([]);
   });
+
+  // Va al final del bloque a propósito: activa una versión más, así que si corriera antes
+  // desplazaría la numeración que verifican las pruebas anteriores.
+  it('editar y confirmar a la vez deja un contexto activo coherente', async () => {
+    // El caso que faltaba: probar dos confirmaciones simultáneas no cubre la carrera
+    // entre EDICIÓN y confirmación. Antes de la migración 0006, replace_draft_* no
+    // participaba del cerrojo de activate_context_draft, así que una edición podía
+    // commitear después de que la activación ya hubiera validado, dejando activo un
+    // contenido que nunca se validó.
+    const { data: draft } = await user.client
+      .rpc('start_context_draft', { p_context_schema_version: '1.0.0' })
+      .single<{ id: string }>();
+
+    // Se lanzan a la vez: una reemplaza los objetivos, la otra confirma.
+    const outcomes = await Promise.allSettled([
+      user.client.rpc('replace_draft_objectives', {
+        p_version_id: draft!.id,
+        p_objectives: [{ kind: 'primary', title: 'Objetivo cambiado en la carrera', position: 0 }],
+      }),
+      user.client.rpc('activate_context_draft', { p_version_id: draft!.id }),
+    ]);
+
+    // No importa cuál gane; importa que no quede activo un contexto que se contradiga.
+    const { data: actives } = await user.client
+      .from('company_context_versions')
+      .select('id, has_defined_objective')
+      .eq('status', 'active');
+
+    expect(actives).toHaveLength(1);
+
+    const active = actives![0];
+    const { data: objectives } = await user.client
+      .from('company_objectives')
+      .select('kind')
+      .eq('context_version_id', active.id);
+
+    const total = objectives?.length ?? 0;
+    const primaries = objectives?.filter((o) => o.kind === 'primary').length ?? 0;
+
+    if (active.has_defined_objective) {
+      expect(total).toBeGreaterThanOrEqual(1);
+      expect(primaries).toBe(1);
+    } else {
+      expect(total).toBe(0);
+    }
+
+    // Y alguna de las dos operaciones tuvo que resolverse, no quedar colgada.
+    expect(outcomes.some((o) => o.status === 'fulfilled')).toBe(true);
+  });
 });
 
 describe.skipIf(canRun)('onboarding', () => {
