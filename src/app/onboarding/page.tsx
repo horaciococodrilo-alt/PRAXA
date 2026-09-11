@@ -1,0 +1,66 @@
+import { ConfigurationMissing } from '@/components/configuration-missing';
+import { OnboardingWizard } from '@/components/onboarding-wizard';
+import { isSupabaseConfigured } from '@/lib/env';
+import { getCurrentCompany } from '@/modules/company/service';
+import { requireUser } from '@/modules/identity/session';
+import { getActiveContext, getDraft } from '@/modules/onboarding/repository';
+
+export const metadata = { title: 'Configuración inicial' };
+
+/**
+ * El onboarding se puede guardar y retomar: el estado inicial sale del borrador
+ * persistido, no de la memoria del navegador.
+ */
+export default async function OnboardingPage() {
+  if (!isSupabaseConfigured()) return <ConfigurationMissing />;
+
+  await requireUser('/onboarding');
+
+  const company = await getCurrentCompany();
+
+  // Sin empresa todavía no hay borrador posible: el primer paso la crea.
+  if (!company) {
+    return <OnboardingWizard initial={null} />;
+  }
+
+  const [draft, active] = await Promise.all([getDraft(), getActiveContext()]);
+  const snapshot = draft ?? active;
+
+  return (
+    <OnboardingWizard
+      initial={{
+        companyName: company.name,
+        hasDraft: Boolean(draft),
+        hasActive: Boolean(active),
+        // Qué borrador es y qué contenido tiene, según el servidor. La revisión cubre la
+        // fila y sus dos listas: cambiar solo objetivos o sistemas también la mueve.
+        draftId: draft ? draft.version.id : null,
+        draftSignature: draft ? draft.revision : null,
+        context: snapshot
+          ? {
+              hasDefinedObjective: snapshot.version.has_defined_objective,
+              problems: snapshot.version.problems,
+              constraints: snapshot.version.constraints,
+              additionalContext: snapshot.version.additional_context ?? '',
+              objectives: snapshot.objectives.map((objective) => ({
+                kind: objective.kind,
+                title: objective.title,
+                description: objective.description,
+                priority: objective.priority,
+                horizon: objective.horizon,
+                indicator_name: objective.indicator_name,
+                target_value: objective.target_value,
+                target_unit: objective.target_unit,
+                position: objective.position,
+              })),
+              systems: snapshot.systems.map((system) => ({
+                system_key: system.system_key,
+                label: system.label,
+                notes: system.notes,
+              })),
+            }
+          : null,
+      }}
+    />
+  );
+}
