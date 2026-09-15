@@ -19,7 +19,8 @@
     "db:preview": "node scripts/db-push.mjs --dry-run",
     "db:push": "node scripts/db-push.mjs",
     "db:push:test": "node scripts/db-push.mjs --test",
-    "verify": "npm run lint && npm run typecheck && npm run test && npm run build"
+    "typegen": "next typegen",
+    "verify": "npm run lint && npm run typegen && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
