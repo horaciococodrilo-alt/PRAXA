@@ -15,6 +15,8 @@ empresa, landing, registro con verificación de correo y onboarding guardable y 
 **No implementado todavía:** ningún conector de integración y ninguna generación de
 reportes con IA. No hay ninguna llamada a un LLM en el código.
 
+Ver [`docs/ROADMAP.md`](docs/ROADMAP.md) para el roadmap vigente, sus microfases, dependencias y gates.
+
 ## Requisitos
 
 - Node.js 24.x (probado con 24.18.1, fijado en `.nvmrc` y `engines`) y npm 11.
@@ -295,6 +297,7 @@ docs/             arquitectura, seguridad y roadmap
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — módulos, decisiones y contrato del reporte.
 - [`docs/SECURITY.md`](docs/SECURITY.md) — autorización, matriz de privilegios y reglas futuras.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — roadmap vigente completo, con microfases, dependencias y gates.
 
 ## Nota sobre el historial
 

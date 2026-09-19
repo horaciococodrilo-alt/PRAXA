@@ -66,6 +66,18 @@ Impacto: registrar el fallo real sin bloquear M04.2 y resolverlo en M06.1, cuand
 
 Evidencia observada el 2026-09-19: después de confirmar el correo, Auth completó el callback y la aplicación llegó a `OnboardingPage`. `getCurrentCompany` falló en `src/modules/company/service.ts:39` con `Could not find the table 'public.companies' in the schema cache`. Se clasifica como manifestación confirmada de H-M04.2-02, no como fallo de registro ni de verificación de correo.
 
+### H-M04.2-03 — Un enlace de confirmación llegó sin parámetros de un solo uso
+
+En una segunda alta ejecutada en una ventana de incógnito, abrir el enlace recibido por correo terminó en `/verify-email?error=link-missing-params` y la UI mostró “El enlace está incompleto. Abrilo directamente desde el correo.” El callback no recibió ni `code` ni la combinación `token_hash` + `type`. Después, la misma cuenta pudo iniciar sesión y llegó al error esperado por ausencia de `public.companies`, por lo que Supabase consideraba el correo confirmado.
+
+La causa no quedó demostrada. La hipótesis principal a verificar es que un scanner de seguridad del proveedor de correo abrió y consumió el token de un solo uso antes que el usuario. También deben cubrirse enlace ya usado, vencido y parámetros realmente ausentes. El primer recorrido de confirmación sí funcionó; por eso H-M04.2-03 no bloqueó G-BASELINE. Las pruebas y la recuperación visible quedan asignadas a M08.3.
+
+## Seguridad de dependencias
+
+El aviso de `npm ci` sobre `unrs-resolver@1.12.2` fue revisado el 2026-09-19. Es una dependencia transitiva de desarrollo (`eslint-config-next` → `eslint-import-resolver-typescript` → `unrs-resolver`). Su `postinstall` llama a `napi-postinstall`, que selecciona el binding nativo opcional y puede intentar instalarlo o descargarlo desde el registro npm si falta. En este checkout ya está instalado `@unrs/resolver-binding-win32-x64-msvc@1.12.2`; el CI y `verify` funcionan sin aprobar manualmente el script.
+
+`npm audit` informó 0 vulnerabilidades y el paquete local coincide con la versión e integridad publicadas en el registro. No se agregó una aprobación de scripts porque el fallback no es necesario para los entornos verificados; cualquier aprobación futura exige revisar nuevamente paquete, versión, integridad y código ejecutado. Dependabot queda habilitado para detectar actualizaciones y alertas.
+
 ## CI remoto
 
 El workflow se ejecuta en `push` y `pull_request` dirigidos a `main`, con cancelación de corridas superpuestas. La corrida [35456743013](https://github.com/horaciococodrilo-alt/PRAXA/actions/runs/35456743013), disparada por el push del commit `8203493`, terminó con conclusión `success` el 2026-09-19. El job `verify` duró 54 segundos y completó sin fallos checkout, configuración de Node, `npm ci`, `npm run verify` y los pasos de cierre.

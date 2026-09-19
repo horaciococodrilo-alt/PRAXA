@@ -1,4 +1,6 @@
-# Roadmap de microfases del MVP de PRAXA — revisión 2
+# Roadmap de microfases del MVP de PRAXA — versión 2.1
+
+Versión 2.1 — 2026-09-19. Incorpora el cierre real de M04, los hallazgos de auditoría y las decisiones aprobadas antes de iniciar M05.1.
 
 ## Reglas de este roadmap
 
@@ -27,6 +29,7 @@ K16 incorpora:
 - `product_variant: ads_catalog | commerce_reliability`;
 - `window_start`, `window_end`, `window_days` y `minimum_window_days`;
 - `coverage_mode: observed | reconstructed_biased | mixed`;
+- `narration_mode: template | llm`;
 - `status: partial | ready | failed`;
 - restricción única por `analysis_run_id + report_kind`.
 
@@ -141,34 +144,225 @@ Los reportes no se mezclan en una sola entrega. Cada uno tiene publicación, ace
 
 **Condición de cierre:** contratos, almacenamiento, aislamiento, cifrado, jobs y onboarding listos para fuentes reales.
 
-### M04 — Baseline reproducible
+### M04.1 — Auditoría del repositorio existente — CERRADA
 
 | Campo | Contenido |
 |---|---|
-| **ID** | `M04` — corte único, ≤8 h |
-| **Objetivo** | Estabilizar el proyecto existente. |
-| **Qué se construye** | Runtime fijado, instalación reproducible, CI y clasificación conservar/adaptar/retirar. |
-| **Pasos de ejecución** | Inventariar; verificar; corregir baseline; fijar versiones; configurar CI; documentar. |
-| **Entrega observable** | Instalación y verificación repetibles. |
-| **Criterio de aceptación** | Tipos, lint y build tienen una ruta automática de control. |
-| **Pruebas** | Instalación limpia; typegen; diff check; CI. |
-| **Gate de avance** | Base verde antes de ampliar contratos. |
-| **Depende de / desbloquea** | — / `M05.1` |
+| **ID** | `M04.1` — cerrada el 2026-09-17 |
+| **Objetivo** | Clasificar el repositorio existente contra el roadmap v2 sin confundir código presente con comportamiento probado. |
+| **Qué se construye** | Inventario congelado de 83 archivos, veredictos conservar/adaptar/retirar, respuestas obligatorias y hallazgos con microfase asignada. |
+| **Pasos de ejecución** | Congelar snapshot; leer instrucciones; auditar aplicación, SQL, pruebas, scripts y dependencias; reconciliar 83/83; aprobar retiros. |
+| **Entrega observable** | `docs/auditoria-m04.md`. |
+| **Criterio de aceptación** | Cada archivo tiene un veredicto trazable al v2 y todo adaptar/retirar tiene destino. |
+| **Pruebas** | Reconciliación bidireccional del manifiesto; revisión estática sin operaciones contra Supabase. |
+| **Gate de avance** | `G-AUDIT`: **APROBADO**. |
+| **Depende de / desbloquea** | — / `M04.2` |
 | **Tu intervención** | Ninguna. |
 
-### M05.1 — Contratos de control e ingesta
+### M04.2 — Runtime, CI y autenticación base — CERRADA
 
 | Campo | Contenido |
 |---|---|
-| **ID** | `M05.1` — ≤8 h |
-| **Objetivo** | Cerrar K01–K12. |
-| **Qué se construye** | Schemas para tenant, OAuth, conexiones, secretos, jobs, checkpoints, raw, enlaces, catálogo, pedidos, GA4 y Meta. |
-| **Pasos de ejecución** | Definir campos/estados; hacer schemas estrictos; versionar; crear fixtures válidos/inválidos; documentar invariantes. |
-| **Entrega observable** | K01–K12 exportables y probados. |
-| **Criterio de aceptación** | No aceptan secretos, tenant o estados incompatibles fuera de su contrato. |
-| **Pruebas** | Campos extra; transición inválida; raw sin hash; entidad sin evidencia. |
-| **Gate de avance** | K01–K12 habilitan M06 y normalizadores. |
-| **Depende de / desbloquea** | `M04` / `M05.2`, `M06.1`, `M11.1`, `M14.1` |
+| **ID** | `M04.2` — cerrada el 2026-09-19 |
+| **Objetivo** | Dejar una baseline reproducible local, limpia y remota. |
+| **Qué se construye** | Node 24 fijado, instalación limpia, CI Ubuntu, evidencia de Auth y documentación activa alineada. |
+| **Pasos de ejecución** | Fijar runtime; configurar workflow; mover el checkout fuera de OneDrive; verificar; probar Auth; clonar limpio; observar CI real. |
+| **Entrega observable** | `docs/baseline-m04-2.md`, `.nvmrc`, workflow y commits de evidencia. |
+| **Criterio de aceptación** | T-M04.2-01–06 en `PASS`, clon limpio verde y GitHub Actions en `success`. |
+| **Pruebas** | `npm ci`; `npm run verify`; seis pasos de Auth; run 35456743013 en 54 s. |
+| **Gate de avance** | `G-BASELINE`: **APROBADO**; habilita M05.1.1. |
+| **Depende de / desbloquea** | `M04.1` / `M05.1.1` |
+| **Tu intervención** | Configurar Supabase y editar `.env.local` exclusivamente a mano. |
+
+> **Nota de CI, 2026-09-19:** GitHub anunció que `ubuntu-latest` comenzará a migrar a Ubuntu 26 el 2026-10-19. No crea una microfase; antes o después de esa fecha se debe observar una corrida verde y fijar una imagen explícita sólo si aparece una incompatibilidad.
+
+### Mantenimiento inmediato posterior a M04 — COMPLETADO
+
+- Dependabot quedó configurado semanalmente para npm mediante `.github/dependabot.yml`; en GitHub se activaron vulnerability alerts y automated security fixes.
+- Se revisó el aviso de `npm ci` para `unrs-resolver@1.12.2`. Es una dependencia transitiva de desarrollo de `eslint-config-next`; su script usa `napi-postinstall` para preparar el binding nativo y puede recurrir al registro npm si el opcional falta. Los entornos verificados ya reciben el binding opcional correcto, `npm audit` informó 0 vulnerabilidades y no se aprobó manualmente el fallback. Una aprobación futura exige revisar otra vez versión, integridad y código ejecutado.
+
+### Grupo M05.1 — Contratos de control e ingesta
+
+M05.1 se divide únicamente por sus doce contratos conocidos. Cada corte entrega un schema estricto, versión, fixtures válidos e inválidos y documentación de invariantes. M05.1 no comienza hasta que se abra explícitamente una nueva sesión de ejecución.
+
+### M05.1.1 — K01 `TenantContext`
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M05.1.1` — ≤8 h |
+| **Objetivo** | Fijar la identidad tenant que consumen todos los contratos posteriores. |
+| **Qué se construye** | K01 con `user_id` verificado, `company_id` resuelto por membresía, `role=owner` y `request_id`; nunca acepta un tenant elegido por el navegador. |
+| **Pasos de ejecución** | Definir schema y versión; resolver claims/membresía; prohibir IDs aportados por cliente; crear fixtures; documentar invariantes. |
+| **Entrega observable** | K01 exportable con fixtures y contrato documentado. |
+| **Criterio de aceptación** | Un contexto sólo existe si usuario, membresía y empresa coinciden. |
+| **Pruebas** | Claim ausente; empresa manipulada; membresía inexistente; rol inválido; campo extra. |
+| **Gate de avance** | Habilita contratos tenant-scoped. |
+| **Depende de / desbloquea** | `M04.2` / `M05.1.2`–`M05.1.12` |
+| **Tu intervención** | Ninguna. |
+
+### M05.1.2 — K02 `OAuthAttempt`
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M05.1.2` — ≤8 h |
+| **Objetivo** | Modelar intentos OAuth consumibles una sola vez y resistentes a CSRF. |
+| **Qué se construye** | K02 con empresa, proveedor, `state_hash`, PKCE cifrado cuando aplique, redirect/return allowlisted, expiración, consumo, estado y error. |
+| **Pasos de ejecución** | Definir estados; hashear state; tipar PKCE/redirect/retorno; fijar expiración y consumo atómico; crear fixtures. |
+| **Entrega observable** | K02 versionado y probado. |
+| **Criterio de aceptación** | Nunca persiste state claro ni permite reutilizar un intento. |
+| **Pruebas** | State claro; redirect externo; vencido; doble consumo; proveedor inválido. |
+| **Gate de avance** | Habilita contratos de conexión OAuth. |
+| **Depende de / desbloquea** | `M05.1.1` / `M05.1.3`, `M08.1`, OAuth de M09/M13/M16 |
+| **Tu intervención** | Ninguna. |
+
+### M05.1.3 — K03 `IntegrationConnection`
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M05.1.3` — ≤8 h |
+| **Objetivo** | Representar una conexión externa y su salud sin incluir credenciales. |
+| **Qué se construye** | K03 con tenant, proveedor, cuenta externa, scopes, estados, zona, moneda, timestamps, último error y versión del conector. |
+| **Pasos de ejecución** | Definir proveedores/estados/transiciones; separar metadata de secretos; tipar salud y versión; crear fixtures. |
+| **Entrega observable** | K03 versionado y probado. |
+| **Criterio de aceptación** | Estado, proveedor y metadata son compatibles y no contienen tokens. |
+| **Pruebas** | Transición inválida; provider desconocido; token inyectado; moneda/zona inválida; campo extra. |
+| **Gate de avance** | Habilita secretos, jobs y onboarding por fuentes. |
+| **Depende de / desbloquea** | `M05.1.1`, `M05.1.2` / `M05.1.4`–`M05.1.7`, `M08.1` |
+| **Tu intervención** | Ninguna. |
+
+### M05.1.4 — K04 `SecretCredential`
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M05.1.4` — ≤8 h |
+| **Objetivo** | Definir credenciales cifradas que nunca atraviesan la Data API. |
+| **Qué se construye** | K04 con tenant/conexión, ciphertext, IV, auth tag, versión de clave, tipo, expiración, presencia de refresh y rotación. |
+| **Pasos de ejecución** | Tipar sobre cifrado; prohibir texto claro; ligar a K03; versionar clave; crear fixtures de rotación y error. |
+| **Entrega observable** | K04 versionado y probado. |
+| **Criterio de aceptación** | Ningún fixture válido contiene token o secreto claro. |
+| **Pruebas** | Plaintext; IV/tag ausente; versión desconocida; conexión cruzada; expiración inválida. |
+| **Gate de avance** | Habilita almacenamiento privado y worker acotado. |
+| **Depende de / desbloquea** | `M05.1.3` / `M06.3` |
+| **Tu intervención** | Ninguna. |
+
+### M05.1.5 — K05 `SyncJob`
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M05.1.5` — ≤8 h |
+| **Objetivo** | Cerrar el contrato durable de trabajo, reintento y leasing. |
+| **Qué se construye** | K05 con tenant/conexión, kind, recurso, ventana, estado, disponibilidad, lease, intentos, idempotencia, error redactado y finalización. |
+| **Pasos de ejecución** | Definir kinds/estados terminales; tipar ventana/lease/intentos; fijar idempotencia y redacción; crear fixtures. |
+| **Entrega observable** | K05 versionado y probado. |
+| **Criterio de aceptación** | No admite estado, lease, intento o ventana incompatibles. |
+| **Pruebas** | Transición inválida; lease sin owner; intento excedido; idempotency vacía; secreto en error. |
+| **Gate de avance** | Habilita checkpoints y arquitectura de jobs. |
+| **Depende de / desbloquea** | `M05.1.1`, `M05.1.3` / `M05.1.6`, `M05.1.7`, `M07.1` |
+| **Tu intervención** | Ninguna. |
+
+### M05.1.6 — K06 `SyncCheckpoint`
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M05.1.6` — ≤8 h |
+| **Objetivo** | Modelar reanudación sin inventar un cursor común entre proveedores. |
+| **Qué se construye** | K06 con tenant/conexión/recurso, cursor opaco, watermark, ventana, última observación, versión del conector y job. |
+| **Pasos de ejecución** | Tipar cursor como opaco; ligar K03/K05; separar watermark de observación; versionar; crear fixtures. |
+| **Entrega observable** | K06 versionado y probado. |
+| **Criterio de aceptación** | Un checkpoint sólo avanza asociado a conexión, recurso, versión y job compatibles. |
+| **Pruebas** | Cursor normalizado global; job cruzado; ventana invertida; versión ausente; watermark inválido. |
+| **Gate de avance** | Habilita paginación y reanudación segura. |
+| **Depende de / desbloquea** | `M05.1.3`, `M05.1.5` / `M07.2`, extractores |
+| **Tu intervención** | Ninguna. |
+
+### M05.1.7 — K07 `RawObservation`
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M05.1.7` — ≤8 h |
+| **Objetivo** | Definir evidencia raw append-only, trazable e idempotente. |
+| **Qué se construye** | K07 con tenant/conexión/job, fuente/recurso/ID externo, tiempos, payload, SHA-256, versión, ETag y page ref. |
+| **Pasos de ejecución** | Definir allowlist de metadata; exigir hash y referencias; prohibir mutación; versionar payload; crear fixtures. |
+| **Entrega observable** | K07 versionado y probado. |
+| **Criterio de aceptación** | Toda observación cita origen y hash; una corrección crea otra observación. |
+| **Pruebas** | Raw sin hash; update; tenant/job cruzado; fecha inválida; payload sin versión. |
+| **Gate de avance** | Habilita normalizadores, enlaces, replay y snapshot. |
+| **Depende de / desbloquea** | `M05.1.3`, `M05.1.5` / `M05.1.8`–`M05.1.12`, M10–M18 |
+| **Tu intervención** | Ninguna. |
+
+### M05.1.8 — K08 `CanonicalEntityLink`
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M05.1.8` — ≤8 h |
+| **Objetivo** | Vincular identidades externas sin fusionar ni sobrescribir observaciones. |
+| **Qué se construye** | K08 con tenant, entidad canónica/tipo, fuente/ID externo, vigencia, método, confianza y referencias de evidencia. |
+| **Pasos de ejecución** | Definir tipos/métodos; acotar confianza; tipar vigencia; exigir evidencia; crear casos ambiguos. |
+| **Entrega observable** | K08 versionado y probado. |
+| **Criterio de aceptación** | Ningún enlace ambiguo se vuelve exacto sin evidencia. |
+| **Pruebas** | Vigencia solapada; confianza fuera de rango; método incompatible; evidencia inexistente; tenant cruzado. |
+| **Gate de avance** | Habilita reconciliación entre fuentes. |
+| **Depende de / desbloquea** | `M05.1.1`, `M05.1.7` / `M05.1.9`, `M05.1.10`, M11.3, M18 |
+| **Tu intervención** | Ninguna. |
+
+### M05.1.9 — K09 `CatalogVariantObservation`
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M05.1.9` — ≤8 h |
+| **Objetivo** | Tipar observaciones de producto/variante sin convertir estado actual en historia inventada. |
+| **Qué se construye** | K09 con tenant, variante canónica, raw, fuente, IDs, SKU, handle, URL, publicación, stock, precio/moneda, candidato principal y tiempo. |
+| **Pasos de ejecución** | Definir nulabilidad y dinero decimal; ligar K07/K08; separar observado de reconstruido; crear fixtures temporales. |
+| **Entrega observable** | K09 versionado y probado. |
+| **Criterio de aceptación** | Publicación y stock sólo se afirman para el instante observado. |
+| **Pruebas** | Raw inexistente; float; moneda ausente; variante cruzada; timestamp futuro; estado reconstruido como observado. |
+| **Gate de avance** | Habilita normalización y serie M12. |
+| **Depende de / desbloquea** | `M05.1.7`, `M05.1.8` / `M11.1`, `M12.1` |
+| **Tu intervención** | Ninguna. |
+
+### M05.1.10 — K10 `OrderObservation`
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M05.1.10` — ≤8 h |
+| **Objetivo** | Tipar pedidos y líneas sin PII y con importes reproducibles. |
+| **Qué se construye** | K10 pedido con tenant, orden canónica/raw, ID externo, tiempos, estado, total/moneda y observación; líneas con refs producto/variante, cantidad y unit gross. |
+| **Pasos de ejecución** | Definir estados y dinero decimal; excluir PII; ligar raw/enlaces; tipar líneas; crear fixtures de cancelación y devolución. |
+| **Entrega observable** | K10 versionado y probado. |
+| **Criterio de aceptación** | Totales y unidades son reproducibles sin email, teléfono ni domicilio. |
+| **Pruebas** | PII inyectada; float; línea huérfana; moneda incompatible; cancelado/reembolso; raw cruzado. |
+| **Gate de avance** | Habilita normalización de pedidos y reconstrucción sesgada. |
+| **Depende de / desbloquea** | `M05.1.7`, `M05.1.8` / `M11.2`, `M10b` |
+| **Tu intervención** | Ninguna. |
+
+### M05.1.11 — K11 `GA4AggregateObservation`
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M05.1.11` — ≤8 h |
+| **Objetivo** | Cerrar agregados GA4 tipados por spec, sin filas libres de dimensión o métrica. |
+| **Qué se construye** | K11 con tenant/raw, spec y versión, fecha, dimensiones/métricas allowlisted, row count, thresholding/other y tiempo. |
+| **Pasos de ejecución** | Definir shapes por spec; tipar métricas/dimensiones; registrar thresholding y other; ligar K07; crear fixtures. |
+| **Entrega observable** | K11 versionado y probado. |
+| **Criterio de aceptación** | Toda métrica corresponde a una spec versionada y evidencia raw. |
+| **Pruebas** | Dimensión libre; métrica incompatible; spec ausente; other inválido; raw/tenant cruzado. |
+| **Gate de avance** | Habilita promoción de specs y normalización GA4. |
+| **Depende de / desbloquea** | `M05.1.7` / `M14.1`, `M15.3` |
+| **Tu intervención** | Ninguna. |
+
+### M05.1.12 — K12 `AdDeliveryObservation` y cierre K01–K12
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M05.1.12` — ≤8 h |
+| **Objetivo** | Cerrar observaciones Meta de Rama A y verificar el conjunto completo K01–K12. |
+| **Qué se construye** | K12 con tenant/raw, cuenta/campaña/adset/ad, estado, fecha, gasto/moneda, destino, UTM, referencia creativa y tiempo; matriz final de referencias K01–K12. |
+| **Pasos de ejecución** | Tipar jerarquía y dinero; ligar K07/K08; limitar a Rama A; crear fixtures; ejecutar validación cruzada y documentar versiones de los doce contratos. |
+| **Entrega observable** | K12 y catálogo K01–K12 exportables, versionados y probados. |
+| **Criterio de aceptación** | K12 no existe en outputs de Rama B; los doce contratos rechazan tenant, secreto, estado o referencia incompatibles. |
+| **Pruebas** | Rama B; gasto float; moneda/fecha inválida; jerarquía rota; raw cruzado; referencias K01–K12; campos extra. |
+| **Gate de avance** | `G-K01-K12`: habilita M05.2, M06.1, M11.1 y M14.1. |
+| **Depende de / desbloquea** | `M05.1.1`–`M05.1.11` / `M05.2`, `M06.1`, `M11.1`, `M14.1` |
 | **Tu intervención** | Ninguna. |
 
 ### M05.2 — Contratos analíticos y dos reportes
@@ -177,13 +371,13 @@ Los reportes no se mezclan en una sola entrega. Cada uno tiene publicación, ace
 |---|---|
 | **ID** | `M05.2` — ≤8 h |
 | **Objetivo** | Cerrar K13–K19 y la metodología versionada. |
-| **Qué se construye** | Calidad, detectores, hallazgos, runs, K16 con `report_kind`, narración, chat y snapshot; umbrales y fórmulas. |
+| **Qué se construye** | Calidad, detectores, hallazgos, runs, K16 con `report_kind` y `narration_mode: template \| llm`, chat y snapshot; umbrales y fórmulas. |
 | **Pasos de ejecución** | Incorporar resultados M01–M03; definir abstenciones; separar reportes; fijar ventanas mínimas; validar ledger/evidencia; versionar metodología. |
 | **Entrega observable** | Contratos de análisis y publicación con fixtures para ambos productos y ambos reportes. |
 | **Criterio de aceptación** | `reliability` y `catalog` no pueden confundirse ni publicarse debajo de su ventana mínima. |
 | **Pruebas** | `report_kind` inválido; ventana corta; producto incompatible; hallazgo sin evidencia; número fuera del ledger. |
 | **Gate de avance** | Metodología cerrada habilita M19a.1, M19b.1, M22.1 y M23.1. |
-| **Depende de / desbloquea** | `M05.1`, `M01.2`, `M03` / análisis y reportes |
+| **Depende de / desbloquea** | `M05.1.12`, `M01.2`, `M03` / análisis y reportes |
 | **Tu intervención** | Aprobar significado comercial, umbrales, pesos y promesas de cada reporte. |
 
 ### M06.1 — Esquemas y migraciones base
@@ -192,13 +386,13 @@ Los reportes no se mezclan en una sola entrega. Cada uno tiene publicación, ace
 |---|---|
 | **ID** | `M06.1` — ≤8 h |
 | **Objetivo** | Materializar K01–K12 en PostgreSQL. |
-| **Qué se construye** | Esquemas, tablas, constraints, índices y migraciones aditivas. |
-| **Pasos de ejecución** | Crear control plane; crear data plane; aplicar `company_id`; agregar constraints; verificar upgrade/rollback seguro. |
+| **Qué se construye** | Esquemas, tablas, constraints, índices y una cadena limpia para el proyecto nuevo: se retiran `0002` y `0005`–`0011`, se corrige `0003` para no depender del contexto descartado y se reescribe `0004` para los objetos K01–K12 vigentes. |
+| **Pasos de ejecución** | Materializar control/data plane; aplicar `company_id`; corregir la cadena heredada; agregar constraints; instalar desde cero; probar registro confirmado, alta de empresa/membresía y entrada a `/app`; documentar rollback aplicable al baseline nuevo. |
 | **Entrega observable** | Base migrable con topología documentada. |
-| **Criterio de aceptación** | Cada tabla tiene dueño, clave, tenant y política de mutación definida. |
-| **Pruebas** | Migración limpia; migración sobre baseline; constraints; índices únicos. |
+| **Criterio de aceptación** | Cada tabla tiene dueño, clave, tenant y política de mutación definida; una base vacía llega a `public.companies` y permite el recorrido Auth→empresa→membresía→`/app`. |
+| **Pruebas** | Cadena desde cero sin referencias a objetos retirados; Auth y bootstrap de empresa; constraints; índices únicos. |
 | **Gate de avance** | Habilita políticas y cifrado. |
-| **Depende de / desbloquea** | `M05.1` / `M06.2`, `M06.3` |
+| **Depende de / desbloquea** | `M05.1.12` / `M06.2`, `M06.3` |
 | **Tu intervención** | Ninguna. |
 
 ### M06.2 — RLS y aislamiento multiempresa
@@ -208,10 +402,10 @@ Los reportes no se mezclan en una sola entrega. Cada uno tiene publicación, ace
 | **ID** | `M06.2` — ≤8 h |
 | **Objetivo** | Impedir lecturas y escrituras cruzadas. |
 | **Qué se construye** | RLS, `FORCE RLS`, RPCs de sesión y pruebas remotas con dos tenants. |
-| **Pasos de ejecución** | Definir políticas; negar por defecto; exponer proyecciones mínimas; probar IDs manipulados; verificar tablas nuevas. |
+| **Pasos de ejecución** | Definir políticas; negar por defecto; aplicar RLS+`FORCE RLS`; exponer proyecciones mínimas; eliminar `SUPABASE_TEST_ALLOW_APP_PROJECT`; unificar las guardas REST/pgTAP para exigir un proyecto distinto y desechable; probar IDs manipulados y el rol dueño. |
 | **Entrega observable** | Matriz de privilegios con aislamiento probado. |
-| **Criterio de aceptación** | Usuario A nunca accede a datos de B. |
-| **Pruebas** | Select/insert/update/delete cruzados; RPC; tenant ausente; tabla olvidada. |
+| **Criterio de aceptación** | Usuario A nunca accede a datos de B; toda tabla tenant-scoped tiene `relrowsecurity` y `relforcerowsecurity`; el rol dueño previsto no omite políticas y el runtime normal no usa `BYPASSRLS`. |
+| **Pruebas** | Select/insert/update/delete cruzados; RPC; tenant ausente; catálogo de tablas; rol dueño; rechazo del proyecto de aplicación tanto en REST como en pgTAP. |
 | **Gate de avance** | RLS verde antes de datos piloto. |
 | **Depende de / desbloquea** | `M06.1` / `M06.3`, `M08.1` |
 | **Tu intervención** | Ninguna. |
@@ -288,7 +482,7 @@ Los reportes no se mezclan en una sola entrega. Cada uno tiene publicación, ace
 | **Criterio de aceptación** | Refrescar o volver no pierde progreso ni mezcla productos. |
 | **Pruebas** | Estado imposible; doble pestaña; rama cambiada; fuente degradada. |
 | **Gate de avance** | Habilita UI. |
-| **Depende de / desbloquea** | `M05.1`, `M06.2` / `M08.2` |
+| **Depende de / desbloquea** | `M05.1.12`, `M06.2` / `M08.2` |
 | **Tu intervención** | Ninguna. |
 
 ### M08.2 — UI de conexiones y progreso
@@ -313,10 +507,10 @@ Los reportes no se mezclan en una sola entrega. Cada uno tiene publicación, ace
 | **ID** | `M08.3` — ≤8 h |
 | **Objetivo** | Hacer robustos abandono, expiración y callback repetido. |
 | **Qué se construye** | Retorno seguro, reanudación, reauth, disconnect y pruebas end-to-end. |
-| **Pasos de ejecución** | Simular abandono; expirar intento; repetir callback; revocar conexión; retomar; confirmar estado final. |
+| **Pasos de ejecución** | Simular abandono; expirar intento; repetir callback; revocar conexión; retomar; confirmar estado final; reproducir confirmación de correo consumida antes de abrirse. |
 | **Entrega observable** | Suite de recuperación del onboarding. |
-| **Criterio de aceptación** | Ningún fallo crea conexiones duplicadas o rutas abiertas. |
-| **Pruebas** | Open redirect; state vencido; callback doble; cancelación; reauth. |
+| **Criterio de aceptación** | Ningún fallo crea conexiones duplicadas o rutas abiertas; un token de correo ausente, vencido, ya usado o consumido por un scanner produce un estado explicable y una recuperación segura. |
+| **Pruebas** | Open redirect; state vencido; callback doble; cancelación; reauth; link de email sin parámetros; link ya consumido; scanner que abre el token antes del usuario. |
 | **Gate de avance** | Flujo común obligatorio para M09, M13 y M16. |
 | **Depende de / desbloquea** | `M08.2` / OAuth productivos |
 | **Tu intervención** | Ejecutar una revisión funcional del recorrido. |
@@ -515,11 +709,11 @@ Los reportes no se mezclan en una sola entrega. Cada uno tiene publicación, ace
 |---|---|
 | **ID** | `M12.3` — ≤8 h |
 | **Objetivo** | Medir qué parte de la historia de catálogo fue realmente observada. |
-| **Qué se construye** | Intervalos observados, gaps, procedencia webhook/poll, replay y regla `not_evaluable` para pre-M12. |
-| **Pasos de ejecución** | Construir intervalos; marcar gaps; simular evento perdido; reconciliar; reejecutar; comparar; documentar limitaciones. |
+| **Qué se construye** | Intervalos observados, gaps, procedencia webhook/poll, replay, regla `not_evaluable` para pre-M12 y protección exportable de la serie temporal M12. |
+| **Pasos de ejecución** | Construir intervalos; marcar gaps; simular evento perdido; reconciliar; reejecutar; comparar; exportar y restaurar la serie M12; documentar limitaciones. |
 | **Entrega observable** | Manifiesto de cobertura temporal del catálogo. |
-| **Criterio de aceptación** | Publicado/despublicado antes de M12 siempre es `not_evaluable`; stock reconstruido nunca se etiqueta observado. |
-| **Pruebas** | Gap; orden inverso; pre-M12; mezcla observed/reconstructed; replay. |
+| **Criterio de aceptación** | Publicado/despublicado antes de M12 siempre es `not_evaluable`; stock reconstruido nunca se etiqueta observado; la serie M12, única evidencia no redescargable, puede restaurarse sin convertir datos reconstruidos en observados. |
+| **Pruebas** | Gap; orden inverso; pre-M12; mezcla observed/reconstructed; replay; export/restore de la serie M12. |
 | **Gate de avance** | Cierra el motor de observación y habilita reportes de catálogo honestos. |
 | **Depende de / desbloquea** | `M12.2`, `M10b` / `M19a.1`, `M20.1`, `M21.1`, `M26.1` |
 | **Tu intervención** | Revisar que las limitaciones sean comprensibles. |
@@ -587,7 +781,7 @@ Los reportes no se mezclan en una sola entrega. Cada uno tiene publicación, ace
 | **Criterio de aceptación** | Cada spec tiene consumidor y versión. |
 | **Pruebas** | Spec huérfana; hash; filtro omitido; scope mezclado. |
 | **Gate de avance** | Habilita preflight. |
-| **Depende de / desbloquea** | `M02.2`, `M05.1`, `M13.3` / `M14.2` |
+| **Depende de / desbloquea** | `M02.2`, `M05.1.12`, `M13.3` / `M14.2` |
 | **Tu intervención** | Ninguna. |
 
 ### M14.2 — Preflight de compatibilidad
@@ -725,7 +919,7 @@ Los reportes no se mezclan en una sola entrega. Cada uno tiene publicación, ace
 | **Entrega observable** | Cuenta publicitaria conectada y saludable. |
 | **Criterio de aceptación** | Cuenta e insight reales responden. |
 | **Pruebas** | Cuenta no autorizada; 403; revocación; reconexión. |
-| **Gate de avance** | Divergencia activa M16b; éxito habilita M17.1. |
+| **Gate de avance** | Éxito habilita M17.1. Un fallo que active M16b obliga primero a enmendar y volver a aprobar M03. |
 | **Depende de / desbloquea** | `M16.1` / `M17.1` o `M16b` |
 | **Tu intervención** | Elegir cuenta y confirmar moneda/zona. |
 
@@ -736,12 +930,12 @@ Los reportes no se mezclan en una sola entrega. Cada uno tiene publicación, ace
 | **ID** | `M16b` — nuevo significado estable, corte único ≤8 h |
 | **Objetivo** | Cerrar un producto TN+GA4 autónomo, no una versión degradada del producto publicitario. |
 | **Qué se construye** | Capability matrix, navegación, onboarding, textos, detectores, reportes y demo específicos de `commerce_reliability`; rutas Meta inexistentes. |
-| **Pasos de ejecución** | Fijar producto; retirar lenguaje de ads/gasto/presupuesto; centrar propuesta en calidad de medición y riesgo de catálogo; ajustar reportes; probar cero dependencias Meta. |
+| **Pasos de ejecución** | Enmendar M03 y volver a aprobar producto, fuentes, detectores, datos, retención, consentimiento y lenguaje prohibido; actualizar `product_variant`; retirar lenguaje de ads/gasto/presupuesto; ajustar navegación, onboarding, reportes y demo; probar cero dependencias Meta. |
 | **Entrega observable** | Experiencia completa TN+GA4 con identidad y criterios propios. |
 | **Criterio de aceptación** | No aparecen botones, estados, métricas ni abstenciones que hagan sentir que “falta Meta”; simplemente pertenecen a otro producto. |
 | **Pruebas** | Cero llamadas/campos Meta; copy sin gasto o presupuesto; reportes válidos; demo propia; chat no conoce conceptos excluidos. |
 | **Gate de avance** | Rama B avanza sólo como `commerce_reliability`, nunca como `ads_catalog` parcial. |
-| **Depende de / desbloquea** | `M00 FAIL` o `M16.2 FAIL`, `M03`, `M15.4` / `M19a.1`, M20/M21 aplicables, reportes B |
+| **Depende de / desbloquea** | `M00 FAIL` o `M16.2 FAIL`, M03 enmendada y reaprobada, `M15.4` / `M19a.1`, M20/M21 aplicables, reportes B |
 | **Tu intervención** | Aprobar nombre, promesa y textos del producto alternativo. |
 
 ### M17.1 — Estructura de campañas y anuncios
@@ -1155,8 +1349,8 @@ Los reportes no se mezclan en una sola entrega. Cada uno tiene publicación, ace
 | **Entrega observable** | Narración segura con LLM disponible o caído. |
 | **Criterio de aceptación** | Fallos no publican texto libre ni exceden presupuesto. |
 | **Pruebas** | Prompt injection; presupuesto agotado; dos fallos; payload hostil; evidencia insuficiente. |
-| **Gate de avance** | Habilita ambos publicadores. |
-| **Depende de / desbloquea** | `M23.3` / `M24a.1`, `M24b.1`, `M25.3` |
+| **Gate de avance** | Habilita narración `llm`, el publicador catalog cuando la requiera y el orquestador de chat; no bloquea el primer reliability con plantilla. |
+| **Depende de / desbloquea** | `M23.3` / modo `llm` de `M24a.1`, `M24b.1`, `M25.3` |
 | **Tu intervención** | Fijar el límite de gasto y aprobar ejemplos de abstención. |
 
 ### M24a.1 — Contrato y publicación del reporte de confiabilidad
@@ -1166,12 +1360,12 @@ Los reportes no se mezclan en una sola entrega. Cada uno tiene publicación, ace
 | **ID** | `M24a.1` — primera entrega de reporte, ≤8 h |
 | **Objetivo** | Publicar `report_kind=reliability` como artefacto independiente. |
 | **Qué se construye** | Validador K16, regla de 28 días TN+GA4, job de publicación y estado partial/ready/failed. |
-| **Pasos de ejecución** | Cargar M19a; verificar 28 días; agregar M19b si A y elegible; narrar; validar; publicar transaccionalmente. |
+| **Pasos de ejecución** | Cargar M19a; verificar 28 días; agregar M19b si A y elegible; generar narración determinística con `narration_mode=template`; validar; publicar transaccionalmente; habilitar `llm` sólo después de M23.4. |
 | **Entrega observable** | Registro de reporte reliability con ventana y controles. |
 | **Criterio de aceptación** | Menos de 28 días superpuestos no puede producir `ready`; Meta nunca bloquea el reporte base TN+GA4. |
-| **Pruebas** | 27/28 días; M19b ausente; branch A/B; publicación atómica; número inválido. |
+| **Pruebas** | 27/28 días; M19b ausente; branch A/B; publicación atómica; número inválido; template sin OpenAI; llm sólo tras M23.4. |
 | **Gate de avance** | Habilita UI reliability. |
-| **Depende de / desbloquea** | `M19a.3`, `M23.4`; M19b opcional en A / `M24a.2` |
+| **Depende de / desbloquea** | `M19a.3`; M19b opcional en A; M23.4 sólo para `narration_mode=llm` / `M24a.2` |
 | **Tu intervención** | Ninguna. |
 
 ### M24a.2 — UI y aceptación del reporte de confiabilidad
@@ -1319,11 +1513,11 @@ Los reportes no se mezclan en una sola entrega. Cada uno tiene publicación, ace
 |---|---|
 | **ID** | `M26.2` — ≤8 h |
 | **Objetivo** | Verificar privilegios, secretos y respuesta a revocación. |
-| **Qué se construye** | Auditoría de imports/grants, rotación, redacción de logs y runbook de credenciales. |
-| **Pasos de ejecución** | Escanear; reducir permisos; rotar clave; revocar token; revisar logs; probar recuperación. |
+| **Qué se construye** | Auditoría de imports/grants, rotación, redacción de logs, CSP, defensa CSRF y runbook de credenciales. |
+| **Pasos de ejecución** | Escanear; reducir permisos; rotar clave; revocar token; revisar logs; definir y probar CSP; proteger mutaciones contra CSRF; probar recuperación. |
 | **Entrega observable** | Evidencia de mínimo privilegio y rotación. |
-| **Criterio de aceptación** | Cero `service_role` en ejecución normal y cero secretos en logs. |
-| **Pruebas** | Import web; grant directo; clave vieja; token revocado; error sensible. |
+| **Criterio de aceptación** | Cero `service_role` en ejecución normal, cero secretos en logs, CSP efectiva y ninguna mutación sensible aceptada desde un origen no autorizado. |
+| **Pruebas** | Import web; grant directo; clave vieja; token revocado; error sensible; CSP report/enforce; POST cross-site; Origin/Referer inválido. |
 | **Gate de avance** | Habilita privacidad y cierre operativo. |
 | **Depende de / desbloquea** | `M06.3`, conectores / `M26.3`, `M26.4` |
 | **Tu intervención** | Custodiar secretos y participar en una revocación controlada. |
@@ -1349,11 +1543,11 @@ Los reportes no se mezclan en una sola entrega. Cada uno tiene publicación, ace
 |---|---|
 | **ID** | `M26.4` — ≤8 h de implementación; la observación de calendario corre aparte |
 | **Objetivo** | Demostrar operación estable dentro de límites. |
-| **Qué se construye** | Medición de costo, spend caps internos, dashboard de jobs y runbooks de fallos. |
-| **Pasos de ejecución** | Proyectar consumo; fijar límites; ejecutar período estable; recuperar errores; revisar alertas; cerrar evidencias. |
+| **Qué se construye** | Medición de costo, spend caps internos, dashboard de jobs, runbooks de fallos y recuperación de la serie temporal M12. No se exige backup general de datos redescargables desde Tiendanube, GA4 o Meta. |
+| **Pasos de ejecución** | Proyectar consumo; fijar límites; ejecutar período estable; recuperar errores; restaurar una copia de la serie M12 en un destino aislado; revisar alertas; cerrar evidencias. |
 | **Entrega observable** | Informe operativo con costo, frescura, cobertura y fallos recuperados. |
 | **Criterio de aceptación** | El sistema bloquea consumo antes de superar el tope definido. |
-| **Pruebas** | Presupuesto; API caída; job dead; alerta; recuperación; restore. |
+| **Pruebas** | Presupuesto; API caída; job dead; alerta; recuperación; restore íntegro de observaciones M12 y sus referencias. |
 | **Gate de avance** | `G-MVP-T` habilita aceptación final. |
 | **Depende de / desbloquea** | `M26.1`–`M26.3`, `M24a.2`, `M24b.2` / `M28.1` |
 | **Tu intervención** | Configurar spend caps y revisar los contactos de incidente. |
@@ -1467,11 +1661,11 @@ Los reportes no se mezclan en una sola entrega. Cada uno tiene publicación, ace
 
 ## Camino crítico corregido
 
-`M04 → M05.1 → M06.1–M06.3 → M07.1–M07.3 → M08.1–M08.3`, en paralelo con `M00 → M01.1–M01.2 → M02.1–M02.2 → M03`.
+`M04.1 → M04.2 → M05.1.1–M05.1.12 → M06.1–M06.3 → M07.1–M07.3 → M08.1–M08.3`, en paralelo con `M00 → M01.1–M01.2 → M02.1–M02.2 → M03`.
 
 Luego:
 
-- Tiendanube: `M09.1–M09.3 → M10a + M10c → M10b + M10d → M11.1–M11.3 → M12.1–M12.3`.
+- Tiendanube: `M09.1–M09.3 → M10a + M10c → M10d → M11.1 + M11.2 → M10b + M11.3 → M12.1–M12.3`.
 - GA4: `M13.1–M13.3 → M14.1–M14.4 → M15.1–M15.4`.
 - Producto `ads_catalog`: `M16.1–M16.2 → M17.1–M17.4 → M18.1–M18.3 → M19b.1–M19b.2`.
 - Producto `commerce_reliability`: `M16b`; no atraviesa M17/M18/M19b.
