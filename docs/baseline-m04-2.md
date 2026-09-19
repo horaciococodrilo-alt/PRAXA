@@ -68,4 +68,12 @@ Evidencia observada el 2026-09-19: después de confirmar el correo, Auth complet
 
 ## CI remoto
 
-El workflow local se ejecuta en `push` y `pull_request` dirigidos a `main`, con cancelación de corridas superpuestas. La corrida remota se verificará después del push acordado; no se declarará verde hasta observar su resultado real.
+El workflow se ejecuta en `push` y `pull_request` dirigidos a `main`, con cancelación de corridas superpuestas. La corrida [35456743013](https://github.com/horaciococodrilo-alt/PRAXA/actions/runs/35456743013), disparada por el push del commit `8203493`, terminó con conclusión `success` el 2026-09-19. El job `verify` duró 54 segundos y completó sin fallos checkout, configuración de Node, `npm ci`, `npm run verify` y los pasos de cierre.
+
+GitHub emitió únicamente un aviso informativo sobre la migración futura de la etiqueta `ubuntu-latest` a Ubuntu 26; no afectó la corrida. La ejecución remota queda cerrada como verificada, no pendiente.
+
+## Cierre de M04.2
+
+El usuario confirmó el 2026-09-19 que eliminó los dos proyectos Supabase anteriores. El proyecto nuevo es el único restante y coincide con la configuración que el usuario cargó manualmente en `.env.local`; el asistente no leyó ni modificó ese archivo.
+
+`G-BASELINE`: **APROBADO**. T-M04.2-01–06 están en `PASS`, el CI remoto terminó en `success` y M04.2 queda cerrada. Esto habilita M05.1, pero M05.1 no se inicia en esta sesión.
