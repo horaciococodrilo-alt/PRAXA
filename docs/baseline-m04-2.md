@@ -21,7 +21,7 @@ Este documento registra evidencia real de M04.2. No contiene URLs privadas compl
 | ID | Prueba | Estado | Evidencia |
 |---|---|---|---|
 | T-M04.2-01 | `npm run verify` en el checkout principal | `PASS` | 2026-09-18, `C:\Users\Simon\dev\PRAXA`: lint, typegen y typecheck OK; 63 tests en 6 archivos; build OK con 14 rutas. Exit code 0. `.env.local` no tenía valores cargados. |
-| T-M04.2-02 | Clon limpio: `npm ci` y `npm run verify` | `PENDING` | Se ejecutará con la copia de `.env.local` que contenga los valores reales, sin modificar el archivo del checkout principal. |
+| T-M04.2-02 | Clon limpio: `npm ci` y `npm run verify` | `PASS` | 2026-09-19: commit `b27da5c` clonado fuera de OneDrive en `%TEMP%`; `npm ci` terminó con código 0 (471 paquetes, 0 vulnerabilidades) y la primera corrida de `npm run verify` terminó con código 0: lint, typegen, typecheck, 63 tests en 6 archivos y build con 14 rutas. `.env.local` se copió sin inspeccionarlo y la copia temporal se eliminó al finalizar; el archivo del checkout principal no se modificó. |
 | T-M04.2-03 | Node, `engines.node` y `.nvmrc` compatibles | `PASS` | 2026-09-19: runtime local `v24.18.1`, `.nvmrc` `24.18.1` y `engines.node` `>=24 <25`; el pin pertenece al rango declarado. |
 | T-M04.2-04 | `verify` ejecuta `typegen` antes de `typecheck` | `PASS` | 2026-09-19: el bloque `scripts` es idéntico al de `HEAD`; `verify` conserva `npm run lint && npm run typegen && npm run typecheck && npm run test && npm run build`. |
 | T-M04.2-05 | `.env.local` ignorado y ausente de `git ls-files` | `PASS` | 2026-09-19: `git check-ignore -v .env.local` la atribuye a `.gitignore:35` (`.env*`) y `git ls-files -- .env.local` no devuelve rutas. `package-lock.json` permanece sin cambios. |
