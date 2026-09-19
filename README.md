@@ -15,11 +15,9 @@ empresa, landing, registro con verificación de correo y onboarding guardable y 
 **No implementado todavía:** ningún conector de integración y ninguna generación de
 reportes con IA. No hay ninguna llamada a un LLM en el código.
 
-Ver [`docs/ROADMAP.md`](docs/ROADMAP.md) para el estado real de cada entrega.
-
 ## Requisitos
 
-- Node.js 24 o superior (probado con 24.18.1) y npm 11.
+- Node.js 24.x (probado con 24.18.1, fijado en `.nvmrc` y `engines`) y npm 11.
 - Una cuenta de Supabase (el plan gratuito alcanza).
 - **No hace falta Docker.** Ni la aplicación, ni las migraciones, ni las pruebas de RLS
   usan contenedores.
@@ -297,7 +295,6 @@ docs/             arquitectura, seguridad y roadmap
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — módulos, decisiones y contrato del reporte.
 - [`docs/SECURITY.md`](docs/SECURITY.md) — autorización, matriz de privilegios y reglas futuras.
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — qué está implementado, verificado y pendiente.
 
 ## Nota sobre el historial
 
