@@ -182,7 +182,7 @@ Asignación: M03 debe declarar la zona canónica y la política de comparación;
 | **Objetivo** | Clasificar el repositorio existente contra el roadmap v2 sin confundir código presente con comportamiento probado. |
 | **Implementación requerida** | Inventario congelado de 83 archivos, veredictos conservar/adaptar/retirar, respuestas obligatorias y hallazgos con microfase asignada. |
 | **Procedimiento del asistente** | Congelar snapshot; leer instrucciones; auditar aplicación, SQL, pruebas, scripts y dependencias; reconciliar 83/83; aprobar retiros. |
-| **Evidencia de cierre** | `docs/auditoria-m04.md`. |
+| **Evidencia de cierre** | `docs/FASES/FASE1/MF04/m04-1-auditoria.md`. |
 | **Criterio de aceptación** | Cada archivo tiene un veredicto trazable al v2 y todo adaptar/retirar tiene destino. |
 | **Pruebas** | Reconciliación bidireccional del manifiesto; revisión estática sin operaciones contra Supabase. |
 | **Condición para avanzar** | `G-AUDIT`: **APROBADO**. |
@@ -197,7 +197,7 @@ Asignación: M03 debe declarar la zona canónica y la política de comparación;
 | **Objetivo** | Dejar una baseline reproducible local, limpia y remota. |
 | **Implementación requerida** | Node 24 fijado, instalación limpia, CI Ubuntu, evidencia de Auth y documentación activa alineada. |
 | **Procedimiento del asistente** | Fijar runtime; configurar workflow; mover el checkout fuera de OneDrive; verificar; probar Auth; clonar limpio; observar CI real. |
-| **Evidencia de cierre** | `docs/baseline-m04-2.md`, `.nvmrc`, workflow y commits de evidencia. |
+| **Evidencia de cierre** | `docs/FASES/FASE1/MF04/m04-2-baseline.md`, `.nvmrc`, workflow y commits de evidencia. |
 | **Criterio de aceptación** | T-M04.2-01–06 en `PASS`, clon limpio verde y GitHub Actions en `success`. |
 | **Pruebas** | `npm ci`; `npm run verify`; seis pasos de Auth; run 35456743013 en 54 s. |
 | **Condición para avanzar** | `G-BASELINE`: **APROBADO**; habilita M05.1.1. |

@@ -14,9 +14,9 @@ Este es el primer documento que debe leer un agente. La fuente normativa del pla
 
 1. [ROADMAP.md](ROADMAP.md): plan operativo vigente y condiciones de avance.
 2. [HALLAZGOS.md](HALLAZGOS.md): registro único de hallazgos, estados y microfases asignadas.
-3. [microfases/m04-1-auditoria.md](MF04/m04-1-auditoria.md): evidencia de la auditoría M04.1.
-4. [microfases/m04-2-baseline.md](MF04/m04-2-baseline.md): evidencia del baseline M04.2.
-5. [microfases/m04-sesion.md](MF04/m04-sesion.md): relato cronológico de la sesión M04.
+3. [FASES/FASE1/MF04/m04-1-auditoria.md](FASES/FASE1/MF04/m04-1-auditoria.md): evidencia de la auditoría M04.1.
+4. [FASES/FASE1/MF04/m04-2-baseline.md](FASES/FASE1/MF04/m04-2-baseline.md): evidencia del baseline M04.2.
+5. [FASES/FASE1/MF04/m04-sesion.md](FASES/FASE1/MF04/m04-sesion.md): relato cronológico de la sesión M04.
 6. [ARCHITECTURE.md](ARCHITECTURE.md) y [SECURITY.md](SECURITY.md): documentos de arquitectura y seguridad existentes.
 
 ## Regla de actualización
