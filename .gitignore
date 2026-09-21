@@ -54,3 +54,7 @@ next-env.d.ts
 
 # cache de vitest
 /.vitest/
+
+# Claude Code: archivos personales
+.claude/settings.local.json
+CLAUDE.local.md
