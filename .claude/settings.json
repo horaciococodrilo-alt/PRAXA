@@ -4,14 +4,23 @@
       "Bash(npm run verify)",
       "Bash(npm run lint)",
       "Bash(npm run typecheck)",
+      "Bash(npm run typegen)",
       "Bash(npm run test)",
+      "Bash(npm run test:unit*)",
+      "Bash(npm run test:component*)",
+      "Bash(npm run test:app*)",
+      "Bash(npm run test:policies*)",
+      "Bash(npm run db:check:test)",
       "Bash(git status*)",
       "Bash(git diff*)",
-      "Bash(git log*)"
+      "Bash(git log*)",
+      "Bash(git branch*)"
     ],
     "deny": [
       "Read(./.env.local)",
+      "Read(./.env)",
       "Bash(npm run db:push*)",
+      "Bash(git push*)",
       "Bash(rm -rf *)"
     ]
   }
