@@ -15,5 +15,8 @@ Registro único de hallazgos documentados en la auditoría M04.1, el baseline M0
 | `H-M04.2-01` | Resuelto | M04.2 | [Baseline M04.2](FASES/FASE1/MF04/m04-2-baseline.md) |
 | `H-M04.2-02` | Pendiente | M06.1 | [Baseline M04.2](FASES/FASE1/MF04/m04-2-baseline.md) |
 | `H-M04.2-03` | Pendiente | M08.3 | [Baseline M04.2](FASES/FASE1/MF04/m04-2-baseline.md) |
+| `H-E1-01` | Pendiente | M16d | [Enmienda 1](ROADMAP.md) |
+| `H-E1-02` | Pendiente | MFMETA | [Revisión de código](FASES/FASE1/MFMETA/revision-codigo.md) |
+| `H-E1-03` | Pendiente | M03a | [Revisión de código](FASES/FASE1/MFMETA/revision-codigo.md) |
 
 No se agregan aquí montos, identificadores completos de cuentas, correos ni datos de clientes.

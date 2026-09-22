@@ -1,6 +1,6 @@
-# Roadmap de microfases del MVP de PRAXA — versión 2.3
+# Roadmap de microfases del MVP de PRAXA — versión 2.4
 
-Versión 2.3 — 2026-09-21. Reformula, sin cambiar su información ni alcance, la versión 2.2 como una especificación operativa para asistentes de IA. Conserva el cierre `PASS` de M00, la selección empírica de Rama A, H-M00-01, las correcciones de M04 y las decisiones aprobadas antes de iniciar M05.1.
+Versión 2.4 — 2026-09-22. Incorpora la Enmienda 1, ruta crítica `meta_first`, que reordena la ejecución sin alterar promesas, non-negotiables ni el contrato de los dos reportes. Versión 2.3 — 2026-09-21. Reformula, sin cambiar su información ni alcance, la versión 2.2 como una especificación operativa para asistentes de IA. Conserva el cierre `PASS` de M00, la selección empírica de Rama A, H-M00-01, las correcciones de M04 y las decisiones aprobadas antes de iniciar M05.1.
 
 ## Contrato de ejecución para asistentes de IA
 
@@ -63,6 +63,123 @@ Reglas de publicación:
 | `catalog` | 28 días de pedidos + snapshot actual de catálogo | Puede usar stock reconstruido por M10b con `coverage_mode=reconstructed_biased`. Cualquier afirmación sobre publicado/despublicado exige al menos 7 días de observación directa de M12; de lo contrario queda `not_evaluable`. |
 
 Los reportes no se mezclan en una sola entrega. Cada uno tiene publicación, aceptación y UI propias.
+
+---
+
+## Enmienda 1 — Ruta crítica `meta_first`
+
+Aprobada por el usuario el 2026-09-22. Reordena la ejecución del MVP sin cambiar sus promesas, sus non-negotiables ni el contrato de los dos reportes. Motivo: se necesita una demostración temprana del conector Meta y del chat antes de invertir en Tiendanube y GA4.
+
+### Qué cambia y qué no
+
+- **Cambia el orden.** Meta pasa a ser la primera fuente conectada de verdad. Tiendanube (M09–M12) y GA4 (M13–M15) se posponen sin modificar su contenido.
+- **No cambia el producto.** `product_variant=ads_catalog` sigue siendo la Rama A aprobada por M00. Esta enmienda no habilita Rama B ni la excluye.
+- **No cambia los non-negotiables.** El LLM sigue sin producir números, estados ni políticas autoritativas. El chat de esta ruta es de herramientas cerradas, no de recuperación libre sobre datos crudos.
+- **No adelanta los reportes.** `reliability` y `catalog` conservan sus ventanas mínimas y sus fuentes. Nada de lo que produzca esta ruta se publica como reporte.
+
+### Alcance del chat en esta ruta
+
+El chat de `M25a` responde exclusivamente con hechos devueltos por herramientas tipadas sobre observaciones Meta ya persistidas. No ejecuta SQL, no recibe nombres de tabla y no redacta cifras que no vengan de una herramienta. Una arquitectura de recuperación semántica que permita al modelo enunciar gasto, impresiones o cualquier magnitud leída de un índice queda prohibida: contradice el non-negotiable y, con la cuenta piloto en `America/Los_Angeles`, produciría además atribuciones diarias incorrectas por `H-M00-01`.
+
+### Secuencia de la ruta crítica
+
+| Orden | ID | Corte | Naturaleza |
+|---:|---|---|---|
+| 1 | `M03a` | Acta mínima de datos y privacidad limitada a Meta | Nuevo ID estable, subconjunto anticipado de `M03` |
+| 2 | `M05.1.2` | K02 `OAuthAttempt` | Existente, sin cambios |
+| 3 | `M05.1.3` | K03 `IntegrationConnection` | Existente, sin cambios |
+| 4 | `M05.1.4` | K04 `SecretCredential` | Existente, sin cambios |
+| 5 | `M06.1a` | Migración de conexiones y credenciales | Alcance acotado de `M06.1` a las tablas de K02–K04 |
+| 6 | `M06.2a` | RLS y aislamiento sobre esas tablas | Alcance acotado de `M06.2`; resuelve `H-M04.1-01` y `H-M04.1-02` sólo para ellas |
+| 7 | `M06.3a` | Cifrado de credenciales y rol acotado | Alcance acotado de `M06.3`; resuelve `H-M04.1-08` sólo para Meta |
+| 8 | `M16.1` | OAuth Meta seguro | Existente, sin cambios |
+| 9 | `M16.2` | Selección de cuenta y ciclo de vida Meta | Existente, sin cambios |
+| 10 | `M16c` | Insights diarios mínimos como observaciones | Nuevo ID estable, subconjunto anticipado de `M17.3` |
+| 11 | `M25a` | Chat de herramientas cerradas sobre observaciones Meta | Nuevo ID estable, subconjunto anticipado de `M25.1`–`M25.4` |
+
+En paralelo, sin bloquear la secuencia anterior, corre `M16d`, habilitación multiempresa del acceso a Meta. Es un corte de gestión, no de código, y su duración no depende del proyecto.
+
+Cada corte conserva el límite de ≤8 h y la obligación de evidencia. `M03a`, `M16c`, `M16d` y `M25a` son IDs nuevos estables creados por esta enmienda.
+
+### H-E1-01 — El acceso validado en M00 no permite que cualquier empresa se conecte
+
+`M00` demostró que Meta permite leer una cuenta publicitaria de un tercero con `ads_read` sin App Review, pero lo hizo con la app en modo desarrollo y con el usuario piloto agregado como tester. En ese modo, una app sólo accede a datos de personas con rol de administrador, desarrollador, tester o analista. La promesa del producto es que cualquier empresa cliente complete OAuth por su cuenta; esa promesa no está validada y no se habilita escribiendo código.
+
+Para atender empresas arbitrarias, `ads_read` debe estar en Advanced Access, renombrado Full Access el 2026-05-04. Eso exige verificación de negocio con documentos legales coincidentes, un Business Manager de 30 a 60 días de antigüedad, dominio verificado en Brand Safety, app en Live Mode, política de privacidad y URL de borrado de datos públicas, y App Review de la permission. Desde 2026-05-04 no se exige grabación de pantalla, y el umbral del tier superior es de 500 llamadas a la Marketing API en los últimos 15 días con menos de 15 % de error sobre las últimas 500 llamadas.
+
+Ese umbral impone el orden: el conector debe existir y usarse con testers antes de que la app califique. Construir primero no es una concesión al apuro, es el único orden posible.
+
+Impacto: hasta que `M16d` cierre, el producto es demostrable pero no vendible a un cliente que no haya sido agregado como tester. Ninguna microfase de código levanta esta limitación, y ninguna evidencia de `M16.1`, `M16.2` o `M16c` debe presentarse como prueba de que un cliente cualquiera puede conectarse.
+
+Asignación: `M16d`. Registrado en [HALLAZGOS.md](HALLAZGOS.md).
+
+### M16d — Habilitación multiempresa del acceso a Meta
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M16d` — corte de gestión, en paralelo, duración fuera del control del proyecto |
+| **Objetivo** | Pasar de un acceso limitado a testers a un acceso que cualquier empresa cliente pueda autorizar. |
+| **Implementación requerida** | Verificación de negocio, dominio verificado, app en Live Mode, política de privacidad publicada, endpoint de borrado de datos y solicitud de App Review de `ads_read` en Full Access. |
+| **Procedimiento del asistente** | Preparar lo que sea código o documento: endpoint de borrado, texto de política de privacidad, descripción del caso de uso y evidencia de uso de la API. No ejecutar trámites ni cargar documentos en nombre del usuario. |
+| **Evidencia de cierre** | Resolución de App Review y estado de la permission registrados, sin capturas con identificadores de cuentas ni datos de clientes. |
+| **Criterio de aceptación** | Una empresa sin rol en la app completa OAuth y queda conectada. Mientras eso no ocurra, el criterio no se da por cumplido por analogía con el caso tester. |
+| **Pruebas** | Autorización con una cuenta sin rol en la app; borrado de datos solicitado por Meta; app en Live Mode; error de permisos correctamente reportado al usuario final. |
+| **Condición para avanzar** | Su cierre habilita clientes reales. Su demora no bloquea `M16.1`, `M16.2`, `M16c` ni `M25a`. |
+| **Dependencias / habilita** | `M03a`, uso real de la API generado por `M16c` / clientes reales |
+| **Intervención requerida del usuario** | Obtener un documento impositivo propio a nombre del titular, verificar el dominio, publicar la política de privacidad y enviar la solicitud de App Review. |
+
+No se requiere una sociedad constituida. Meta acepta cinco tipos de documento para la verificación de negocio, entre ellos un documento impositivo emitido por el gobierno. En Argentina, la inscripción en monotributo produce CUIT y constancia de inscripción de ARCA, que cubre ese requisito para una persona física. El documento debe mostrar el nombre y la dirección o el teléfono en la misma pieza, estar vigente y no ser autoliquidado.
+
+La antigüedad exigida al Business Manager corre desde su creación y es independiente del avance del código, por lo que este trámite conviene iniciarlo al comienzo de la ruta y no al final. Hasta su cierre, el acceso de administrador que un tercero otorgue sobre su propia cuenta publicitaria permite construir y probar el conector, y genera el uso de API que el tier superior exige, pero no sustituye la verificación ni el App Review.
+
+### Deuda declarada
+
+Los alcances acotados `M06.1a`, `M06.2a` y `M06.3a` no cierran `M06.1`, `M06.2` ni `M06.3`. Cuando se retomen Tiendanube y GA4, esas microfases se ejecutan completas sobre el resto del esquema, y los hallazgos citados sólo pasan a `Resuelto` cuando cubren todas las tablas, no las de Meta. `M16c` no cierra `M17.3` ni habilita `M17.4`, `M18` o `M19b`. `M25a` no cierra `M25.1`–`M25.5`: al existir reportes publicados, el catálogo de herramientas K18 se redefine sobre `report_kind` y el chat de esta ruta se reemplaza, no se amplía.
+
+### M03a — Acta mínima de datos y privacidad para Meta
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M03a` — ≤8 h, mayormente decisión del usuario |
+| **Objetivo** | Autorizar la conexión de cuentas Meta reales sin esperar el acta completa de `M03`. |
+| **Implementación requerida** | Declaración de zona canónica y tratamiento de `America/Los_Angeles`, campos Meta que se persisten, retención, borrado, consentimiento del cliente que conecta y lenguaje prohibido en la interfaz. |
+| **Procedimiento del asistente** | Redactar el acta a partir de `M00` y `H-M00-01`; enumerar campos por consumidor; proponer retención y borrado; someterla a aprobación del usuario. |
+| **Evidencia de cierre** | Acta aprobada y versionada en `docs/`. |
+| **Criterio de aceptación** | Cada campo Meta persistido tiene consumidor declarado; la zona canónica está fijada; ninguna comparación diaria mezcla etiquetas de fecha sin convertir límites por instante. |
+| **Pruebas** | Campo sin consumidor; ventana Meta LA contra zona canónica; transición DST. |
+| **Condición para avanzar** | El acta aprobada habilita `M05.1.2`. No habilita conexiones Tiendanube ni GA4. |
+| **Dependencias / habilita** | `M00 PASS` / `M05.1.2`, `M16.1` |
+| **Intervención requerida del usuario** | Aprobar el acta. Decidir retención y consentimiento. |
+
+### M16c — Insights diarios mínimos de Meta como observaciones
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M16c` — ≤8 h |
+| **Objetivo** | Persistir insights diarios reales de la cuenta conectada, suficientes para que el chat tenga hechos que citar. |
+| **Implementación requerida** | Lectura de `/insights` con `time_increment=1`, crudo por ventana, observaciones diarias con gasto, moneda, zona de la cuenta e impresiones, y cobertura por día. |
+| **Procedimiento del asistente** | Definir la ventana; leer insights; persistir crudo; derivar observaciones; registrar días ausentes como ausentes, no como cero; medir cobertura. |
+| **Evidencia de cierre** | Observaciones diarias reales con cobertura declarada y cero tokens en logs. |
+| **Criterio de aceptación** | Cada fila conserva la zona de la cuenta; un día sin datos queda como no observado; los totales coinciden con la respuesta cruda. |
+| **Pruebas** | Día faltante; moneda distinta; ventana que cruza DST; reintento idempotente; 403 por revocación. |
+| **Condición para avanzar** | Observaciones con cobertura declarada habilitan `M25a`. |
+| **Dependencias / habilita** | `M16.2` / `M25a` |
+| **Intervención requerida del usuario** | Ninguna. |
+
+### M25a — Chat de herramientas cerradas sobre observaciones Meta
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M25a` — ≤8 h |
+| **Objetivo** | Responder preguntas sobre la cuenta conectada usando únicamente hechos devueltos por herramientas tipadas. |
+| **Implementación requerida** | Catálogo acotado de herramientas sobre las observaciones de `M16c`, ejecución bajo sesión y RLS, orquestador con salida validada, guarda numérica y UI que declara cuenta y período respondidos. |
+| **Procedimiento del asistente** | Definir argumentos y períodos máximos; implementar consultas cerradas; validar que toda cifra de la respuesta provenga de una herramienta; abstenerse ante cobertura insuficiente; probar ataques. |
+| **Evidencia de cierre** | Transcripciones reproducibles sobre fixtures, con abstenciones correctas. |
+| **Criterio de aceptación** | Ninguna cifra de la respuesta se origina en el modelo; cero acceso cruzado entre empresas; cero consulta libre; el chat declara qué cuenta y qué período respondió. |
+| **Pruebas** | SQL inyectado; nombre de tabla; período excesivo; cuenta de otra empresa; día no observado; LLM caído. |
+| **Condición para avanzar** | Cierra la ruta `meta_first`. No habilita reportes ni `M25.1`. |
+| **Dependencias / habilita** | `M16c`, `M06.2a` / — |
+| **Intervención requerida del usuario** | Aportar preguntas reales. Crear el proyecto de API del modelo y guardar la clave fuera del chat. |
 
 ---
 
