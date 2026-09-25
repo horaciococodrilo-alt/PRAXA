@@ -8,7 +8,7 @@
 - las correcciones T01 a T16 de la revisión externa;
 - las correcciones técnicas de la revisión del repositorio.
 
-No quedan decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`. La Enmienda 1 se aprueba formalmente en `G-DOCS`, al cerrar `M04a`, que es la primera microfase ejecutable. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario: la Parte I de [plan.md](plan.md) es el roadmap vigente de la ruta y encabeza la jerarquía de fuentes de `AGENTS.md`.
+No quedan decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`. La Enmienda 1 fue aprobada formalmente en `G-DOCS` al cerrar `M04a`; la siguiente microfase habilitada es `M05.1.1`. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario: la Parte I de [plan.md](plan.md) es el roadmap vigente de la ruta y encabeza la jerarquía de fuentes de `AGENTS.md`.
 
 El roadmap de la ruta (Enmienda 1) y el plan de ejecución están en [plan.md](plan.md), versión 1.0.
 
@@ -513,7 +513,7 @@ Ningún secreto se pega en el chat ni se guarda en el repositorio.
 | DeepInfra | Crear la cuenta y cargar `DEEPINFRA_API_KEY` | Antes de VR-02 |
 | Local | Generar las claves de `PRAXA_CREDENTIAL_KEYS` y cargar `PRAXA_INTEGRATIONS_TEST_DB_URL` | Antes del corte de cifrado y antes de las pruebas del rol de C, respectivamente |
 | Repositorio | Decidir la visibilidad del repositorio y la reescritura del historial: versiones anteriores de `docs/ROADMAP.md` en Git conservan los datos de la cuenta piloto. Antes de restaurar el ROADMAP en el árbol, redactarlo | Ya |
-| Documentación | Aprobar `G-DOCS` (Enmienda 1 como Parte I de `plan.md`) y aprobar `M03a` | Antes del corte 1 y antes de cualquier dato real, respectivamente |
+| Documentación | `G-DOCS` aprobado el 2026-09-24 (Enmienda 1 como Parte I de `plan.md`). Queda aprobar `M03a` | `G-DOCS`: completado; `M03a`: antes de cualquier dato real |
 | Cierre | Ejecutar CA-67 | Al finalizar el piloto (DEC-20) |
 
 ## 14. Verificación

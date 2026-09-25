@@ -1,7 +1,7 @@
 # Ruta `meta_first` — Roadmap (Enmienda 1) y plan de ejecución
 
 **Versión:** 1.0 — 2026-09-24
-**Estado:** `FINAL PARA EJECUCIÓN`. La primera microfase ejecutable es `M04a`. La Enmienda 1 se aprueba formalmente en `G-DOCS`.
+**Estado:** `APROBADO PARA EJECUCIÓN`. `M04a` está cerrada y `G-DOCS` fue aprobado por el usuario el 2026-09-24. La siguiente microfase habilitada es `M05.1.1`.
 **Base:** spec `meta_first` v1.0 (decisiones DEC-01 a DEC-21), revisión del repositorio en `main@247cae8`, la sesión de revisión en la que se tomaron esas decisiones y las correcciones T01 a T16 de la revisión externa. No quedan decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`.
 
 Este documento reemplaza al `plan.md` anterior y contiene, además, el texto de la **Enmienda 1**. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario, y la Parte I de este documento es el roadmap vigente de la ruta: encabeza la jerarquía de fuentes de `AGENTS.md`. Tiene tres partes:

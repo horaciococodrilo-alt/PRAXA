@@ -6,7 +6,7 @@
 
 ## Objetivo
 
-Qué resultado debe obtener esta microfase, según el roadmap vigente: la Parte I de [meta_first/plan.md](../FASES/FASE1/meta_first/plan.md).
+Qué resultado debe obtener esta microfase, según el roadmap vigente: la Parte I de `docs/FASES/FASE1/meta_first/plan.md`.
 
 ## Spec
 
@@ -44,4 +44,4 @@ Registrar únicamente la intervención indicada por el roadmap. Si no correspond
 
 ## Hallazgos
 
-Enlazar IDs existentes de [HALLAZGOS.md](../HALLAZGOS.md). Crear un hallazgo allí antes de referenciarlo; no duplicar su detalle en este documento.
+Enlazar IDs existentes de `docs/HALLAZGOS.md`. Crear un hallazgo allí antes de referenciarlo; no duplicar su detalle en este documento.

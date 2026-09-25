@@ -29,6 +29,8 @@ Registro único de hallazgos documentados en la auditoría M04.1, el baseline M0
 | `H-E1-12` | Pendiente | Todas | [Plan meta_first, III.7](FASES/FASE1/meta_first/plan.md) |
 | `H-E1-13` | Pendiente | M16.1 | [Plan meta_first, III.7](FASES/FASE1/meta_first/plan.md) |
 | `H-E1-14` | Resuelto en M04a | M04a | [Sesión M04a](FASES/FASE1/meta_first/sesiones/M04a.md) |
+| `H-E1-15` | Resuelto en M04a | M04a | [Sesión M04a](FASES/FASE1/meta_first/sesiones/M04a.md) |
+| `H-E1-16` | Resuelto en M04a | M04a | [Sesión M04a](FASES/FASE1/meta_first/sesiones/M04a.md) |
 
 
 ## Detalle de los hallazgos de la ruta `meta_first` registrados en M04a
@@ -48,5 +50,7 @@ Impacto y evidencia en una línea cada uno. El contexto completo está en la fue
 - **`H-E1-12`** — `npm run verify` no ejecuta pgTAP ni `test:app`. *Impacto:* `verify` en verde no prueba aislamiento ni privilegios. *Evidencia:* el script `verify` de `package.json` corre lint, typegen, typecheck, test y build.
 - **`H-E1-13`** — La evidencia de M00 no prueba el flujo del producto, porque quien autorizó tenía un rol en la app de Meta. *Impacto:* el flujo real de un tercero sigue sin probarse. *Evidencia:* la spec `meta_first`.
 - **`H-E1-14`** — Tras quitar `docs/ROADMAP.md` del árbol, `AGENTS.md`, los dos README, las plantillas, `.env.example` y los agentes `auditor-gate` y `revisor-microfase` seguían citándolo como fuente vigente. *Impacto:* cualquier asistente quedaba bloqueado o revisaba contra un archivo inexistente. *Evidencia:* la sesión de M04a. *Resolución:* en M04a, la Parte I de `meta_first/plan.md` pasa a ser el roadmap vigente y el contrato de ejecución se traslada a `AGENTS.md`.
+- **`H-E1-15`** — El encabezado del roadmap vigente todavía presentaba `M04a` como primera microfase ejecutable y `G-DOCS` como aprobación futura, aunque la spec y `PROJECT_STATE.md` ya registraban el cierre. *Impacto:* la contradicción en la fuente de mayor jerarquía activaba una condición de parada antes de `M05.1.1`. *Evidencia:* revisión post-cierre de `plan.md`, línea 4. *Resolución:* el encabezado de plan y el texto de la spec reflejan el gate aprobado, M04a cerrada y M05.1.1 habilitada.
+- **`H-E1-16`** — Los enlaces relativos de la plantilla `microfase.md` solo resolvían mientras el archivo permanecía en `_templates`; al copiarla a la ubicación de una microfase apuntaban a rutas inexistentes. *Impacto:* cada documento nuevo generado desde la plantilla nacía con enlaces rotos. *Evidencia:* revisión post-cierre de `docs/_templates/microfase.md`, líneas 9 y 47. *Resolución:* la plantilla usa rutas canónicas en texto, independientes de la ubicación del archivo instanciado.
 
 No se agregan aquí montos, identificadores completos de cuentas, correos ni datos de clientes.
