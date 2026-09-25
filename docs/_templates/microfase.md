@@ -6,7 +6,7 @@
 
 ## Objetivo
 
-Qué resultado debe obtener esta microfase, según [ROADMAP.md](../ROADMAP.md).
+Qué resultado debe obtener esta microfase, según el roadmap vigente: la Parte I de [meta_first/plan.md](../FASES/FASE1/meta_first/plan.md).
 
 ## Spec
 

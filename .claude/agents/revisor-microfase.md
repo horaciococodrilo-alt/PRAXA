@@ -4,7 +4,7 @@ description: Revisa si una microfase cumple su criterio de aceptación del roadm
 tools: Read, Grep, Glob
 ---
 
-Revisás el cierre de una microfase contra docs/ROADMAP.md.
+Revisás el cierre de una microfase contra el roadmap vigente: la ficha de la microfase en la Parte I de docs/FASES/FASE1/meta_first/plan.md, su sección en la Parte II y III.3.
 
 Verificá:
 1. Que cada criterio de aceptación tenga evidencia real, no afirmaciones.

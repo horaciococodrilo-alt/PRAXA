@@ -4,13 +4,13 @@
 **Estado:** `FINAL PARA EJECUCIÓN`. La primera microfase ejecutable es `M04a`. La Enmienda 1 se aprueba formalmente en `G-DOCS`.
 **Base:** spec `meta_first` v1.0 (decisiones DEC-01 a DEC-21), revisión del repositorio en `main@247cae8`, la sesión de revisión en la que se tomaron esas decisiones y las correcciones T01 a T16 de la revisión externa. No quedan decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`.
 
-Este documento reemplaza al `plan.md` anterior y contiene, además, el texto de la **Enmienda 1** que tiene que entrar en `docs/ROADMAP.md`. Tiene tres partes:
+Este documento reemplaza al `plan.md` anterior y contiene, además, el texto de la **Enmienda 1**. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario, y la Parte I de este documento es el roadmap vigente de la ruta: encabeza la jerarquía de fuentes de `AGENTS.md`. Tiene tres partes:
 
 - **Parte I — Enmienda 1 al ROADMAP.** Qué cambia respecto de la versión 2.3 y las microfases de la ruta, con la plantilla operativa del ROADMAP.
 - **Parte II — Plan de ejecución.** Para cada microfase: pasos, archivos, criterios que se verifican y trampas conocidas.
 - **Parte III — Transversales.** Decisiones, intervenciones del usuario, verificación, hipótesis, riesgos y condiciones de parada.
 
-Hasta que la Enmienda 1 esté comiteada en `docs/ROADMAP.md`, `AGENTS.md` obliga a cualquier asistente a frenar: el ROADMAP prevalece sobre la spec y sobre este plan. Por eso la primera microfase (`M04a`) incorpora la enmienda.
+Antes de `M04a`, `AGENTS.md` ponía a `docs/ROADMAP.md` por encima de la spec y de este plan, y obligaba a frenar. `M04a` resuelve esa contradicción: archiva el ROADMAP y pone esta Parte I en su lugar.
 
 ---
 
@@ -22,7 +22,7 @@ Hasta que la Enmienda 1 esté comiteada en `docs/ROADMAP.md`, `AGENTS.md` obliga
 
 **Alcance del piloto (DEC-01).** Un usuario, una empresa y una cuenta publicitaria. El criterio de salida es que el dueño real de la cuenta piloto, con rol de tester en la app de Meta, complete con su propio login este recorrido: registro → conexión → sincronización → pregunta al chat. Además tiene que quedar evidencia redactada.
 
-**Relación con el ROADMAP vigente:**
+**Relación con el ROADMAP v2.3 (archivado):**
 
 | Microfase original | En esta ruta | Relación |
 |---|---|---|
@@ -43,7 +43,7 @@ Hasta que la Enmienda 1 esté comiteada en `docs/ROADMAP.md`, `AGENTS.md` obliga
 | `M28.2` — Despliegue | `M28.2a` — Entorno del piloto | Adelanta un despliegue mínimo |
 | `M28.3` — Guion de demostración | `M28.3a` — Demo con el dueño y cierre | Nueva |
 
-**Lo que no cambia:** el cierre `PASS` de M00, la selección de la Rama A, H-M00-01, las correcciones de M04 y el contrato de ejecución del ROADMAP (una microfase por vez, evidencia reproducible, sin secretos en el chat, sin commits ni despliegues sin pedido explícito).
+**Lo que no cambia:** el cierre `PASS` de M00, la selección de la Rama A, H-M00-01, las correcciones de M04 y el contrato de ejecución del ROADMAP, que desde `M04a` vive en `AGENTS.md` (una microfase por vez, evidencia reproducible, sin secretos en el chat, sin commits ni despliegues sin pedido explícito).
 
 **Lo que la ruta no construye:**
 
@@ -100,22 +100,22 @@ flowchart LR
 
 ## I.4 Microfases
 
-Plantilla del ROADMAP. El detalle de los pasos está en la Parte II. Los CA y DEC remiten a la spec v1.0.
+Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA y DEC remiten a la spec v1.0.
 
 ### M04a — Higiene documental previa a la ruta
 
 | Campo | Contenido |
 |---|---|
 | **ID** | `M04a` — ≤8 h |
-| **Objetivo** | Dejar el repositorio en condiciones de ejecutar la ruta: sin datos reales en la documentación, con rutas correctas y con la Enmienda 1 y los artefactos de la ruta comiteados. |
-| **Implementación requerida** | Redactar las líneas 82 y 92 de `docs/ROADMAP.md`. Registrar los hallazgos nuevos en `HALLAZGOS.md`. Corregir las rutas de `AGENTS.md` y de `m04-1-auditoria.md`. Incorporar la Parte I como Enmienda 1 (ROADMAP v2.4). Ubicar spec, plan y revisión en `docs/FASES/FASE1/meta_first/`. |
+| **Objetivo** | Dejar el repositorio en condiciones de ejecutar la ruta: sin datos reales en la documentación, con rutas correctas, con una única fuente normativa vigente y con los artefactos de la ruta comiteados. |
+| **Implementación requerida** | Registrar los hallazgos nuevos en `HALLAZGOS.md`. Poner esta Parte I en el primer lugar de la jerarquía de `AGENTS.md`, trasladar allí el contrato de ejecución y corregir las rutas de `AGENTS.md` y de `m04-1-auditoria.md`. Quitar las referencias que presentan `docs/ROADMAP.md` como vigente. Ubicar spec, plan y revisión en `docs/FASES/FASE1/meta_first/`. |
 | **Procedimiento del asistente** | Verificar `git status`. Editar sin copiar los datos reales en ningún artefacto nuevo. Verificar con búsquedas por patrón, no por valor. No reescribir el historial. |
 | **Evidencia de cierre** | Diff de los archivos tocados. Salida vacía de la búsqueda por patrón. Lista de hallazgos registrados. |
-| **Criterio de aceptación** | Ningún archivo del árbol contiene identificadores completos de cuentas publicitarias, nombres de negocios de terceros ni montos reales. `AGENTS.md` apunta a rutas que existen. El ROADMAP contiene la Enmienda 1. |
-| **Pruebas** | Búsqueda por patrón sin resultados. `npm run verify`. |
+| **Criterio de aceptación** | Ningún archivo del árbol contiene identificadores completos de cuentas publicitarias, nombres de negocios de terceros ni montos reales. `AGENTS.md` apunta a rutas que existen y pone esta Parte I en el primer lugar de la jerarquía. Ninguna fuente activa cita `docs/ROADMAP.md` como vigente. |
+| **Pruebas** | Búsqueda por patrón sin resultados. Búsqueda de `ROADMAP.md` en fuentes activas sin referencias como vigente. `npm run verify`. |
 | **Condición para avanzar** | `G-DOCS` aprobado por el usuario. |
 | **Dependencias / habilita** | — / `M05.1.1` |
-| **Intervención requerida del usuario** | Aprobar la Enmienda 1. Decidir, por separado, la visibilidad del repositorio y la reescritura del historial. |
+| **Intervención requerida del usuario** | Aprobar la Enmienda 1 (`G-DOCS`). Decidir, por separado, la visibilidad del repositorio y la reescritura del historial. |
 
 ### M05.1.1 — K01 `TenantContext`
 
@@ -360,7 +360,7 @@ Cada microfase es una sesión. Al terminarla se corre la verificación, se regis
 
 ## Precondiciones de toda la ruta
 
-1. La Enmienda 1 está comiteada en `docs/ROADMAP.md` (`G-DOCS`).
+1. `G-DOCS` está aprobado: la Enmienda 1 (Parte I) está comiteada en este documento y `AGENTS.md` la pone primera en la jerarquía.
 2. `git status` está limpio, o los cambios ajenos quedaron preservados.
 3. En las microfases con base de datos, `npm run db:check:test` apunta al proyecto desechable. Las pruebas nunca se corren contra el proyecto `app` (CB-04).
 4. Ningún secreto se pega en el chat. Las claves van en `.env.local`, en las variables de Vercel o en el dashboard de Supabase.
@@ -374,15 +374,17 @@ Cada microfase es una sesión. Al terminarla se corre la verificación, se regis
 
 | Paso | Acción | Archivos | Verificación |
 |---:|---|---|---|
-| 1 | Reemplazar en las líneas 82 y 92 el identificador completo de la cuenta, el nombre del negocio y la magnitud de gasto por "cuenta piloto", "moneda de la cuenta" y "zona de la cuenta distinta de Buenos Aires". Conservar el sentido técnico de H-M00-01 | `docs/ROADMAP.md` | Búsqueda por patrón `act_[0-9]{6,}` sin resultados en `docs/`, `AGENTS.md` y `README.md` |
+| 1 | ~~Redactar las líneas 82 y 92 de `docs/ROADMAP.md`~~. Sin efecto: el usuario quitó el ROADMAP del árbol. Solo se verifica que el árbol no contenga los datos | — | Búsqueda por patrón `act_[0-9]{6,}` sin resultados en todo el árbol (`git ls-files -co --exclude-standard`) |
 | 2 | Registrar los hallazgos de la sección III.7, sin repetir datos reales. Si los IDs sugeridos chocan con los existentes, seguir la numeración vigente | `docs/HALLAZGOS.md` | Cada hallazgo tiene ID, impacto, evidencia y microfase asignada |
-| 3 | Corregir `docs/microfases/<ID>/` por la estructura real `docs/FASES/FASE1/<MF>/` | `AGENTS.md` (líneas 15 y 16), `docs/_templates/prompt-implementacion.md` | Las rutas citadas existen |
+| 3 | Corregir `docs/microfases/<ID>/` por la estructura real `docs/FASES/FASE1/<MF>/`. Poner la Parte I de este plan primera en la jerarquía y trasladar a `AGENTS.md` el contrato de ejecución del ROADMAP v2.3 | `AGENTS.md`, `docs/_templates/prompt-implementacion.md` | Las rutas citadas existen |
 | 4 | Corregir la cita del nombre anterior del roadmap | `docs/FASES/FASE1/MF04/m04-1-auditoria.md` | — |
-| 5 | Incorporar la Parte I como "Enmienda 1" y subir la versión a 2.4. Las microfases originales no se borran: se marcan como acotadas o diferidas por la ruta | `docs/ROADMAP.md` | La tabla de I.1 figura en el ROADMAP |
+| 5 | ~~Incorporar la Parte I en `docs/ROADMAP.md` como v2.4~~. Reemplazado: la Parte I queda como roadmap vigente dentro de este plan. Se quitan las referencias que presentan `docs/ROADMAP.md` como vigente | Este plan, `spec.md`, `README.md`, `docs/README.md`, `docs/_templates/microfase.md`, `.claude/agents/auditor-gate.md`, `.claude/agents/revisor-microfase.md`, `.env.example` (comentario) | Ninguna fuente activa cita `docs/ROADMAP.md` como vigente |
 | 6 | Ubicar spec, plan y revisión en `docs/FASES/FASE1/meta_first/` (los enlaces relativos de la spec y de la revisión asumen ese nivel) | `docs/FASES/FASE1/meta_first/` | Los enlaces resuelven |
 | 7 | Actualizar el estado del proyecto | `docs/PROJECT_STATE.md` | Refleja la ruta y la próxima microfase |
 
 **Cierre:** `npm run verify` y aprobación de `G-DOCS`.
+
+**Redefinición aprobada por el usuario (2026-09-24).** El usuario quitó `docs/ROADMAP.md` del árbol en `af1babd` porque no lo sigue por ahora. Con su aprobación, los pasos 1 y 5 se reemplazan como figura arriba, el contrato de ejecución pasa a `AGENTS.md` y el paso 5 incluye archivos fuera de la tabla original.
 
 **Trampa conocida.** Para verificar el paso 1, se busca **por patrón**, nunca por el valor. Un `grep` con el identificador real deja una copia en el historial de la terminal y en la evidencia. Y corregir el HEAD no borra el dato del historial de Git: esa decisión es del usuario y no forma parte de esta microfase.
 
@@ -457,7 +459,7 @@ Una sola migración nueva: `supabase/migrations/0012_integrations.sql`. No se to
 
 **Cierre:** `npm run db:check:test` y `npm run db:push:test`.
 
-**Trampa conocida.** Se agrega `force row level security` porque lo exige la aceptación de `M06.2` en el ROADMAP (`relforcerowsecurity`), no porque las migraciones existentes lo usen: ninguna de las once lo hace (H-E1-05). `force` no restringe a funciones `SECURITY DEFINER` cuyo dueño tiene `bypassrls`, como `postgres` en Supabase. Lo que protege `worker_api` es el chequeo dentro de cada función.
+**Trampa conocida.** Se agrega `force row level security` porque lo exigía la aceptación de `M06.2` en el ROADMAP v2.3 (`relforcerowsecurity`), no porque las migraciones existentes lo usen: ninguna de las once lo hace (H-E1-05). `force` no restringe a funciones `SECURITY DEFINER` cuyo dueño tiene `bypassrls`, como `postgres` en Supabase. Lo que protege `worker_api` es el chequeo dentro de cada función.
 
 **Segunda trampa.** `private.is_company_member()` lanza una excepción sin `auth.uid()`. Por la conexión del rol de C no hay JWT, así que dentro de `worker_api` la pertenencia se verifica por `p_actor_user_id` contra `company_members`.
 
@@ -879,7 +881,7 @@ Si hay que elegir qué llega primero a una demostración, son `M16.1` y `M16.2`:
 
 Frenar y reportar, sin improvisar, ante cualquiera de estas situaciones:
 
-- Una contradicción entre el ROADMAP, la spec, este plan o el código.
+- Una contradicción entre la Parte I de este plan, la spec, el resto del plan o el código.
 - La necesidad de tocar un archivo fuera de la tabla de la microfase. Las rutas sugeridas dentro del mismo módulo no cuentan.
 - La necesidad de modificar una migración existente.
 - La necesidad de una intervención del usuario.

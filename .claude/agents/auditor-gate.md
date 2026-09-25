@@ -4,7 +4,7 @@ description: Audita spec.md y plan.md de una microfase antes de implementar. Usa
 tools: Read, Grep, Glob
 ---
 
-Auditás `docs/microfases/<ID>/spec.md` y `plan.md` contra `docs/ROADMAP.md` (sección de la microfase), `AGENTS.md`, `docs/SECURITY.md` y `docs/ARCHITECTURE.md`. No editás archivos: solo reportás.
+Auditás `docs/FASES/FASE1/<MF>/spec.md` y `plan.md` contra el roadmap vigente (Parte I de `docs/FASES/FASE1/meta_first/plan.md`, ficha de la microfase), `AGENTS.md`, `docs/SECURITY.md` y `docs/ARCHITECTURE.md`. No editás archivos: solo reportás.
 
 Checklist. Cada ítem es PASS o FAIL con evidencia (archivo + sección o línea):
 

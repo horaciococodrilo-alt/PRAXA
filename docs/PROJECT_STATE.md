@@ -1,27 +1,29 @@
 # Estado actual del proyecto
 
-Este es el primer documento que debe leer un agente. La fuente normativa del plan es [ROADMAP.md](ROADMAP.md). Este archivo resume solo el estado de los gates y enlaza al documento que contiene cada detalle.
+Este es el primer documento que debe leer un agente. La fuente normativa vigente es la Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan.md) (Enmienda 1, ruta crítica `meta_first`), junto con el contrato de ejecución de [AGENTS.md](../AGENTS.md). `ROADMAP.md` v2.3 está archivado fuera del repositorio por decisión del usuario. Este archivo resume solo el estado de los gates y enlaza al documento que contiene cada detalle.
 
 ## Estado
 
-El 2026-09-22 el usuario aprobó la Enmienda 1 del roadmap, ruta crítica `meta_first`. El orden de ejecución vigente es el de esa enmienda, no el de las fases originales.
+El orden de ejecución vigente es el de la ruta `meta_first` (plan v1.0, 2026-09-24). El 2026-09-22 el usuario aprobó una versión anterior de la Enmienda 1. La versión 1.0 (plan y spec) quedó aprobada por el usuario el 2026-09-24, en `G-DOCS`.
 
 - M04.1, auditoría del repositorio: cerrada; `G-AUDIT` aprobado.
 - M04.2, baseline reproducible: cerrada; `G-BASELINE` aprobado.
-- M03a, acta mínima de datos y privacidad para Meta: siguiente corte; requiere aprobación del usuario y bloquea toda conexión Meta con datos reales.
-- M05.1.2, M05.1.3 y M05.1.4, contratos K02-K04: habilitados por M03a, todavía no iniciados.
-- M06.1a, M06.2a, M06.3a, M16.1, M16.2, M16c y M25a: pendientes en ese orden, según la Enmienda 1.
-- M16d, habilitación multiempresa del acceso a Meta: pendiente, en paralelo y dependiente de trámites del usuario ante Meta. Hasta su cierre, sólo pueden conectarse cuentas de personas con rol en la app; ver `H-E1-01`.
+- M04a, higiene documental previa: cerrada; `G-DOCS` aprobado por el usuario el 2026-09-24. Trabajo en la rama `mf/M04a`. Sigue pendiente del usuario decidir la visibilidad del repositorio y la reescritura del historial (`H-E1-04`). Evidencia: [sesiones/M04a.md](FASES/FASE1/meta_first/sesiones/M04a.md).
+- M05.1.1, K01 `TenantContext`: siguiente microfase; `G-DOCS` la habilitó.
+- M05.1.2 a M05.1.4, M06.1a, M06.2a, M06.3a, M28.2a, M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a: pendientes en ese orden, según la Parte I del plan.
+- M03a, acta de datos reales de Meta y del chat: sin empezar; se puede redactar en paralelo. Su gate `G-ACTA-META` bloquea el primer dato real, en M16.2.
+- M16d, App Review y Business Verification: fuera de la ruta y dependiente de trámites del usuario ante Meta. Hasta su cierre, sólo pueden conectarse cuentas de personas con rol en la app; ver `H-E1-01`.
 - M03 completa, M05.1 restante, M05.2 y las fuentes Tiendanube y GA4: pospuestas sin cambio de contenido.
 
 ## Lectura dirigida
 
-1. [ROADMAP.md](ROADMAP.md): plan operativo vigente y condiciones de avance. Leer primero la Enmienda 1, que fija el orden actual.
-2. [HALLAZGOS.md](HALLAZGOS.md): registro único de hallazgos, estados y microfases asignadas.
-3. [FASES/FASE1/MF04/m04-1-auditoria.md](FASES/FASE1/MF04/m04-1-auditoria.md): evidencia de la auditoría M04.1.
-4. [FASES/FASE1/MF04/m04-2-baseline.md](FASES/FASE1/MF04/m04-2-baseline.md): evidencia del baseline M04.2.
-5. [FASES/FASE1/MF04/m04-sesion.md](FASES/FASE1/MF04/m04-sesion.md): relato cronológico de la sesión M04.
-6. [ARCHITECTURE.md](ARCHITECTURE.md) y [SECURITY.md](SECURITY.md): documentos de arquitectura y seguridad existentes.
+1. [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan.md): roadmap vigente (Parte I), plan de ejecución (Parte II) y transversales (Parte III).
+2. [FASES/FASE1/meta_first/spec.md](FASES/FASE1/meta_first/spec.md): spec de la ruta, con los CA, CB y DEC.
+3. [HALLAZGOS.md](HALLAZGOS.md): registro único de hallazgos, estados y microfases asignadas.
+4. [FASES/FASE1/MF04/m04-1-auditoria.md](FASES/FASE1/MF04/m04-1-auditoria.md): evidencia de la auditoría M04.1.
+5. [FASES/FASE1/MF04/m04-2-baseline.md](FASES/FASE1/MF04/m04-2-baseline.md): evidencia del baseline M04.2.
+6. [FASES/FASE1/MF04/m04-sesion.md](FASES/FASE1/MF04/m04-sesion.md): relato cronológico de la sesión M04.
+7. [ARCHITECTURE.md](ARCHITECTURE.md) y [SECURITY.md](SECURITY.md): documentos de arquitectura y seguridad existentes.
 
 ## Regla de actualización
 

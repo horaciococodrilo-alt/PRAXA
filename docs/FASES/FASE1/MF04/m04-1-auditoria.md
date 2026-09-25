@@ -2,7 +2,7 @@
 
 Fecha: 2026-09-17
 Snapshot auditado: `9483eae`
-Fuente normativa: `roadmap-microfases-v2-praxa.md`, revisión 2, con las correcciones del spec de M04.1/M04.2.
+Fuente normativa: roadmap v2, revisión 2 (en ese momento, el archivo externo `roadmap-microfases-v2-praxa.md`; después se incorporó como `docs/ROADMAP.md` v2.x, hoy archivado fuera del repositorio; no confundir con el `docs/ROADMAP.md` v1 que citan los veredictos de este documento, borrado en M04.2), con las correcciones del spec de M04.1/M04.2.
 Alcance congelado: 83 archivos versionados bajo `src/`, `tests/`, `supabase/`, `scripts/`, `proxy.ts` y `docs/`.
 
 `docs/ROADMAP.md` se usa solamente como evidencia histórica. Los veredictos `retirar` son recomendaciones y no autorizan por sí solos una eliminación. En el cierre de G-AUDIT el usuario confirmó que los dos proyectos Supabase existentes —ambos con las once migraciones aplicadas y sin datos que preservar salvo una empresa de prueba— se descartarán después de completar M04.2. El proyecto nuevo empieza limpio. Por eso, para `0002` y `0005`–`0011`, `retirar` significa borrar los archivos versionados en M06.1, no crear migraciones compensatorias ni preservar ese historial. M06.1 debe verificarse contra una base limpia.

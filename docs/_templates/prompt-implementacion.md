@@ -6,10 +6,10 @@ Branch: `[nombre-branch]`. Herramienta/modelo: [Claude Code | Codex] — [modelo
 ## 1. Lectura obligatoria, en este orden (no escribas nada antes de terminar)
 1. `AGENTS.md` completo (reglas, non-negotiables, condiciones de parada).
 2. `docs/PROJECT_STATE.md`.
-3. `docs/ROADMAP.md`: sección "Contrato de ejecución para asistentes de IA" y la sección de [ID].
-4. `docs/microfases/[ID]/spec.md` (versión [vX]).
-5. `docs/microfases/[ID]/plan.md`.
-6. `docs/microfases/[ID]/gate.md`.
+3. Roadmap vigente: Parte I de `docs/FASES/FASE1/meta_first/plan.md`, ficha de [ID]. El contrato de ejecución está en `AGENTS.md`.
+4. `docs/FASES/FASE1/[MF]/spec.md` (versión [vX]).
+5. `docs/FASES/FASE1/[MF]/plan.md`: sección de [ID] en la Parte II, III.3 y III.9.
+6. `docs/FASES/FASE1/[MF]/gate.md`, si la microfase tiene uno.
 7. `docs/SECURITY.md`, secciones: [ej. "Invariantes que se aplican en la base", "Autorización en el servidor", "Credenciales"].
 8. `docs/ARCHITECTURE.md`, secciones: [ej. "Dos esquemas: public y private", "Las RPC del producto son SECURITY INVOKER"].
 9. Código existente relevante: [rutas, ej. `src/modules/reporting/contract/`, `supabase/migrations/0010_*.sql`].
@@ -22,7 +22,7 @@ Al terminar la lectura, respondé SOLO con:
 Esperá mi OK antes de seguir.
 
 ## 2. Precondiciones (si alguna falla, frená y reportá)
-- `gate.md` está en PASS.
+- El gate que habilita [ID] (Parte I, I.3, del plan de la ruta) figura aprobado en `PROJECT_STATE.md`, o `gate.md` está en PASS si la microfase lo tiene.
 - La spec está en estado APROBADA y su versión coincide con la que figura en `plan.md`.
 - Las dependencias de [ID] están cerradas en `PROJECT_STATE.md`.
 - Estás en el branch `[nombre-branch]`. `git status` no tiene cambios ajenos; si los tiene, preservalos y avisame.
@@ -32,7 +32,7 @@ Esperá mi OK antes de seguir.
 2. Seguí los pasos del plan en orden. Al terminar cada paso, corré los tests de ese paso.
 3. Solo tocás archivos de la tabla "Archivos a crear/modificar". Si necesitás otro, frená y proponé el desvío; no lo hagas por tu cuenta.
 4. No amplíes el alcance. Si ves algo que habría que hacer, registralo como hallazgo en `docs/HALLAZGOS.md` con ID estable y seguí.
-5. Llevá el log en `docs/microfases/[ID]/sesion.md`: pasos hechos, comandos corridos con su resultado real, decisiones y desvíos.
+5. Llevá el log en `docs/FASES/FASE1/[MF]/sesiones/[ID].md`: pasos hechos, comandos corridos con su resultado real, decisiones y desvíos.
 
 ## 4. Permisos de esta sesión
 - Commits: [permitidos en `[nombre-branch]`, uno por paso del plan | no permitidos].
@@ -54,4 +54,4 @@ Reportá con este formato:
 - Desvíos del plan y hallazgos nuevos (con ID).
 - Pendientes.
 
-No marques la microfase como PASS ni actualices `ROADMAP.md` o `PROJECT_STATE.md`: el cierre lo hace la verificación cruzada.
+No marques la microfase como PASS ni actualices el roadmap vigente o `PROJECT_STATE.md`: el cierre lo hace la verificación cruzada.

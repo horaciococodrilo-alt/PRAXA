@@ -2,20 +2,20 @@
 
 ## Estado
 
-`v1.0 — FINAL PARA EJECUCIÓN` — 2026-09-24. Incorpora:
+`v1.0 — APROBADA` — 2026-09-24 (aprobada por el usuario en `G-DOCS`, al cerrar `M04a`). Incorpora:
 
 - las decisiones DEC-01 a DEC-21;
 - las correcciones T01 a T16 de la revisión externa;
 - las correcciones técnicas de la revisión del repositorio.
 
-No quedan decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`. La Enmienda 1 del ROADMAP se aprueba formalmente en `G-DOCS`, al cerrar `M04a`, que es la primera microfase ejecutable.
+No quedan decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`. La Enmienda 1 se aprueba formalmente en `G-DOCS`, al cerrar `M04a`, que es la primera microfase ejecutable. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario: la Parte I de [plan.md](plan.md) es el roadmap vigente de la ruta y encabeza la jerarquía de fuentes de `AGENTS.md`.
 
 El roadmap de la ruta (Enmienda 1) y el plan de ejecución están en [plan.md](plan.md), versión 1.0.
 
 Bloqueos de entrada, verificados contra `main` en `247cae8`. Los tres se resuelven dentro de la ruta: el primero en `M04a`, el segundo con `M05.1.1` y el tercero con `M03a`, antes del primer dato real. Ninguno impide empezar `M04a`.
 
-- La Enmienda 1 no existe en `docs/ROADMAP.md` (v2.3), ni los IDs `M03a`, `M06.1a`, `M06.2a`, `M06.3a`, `M16c`, `M16d` y `M25a`. Según `AGENTS.md`, el ROADMAP prevalece sobre esta spec: hasta que la enmienda esté comiteada, cualquier agente que lo respete debe frenar.
-- El ROADMAP vigente hace depender `M05.1.2` de `M05.1.1` (K01 `TenantContext`), que no empezó. **Corrección técnica:** K01 entra en esta ruta como primer contrato (sección 8). Define exactamente el actor y la empresa que la sección 7 pasa a `worker_api`, así que omitirlo obligaría a reinventarlo sin nombre.
+- La Enmienda 1 no existía en `docs/ROADMAP.md` (v2.3), ni los IDs `M03a`, `M06.1a`, `M06.2a`, `M06.3a`, `M16c`, `M16d` y `M25a`. Según `AGENTS.md`, el ROADMAP prevalecía sobre esta spec. **Resolución en `M04a`:** el ROADMAP se archivó fuera del repositorio y `AGENTS.md` pone la Parte I de [plan.md](plan.md) en el primer lugar de la jerarquía.
+- El ROADMAP v2.3 hace depender `M05.1.2` de `M05.1.1` (K01 `TenantContext`), que no empezó. **Corrección técnica:** K01 entra en esta ruta como primer contrato (sección 8). Define exactamente el actor y la empresa que la sección 7 pasa a `worker_api`, así que omitirlo obligaría a reinventarlo sin nombre.
 - `M03a` (acta de datos reales y retención) no está en el repositorio y es condición para que datos reales entren en la base.
 
 ## 1. Alcance del piloto
@@ -29,7 +29,7 @@ Un usuario (el dueño), una empresa y una cuenta publicitaria conectada. El due�
 - Escrituras sobre Meta. El permiso objetivo es `ads_read`; que la app tenga otros permisos agregados no implica solicitarlos.
 - Onboarding público. Los dueños sin rol en la app requieren App Review y Business Verification (`M16d`), fuera de esta ruta.
 - Más de una cuenta conectada por empresa. Más de un proveedor.
-- Workers, colas, reintentos en segundo plano, programación automática. El esquema `worker_api` es un nombre heredado del ROADMAP y no implica construir un worker.
+- Workers, colas, reintentos en segundo plano, programación automática. El esquema `worker_api` es un nombre heredado del ROADMAP v2.3 y no implica construir un worker.
 - Tiendanube, GA4, reportes publicados (`reliability`, `catalog`).
 - Métricas derivadas, ratios, benchmarks, recomendaciones de presupuesto, explicación causal del rendimiento y evaluación de rentabilidad.
 - Base vectorial o RAG.
@@ -188,7 +188,7 @@ Reglas para las funciones y el rol:
 ### K01 `TenantContext` (M05.1.1)
 
 - **CA-00** Contiene `user_id` verificado, `company_id` resuelto por membresía, `role = owner` y `request_id`. Se construye solo en el servidor, a partir de `getClaims()` y de la membresía. Nunca acepta un tenant elegido por el navegador.
-- **CA-00b** Pruebas: claim ausente, empresa manipulada, membresía inexistente, rol inválido y campo extra. Son las que fija el ROADMAP para `M05.1.1`.
+- **CA-00b** Pruebas: claim ausente, empresa manipulada, membresía inexistente, rol inválido y campo extra. Son las que fijaba el ROADMAP v2.3 para `M05.1.1`.
 
 ### K02 `OAuthAttempt`
 
@@ -226,7 +226,7 @@ Reglas para las funciones y el rol:
 
 ## 9. Persistencia y cifrado (M06.1a, M06.2a, M06.3a)
 
-- **CA-14** Las tablas nuevas tienen `company_id`, RLS habilitada y `force row level security`, como exige la aceptación de `M06.2` en el ROADMAP (`relrowsecurity` y `relforcerowsecurity`). Dos aclaraciones:
+- **CA-14** Las tablas nuevas tienen `company_id`, RLS habilitada y `force row level security`, como exigía la aceptación de `M06.2` en el ROADMAP v2.3 (`relrowsecurity` y `relforcerowsecurity`). Dos aclaraciones:
   - Contra lo que decía el plan anterior, ninguna de las once migraciones existentes usa `force`. Es una deuda de `M06.2` sobre las tablas existentes, fuera de esta ruta.
   - `force` no restringe a las funciones `SECURITY DEFINER` cuyo dueño es `postgres`, que tiene `bypassrls`. La protección real de `worker_api` es el chequeo dentro de cada función. Cambiar el dueño de las funciones a un rol sin `bypassrls` ("el rol dueño previsto no omite políticas", según `M06.2`) queda fuera de esta ruta y se declara como pendiente.
 - **CA-15** `private.integration_credentials` no tiene grants para nadie salvo el dueño de las funciones.
@@ -512,8 +512,8 @@ Ningún secreto se pega en el chat ni se guarda en el repositorio.
 | Vercel | Crear el proyecto con dominio fijo y cargar las variables de la sección 5 | Antes de OAuth |
 | DeepInfra | Crear la cuenta y cargar `DEEPINFRA_API_KEY` | Antes de VR-02 |
 | Local | Generar las claves de `PRAXA_CREDENTIAL_KEYS` y cargar `PRAXA_INTEGRATIONS_TEST_DB_URL` | Antes del corte de cifrado y antes de las pruebas del rol de C, respectivamente |
-| Repositorio | Corregir las líneas 82 y 92 del ROADMAP y decidir la visibilidad del repositorio y la reescritura del historial | Ya |
-| Documentación | Comitear la Enmienda 1 del ROADMAP y aprobar `M03a` | Antes del corte 1 y antes de cualquier dato real, respectivamente |
+| Repositorio | Decidir la visibilidad del repositorio y la reescritura del historial: versiones anteriores de `docs/ROADMAP.md` en Git conservan los datos de la cuenta piloto. Antes de restaurar el ROADMAP en el árbol, redactarlo | Ya |
+| Documentación | Aprobar `G-DOCS` (Enmienda 1 como Parte I de `plan.md`) y aprobar `M03a` | Antes del corte 1 y antes de cualquier dato real, respectivamente |
 | Cierre | Ejecutar CA-67 | Al finalizar el piloto (DEC-20) |
 
 ## 14. Verificación
@@ -541,11 +541,11 @@ Criterios transversales:
 
 ## 15. Correcciones de documentación pendientes
 
-- **`docs/ROADMAP.md`, líneas 82 y 92.** Contienen el identificador completo de la cuenta piloto, el nombre del negocio y una magnitud de gasto real, en un repositorio público. Propuesta:
-  - Reemplazarlos por referencias redactadas: "cuenta piloto", "moneda de la cuenta", "zona de la cuenta distinta de Buenos Aires".
-  - Registrar el hallazgo en `HALLAZGOS.md` sin repetir los datos.
-  - Decidir por separado la visibilidad del repositorio y la reescritura del historial. Es una decisión del usuario; no se hace automáticamente.
-- **Rutas desactualizadas.** `AGENTS.md`, líneas 15 y 16, apunta a `docs/microfases/<ID>/`, pero la estructura real es `docs/FASES/FASE1/<MF>/`. Además, `docs/FASES/FASE1/MF04/m04-1-auditoria.md` cita un nombre anterior del roadmap.
+- **`docs/ROADMAP.md`, líneas 82 y 92 (v2.3).** Contenían el identificador completo de la cuenta piloto, el nombre del negocio y una magnitud de gasto real, en un repositorio público. **Estado tras `M04a`:** el archivo se quitó del árbol por decisión del usuario, así que el HEAD ya no contiene esos datos. Queda:
+  - El hallazgo, registrado en `HALLAZGOS.md` sin repetir los datos.
+  - Si el ROADMAP vuelve al árbol, reemplazar antes esos datos por "cuenta piloto", "moneda de la cuenta" y "zona de la cuenta distinta de Buenos Aires".
+  - La visibilidad del repositorio y la reescritura del historial, que siguen siendo una decisión del usuario; no se hacen automáticamente.
+- **Rutas desactualizadas. Resuelto en `M04a` (H-E1-02).** `AGENTS.md`, líneas 15 y 16, apuntaba a `docs/microfases/<ID>/`, pero la estructura real es `docs/FASES/FASE1/<MF>/`. Además, `docs/FASES/FASE1/MF04/m04-1-auditoria.md` cita un nombre anterior del roadmap.
 - **`SECURITY.md`, línea 181.** Dice que no hay política de retención. Se alinea con DEC-09 cuando `M03a` la ratifique.
 
 ## Fuentes
