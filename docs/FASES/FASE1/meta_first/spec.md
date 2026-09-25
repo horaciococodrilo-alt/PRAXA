@@ -545,7 +545,7 @@ Criterios transversales:
   - El hallazgo, registrado en `HALLAZGOS.md` sin repetir los datos.
   - Si el ROADMAP vuelve al árbol, reemplazar antes esos datos por "cuenta piloto", "moneda de la cuenta" y "zona de la cuenta distinta de Buenos Aires".
   - La visibilidad del repositorio y la reescritura del historial, que siguen siendo una decisión del usuario; no se hacen automáticamente.
-- **Rutas desactualizadas. Resuelto en `M04a` (H-E1-02).** `AGENTS.md`, líneas 15 y 16, apuntaba a `docs/microfases/<ID>/`, pero la estructura real es `docs/FASES/FASE1/<MF>/`. Además, `docs/FASES/FASE1/MF04/m04-1-auditoria.md` cita un nombre anterior del roadmap.
+- **Rutas desactualizadas. Resuelto en `M04a` (H-E1-02).** `AGENTS.md`, líneas 15 y 16, apuntaba a `docs/microfases/<ID>/`, pero la estructura real es `docs/FASES/FASE1/<MF>/`. Además, `docs/FASES/FASE1/MF04/m04-1-auditoria.md` citaba un nombre anterior del roadmap; también se aclaró en `M04a`.
 - **`SECURITY.md`, línea 181.** Dice que no hay política de retención. Se alinea con DEC-09 cuando `M03a` la ratifique.
 
 ## Fuentes
