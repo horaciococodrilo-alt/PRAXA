@@ -14,7 +14,9 @@
       "Bash(git status*)",
       "Bash(git diff*)",
       "Bash(git log*)",
-      "Bash(git branch*)"
+      "Bash(git branch*)",
+      "Bash(git switch -c mf/*)",
+      "Bash(git switch mf/*)"
     ],
     "deny": [
       "Read(./.env.local)",
