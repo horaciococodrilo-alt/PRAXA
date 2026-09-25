@@ -365,8 +365,10 @@ Cada microfase es una sesión. Al terminarla se corre la verificación, se regis
 3. En las microfases con base de datos, `npm run db:check:test` apunta al proyecto desechable. Las pruebas nunca se corren contra el proyecto `app` (CB-04).
 4. Ningún secreto se pega en el chat. Las claves van en `.env.local`, en las variables de Vercel o en el dashboard de Supabase.
 5. Ningún diff, log, fixture ni evidencia contiene tokens, secretos, montos reales ni identificadores completos de cuentas (CB-02).
-6. Los despliegues al entorno del piloto (el push que dispara Vercel y el `db:push` de una migración al proyecto `app`) se hacen solo con un pedido explícito del usuario, siempre después de haber verificado la migración en el proyecto de pruebas.
+6. Los despliegues al entorno del piloto (el push que dispara Vercel y el `db:push` de una migración al proyecto `app`) los ejecuta el usuario. El asistente prepara y verifica todo lo posible, siempre después de haber verificado la migración en el proyecto de pruebas.
 7. Los CA y DEC que se citan remiten a la spec v1.0. Si una microfase cambia un criterio, se actualizan la spec y este plan en la misma sesión.
+8. En todas las microfases se autorizan tres archivos de seguimiento: `docs/HALLAZGOS.md`, `docs/PROJECT_STATE.md` y `docs/FASES/FASE1/meta_first/sesiones/[ID].md`. Solo se usan para registrar progreso, evidencia, hallazgos y pendientes; no amplían el alcance ni aprueban gates.
+9. Artefactos del pipeline de microfases: se autorizan `docs/FASES/FASE1/[ID]/spec.md`, `plan.md` y `revisiones/*.md`, y las pruebas temporales de `tests/unit/__qa__/`, que `qa-review` borra antes de terminar.
 
 ---
 
@@ -520,7 +522,7 @@ Casi todo es intervención del usuario. El asistente guía, verifica y documenta
 |---:|---|---|---|
 | 1 | Usuario | Crear el proyecto de Vercel conectado al repositorio y asignarle un dominio fijo | Responde por HTTPS |
 | 2 | Usuario | Cargar en Vercel las variables del servidor de la sección 5 de la spec y las existentes: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `NEXT_PUBLIC_SITE_URL` con el dominio del piloto. No cargar `SUPABASE_DB_URL` ni `SUPABASE_TEST_*` ni `PRAXA_INTEGRATIONS_TEST_DB_URL` | Checklist sin valores |
-| 3 | Asistente y usuario | Aplicar `0012` al proyecto `app` con `npm run db:check` y `npm run db:push`, después de haberla verificado en el de pruebas. Fijar la contraseña del rol de C en `app` | `db:check` muestra el destino correcto |
+| 3 | Usuario (el asistente prepara y verifica) | Aplicar `0012` al proyecto `app` con `npm run db:check` y `npm run db:push`, después de haberla verificado en el de pruebas. Fijar la contraseña del rol de C en `app` | `db:check` muestra el destino correcto |
 | 4 | Usuario | Verificar en el dashboard que `worker_api` no está entre los esquemas expuestos por la Data API | Captura redactada |
 | 5 | Usuario | En Supabase Auth del proyecto `app`, cargar `site_url` y las URLs de redirección con el dominio del piloto (en `config.toml` figuran solo las locales) | Captura redactada |
 | 6 | Usuario | Contratar un proveedor de email transaccional, verificar el dominio (SPF y DKIM) y configurar el SMTP propio en Supabase | Captura redactada |
@@ -623,7 +625,7 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 | 9 | Pruebas con Meta simulada: paginación completa; fallo en la página intermedia; día sin fila; resincronización sin duplicados y con valores actualizados; ejecución A vencida, B inicia y publica, A termina y es rechazada; desconexión durante la ejecución; captura del mediodía vista al día siguiente sin resincronizar; zona horaria con cambio de horario | `tests/unit/meta-insights.test.ts`, `tests/app/meta-sync.test.ts` | CA-41 a CA-47b y CA-56 a CA-60 |
 | 10 | Precisión de punta a punta: un gasto que `number` no representa exactamente viaja SQL → API → TypeScript sin cambiar | `tests/app/meta-precision.test.ts` | CA-44b |
 
-**Cierre:** `npm run verify`, `npm run test:policies`, `npm run test:app`, `db:push` de `0013` al proyecto `app` con autorización del usuario, y una sincronización real redactada.
+**Cierre:** `npm run verify`, `npm run test:policies`, `npm run test:app`, `db:push` de `0013` al proyecto `app` ejecutado por el usuario, y una sincronización real redactada.
 
 **Trampa conocida.** Un día sin fila no es un día con gasto cero. `sin_fila_reportada` significa que la extracción completa no trajo fila para ese día, y nada más. Tratarlo como cero requiere fundamentar antes la semántica del endpoint (CA-43).
 
@@ -650,7 +652,7 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 | 7 | Tipos de resultado apoyados en `periodSchema` y el patrón `knownOr` de reporting. **No** se usa `calculatedMetricEvidenceSchema` tal cual, porque su `value` es `number` y el gasto exige decimal exacto | `src/modules/chat/tools/results.ts` | Reutilización declarada en la spec |
 | 8 | Pruebas de herramientas: período con días sin cobertura, totales parciales, captura parcial, días de distintas extracciones con rango de `fetched_at`, empresa ajena, período mayor al máximo llamado directo por la API, registro que llega después de una desconexión | `tests/unit/chat-tools.test.ts`, `tests/app/chat-tools.test.ts` | CA-38c, CA-51, CA-51b, CA-54 y CA-70 |
 
-**Cierre:** `npm run verify`, `npm run test:policies` y `db:push` de `0014` al proyecto `app` con autorización del usuario.
+**Cierre:** `npm run verify`, `npm run test:policies` y `db:push` de `0014` al proyecto `app` ejecutado por el usuario.
 
 **Trampa conocida.** El texto de la pregunta nunca va a `console.log`. Los logs de ejecución de Vercel lo guardarían fuera del alcance de DEC-09 (CA-63).
 
