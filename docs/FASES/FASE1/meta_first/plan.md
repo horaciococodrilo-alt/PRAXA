@@ -449,9 +449,11 @@ Las columnas de las tablas nuevas tienen que coincidir con los contratos K02 a K
 
 **Funciones de `worker_api`.** Todas reciben `p_actor_user_id` y `p_company_id` y verifican en `public.company_members` que el actor pertenezca a la empresa. Las que reciben `p_connection_id` verifican además que la conexión sea de esa empresa.
 
+**Única excepción:** `count_credentials_by_key_version` no recibe actor ni empresa. Devuelve solo conteos por versión de clave, sin ningún dato de empresas, y solo la ejecuta `praxa_integrations`. Tiene que ser global porque CA-25 exige confirmar que **ninguna** credencial referencia la clave vieja antes de retirarla. El recifrado de CA-25 se hace al usar cada credencial: `rewrap_credential` mantiene actor y empresa, como el resto.
+
 | Función | Qué hace |
 |---|---|
-| `create_oauth_attempt` | Crea el intento con propósito, hash del `state`, hash de vinculación al navegador y vencimiento. `initial` solo si la empresa no tiene conexión viva; `reauth` guarda la conexión y la generación esperadas |
+| `create_oauth_attempt` | Crea el intento con propósito, hash del `state`, hash de vinculación al navegador y vencimiento. `initial` solo si la empresa no tiene conexión viva; `reauth` guarda la conexión y la generación esperadas. Además purga, de esa empresa, los intentos vencidos y los consumidos hace más de 10 minutos, el TTL máximo ratificado en H-E1-19 (CA-38b) |
 | `consume_oauth_attempt` | En **una sola sentencia** `update … where state_hash = … and browser_binding_hash = … and actor_user_id = … and company_id = … and consumed_at is null and expires_at > now() returning …`. Devuelve el intento, con su propósito, o un error tipado |
 | `create_pending_connection` | Crea la conexión en `pending_selection` con `pending_expires_at` a 30 minutos (DEC-17) y guarda la credencial cifrada |
 | `get_credential` | Devuelve el texto cifrado, el IV, la etiqueta y la versión, para descifrar en Node |
@@ -508,6 +510,7 @@ Las columnas de las tablas nuevas tienen que coincidir con los contratos K02 a K
 | 6 | Mover `pg` de `devDependencies` a `dependencies` | `package.json` | `npm run build` |
 | 7 | Extender la prueba: `PRAXA_INTEGRATIONS_DB_URL` solo puede aparecer en el módulo del paso 4 | `tests/unit/no-privileged-credentials.test.ts` | CA-27 reescrita |
 | 7b | Extender `check-target` para `PRAXA_INTEGRATIONS_TEST_DB_URL`: mismo proyecto que `SUPABASE_TEST_DB_URL`, `SUPABASE_TEST_IS_DISPOSABLE` activo y sin recurrir a `PRAXA_INTEGRATIONS_DB_URL` | `scripts/check-target.mjs`, `tests/unit/sql-test-target.test.ts` | T09 |
+| 7c | Cerrar `H-M04.1-02`: quitar la excepción `SUPABASE_TEST_ALLOW_APP_PROJECT` de la guarda de destino y de los helpers de `test:app` | `scripts/lib/target.mjs`, `tests/app/helpers.ts`, `docs/SECURITY.md` (líneas que describen la excepción) | `H-M04.1-02` |
 | 8 | Recorrido del árbol: ninguna clave, token o código OAuth en código, fixtures o documentación | `tests/unit/no-secrets-in-tree.test.ts` | CA-26 |
 | 9 | Documentar la excepción acotada: una credencial, con sus capacidades enumeradas | `docs/SECURITY.md`, `docs/ARCHITECTURE.md` | Revisión |
 | 10 | Variables nuevas en `.env.example`, **sin valores** (la prueba existente lo exige) | `.env.example` | `npm run test:unit` |
