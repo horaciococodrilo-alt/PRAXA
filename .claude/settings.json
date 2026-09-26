@@ -16,7 +16,16 @@
       "Bash(git log*)",
       "Bash(git branch*)",
       "Bash(git switch -c mf/*)",
-      "Bash(git switch mf/*)"
+      "Bash(git switch mf/*)",
+      "Bash(git rev-parse*)",
+      "Bash(git merge-base*)",
+      "Bash(git show*)",
+      "Bash(git hash-object*)",
+      "Bash(git worktree add ../praxa-review-*)",
+      "Bash(git worktree remove ../praxa-review-*)",
+      "Bash(git worktree list*)",
+      "Bash(npm ci)",
+      "Bash(powershell -NoProfile -Command \"npm run *)"
     ],
     "deny": [
       "Read(./.env.local)",
