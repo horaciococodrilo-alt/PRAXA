@@ -10,7 +10,7 @@ El orden de ejecución vigente es el de la ruta `meta_first` (plan v1.0, 2026-09
 - M04.2, baseline reproducible: cerrada; `G-BASELINE` aprobado.
 - M04a, higiene documental previa: cerrada; `G-DOCS` aprobado por el usuario el 2026-09-24. Trabajo en la rama `mf/M04a`. Sigue pendiente del usuario decidir la visibilidad del repositorio y la reescritura del historial (`H-E1-04`). Evidencia: [sesiones/M04a.md](FASES/FASE1/meta_first/sesiones/M04a.md).
 - M05.1.1, K01 `TenantContext`: cerrada; `G-K01` aprobado por el usuario el 2026-09-25. Trabajo en la rama `mf/M05.1.1`. Evidencia: [sesiones/M05.1.1.md](FASES/FASE1/meta_first/sesiones/M05.1.1.md).
-- M05.1.2 a M05.1.4, K02 a K04: siguientes microfases; `G-K01` las habilitó.
+- M05.1.2 a M05.1.4, K02 a K04: `VERIFICADO — PENDIENTE DE APROBACIÓN` (`G-K02-K04`) en la rama `mf/M05.1.2-M05.1.4`. Pendiente del usuario: aprobar el gate y ratificar el vencimiento máximo de 10 minutos del intento OAuth (`H-E1-19`). Evidencia: [sesiones/M05.1.2-M05.1.4.md](FASES/FASE1/meta_first/sesiones/M05.1.2-M05.1.4.md).
 - M06.1a, M06.2a, M06.3a, M28.2a, M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a: pendientes en ese orden, según la Parte I del plan.
 - M03a, acta de datos reales de Meta y del chat: sin empezar; se puede redactar en paralelo. Su gate `G-ACTA-META` bloquea el primer dato real, en M16.2.
 - M16d, App Review y Business Verification: fuera de la ruta y dependiente de trámites del usuario ante Meta. Hasta su cierre, sólo pueden conectarse cuentas de personas con rol en la app; ver `H-E1-01`.
