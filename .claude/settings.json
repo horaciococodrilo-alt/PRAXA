@@ -25,7 +25,11 @@
       "Bash(git worktree remove ../praxa-review-*)",
       "Bash(git worktree list*)",
       "Bash(npm ci)",
-      "Bash(powershell -NoProfile -Command \"npm run *)"
+      "Bash(powershell -NoProfile -Command \"npm run *)",
+      "Bash(grep *)",
+      "Bash(git -C ../praxa-review-* checkout -- *)",
+      "Bash(rm tests/unit/__qa__/*)",
+      "Bash(rm tests/app/__qa__/*)"
     ],
     "deny": [
       "Read(./.env.local)",

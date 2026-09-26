@@ -23,7 +23,7 @@ Si alguna precondición falla, el veredicto es BLOQUEADO.
 
 - Estás en la rama `mf/$ARGUMENTS`.
 - La última `implementation-review-N.md` es APROBABLE.
-- `git rev-parse HEAD` es el commit que registra esa revisión, y su base coincide con `git merge-base main HEAD`. Si no coincide, el código cambió después de la revisión: hay que volver a `/implementation-review`.
+- el commit revisado que figura en esa revisión es igual a `git rev-parse HEAD`, y su base coincide con `git merge-base main HEAD`. Si no coincide, el código cambió después de la revisión: hay que volver a `/implementation-review`.
 - El árbol está limpio, salvo los informes de revisión:
 
   ```

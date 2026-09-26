@@ -8,7 +8,7 @@
 - las correcciones T01 a T16 de la revisión externa;
 - las correcciones técnicas de la revisión del repositorio.
 
-No quedan decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`. La Enmienda 1 fue aprobada formalmente en `G-DOCS` al cerrar `M04a`; la siguiente microfase habilitada es `M05.1.1`. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario: la Parte I de [plan.md](plan.md) es el roadmap vigente de la ruta y encabeza la jerarquía de fuentes de `AGENTS.md`.
+No quedan decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`. La Enmienda 1 fue aprobada formalmente en `G-DOCS` al cerrar `M04a`; el estado de cada microfase y la siguiente habilitada están en `docs/PROJECT_STATE.md`. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario: la Parte I de [plan.md](plan.md) es el roadmap vigente de la ruta y encabeza la jerarquía de fuentes de `AGENTS.md`.
 
 El roadmap de la ruta (Enmienda 1) y el plan de ejecución están en [plan.md](plan.md), versión 1.0.
 
@@ -100,10 +100,10 @@ Variables del servidor. Ninguna es `NEXT_PUBLIC_`. En `.env.example` van sin val
 | `PRAXA_CREDENTIAL_KEY_CURRENT` | Versión con la que se cifra |
 | `PRAXA_INTEGRATIONS_DB_URL` | Conexión del rol de C por el pooler (usuario `rol.project-ref`) |
 | `DEEPINFRA_API_KEY` | Clave de la API de DeepInfra (DEC-16) |
-| `PRAXA_INTEGRATIONS_TEST_DB_URL` | Conexión del rol de C al proyecto de pruebas. Solo en `.env.local`, nunca en Vercel |
+| `PRAXA_INTEGRATIONS_TEST_DB_URL` | Conexión del rol de C al proyecto de pruebas, para las pruebas del cliente Node de `M06.3a`. Solo en `.env.local`, nunca en Vercel |
 
 - **Variables existentes que el despliegue también necesita:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `NEXT_PUBLIC_SITE_URL`. Esta última lleva el dominio del piloto, porque `getSiteUrl()` la usa para armar los enlaces de los emails de Auth. `SUPABASE_DB_URL` y las variables `SUPABASE_TEST_*` no van a Vercel: las usan los scripts y las pruebas.
-- **Aislamiento de la conexión del rol de C en las pruebas.** Las pruebas usan solo `PRAXA_INTEGRATIONS_TEST_DB_URL`. `scripts/check-target.mjs` se extiende para verificar que apunte al mismo proyecto que `SUPABASE_TEST_DB_URL` y que `SUPABASE_TEST_IS_DISPOSABLE` esté activo. Si la variable falta o apunta a otro proyecto, las pruebas fallan. Nunca recurren a `PRAXA_INTEGRATIONS_DB_URL`.
+- **Aislamiento de la conexión del rol de C en las pruebas.** Esta URL es la de las pruebas del cliente Node de `M06.3a`; las pruebas pgTAP del rol de C usan `set role` sobre la conexión de pruebas existente. Las pruebas del cliente Node usan solo `PRAXA_INTEGRATIONS_TEST_DB_URL`. `scripts/check-target.mjs` se extiende para verificar que apunte al mismo proyecto que `SUPABASE_TEST_DB_URL` y que `SUPABASE_TEST_IS_DISPOSABLE` esté activo. Si la variable falta o apunta a otro proyecto, las pruebas fallan. Nunca recurren a `PRAXA_INTEGRATIONS_DB_URL`.
 
 ## 5b. Entorno del piloto (DEC-07)
 
@@ -230,7 +230,8 @@ Reglas para las funciones y el rol:
   - Contra lo que decía el plan anterior, ninguna de las once migraciones existentes usa `force`. Es una deuda de `M06.2` sobre las tablas existentes, fuera de esta ruta.
   - `force` no restringe a las funciones `SECURITY DEFINER` cuyo dueño es `postgres`, que tiene `bypassrls`. La protección real de `worker_api` es el chequeo dentro de cada función. Cambiar el dueño de las funciones a un rol sin `bypassrls` ("el rol dueño previsto no omite políticas", según `M06.2`) queda fuera de esta ruta y se declara como pendiente.
 - **CA-15** `private.integration_credentials` no tiene grants para nadie salvo el dueño de las funciones.
-- **CA-16/17** La matriz de la sección 7 queda documentada en el encabezado de la migración. Antes de cada grant hay un `revoke all` explícito sobre la tabla o la función.
+- **CA-16** La matriz de la sección 7 queda documentada en el encabezado de la migración.
+- **CA-17** Antes de cada grant hay un `revoke all` explícito sobre la tabla o la función.
 - **CA-18** Un índice único parcial garantiza una sola conexión viva (`pending_selection`, `active` o `needs_reauth`) por empresa. La unicidad `(company_id, provider, external_account_id)` aplica a las filas existentes. Como la purga elimina la fila (CA-38), reconectar la misma cuenta después de una desconexión completada crea una fila nueva. Si queda una conexión `disconnected` con la purga sin terminar, reconectar primero reanuda esa purga.
 - **CA-19** Aislamiento entre dos empresas sintéticas, probado en pgTAP.
 - **CA-20** Las políticas de lectura resuelven la pertenencia con `private.is_company_member()`. Ninguna acepta un `company_id` provisto por el cliente.
@@ -511,7 +512,7 @@ Ningún secreto se pega en el chat ni se guarda en el repositorio.
 | Dominio | Registrar SPF y DKIM del proveedor de email | Antes de VR-01 |
 | Vercel | Crear el proyecto con dominio fijo y cargar las variables de la sección 5 | Antes de OAuth |
 | DeepInfra | Crear la cuenta y cargar `DEEPINFRA_API_KEY` | Antes de VR-02 |
-| Local | Generar las claves de `PRAXA_CREDENTIAL_KEYS` y cargar `PRAXA_INTEGRATIONS_TEST_DB_URL` | Antes del corte de cifrado y antes de las pruebas del rol de C, respectivamente |
+| Local | Generar las claves de `PRAXA_CREDENTIAL_KEYS` y cargar `PRAXA_INTEGRATIONS_TEST_DB_URL` | Antes del corte de cifrado y antes de las pruebas del cliente Node de `M06.3a`, respectivamente |
 | Repositorio | Decidir la visibilidad del repositorio y la reescritura del historial: versiones anteriores de `docs/ROADMAP.md` en Git conservan los datos de la cuenta piloto. Antes de restaurar el ROADMAP en el árbol, redactarlo | Ya |
 | Documentación | `G-DOCS` aprobado el 2026-09-24 (Enmienda 1 como Parte I de `plan.md`). Queda aprobar `M03a` | `G-DOCS`: completado; `M03a`: antes de cualquier dato real |
 | Cierre | Ejecutar CA-67 | Al finalizar el piloto (DEC-20) |

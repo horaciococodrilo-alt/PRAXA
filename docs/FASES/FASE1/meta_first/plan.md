@@ -1,7 +1,7 @@
 # Ruta `meta_first` — Roadmap (Enmienda 1) y plan de ejecución
 
 **Versión:** 1.0 — 2026-09-24
-**Estado:** `APROBADO PARA EJECUCIÓN`. `M04a` está cerrada y `G-DOCS` fue aprobado por el usuario el 2026-09-24. La siguiente microfase habilitada es `M05.1.1`.
+**Estado:** `APROBADO PARA EJECUCIÓN`. `M04a` está cerrada y `G-DOCS` fue aprobado por el usuario el 2026-09-24. El estado de cada microfase y la siguiente habilitada están en `docs/PROJECT_STATE.md`.
 **Base:** spec `meta_first` v1.0 (decisiones DEC-01 a DEC-21), revisión del repositorio en `main@247cae8`, la sesión de revisión en la que se tomaron esas decisiones y las correcciones T01 a T16 de la revisión externa. No quedan decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`.
 
 Este documento reemplaza al `plan.md` anterior y contiene, además, el texto de la **Enmienda 1**. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario, y la Parte I de este documento es el roadmap vigente de la ruta: encabeza la jerarquía de fuentes de `AGENTS.md`. Tiene tres partes:
@@ -87,7 +87,7 @@ flowchart LR
 | `G-DOCS` | `M04a` | `M05.1.1` |
 | `G-K01` | `M05.1.1` | `M05.1.2` a `M05.1.4` |
 | `G-K02-K04` | `M05.1.4` | `M06.1a` |
-| `G-DB-META` | `M06.2a` | `M06.3a` |
+| `G-DB-META` | `M06.1a` y `M06.2a`, ejecutadas como grupo `M06.1a-M06.2a` | `M06.3a` |
 | `G-CRYPTO` | `M06.3a` | `M28.2a` |
 | `G-ENTORNO` | `M28.2a` | `M16.1` |
 | `G-ACTA-META` | `M03a` | Primer dato real: alta y autorización del dueño en `M16.2` |
@@ -187,10 +187,10 @@ Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA
 | **Procedimiento del asistente** | Seguir el patrón de `0001` y `0004`: `set search_path = ''`, objetos calificados, `revoke all` y grants operación por operación. No modificar migraciones existentes (CB-03). |
 | **Evidencia de cierre** | Migración aplicada al proyecto de pruebas; salida de `db:check:test` y `db:push:test`. |
 | **Criterio de aceptación** | CA-02c, CA-03, CA-07, CA-08, CA-14 a CA-18 y CA-68. Cada función verifica que el actor sea miembro de la empresa y que la conexión pertenezca a ella. |
-| **Pruebas** | Las de `M06.2a`. |
-| **Condición para avanzar** | Migración aplicada al proyecto de pruebas sin errores. |
+| **Pruebas** | Las de `M06.2a`, en el mismo grupo; TDD sobre el grupo. |
+| **Condición para avanzar** | Se ejecuta en grupo con `M06.2a` y cierra con `G-DB-META`. |
 | **Dependencias / habilita** | `G-K02-K04` / `M06.2a` |
-| **Intervención requerida del usuario** | Fijar la contraseña del rol en el proyecto de pruebas, fuera del repositorio. |
+| **Intervención requerida del usuario** | Ninguna. |
 
 ### M06.2a — Aislamiento, privilegios y procedimiento de cierre
 
@@ -198,13 +198,13 @@ Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA
 |---|---|
 | **ID** | `M06.2a` — ≤8 h |
 | **Objetivo** | Probar en la base, no en el código, el aislamiento, la matriz de privilegios y el borrado completo de una empresa. |
-| **Implementación requerida** | pgTAP `08` (aislamiento con dos empresas sintéticas), `09` (privilegios como `anon`, `authenticated` y el rol de C; transiciones y purga) y `10` (procedimiento de cierre CA-67 sobre una empresa con reporte). `test:app` con la lectura efectiva de las tablas nuevas por la Data API. Conexión del rol de C en pruebas solo por `PRAXA_INTEGRATIONS_TEST_DB_URL`, verificada contra el proyecto desechable. |
+| **Implementación requerida** | pgTAP `08` (aislamiento con dos empresas sintéticas), `09` (privilegios como `anon`, `authenticated` y el rol de C; transiciones y purga) y `10` (procedimiento de cierre CA-67 sobre una empresa con reporte). `test:app` con la lectura efectiva de las tablas nuevas por la Data API. Las pruebas pgTAP del rol de C usan `set role praxa_integrations` sobre la conexión de pruebas existente. |
 | **Procedimiento del asistente** | Ejecutar sobre el proyecto de pruebas. Registrar el resultado de la hipótesis sobre el `RESTRICT` de `reports` (`0003`). |
 | **Evidencia de cierre** | Salida de `test:policies` y de `test:app`. |
 | **Criterio de aceptación** | CA-19 a CA-22. El rol de C no lee ninguna tabla. `authenticated` no ejecuta `worker_api`. El cierre deja cero filas de la empresa. |
 | **Pruebas** | `npm run test:policies`, `npm run test:app` y `npm run verify`. |
 | **Condición para avanzar** | `G-DB-META`. Si el cierre falla por el `RESTRICT`, se registra un hallazgo y se diseña la corrección en una migración nueva, sin modificar `0003`. |
-| **Dependencias / habilita** | `M06.1a` / `M06.3a` |
+| **Dependencias / habilita** | `M06.1a` (mismo grupo) / `M06.3a` |
 | **Intervención requerida del usuario** | Ninguna. |
 
 ### M06.3a — Cifrado, cliente acotado y documentación de la excepción
@@ -220,7 +220,7 @@ Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA
 | **Pruebas** | Ciclo completo; clave incorrecta; texto alterado; AAD distinto; versión ausente del llavero; rotación; credencial fuera del módulo permitido. |
 | **Condición para avanzar** | `G-CRYPTO`. |
 | **Dependencias / habilita** | `G-DB-META` / `M28.2a` |
-| **Intervención requerida del usuario** | Generar las claves del llavero y cargarlas en `.env.local`. |
+| **Intervención requerida del usuario** | Fijar la contraseña del rol `praxa_integrations` en el proyecto de pruebas, fuera del repositorio, y cargar `PRAXA_INTEGRATIONS_TEST_DB_URL` en `.env.local`. Generar las claves del llavero y cargarlas en `.env.local`. |
 
 ### M28.2a — Entorno del piloto
 
@@ -428,20 +428,24 @@ Sin base de datos ni red. TypeScript y Zod, con el estilo de `src/modules/report
 
 ## II.4 `M06.1a` — Migración `0012`
 
+**Nota.** `M06.1a` y `M06.2a` se ejecutan como un solo ID de pipeline, `M06.1a-M06.2a`.
+
 Una sola migración nueva: `supabase/migrations/0012_integrations.sql`. No se toca ninguna existente.
 
 | Paso | Acción | Verificación |
 |---:|---|---|
-| 1 | Encabezado con la matriz de privilegios de la sección 7 de la spec | CA-16/17 |
+| 1 | Encabezado con la matriz de privilegios de la sección 7 de la spec | CA-16 y CA-17 |
 | 2 | `create schema worker_api`; `revoke all on schema worker_api from public, anon, authenticated`; `alter default privileges in schema worker_api revoke execute on functions from public` | Base de CA-21 |
 | 3 | `create role praxa_integrations login nobypassrls noinherit` **sin contraseña**; `grant usage on schema worker_api to praxa_integrations` | Rol de C |
 | 4 | Enums: `integration_provider` (`meta`), `connection_status` (`pending_selection`, `active`, `needs_reauth`, `disconnected`) | CA-05 y CA-07 |
-| 5 | `public.oauth_attempts`: `company_id` (cascada), `actor_user_id`, `purpose` (`initial` o `reauth`), `expected_connection_id`, `expected_generation`, `state_hash`, `browser_binding_hash`, `return_path`, `expires_at`, `consumed_at` | CA-01 a CA-03 y CA-02c |
-| 6 | `public.integration_connections`: `company_id` (cascada), `provider`, `status`, `external_account_id`, `client_business_id`, `currency`, `timezone`, `credential_generation`, `pending_expires_at`, `purge_requested_at`, `current_sync_run_id`, `last_error_class`, `last_error_message`. `check`: moneda, zona y cuenta obligatorias **solo** en `active` y `needs_reauth`; nulas permitidas en `pending_selection` y en `disconnected` | CA-07, CA-08, CA-09, CA-09b y CA-38 |
+| 5 | `public.oauth_attempts`: `id`, `provider`, `created_at`, `company_id` (cascada), `actor_user_id`, `purpose` (`initial` o `reauth`), `expected_connection_id`, `expected_generation`, `state_hash`, `browser_binding_hash`, `return_path`, `expires_at`, `consumed_at` | CA-01 a CA-03 y CA-02c |
+| 6 | `public.integration_connections`: `id`, `created_at`, `updated_at`, `company_id` (cascada), `provider`, `status`, `external_account_id`, `client_business_id`, `currency`, `timezone`, `credential_generation`, `pending_expires_at`, `purge_requested_at`, `current_sync_run_id`, `last_error_class`, `last_error_message`. `check`: moneda, zona y cuenta obligatorias **solo** en `active` y `needs_reauth`; nulas permitidas en `pending_selection` y en `disconnected` | CA-07, CA-08, CA-09, CA-09b y CA-38 |
 | 7 | Índice único parcial: una conexión viva (`pending_selection`, `active`, `needs_reauth`) por empresa. Unicidad sobre `(company_id, provider, external_account_id)` | CA-18 |
 | 8 | `private.integration_credentials`: `connection_id` (PK, cascada), `company_id`, `ciphertext`, `iv`, `auth_tag`, `key_version`, `token_type`, `issued_for_app_id`, `granted_scopes`, `expires_at` nullable | CA-10 a CA-13 y CA-15 |
 | 9 | En cada tabla nueva: `revoke all ... from public, anon, authenticated` explícito; `enable row level security` y `force row level security`. Política de `select` en conexiones con `private.is_company_member(company_id)`. Recién después, `grant select on public.integration_connections to authenticated`. Ningún otro grant | CA-14, CA-16 y CA-20 |
 | 10 | Funciones de `worker_api` (lista abajo), todas `SECURITY DEFINER`, `set search_path = ''`, con `revoke all ... from public, anon, authenticated` y `grant execute ... to praxa_integrations` una por una | CA-21 |
+
+Las columnas de las tablas nuevas tienen que coincidir con los contratos K02 a K04 de `src/modules/integrations/contract/`. Los pasos 5 y 6 suman `id`, `provider` y `created_at` (K02, H-E1-19) y `id`, `created_at` y `updated_at` (K03).
 
 **Funciones de `worker_api`.** Todas reciben `p_actor_user_id` y `p_company_id` y verifican en `public.company_members` que el actor pertenezca a la empresa. Las que reciben `p_connection_id` verifican además que la conexión sea de esa empresa.
 
@@ -486,7 +490,9 @@ Una sola migración nueva: `supabase/migrations/0012_integrations.sql`. No se to
 
 **Segunda trampa.** Desde el 2026-10-30, Supabase deja de exponer por defecto las tablas nuevas de `public`. La matriz concede todo explícitamente, pero un grant olvidado produce un error de permisos (`42501`) en la Data API. Por eso el paso 5 lee por la Data API y no solo por SQL. Lo que sí es silencioso es una política RLS que no deja pasar filas, y eso lo cubren los pasos 1 y 2.
 
-**Tercera trampa.** Las pruebas del rol de C usan solo `PRAXA_INTEGRATIONS_TEST_DB_URL`. Si falta, fallan; nunca recurren a la URL de la aplicación (T09). Una prueba omitida por falta de configuración no aprueba el gate (CB-06).
+**Tercera trampa.** Las pruebas pgTAP del rol de C usan `set role` sobre la conexión de pruebas existente. La URL propia del rol (`PRAXA_INTEGRATIONS_TEST_DB_URL`) y su guarda en `check-target` se usan recién en `M06.3a`, con el cliente Node. Una prueba omitida por falta de configuración no aprueba el gate (CB-06).
+
+**Hipótesis a resolver en la spec del grupo.** Desde PostgreSQL 16 puede hacer falta un grant para que el usuario de conexión pueda hacer `set role praxa_integrations`.
 
 ---
 
@@ -531,7 +537,7 @@ Casi todo es intervención del usuario. El asistente guía, verifica y documenta
 | 8b | Usuario | Con el registro cerrado, recuperación de contraseña completa de la cuenta de prueba: pedido, email y cambio | Las pantallas `forgot-password` y `reset-password` funcionan sobre el dominio |
 | 9 | Asistente | Documentar la configuración del entorno sin valores | `docs/FASES/FASE1/meta_first/entorno.md` |
 
-**Cierre:** `G-ENTORNO`.
+**Cierre:** `npm run verify` y `G-ENTORNO`.
 
 **Trampa conocida.** Sin SMTP propio, Supabase Auth solo envía emails a las direcciones del equipo de la organización y como máximo dos por hora. Una prueba de registro con tu propia dirección de equipo **pasa y no prueba nada**. Por eso el paso 7 exige una dirección de afuera.
 
@@ -652,7 +658,7 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 | 7 | Tipos de resultado apoyados en `periodSchema` y el patrón `knownOr` de reporting. **No** se usa `calculatedMetricEvidenceSchema` tal cual, porque su `value` es `number` y el gasto exige decimal exacto | `src/modules/chat/tools/results.ts` | Reutilización declarada en la spec |
 | 8 | Pruebas de herramientas: período con días sin cobertura, totales parciales, captura parcial, días de distintas extracciones con rango de `fetched_at`, empresa ajena, período mayor al máximo llamado directo por la API, registro que llega después de una desconexión | `tests/unit/chat-tools.test.ts`, `tests/app/chat-tools.test.ts` | CA-38c, CA-51, CA-51b, CA-54 y CA-70 |
 
-**Cierre:** `npm run verify`, `npm run test:policies` y `db:push` de `0014` al proyecto `app` ejecutado por el usuario.
+**Cierre:** `npm run verify`, `npm run test:policies`, `npm run test:app` y `db:push` de `0014` al proyecto `app` ejecutado por el usuario.
 
 **Trampa conocida.** El texto de la pregunta nunca va a `console.log`. Los logs de ejecución de Vercel lo guardarían fuera del alcance de DEC-09 (CA-63).
 
@@ -754,8 +760,7 @@ El detalle y los criterios de aceptación están en la spec v1.0.
 |---|---|
 | `M04a` | Aprobar la Enmienda 1. Decidir la visibilidad del repositorio y la reescritura del historial |
 | `M03a` (en paralelo) | Aprobar el acta y comunicarle al dueño lo que el acta indique |
-| `M06.1a` | Fijar la contraseña del rol `praxa_integrations` en el proyecto de pruebas, fuera del repositorio, y cargar `PRAXA_INTEGRATIONS_TEST_DB_URL` en `.env.local` |
-| `M06.3a` | Generar las claves del llavero (32 bytes en base64, por ejemplo con `openssl rand -base64 32`) y cargarlas en `.env.local` |
+| `M06.3a` | Fijar la contraseña del rol `praxa_integrations` en el proyecto de pruebas, fuera del repositorio, y cargar `PRAXA_INTEGRATIONS_TEST_DB_URL` en `.env.local`. Generar las claves del llavero (32 bytes en base64, por ejemplo con `openssl rand -base64 32`) y cargarlas en `.env.local` |
 | Antes de `M16.1` | En Meta: asociar la app a tu business portfolio (P-03), crear la configuración de Login for Business de tipo system user con `ads_read` y cuentas publicitarias (P-01), y registrar la URI de redirección con el dominio del piloto (P-02) |
 | `M28.2a` | Proyecto de Vercel con dominio fijo; variables nuevas y existentes (incluida `NEXT_PUBLIC_SITE_URL`); contraseña del rol en el proyecto `app`; verificar que `worker_api` no esté expuesto; configurar `site_url` y redirecciones de Auth; configurar el SMTP propio con SPF y DKIM; registro de prueba con una dirección externa; cerrar el registro; probar la recuperación de contraseña con el registro cerrado |
 | Antes de VR-01, en `M16.2` | Agregar al dueño como tester y confirmar que aceptó y que tiene control total de su portfolio (P-04) |
@@ -778,11 +783,12 @@ Ninguna clave se pega en el chat.
 | `M06.1a` | `db:check:test`, `db:push:test` |
 | `M06.2a` | `db:check:test`, `test:policies`, `test:app` |
 | `M06.3a` | — (las pruebas nuevas son `unit`) |
-| `M28.2a` | Checklist manual y registro con una dirección externa |
+| `M28.2a` | `npm run verify`; checklist manual y registro con una dirección externa |
+| `M03a` | — (documento; revisión cruzada con la spec) |
 | `M16.1` | `test:app`. Sin autorización real |
 | `M16.2` | `test:policies`, `test:app`; alta del dueño y VR-01 |
 | `M16c` | `test:policies`, `test:app`; una sincronización real |
-| `M25a.1` | `test:policies`; `test:app` de herramientas |
+| `M25a.1` | `test:policies`, `test:app` |
 | `M25a.2` | Suite adversaria; VR-02 |
 | `M28.3a` | Checklists de la demo y del cierre |
 

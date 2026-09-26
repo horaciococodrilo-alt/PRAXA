@@ -4,16 +4,16 @@ Registro único de hallazgos documentados en la auditoría M04.1, el baseline M0
 
 | ID | Estado | Asignación | Fuente |
 |---|---|---|---|
-| `H-M04.1-01` | Pendiente | M06.2 | [Auditoría M04.1](FASES/FASE1/MF04/m04-1-auditoria.md) |
-| `H-M04.1-02` | Pendiente | M06.2 | [Auditoría M04.1](FASES/FASE1/MF04/m04-1-auditoria.md) |
-| `H-M04.1-03` | Pendiente | M06.1 | [Auditoría M04.1](FASES/FASE1/MF04/m04-1-auditoria.md) |
+| `H-M04.1-01` | Pendiente | M06.x de la ruta original, diferida por la Enmienda 1; no aplica a M06.1a, M06.2a ni M06.3a | [Auditoría M04.1](FASES/FASE1/MF04/m04-1-auditoria.md) |
+| `H-M04.1-02` | Pendiente | M06.2a | [Auditoría M04.1](FASES/FASE1/MF04/m04-1-auditoria.md) |
+| `H-M04.1-03` | Pendiente | M06.x de la ruta original, diferida por la Enmienda 1; no aplica a M06.1a, M06.2a ni M06.3a | [Auditoría M04.1](FASES/FASE1/MF04/m04-1-auditoria.md) |
 | `H-M04.1-04` | Pendiente | M05.2 | [Auditoría M04.1](FASES/FASE1/MF04/m04-1-auditoria.md) |
-| `H-M04.1-05` | Pendiente | M06.1, M08.1 y M08.2 | [Auditoría M04.1](FASES/FASE1/MF04/m04-1-auditoria.md) |
+| `H-M04.1-05` | Pendiente | M06.x de la ruta original, diferida por la Enmienda 1; no aplica a M06.1a, M06.2a ni M06.3a; M08.1 y M08.2 | [Auditoría M04.1](FASES/FASE1/MF04/m04-1-auditoria.md) |
 | `H-M04.1-06` | Pendiente | M05.2, M24a.1, M24b.1, M24a.2 y M24b.2 | [Auditoría M04.1](FASES/FASE1/MF04/m04-1-auditoria.md) |
 | `H-M04.1-07` | Resuelto en M04.2 | M04.2 | [Auditoría M04.1](FASES/FASE1/MF04/m04-1-auditoria.md) |
-| `H-M04.1-08` | Pendiente | M06.3 y M26.2 | [Auditoría M04.1](FASES/FASE1/MF04/m04-1-auditoria.md) |
+| `H-M04.1-08` | Pendiente | M06.x de la ruta original, diferida por la Enmienda 1; no aplica a M06.1a, M06.2a ni M06.3a; M26.2 | [Auditoría M04.1](FASES/FASE1/MF04/m04-1-auditoria.md) |
 | `H-M04.2-01` | Resuelto | M04.2 | [Baseline M04.2](FASES/FASE1/MF04/m04-2-baseline.md) |
-| `H-M04.2-02` | Pendiente | M06.1 | [Baseline M04.2](FASES/FASE1/MF04/m04-2-baseline.md) |
+| `H-M04.2-02` | Pendiente | M06.x de la ruta original, diferida por la Enmienda 1; no aplica a M06.1a, M06.2a ni M06.3a | [Baseline M04.2](FASES/FASE1/MF04/m04-2-baseline.md) |
 | `H-M04.2-03` | Pendiente | M08.3 | [Baseline M04.2](FASES/FASE1/MF04/m04-2-baseline.md) |
 | `H-E1-01` | Pendiente | M16d | [Enmienda 1, Parte I del plan meta_first](FASES/FASE1/meta_first/plan.md) |
 | `H-E1-02` | Resuelto en M04a | M04a | [Revisión de código](FASES/FASE1/meta_first/revision-codigo.md) |
@@ -54,7 +54,7 @@ Impacto y evidencia en una línea cada uno. El contexto completo está en la fue
 - **`H-E1-12`** — `npm run verify` no ejecuta pgTAP ni `test:app`. *Impacto:* `verify` en verde no prueba aislamiento ni privilegios. *Evidencia:* el script `verify` de `package.json` corre lint, typegen, typecheck, test y build.
 - **`H-E1-13`** — La evidencia de M00 no prueba el flujo del producto, porque quien autorizó tenía un rol en la app de Meta. *Impacto:* el flujo real de un tercero sigue sin probarse. *Evidencia:* la spec `meta_first`.
 - **`H-E1-14`** — Tras quitar `docs/ROADMAP.md` del árbol, `AGENTS.md`, los dos README, las plantillas, `.env.example` y los agentes `auditor-gate` y `revisor-microfase` seguían citándolo como fuente vigente. *Impacto:* cualquier asistente quedaba bloqueado o revisaba contra un archivo inexistente. *Evidencia:* la sesión de M04a. *Resolución:* en M04a, la Parte I de `meta_first/plan.md` pasa a ser el roadmap vigente y el contrato de ejecución se traslada a `AGENTS.md`.
-- **`H-E1-15`** — El encabezado del roadmap vigente todavía presentaba `M04a` como primera microfase ejecutable y `G-DOCS` como aprobación futura, aunque la spec y `PROJECT_STATE.md` ya registraban el cierre. *Impacto:* la contradicción en la fuente de mayor jerarquía activaba una condición de parada antes de `M05.1.1`. *Evidencia:* revisión post-cierre de `plan.md`, línea 4. *Resolución:* el encabezado de plan y el texto de la spec reflejan el gate aprobado, M04a cerrada y M05.1.1 habilitada.
+- **`H-E1-15`** — El encabezado del roadmap vigente todavía presentaba `M04a` como primera microfase ejecutable y `G-DOCS` como aprobación futura, aunque la spec y `PROJECT_STATE.md` ya registraban el cierre. *Impacto:* la contradicción en la fuente de mayor jerarquía activaba una condición de parada antes de `M05.1.1`. *Evidencia:* revisión post-cierre de `plan.md`, línea 4. *Resolución:* el encabezado de plan y el texto de la spec reflejan el gate aprobado, M04a cerrada y M05.1.1 habilitada. *Causa eliminada:* el encabezado de plan y de spec ya no nombra la siguiente microfase; remite a `docs/PROJECT_STATE.md` para el estado de cada microfase y la siguiente habilitada.
 - **`H-E1-16`** — Los enlaces relativos de la plantilla `microfase.md` solo resolvían mientras el archivo permanecía en `_templates`; al copiarla a la ubicación de una microfase apuntaban a rutas inexistentes. *Impacto:* cada documento nuevo generado desde la plantilla nacía con enlaces rotos. *Evidencia:* revisión post-cierre de `docs/_templates/microfase.md`, líneas 9 y 47. *Resolución:* la plantilla usa rutas canónicas en texto, independientes de la ubicación del archivo instanciado.
 
 ## Detalle de los hallazgos registrados en M05.1.1
