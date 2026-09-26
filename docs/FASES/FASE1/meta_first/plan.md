@@ -190,7 +190,7 @@ Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA
 | **Pruebas** | Las de `M06.2a`, en el mismo grupo; TDD sobre el grupo. |
 | **Condición para avanzar** | Se ejecuta en grupo con `M06.2a` y cierra con `G-DB-META`. |
 | **Dependencias / habilita** | `G-K02-K04` / `M06.2a` |
-| **Intervención requerida del usuario** | Ninguna. |
+| **Intervención requerida del usuario** | Ejecutar npm run db:push:test cuando la microfase lo pida; el asistente lo tiene denegado en .claude/settings.json |
 
 ### M06.2a — Aislamiento, privilegios y procedimiento de cierre
 
@@ -205,7 +205,7 @@ Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA
 | **Pruebas** | `npm run test:policies`, `npm run test:app` y `npm run verify`. |
 | **Condición para avanzar** | `G-DB-META`. Si el cierre falla por el `RESTRICT`, se registra un hallazgo y se diseña la corrección en una migración nueva, sin modificar `0003`. |
 | **Dependencias / habilita** | `M06.1a` (mismo grupo) / `M06.3a` |
-| **Intervención requerida del usuario** | Ninguna. |
+| **Intervención requerida del usuario** | Ejecutar npm run db:push:test cuando la microfase lo pida; el asistente lo tiene denegado en .claude/settings.json |
 
 ### M06.3a — Cifrado, cliente acotado y documentación de la excepción
 
@@ -453,7 +453,7 @@ Las columnas de las tablas nuevas tienen que coincidir con los contratos K02 a K
 
 | Función | Qué hace |
 |---|---|
-| `create_oauth_attempt` | Crea el intento con propósito, hash del `state`, hash de vinculación al navegador y vencimiento. `initial` solo si la empresa no tiene conexión viva; `reauth` guarda la conexión y la generación esperadas. Además purga, de esa empresa, los intentos vencidos y los consumidos hace más de 10 minutos, el TTL máximo ratificado en H-E1-19 (CA-38b) |
+| `create_oauth_attempt` | Crea el intento con propósito, hash del `state`, hash de vinculación al navegador y vencimiento. `initial` solo si la empresa no tiene conexión viva; `reauth` guarda la conexión y la generación esperadas. Además purga, de esa empresa, los intentos no consumidos ya vencidos y los consumidos hace más de 10 minutos, el TTL máximo ratificado en H-E1-19 (CA-38b) |
 | `consume_oauth_attempt` | En **una sola sentencia** `update … where state_hash = … and browser_binding_hash = … and actor_user_id = … and company_id = … and consumed_at is null and expires_at > now() returning …`. Devuelve el intento, con su propósito, o un error tipado |
 | `create_pending_connection` | Crea la conexión en `pending_selection` con `pending_expires_at` a 30 minutos (DEC-17) y guarda la credencial cifrada |
 | `get_credential` | Devuelve el texto cifrado, el IV, la etiqueta y la versión, para descifrar en Node |
@@ -763,6 +763,7 @@ El detalle y los criterios de aceptación están en la spec v1.0.
 |---|---|
 | `M04a` | Aprobar la Enmienda 1. Decidir la visibilidad del repositorio y la reescritura del historial |
 | `M03a` (en paralelo) | Aprobar el acta y comunicarle al dueño lo que el acta indique |
+| `M06.1a-M06.2a` | Ejecutar npm run db:push:test cuando la microfase lo pida |
 | `M06.3a` | Fijar la contraseña del rol `praxa_integrations` en el proyecto de pruebas, fuera del repositorio, y cargar `PRAXA_INTEGRATIONS_TEST_DB_URL` en `.env.local`. Generar las claves del llavero (32 bytes en base64, por ejemplo con `openssl rand -base64 32`) y cargarlas en `.env.local` |
 | Antes de `M16.1` | En Meta: asociar la app a tu business portfolio (P-03), crear la configuración de Login for Business de tipo system user con `ads_read` y cuentas publicitarias (P-01), y registrar la URI de redirección con el dominio del piloto (P-02) |
 | `M28.2a` | Proyecto de Vercel con dominio fijo; variables nuevas y existentes (incluida `NEXT_PUBLIC_SITE_URL`); contraseña del rol en el proyecto `app`; verificar que `worker_api` no esté expuesto; configurar `site_url` y redirecciones de Auth; configurar el SMTP propio con SPF y DKIM; registro de prueba con una dirección externa; cerrar el registro; probar la recuperación de contraseña con el registro cerrado |
