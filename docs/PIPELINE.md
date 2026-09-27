@@ -54,7 +54,7 @@ Incorporá cada respuesta a docs/FASES/FASE1/[ID]/spec.md: registrala en "Decisi
 
 ## Prompt para plan mode (paso 6)
 
-Entrá a plan mode (en Claude Code, `Shift+Tab` hasta que aparezca "plan mode") y pegá:
+Entrá a plan mode (en chatgpt, `Shift+Tab` hasta que aparezca "plan mode") y pegá:
 
 ```
 Planificá la implementación de la microfase [ID] a partir de docs/FASES/FASE1/[ID]/spec.md (APROBADA), la ficha y la sección de la ruta en docs/FASES/FASE1/meta_first/plan.md, AGENTS.md y el código actual. Usá la estructura de docs/_templates/mf-plan.md. Cada criterio y cada caso de prueba de la spec tiene que aparecer en al menos un paso. Aplicá TDD donde corresponda. Los archivos tienen que estar dentro de la tabla de la ruta más los de seguimiento. Las acciones reservadas al usuario (push, despliegue, db:push al proyecto app, db:push:test) van en su paso, con su verificación. No implementes nada.

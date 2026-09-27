@@ -1,6 +1,6 @@
 # M06.1a-M06.2a — Spec de la microfase
 
-**Estado:** BORRADOR
+**Estado:** APROBADA
 
 Estados posibles: `BORRADOR` → `APROBADA`. Solo el usuario pasa una spec a `APROBADA`, y solo después de una auditoría APROBABLE.
 
