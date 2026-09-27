@@ -13,7 +13,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(49);
+select plan(52);
 
 -- Ejecuta una sentencia con el rol pedido y devuelve el SQLSTATE del error, o null si no
 -- hubo error. El bloque `exception` revierte la subtransacción, incluido el cambio de
@@ -85,10 +85,17 @@ select has_role('praxa_integrations', 'T-05: el rol praxa_integrations existe');
 
 select results_eq(
   $$select r.rolcanlogin, r.rolbypassrls, r.rolinherit, r.rolsuper,
-           r.rolcreaterole, r.rolcreatedb
+           r.rolcreaterole, r.rolcreatedb, r.rolreplication
       from pg_roles r where r.rolname = 'praxa_integrations'$$,
-  $$values (true, false, false, false, false, false)$$,
-  'T-05: LOGIN, NOBYPASSRLS, NOINHERIT, sin SUPERUSER, CREATEROLE ni CREATEDB');
+  $$values (true, false, false, false, false, false, false)$$,
+  'T-05: LOGIN, NOBYPASSRLS, NOINHERIT, sin SUPERUSER, CREATEROLE, CREATEDB ni REPLICATION');
+
+-- Una membresía heredada permitiría SET ROLE pese a NOINHERIT (D-M06.1a-M06.2a-18): la
+-- creación idempotente del rol tiene que dejarlo sin ninguna.
+select is(
+  (select count(*)::int from pg_auth_members m join pg_roles r on r.oid = m.member
+    where r.rolname = 'praxa_integrations'),
+  0, 'T-05: praxa_integrations no es miembro de ningún otro rol');
 
 -- ---------------------------------------------------------------------------
 -- T-06: enums (C-06)
@@ -419,15 +426,35 @@ select is(
   pg_temp.sqlstate_as('praxa_integrations', $$select 1 from private.integration_credentials$$),
   '42501', 'T-13: praxa_integrations no lee integration_credentials');
 
+-- Sin USAGE sobre el esquema, el 42501 llegaría antes de mirar el EXECUTE de cada función
+-- y ocultaría un grant de más. Se concede USAGE solo dentro de esta transacción (lo
+-- revierte el `rollback` final), así el 42501 solo puede venir del EXECUTE revocado.
+grant usage on schema worker_api to anon, authenticated;
+
+select ok(
+  has_schema_privilege('anon', 'worker_api', 'USAGE')
+    and has_schema_privilege('authenticated', 'worker_api', 'USAGE'),
+  'T-13: anon y authenticated tienen USAGE temporal sobre worker_api');
+
 select is(
   (select count(*)::int from pg_temp.worker_api_calls() c
     where pg_temp.sqlstate_as('authenticated', c.call) = '42501'),
-  12, 'T-13: authenticated no ejecuta ninguna de las doce funciones (42501)');
+  12, 'T-13: authenticated no ejecuta ninguna de las doce funciones, aun con USAGE (42501)');
 
 select is(
   (select count(*)::int from pg_temp.worker_api_calls() c
     where pg_temp.sqlstate_as('anon', c.call) = '42501'),
-  12, 'T-13: anon no ejecuta ninguna de las doce funciones (42501)');
+  12, 'T-13: anon no ejecuta ninguna de las doce funciones, aun con USAGE (42501)');
+
+-- El USAGE temporal se revoca apenas termina T-13: si quedara hasta el rollback final,
+-- cualquier aserción posterior sobre el ACL del esquema (T-04 ya afirma lo contrario para
+-- anon y authenticated) correría con un grant que la migración nunca deja.
+revoke usage on schema worker_api from anon, authenticated;
+
+select ok(
+  not has_schema_privilege('anon', 'worker_api', 'USAGE')
+    and not has_schema_privilege('authenticated', 'worker_api', 'USAGE'),
+  'T-13: el USAGE temporal se revoca antes de seguir con el resto del archivo');
 
 -- ---------------------------------------------------------------------------
 -- T-14: ninguna función fuera de worker_api toca credenciales (C-31)

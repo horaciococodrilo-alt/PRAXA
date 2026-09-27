@@ -46,6 +46,11 @@
 --     conteos por versión de clave, sin ningún dato de empresas; solo la ejecuta el rol
 --     de C. Es global porque CA-25 exige confirmar que NINGUNA credencial usa la clave
 --     vieja antes de retirarla (D-M06.1a-M06.2a-04).
+--   * Toda escritura es idempotente (AGENTS.md:48). Un reintento es la misma llamada
+--     repetida con los mismos parámetros: en `create_pending_connection`,
+--     `confirm_connection` y `mark_needs_reauth` devuelve la fila ya escrita en vez de un
+--     error (D-M06.1a-M06.2a-11 a -13); `begin_disconnect` y `purge_connection` ya lo eran.
+--     Si el servidor vuelve a cifrar, es una operación nueva.
 --
 -- LÍMITE DECLARADO (sección 7, paso 4)
 --
@@ -74,7 +79,8 @@
 --   ---------+------------------------+----------------------------------------------------
 --   PX001    | not_authorized         | actor o empresa nulos; actor que no es miembro; conexión
 --            |                        | o intento inexistente o de otra empresa (indistinguibles);
---            |                        | p_connection_id ya existente en create_pending_connection.
+--            |                        | p_connection_id ya existente en create_pending_connection
+--            |                        | (salvo el reintento de la misma llamada, que devuelve la fila).
 --            |                        | Excepción: purge_connection devuelve false sin efecto
 --   PX002    | attempt_rejected       | el intento no se puede consumir o usar (sin decir por qué)
 --   PX003    | live_connection_exists | la empresa ya tiene una conexión viva
@@ -83,8 +89,9 @@
 --   PX006    | generation_mismatch    | la generación de credencial no es la esperada
 --   PX007    | account_conflict       | la cuenta ya está en otra fila de la empresa
 --   PX008    | key_version_mismatch   | rewrap_credential con una versión de clave que ya no es la guardada
---   22023    | invalid_argument       | parámetro nulo o con forma inválida; cualquier otra violación
---            |                        | de integridad (clase 23) sin código propio
+--   22023    | invalid_argument       | parámetro nulo o con forma inválida; versión de clave no
+--            |                        | posterior a la guardada en rewrap_credential; cualquier otra
+--            |                        | violación de integridad (clase 23) sin código propio
 --
 --   Ningún SQLSTATE de clase 23 sale crudo de worker_api: las funciones que escriben lo
 --   capturan y lo relanzan con un código del catálogo, porque Postgres adjunta a 23502 y
@@ -102,8 +109,44 @@ create schema worker_api;
 revoke all on schema worker_api from public, anon, authenticated;
 alter default privileges in schema worker_api revoke execute on functions from public;
 
--- Sin contraseña: la fija el usuario fuera del repositorio.
-create role praxa_integrations login nobypassrls noinherit;
+-- Sin contraseña: la fija el usuario fuera del repositorio. Idempotente
+-- (D-M06.1a-M06.2a-16, `-18`): si el rol ya existe, se le vuelven a fijar los mismos
+-- atributos y no se toca su contraseña. También se le revoca cualquier membresía en otro
+-- rol: NOINHERIT solo evita la herencia automática, pero el rol igual podría hacer
+-- `SET ROLE` a lo que sea miembro. Si ya es SUPERUSER, la migración no puede corregirlo
+-- (postgres no tiene permiso para tocar ese atributo) y se detiene: hace falta resolverlo
+-- a mano antes de reintentar.
+do $$
+declare
+  v_membership record;
+begin
+  if exists (select 1 from pg_catalog.pg_roles r where r.rolname = 'praxa_integrations') then
+    if exists (
+      select 1 from pg_catalog.pg_roles r
+       where r.rolname = 'praxa_integrations' and r.rolsuper
+    ) then
+      raise exception
+        'praxa: praxa_integrations ya existe con SUPERUSER; hay que quitárselo a mano antes de aplicar esta migración';
+    end if;
+
+    for v_membership in
+      select r.rolname as target
+        from pg_catalog.pg_auth_members m
+        join pg_catalog.pg_roles member_role on member_role.oid = m.member
+        join pg_catalog.pg_roles r on r.oid = m.roleid
+       where member_role.rolname = 'praxa_integrations'
+    loop
+      execute format('revoke %I from praxa_integrations', v_membership.target);
+    end loop;
+
+    alter role praxa_integrations
+      login nobypassrls noinherit nocreatedb nocreaterole noreplication;
+  else
+    create role praxa_integrations
+      login nobypassrls noinherit nocreatedb nocreaterole noreplication;
+  end if;
+end;
+$$;
 grant usage on schema worker_api to praxa_integrations;
 
 -- ---------------------------------------------------------------------------
@@ -434,6 +477,29 @@ begin
      and ((a.consumed_at is null and a.expires_at <= now())
           or a.consumed_at < now() - interval '10 minutes');
 
+  -- Reintento (AGENTS.md:48, D-M06.1a-M06.2a-20): mismo state, actor, empresa y
+  -- vinculación de navegador, con el intento sin consumir y sin vencer, devuelve la fila
+  -- ya creada en vez de chocar con la unicidad de state_hash. El browser_binding_hash se
+  -- suma a lo que pidió el usuario porque, sin él, un segundo intento real desde otro
+  -- navegador que reutilizara el mismo state por accidente se confundiría con un
+  -- reintento (T-46 exige que eso siga dando 22023). No hace falta comparar el resto de
+  -- los parámetros: dentro de esta transacción `now()` es constante, así que un reintento
+  -- legítimo con el mismo `p_expires_at` calculado de la misma forma coincide igual.
+  return query
+  select a.id, a.purpose, a.expected_connection_id, a.expected_generation,
+         a.created_at, a.expires_at
+  from public.oauth_attempts a
+  where a.state_hash = p_state_hash
+    and a.actor_user_id = p_actor_user_id
+    and a.company_id = p_company_id
+    and a.browser_binding_hash = p_browser_binding_hash
+    and a.consumed_at is null
+    and a.expires_at > now();
+
+  if found then
+    return;
+  end if;
+
   if p_purpose = 'initial' then
     if exists (
       select 1
@@ -551,7 +617,8 @@ $$;
 -- Crea la conexión pendiente (DEC-17: vence a los 30 minutos) y guarda su credencial en la
 -- misma transacción. `p_connection_id` lo genera el servidor, porque el AAD lo necesita
 -- antes de cifrar (CA-11b); nunca viene del navegador. Un id que ya existe, en esta
--- empresa o en otra, da PX001 sin distinguir los casos.
+-- empresa o en otra, da PX001 sin distinguir los casos. Excepción: el reintento de la
+-- misma llamada ya aplicada devuelve la fila (D-M06.1a-M06.2a-11).
 create function worker_api.create_pending_connection(
   p_actor_user_id      uuid,
   p_company_id         uuid,
@@ -588,6 +655,38 @@ begin
   end if;
 
   perform private.lock_company(p_company_id);
+
+  -- Reintento (AGENTS.md:48, D-M06.1a-M06.2a-11, `-19`): la misma llamada ya aplicada en
+  -- esta empresa, con la pendiente todavía en `pending_selection` y sin vencer, devuelve
+  -- esa fila. Todos los parámetros se comparan, incluido el material cifrado (la colación
+  -- por defecto ya compara byte a byte, base64 es puro ASCII): si el servidor volvió a
+  -- cifrar, es una operación nueva. Si venció, no es un reintento exitoso: cae al camino
+  -- normal (PX003), igual que cualquier otra llamada sobre una empresa con una conexión
+  -- viva. Solo mira filas de esta empresa, así que no revela nada de otra. `RETURN QUERY`
+  -- fija `FOUND` según si devolvió alguna fila; sin necesidad de leer la fila dos veces.
+  return query
+  select c.id, c.status::text, c.pending_expires_at, c.credential_generation
+  from public.integration_connections c
+  join private.integration_credentials k
+    on k.connection_id = c.id
+   and k.company_id = c.company_id
+  where c.id = p_connection_id
+    and c.company_id = p_company_id
+    and c.status = 'pending_selection'
+    and c.pending_expires_at > now()
+    and c.client_business_id = p_client_business_id
+    and k.ciphertext = p_ciphertext
+    and k.iv = p_iv
+    and k.auth_tag = p_auth_tag
+    and k.key_version = p_key_version
+    and k.token_type = p_token_type
+    and k.issued_for_app_id = p_issued_for_app_id
+    and k.granted_scopes = p_granted_scopes
+    and k.expires_at is not distinct from p_token_expires_at;
+
+  if found then
+    return;
+  end if;
 
   -- PX003 primero: no revela nada de otra empresa.
   if exists (
@@ -693,6 +792,7 @@ $$;
 
 -- pending_selection → active, con cuenta, moneda y zona. El probe lo informa el servidor;
 -- el vencimiento de la pendiente se verifica acá, aunque la purga no haya corrido (CA-37).
+-- El reintento de la misma confirmación ya aplicada devuelve la fila.
 create function worker_api.confirm_connection(
   p_actor_user_id       uuid,
   p_company_id          uuid,
@@ -735,6 +835,20 @@ begin
     raise exception 'praxa: operación no autorizada' using errcode = 'PX001';
   end if;
 
+  -- Reintento (AGENTS.md:48, D-M06.1a-M06.2a-12): ya está `active` con la misma cuenta,
+  -- moneda y zona, y con la generación que deja la confirmación. Una pendiente nace con
+  -- generación 0 y confirmar no la cambia, así que otra generación significa que hubo una
+  -- reautorización después: eso ya no es un reintento y sigue dando PX004.
+  if v_connection.status = 'active'
+     and v_connection.external_account_id = p_external_account_id
+     and v_connection.currency = p_currency
+     and v_connection.timezone = p_timezone
+     and v_connection.credential_generation = 0 then
+    return query
+    select v_connection.id, v_connection.status::text, v_connection.credential_generation;
+    return;
+  end if;
+
   if v_connection.status <> 'pending_selection' then
     raise exception 'praxa: transición de estado no permitida' using errcode = 'PX004';
   end if;
@@ -773,8 +887,9 @@ end;
 $$;
 
 -- Reautorización (CA-37c): reemplaza la credencial solo si la generación sigue siendo la
--- que esperaba el intento `reauth` consumido. La conexión se autoriza antes que el intento:
--- una conexión ajena da PX001 y nunca un error que dependa de sus datos.
+-- que esperaba el intento `reauth` consumido hace 10 minutos o menos. La conexión se
+-- autoriza antes que el intento: una conexión ajena da PX001 y nunca un error que dependa
+-- de sus datos.
 create function worker_api.replace_credential(
   p_actor_user_id     uuid,
   p_company_id        uuid,
@@ -823,6 +938,8 @@ begin
     raise exception 'praxa: operación no autorizada' using errcode = 'PX001';
   end if;
 
+  -- Un intento consumido hace más de 10 minutos ya no sirve, haya corrido o no la purga de
+  -- create_oauth_attempt (D-M06.1a-M06.2a-14): el resultado no depende de esa carrera.
   select a.* into v_attempt
   from public.oauth_attempts a
   where a.id = p_attempt_id
@@ -830,10 +947,38 @@ begin
     and a.actor_user_id = p_actor_user_id
     and a.purpose = 'reauth'
     and a.consumed_at is not null
+    and a.consumed_at >= now() - interval '10 minutes'
     and a.expected_connection_id = p_connection_id;
 
   if not found then
     raise exception 'praxa: la autorización no es válida o ya se usó' using errcode = 'PX002';
+  end if;
+
+  -- Reintento (AGENTS.md:48, D-M06.1a-M06.2a-20): esta escritura ya se aplicó con este
+  -- mismo intento y dejó exactamente esta credencial. La generación ya avanzó un paso más
+  -- allá de lo que esperaba el intento, precisamente porque esta llamada ya la hizo
+  -- avanzar; el chequeo de generación de más abajo confundiría eso con una reautorización
+  -- más nueva y daría PX006. Otro intento distinto con la misma generación esperada (una
+  -- reauth genuina, no un reintento) trae su propio material cifrado, que no va a
+  -- coincidir con el ya guardado, así que sigue el camino normal.
+  if v_connection.credential_generation = v_attempt.expected_generation + 1
+     and v_connection.status = 'active'
+     and exists (
+       select 1 from private.integration_credentials k
+       where k.connection_id = p_connection_id
+         and k.company_id = p_company_id
+         and k.ciphertext = p_ciphertext
+         and k.iv = p_iv
+         and k.auth_tag = p_auth_tag
+         and k.key_version = p_key_version
+         and k.token_type = p_token_type
+         and k.issued_for_app_id = p_issued_for_app_id
+         and k.granted_scopes = p_granted_scopes
+         and k.expires_at is not distinct from p_token_expires_at
+     ) then
+    return query
+    select v_connection.id, v_connection.status::text, v_connection.credential_generation;
+    return;
   end if;
 
   if v_connection.status not in ('active', 'needs_reauth') then
@@ -890,7 +1035,8 @@ $$;
 
 -- active → needs_reauth con una de las cuatro clases de CA-39. La generación esperada evita
 -- que el error de un token viejo marque una conexión recién reautorizada. El mensaje ya
--- viene redactado por el servidor (redactErrorMessage, CA-09).
+-- viene redactado por el servidor (redactErrorMessage, CA-09). El reintento con la misma
+-- generación y la misma clase devuelve la fila.
 create function worker_api.mark_needs_reauth(
   p_actor_user_id       uuid,
   p_company_id          uuid,
@@ -931,6 +1077,18 @@ begin
 
   if not found then
     raise exception 'praxa: operación no autorizada' using errcode = 'PX001';
+  end if;
+
+  -- Reintento (AGENTS.md:48, D-M06.1a-M06.2a-13, `-21`): ya está en `needs_reauth` con la
+  -- misma generación. Cualquier clase de reautorización cuenta como reintento, no solo la
+  -- misma: dos workers pueden ver clases distintas para el mismo token generación y el
+  -- segundo no tiene que fallar como si fuera una transición inválida. Ni la clase ni el
+  -- mensaje se comparan ni se sobrescriben; se conserva lo que ya estaba guardado.
+  if v_connection.status = 'needs_reauth'
+     and v_connection.credential_generation = p_expected_generation then
+    return query
+    select v_connection.id, v_connection.status::text, v_connection.credential_generation;
+    return;
   end if;
 
   if v_connection.status <> 'active' then
@@ -1159,7 +1317,8 @@ end;
 $$;
 
 -- Recifrado al usar la credencial (CA-25, paso 3). Cambia solo el material y la versión
--- de clave; la generación no, porque es el mismo token.
+-- de clave; la generación no, porque es el mismo token. La versión nueva tiene que ser
+-- posterior a la guardada.
 create function worker_api.rewrap_credential(
   p_actor_user_id         uuid,
   p_company_id            uuid,
@@ -1214,9 +1373,33 @@ begin
     and k.company_id = p_company_id
   for update;
 
+  -- Reintento (AGENTS.md:48, D-M06.1a-M06.2a-20): el recifrado ya se aplicó con esta
+  -- versión esperada y este material nuevo. Sin este chequeo, el reintento vería la
+  -- versión guardada distinta de la esperada y lo confundiría con un cambio concurrente
+  -- (PX008). Otro recifrado genuino con la misma versión esperada trae su propio material,
+  -- que no va a coincidir con el ya guardado.
+  if v_key_version = p_key_version
+     and exists (
+       select 1 from private.integration_credentials k
+       where k.connection_id = p_connection_id
+         and k.company_id = p_company_id
+         and k.ciphertext = p_ciphertext
+         and k.iv = p_iv
+         and k.auth_tag = p_auth_tag
+     ) then
+    return query select p_connection_id, p_key_version;
+    return;
+  end if;
+
   -- Sin credencial, la versión guardada tampoco es la esperada.
   if v_key_version is distinct from p_expected_key_version then
     raise exception 'praxa: la versión de clave cambió' using errcode = 'PX008';
+  end if;
+
+  -- La versión nueva tiene que ser posterior a la guardada (D-M06.1a-M06.2a-15): recifrar
+  -- con la misma no rota nada, y con una anterior volvería a una clave que se retira.
+  if p_key_version <= v_key_version then
+    raise exception 'praxa: argumento inválido' using errcode = '22023';
   end if;
 
   update private.integration_credentials k

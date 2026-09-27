@@ -14,7 +14,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(121);
+select plan(146);
 
 -- ---------------------------------------------------------------------------
 -- Helpers (pg_temp: desaparecen con el rollback)
@@ -362,6 +362,22 @@ select results_eq(
   $$values ('initial', true, true)$$,
   'T-18: initial sin conexión viva, con el vencimiento máximo, se crea');
 
+-- Reintento (D-M06.1a-M06.2a-20): mismo state, actor, empresa y vinculación de navegador,
+-- con el intento sin consumir y sin vencer, devuelve la fila ya creada en vez de chocar
+-- con la unicidad de state_hash. T-46 (más abajo) confirma que otro browser_binding_hash
+-- con el mismo state sigue dando 22023: no es un reintento de la misma llamada.
+select results_eq(
+  $$select attempt_id, purpose
+      from worker_api.create_oauth_attempt(pg_temp.uid(203), pg_temp.cid(203),
+        'initial', pg_temp.h(1803), pg_temp.h(1804), '/app/integraciones',
+        now() + interval '10 minutes')$$,
+  $$select id, purpose from public.oauth_attempts where state_hash = pg_temp.h(1803)$$,
+  'T-18: el reintento con el mismo state y navegador devuelve la fila ya creada');
+
+select is(
+  (select count(*)::int from public.oauth_attempts where state_hash = pg_temp.h(1803)),
+  1, 'T-18: el reintento no crea una fila duplicada');
+
 select results_eq(
   $$select purpose, expected_connection_id, expected_generation
       from worker_api.create_oauth_attempt(pg_temp.uid(202), pg_temp.cid(202),
@@ -487,6 +503,46 @@ select throws_ok(
       'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)$$,
   'PX003', null, 'T-20: segunda pendiente con una viva → PX003');
 
+-- Reintento (D-M06.1a-M06.2a-11): la misma llamada, con el mismo id y el mismo material
+-- cifrado, devuelve la fila sin crear otra.
+select results_eq(
+  $$select connection_id, status, credential_generation
+      from worker_api.create_pending_connection(pg_temp.uid(209), pg_temp.cid(209),
+        pg_temp.kid(209), 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)$$,
+  $$values (pg_temp.kid(209), 'pending_selection', 0)$$,
+  'T-20: el reintento idéntico devuelve la pendiente');
+
+select results_eq(
+  $$select (select count(*)::int from public.integration_connections where company_id = pg_temp.cid(209)),
+           (select count(*)::int from private.integration_credentials where company_id = pg_temp.cid(209))$$,
+  $$values (1, 1)$$,
+  'T-20: el reintento no crea filas');
+
+-- Material cifrado distinto (el servidor volvió a cifrar): es una operación nueva.
+select throws_ok(
+  $$select * from worker_api.create_pending_connection(pg_temp.uid(209), pg_temp.cid(209),
+      pg_temp.kid(209), 'negocio_sintetico', 'BBBB', 'AAAAAAAAAAAAAAAA',
+      'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)$$,
+  'PX003', null, 'T-20: mismo id con otro material cifrado → PX003');
+
+-- Pendiente vencida (D-M06.1a-M06.2a-19): el reintento no puede devolver una fila que ya
+-- venció como si la creación hubiera salido bien. Sin purga previa: sigue viva a los
+-- efectos de la unicidad, así que el "reintento" tardío da PX003, igual que cualquier otra
+-- llamada sobre una empresa que ya tiene una conexión.
+select pg_temp.new_company(2091);
+select 1 from worker_api.create_pending_connection(pg_temp.uid(2091), pg_temp.cid(2091),
+  pg_temp.kid(2091), 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
+  'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null);
+update public.integration_connections set pending_expires_at = now() - interval '1 minute'
+ where id = pg_temp.kid(2091);
+
+select throws_ok(
+  $$select * from worker_api.create_pending_connection(pg_temp.uid(2091), pg_temp.cid(2091),
+      pg_temp.kid(2091), 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
+      'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)$$,
+  'PX003', null, 'T-20: reintento idéntico sobre una pendiente vencida → PX003');
+
 -- ===========================================================================
 -- T-21: confirm_connection (C-20)
 -- ===========================================================================
@@ -528,6 +584,19 @@ select results_eq(
       from public.integration_connections c where c.id = pg_temp.kid(211)$$,
   $$values ('cuenta_sintetica_0211', 'ARS', 'America/Argentina/Buenos_Aires', true, true)$$,
   'T-21: la activa tiene los tres metadatos, sin vencimiento ni error');
+
+-- Reintento (D-M06.1a-M06.2a-12): la misma confirmación ya aplicada devuelve la fila.
+select results_eq(
+  $$select connection_id, status, credential_generation
+      from worker_api.confirm_connection(pg_temp.uid(211), pg_temp.cid(211),
+        pg_temp.kid(211), 'cuenta_sintetica_0211', 'ARS', 'America/Argentina/Buenos_Aires', true)$$,
+  $$values (pg_temp.kid(211), 'active', 0)$$,
+  'T-21: el reintento idéntico devuelve la activa');
+
+select throws_ok(
+  $$select * from worker_api.confirm_connection(pg_temp.uid(211), pg_temp.cid(211),
+      pg_temp.kid(211), 'cuenta_sintetica_0211', 'USD', 'America/Argentina/Buenos_Aires', true)$$,
+  'PX004', null, 'T-21: reintento con otra moneda → PX004');
 
 -- ===========================================================================
 -- T-22: replace_credential (C-21)
@@ -611,6 +680,71 @@ select results_eq(
   $$values ('BBBB', 2, '{ads_read,business_management}'::text[])$$,
   'T-22: la credencial se reemplazó (una sola fila)');
 
+-- Reintento (D-M06.1a-M06.2a-20): el mismo intento r2, ya consumido y ya aplicado, con
+-- exactamente el mismo material cifrado, devuelve la fila en vez de PX006. La generación
+-- ya avanzó un paso más allá de lo que esperaba r2, precisamente porque este intento fue
+-- el que la hizo avanzar.
+select results_eq(
+  $$select connection_id, status, credential_generation
+      from worker_api.replace_credential(pg_temp.uid(212), pg_temp.cid(212), pg_temp.kid(212),
+        (select id from ids where name = 'r2'), 'BBBB', 'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAAAAAAAA==', 2, 'system_user', 'app_sintetica',
+        '{ads_read,business_management}', null)$$,
+  $$values (pg_temp.kid(212), 'active', 2)$$,
+  'T-22: el reintento idéntico con r2 devuelve la fila ya aplicada');
+
+select is(
+  (select count(*)::int from private.integration_credentials where connection_id = pg_temp.kid(212)),
+  1, 'T-22: el reintento no duplica la credencial');
+
+-- Con otro material cifrado, el mismo intento consumido sigue dando PX006: no es un
+-- reintento de la misma llamada, es otra escritura sobre un intento que ya se usó.
+select throws_ok(
+  $$select * from worker_api.replace_credential(pg_temp.uid(212), pg_temp.cid(212), pg_temp.kid(212),
+      (select id from ids where name = 'r2'), 'CCCC', 'AAAAAAAAAAAAAAAA',
+      'AAAAAAAAAAAAAAAAAAAAAA==', 3, 'system_user', 'app_sintetica',
+      '{ads_read,business_management}', null)$$,
+  'PX006', null, 'T-22: mismo intento con otro material cifrado → PX006, no es un reintento');
+
+-- Después de una reautorización, repetir la confirmación original ya no es un reintento:
+-- la generación dejó de ser la que dejó la confirmación (D-M06.1a-M06.2a-12).
+select throws_ok(
+  $$select * from worker_api.confirm_connection(pg_temp.uid(212), pg_temp.cid(212),
+      pg_temp.kid(212), 'cuenta_sintetica_0212', 'USD', 'UTC', true)$$,
+  'PX004', null, 'T-21: misma cuenta, moneda y zona con otra generación → PX004');
+
+-- Intento reauth consumido hace más de 10 minutos (D-M06.1a-M06.2a-14): PX002 aunque la
+-- purga de create_oauth_attempt no haya corrido. El consumido hace exactamente 10 minutos
+-- todavía sirve.
+select pg_temp.new_company(233);
+select pg_temp.active(233, 233);
+
+insert into public.oauth_attempts (id, company_id, actor_user_id, purpose, expected_connection_id,
+  expected_generation, state_hash, browser_binding_hash, return_path, created_at, expires_at,
+  consumed_at)
+values
+  (pg_temp.aid(2331), pg_temp.cid(233), pg_temp.uid(233), 'reauth', pg_temp.kid(233), 0,
+   pg_temp.h(2331), pg_temp.h(2332), '/app/integraciones', now() - interval '20 minutes',
+   now() - interval '12 minutes', now() - interval '11 minutes'),
+  (pg_temp.aid(2333), pg_temp.cid(233), pg_temp.uid(233), 'reauth', pg_temp.kid(233), 0,
+   pg_temp.h(2333), pg_temp.h(2334), '/app/integraciones', now() - interval '15 minutes',
+   now() - interval '6 minutes', now() - interval '10 minutes');
+
+select throws_ok(
+  $$select * from worker_api.replace_credential(pg_temp.uid(233), pg_temp.cid(233), pg_temp.kid(233),
+      pg_temp.aid(2331), 'BBBB', 'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 2,
+      'system_user', 'app_sintetica', '{ads_read}', null)$$,
+  'PX002', 'praxa: la autorización no es válida o ya se usó',
+  'T-22: intento consumido hace 11 minutos → PX002');
+
+select results_eq(
+  $$select connection_id, status, credential_generation
+      from worker_api.replace_credential(pg_temp.uid(233), pg_temp.cid(233), pg_temp.kid(233),
+        pg_temp.aid(2333), 'BBBB', 'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 2,
+        'system_user', 'app_sintetica', '{ads_read}', null)$$,
+  $$values (pg_temp.kid(233), 'active', 1)$$,
+  'T-22: intento consumido hace exactamente 10 minutos → válido');
+
 -- ===========================================================================
 -- T-23: mark_needs_reauth (C-22)
 -- ===========================================================================
@@ -640,6 +774,42 @@ select results_eq(
       from public.integration_connections c where c.id = pg_temp.kid(213)$$,
   $$values ('authentication', 'error sintetico')$$,
   'T-23: la clase y el mensaje quedan registrados');
+
+-- Reintento (D-M06.1a-M06.2a-21): con la misma generación, la fila devuelve sin escribir.
+-- El mensaje no se compara y se conserva el guardado.
+select results_eq(
+  $$select connection_id, status, credential_generation
+      from worker_api.mark_needs_reauth(pg_temp.uid(213), pg_temp.cid(213), pg_temp.kid(213),
+        0, 'authentication', 'otro error sintetico')$$,
+  $$values (pg_temp.kid(213), 'needs_reauth', 0)$$,
+  'T-23: el reintento con la misma generación y la misma clase devuelve la fila');
+
+select results_eq(
+  $$select c.last_error_class, c.last_error_message
+      from public.integration_connections c where c.id = pg_temp.kid(213)$$,
+  $$values ('authentication', 'error sintetico')$$,
+  'T-23: el reintento conserva el mensaje guardado');
+
+-- Con la misma generación, CUALQUIER clase de reauth cuenta como reintento
+-- (D-M06.1a-M06.2a-21): dos workers pueden ver clases distintas para el mismo token y el
+-- segundo no tiene que fallar con PX004. La clase y el mensaje guardados no cambian.
+select results_eq(
+  $$select connection_id, status, credential_generation
+      from worker_api.mark_needs_reauth(pg_temp.uid(213), pg_temp.cid(213), pg_temp.kid(213),
+        0, 'permission', 'otro error de otro worker')$$,
+  $$values (pg_temp.kid(213), 'needs_reauth', 0)$$,
+  'T-23: con la misma generación, otra clase de reauth también devuelve la fila');
+
+select results_eq(
+  $$select c.last_error_class, c.last_error_message
+      from public.integration_connections c where c.id = pg_temp.kid(213)$$,
+  $$values ('authentication', 'error sintetico')$$,
+  'T-23: la clase y el mensaje guardados no cambian con la otra clase');
+
+select throws_ok(
+  $$select * from worker_api.mark_needs_reauth(pg_temp.uid(213), pg_temp.cid(213), pg_temp.kid(213),
+      1, 'authentication', 'error sintetico')$$,
+  'PX004', null, 'T-23: otra generación → PX004, sin importar la clase');
 
 -- ===========================================================================
 -- T-24: begin_disconnect (C-23)
@@ -862,6 +1032,31 @@ select results_eq(
   $$values ('BBBB', 2, 0)$$,
   'T-28: cambia solo el material y la versión; la generación no');
 
+-- Reintento (D-M06.1a-M06.2a-20): el mismo recifrado ya aplicado (misma versión esperada
+-- y el mismo material nuevo) devuelve la fila en vez de PX008.
+select results_eq(
+  $$select connection_id, key_version
+      from worker_api.rewrap_credential(pg_temp.uid(221), pg_temp.cid(221), pg_temp.kid(221),
+        0, 1, 'BBBB', 'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 2)$$,
+  $$values (pg_temp.kid(221), 2)$$,
+  'T-28: el reintento idéntico devuelve la fila ya recifrada');
+
+select throws_ok(
+  $$select * from worker_api.rewrap_credential(pg_temp.uid(221), pg_temp.cid(221), pg_temp.kid(221),
+      0, 1, 'DDDD', 'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 2)$$,
+  'PX008', null, 'T-28: misma versión esperada con otro material → PX008, no es un reintento');
+
+-- La versión nueva tiene que ser posterior a la guardada (D-M06.1a-M06.2a-15).
+select throws_ok(
+  $$select * from worker_api.rewrap_credential(pg_temp.uid(221), pg_temp.cid(221), pg_temp.kid(221),
+      0, 2, 'CCCC', 'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 2)$$,
+  '22023', 'praxa: argumento inválido', 'T-28: versión nueva igual a la guardada → 22023');
+
+select throws_ok(
+  $$select * from worker_api.rewrap_credential(pg_temp.uid(221), pg_temp.cid(221), pg_temp.kid(221),
+      0, 2, 'CCCC', 'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 1)$$,
+  '22023', null, 'T-28: versión nueva menor que la guardada → 22023');
+
 -- ===========================================================================
 -- T-29: transiciones no declaradas (C-28)
 -- ===========================================================================
@@ -887,15 +1082,31 @@ select throws_ok(
       0, 'authentication', 'error sintetico')$$,
   'PX004', null, 'T-29: pending_selection → needs_reauth → PX004');
 
+-- needs_reauth → needs_reauth con la MISMA generación ya no es una transición: es un
+-- reintento (D-M06.1a-M06.2a-21), aunque la clase que llega ahora sea otra. Devuelve la
+-- fila y conserva la clase y el mensaje originales.
+select results_eq(
+  $$select connection_id, status, credential_generation
+      from worker_api.mark_needs_reauth(pg_temp.uid(224), pg_temp.cid(224), pg_temp.kid(224),
+        0, 'authentication', 'otro error sintetico')$$,
+  $$values (pg_temp.kid(224), 'needs_reauth', 0)$$,
+  'T-29: needs_reauth → needs_reauth con la misma generación devuelve la fila');
+
+select results_eq(
+  $$select c.last_error_class, c.last_error_message
+      from public.integration_connections c where c.id = pg_temp.kid(224)$$,
+  $$values ('user_action', 'error sintetico')$$,
+  'T-29: la clase y el mensaje originales no cambian con la otra clase');
+
 select throws_ok(
-  $$select * from worker_api.mark_needs_reauth(pg_temp.uid(224), pg_temp.cid(224), pg_temp.kid(224),
-      0, 'authentication', 'error sintetico')$$,
-  'PX004', null, 'T-29: needs_reauth → needs_reauth → PX004');
+  $$select * from worker_api.confirm_connection(pg_temp.uid(224), pg_temp.cid(224), pg_temp.kid(224),
+      'cuenta_sintetica_0224', 'USD', 'UTC', true)$$,
+  'PX004', null, 'T-29: needs_reauth → active por confirm_connection → PX004');
 
 select throws_ok(
   $$select * from worker_api.confirm_connection(pg_temp.uid(225), pg_temp.cid(225), pg_temp.kid(225),
-      'cuenta_sintetica_0225', 'USD', 'UTC', true)$$,
-  'PX004', null, 'T-29: active → active por confirm_connection → PX004');
+      'cuenta_sintetica_9225', 'USD', 'UTC', true)$$,
+  'PX004', null, 'T-29: active → active por confirm_connection con otra cuenta → PX004');
 
 select throws_ok(
   $$select * from worker_api.confirm_connection(pg_temp.uid(226), pg_temp.cid(226), pg_temp.kid(226),

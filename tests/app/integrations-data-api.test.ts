@@ -39,26 +39,25 @@ const skipReason = blocked
     ? `Destino SQL de pruebas inválido: ${sqlTarget.problems.join(' ')}`
     : 'El proyecto remoto de Supabase no respondió. Revisá SUPABASE_TEST_URL y la conexión.';
 
-/** Siembra una conexión pendiente con credencial sintética, por worker_api. */
+const STATEMENT_TIMEOUT_MS = 15_000;
+
+/**
+ * Siembra una conexión pendiente con credencial sintética, por worker_api. Es una sola
+ * sentencia: se confirma sola, y la función escribe conexión y credencial en su propia
+ * transacción.
+ */
 async function seedPendingConnection(
   client: pg.Client,
   userId: string,
   companyId: string,
 ): Promise<string> {
   const connectionId = randomUUID();
-  await client.query('begin');
-  try {
-    await client.query(
-      `select 1 from worker_api.create_pending_connection(
-         $1, $2, $3, 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
-         'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)`,
-      [userId, companyId, connectionId],
-    );
-    await client.query('commit');
-  } catch (error) {
-    await client.query('rollback');
-    throw error;
-  }
+  await client.query(
+    `select 1 from worker_api.create_pending_connection(
+       $1, $2, $3, 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
+       'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)`,
+    [userId, companyId, connectionId],
+  );
   return connectionId;
 }
 
@@ -93,6 +92,9 @@ describe.skipIf(!canRun)('tablas del conector por la Data API (proyecto remoto)'
       application_name: 'praxa-integrations-data-api',
     });
     await sql.connect();
+    // Sin esto, un cerrojo tomado por otra sesión colgaría la siembra en lugar de fallar.
+    await sql.query(`set statement_timeout = ${STATEMENT_TIMEOUT_MS}`);
+    await sql.query(`set lock_timeout = ${STATEMENT_TIMEOUT_MS}`);
 
     aliceConnectionId = await seedPendingConnection(sql, alice.id, aliceCompanyId);
     bobConnectionId = await seedPendingConnection(sql, bob.id, bobCompany!.id);
