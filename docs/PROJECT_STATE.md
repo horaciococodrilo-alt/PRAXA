@@ -11,8 +11,8 @@ El orden de ejecución vigente es el de la ruta `meta_first` (plan v1.0, 2026-09
 - M04a, higiene documental previa: cerrada; `G-DOCS` aprobado por el usuario el 2026-09-24. Trabajo en la rama `mf/M04a`. Sigue pendiente del usuario decidir la visibilidad del repositorio y la reescritura del historial (`H-E1-04`). Evidencia: [sesiones/M04a.md](FASES/FASE1/meta_first/sesiones/M04a.md).
 - M05.1.1, K01 `TenantContext`: cerrada; `G-K01` aprobado por el usuario el 2026-09-25. Trabajo en la rama `mf/M05.1.1`. Evidencia: [sesiones/M05.1.1.md](FASES/FASE1/meta_first/sesiones/M05.1.1.md).
 - M05.1.2 a M05.1.4, K02 a K04: cerradas; `G-K02-K04` aprobado por el usuario el 2026-09-26. El usuario ratificó el vencimiento máximo de 10 minutos del intento OAuth (`H-E1-19`). Trabajo en la rama `mf/M05.1.2-M05.1.4`. Evidencia: [sesiones/M05.1.2-M05.1.4.md](FASES/FASE1/meta_first/sesiones/M05.1.2-M05.1.4.md).
-- M06.1a, siguiente microfase, según la Parte I del plan.
-- M06.2a, M06.3a, M28.2a, M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a: pendientes en ese orden, después de M06.1a.
+- M06.1a y M06.2a, grupo `M06.1a-M06.2a`: `BLOQUEADO` en la rama `mf/M06.1a-M06.2a`, con gate `G-DB-META` sin aprobar. Falta que el usuario ejecute `npm run db:push:test`; el ensayo con rollback está en verde. Evidencia: [sesiones/M06.1a-M06.2a.md](FASES/FASE1/meta_first/sesiones/M06.1a-M06.2a.md).
+- M06.3a, M28.2a, M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a: pendientes en ese orden, después de `G-DB-META`.
 - M03a, acta de datos reales de Meta y del chat: sin empezar; se puede redactar en paralelo. Su gate `G-ACTA-META` bloquea el primer dato real, en M16.2.
 - M16d, App Review y Business Verification: fuera de la ruta y dependiente de trámites del usuario ante Meta. Hasta su cierre, sólo pueden conectarse cuentas de personas con rol en la app; ver `H-E1-01`.
 - M03 completa, M05.1 restante, M05.2 y las fuentes Tiendanube y GA4: pospuestas sin cambio de contenido.
