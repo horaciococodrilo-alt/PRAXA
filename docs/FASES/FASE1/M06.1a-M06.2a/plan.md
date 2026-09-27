@@ -1,6 +1,6 @@
 # M06.1a-M06.2a — Plan de implementación
 
-**Estado:** BORRADOR
+**Estado:** APROBADO
 
 Estados posibles: `BORRADOR` → `APROBADO`. Solo el usuario aprueba el plan después de una auditoría APROBABLE.
 
