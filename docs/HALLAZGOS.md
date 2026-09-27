@@ -19,24 +19,25 @@ Registro único de hallazgos documentados en la auditoría M04.1, el baseline M0
 | `H-E1-02` | Resuelto en M04a | M04a | [Revisión de código](FASES/FASE1/meta_first/revision-codigo.md) |
 | `H-E1-03` | Pendiente | M03a | [Revisión de código](FASES/FASE1/meta_first/revision-codigo.md) |
 | `H-E1-04` | Parcial: resuelto en el árbol; historial pendiente de decisión del usuario | M04a | [Plan meta_first, III.7](FASES/FASE1/meta_first/plan.md) |
-| `H-E1-05` | Pendiente | M06.1a | [Plan meta_first, III.7](FASES/FASE1/meta_first/plan.md) |
-| `H-E1-06` | Pendiente | M06.2a y M28.3a | [Plan meta_first, III.7](FASES/FASE1/meta_first/plan.md) |
-| `H-E1-07` | Pendiente (hipótesis) | M06.2a | [Plan meta_first, III.7](FASES/FASE1/meta_first/plan.md) |
+| `H-E1-05` | Resuelto en M06.1a para las tablas nuevas; tablas existentes sin `force`, fuera de la ruta | M06.1a | [Plan meta_first, III.7](FASES/FASE1/meta_first/plan.md); [Sesión M06.1a-M06.2a](FASES/FASE1/meta_first/sesiones/M06.1a-M06.2a.md) |
+| `H-E1-06` | Parcial: verificado en M06.2a (empresa → usuario, pgTAP `10`); flujo de baja pendiente | M06.2a y M28.3a | [Plan meta_first, III.7](FASES/FASE1/meta_first/plan.md); [Sesión M06.1a-M06.2a](FASES/FASE1/meta_first/sesiones/M06.1a-M06.2a.md) |
+| `H-E1-07` | Descartado en M06.2a: la hipótesis es falsa | M06.2a | [Plan meta_first, III.7](FASES/FASE1/meta_first/plan.md); [Sesión M06.1a-M06.2a](FASES/FASE1/meta_first/sesiones/M06.1a-M06.2a.md) |
 | `H-E1-08` | Pendiente | M28.2a | [Plan meta_first, III.7](FASES/FASE1/meta_first/plan.md) |
 | `H-E1-09` | Pendiente | M06.3a | [Plan meta_first, III.7](FASES/FASE1/meta_first/plan.md) |
 | `H-E1-10` | Pendiente | M06.3a | [Plan meta_first, III.7](FASES/FASE1/meta_first/plan.md) |
-| `H-E1-11` | Pendiente | M06.2a | [Plan meta_first, III.7](FASES/FASE1/meta_first/plan.md) |
+| `H-E1-11` | Resuelto en M06.2a para `integration_connections` (lectura por la Data API) | M06.2a | [Plan meta_first, III.7](FASES/FASE1/meta_first/plan.md); [Sesión M06.1a-M06.2a](FASES/FASE1/meta_first/sesiones/M06.1a-M06.2a.md) |
 | `H-E1-12` | Pendiente | Todas | [Plan meta_first, III.7](FASES/FASE1/meta_first/plan.md) |
 | `H-E1-13` | Pendiente | M16.1 | [Plan meta_first, III.7](FASES/FASE1/meta_first/plan.md) |
 | `H-E1-14` | Resuelto en M04a | M04a | [Sesión M04a](FASES/FASE1/meta_first/sesiones/M04a.md) |
 | `H-E1-15` | Resuelto en M04a | M04a | [Sesión M04a](FASES/FASE1/meta_first/sesiones/M04a.md) |
 | `H-E1-16` | Resuelto en M04a | M04a | [Sesión M04a](FASES/FASE1/meta_first/sesiones/M04a.md) |
 | `H-E1-17` | Pendiente | M06.3a | [Sesión M05.1.1](FASES/FASE1/meta_first/sesiones/M05.1.1.md) |
-| `H-E1-18` | Pendiente (observación) | M06.1a | [Sesión M05.1.2 a M05.1.4](FASES/FASE1/meta_first/sesiones/M05.1.2-M05.1.4.md) |
-| `H-E1-19` | Parcial: TTL ratificado por el usuario en `G-K02-K04` (2026-09-26); columnas pendientes | M06.1a | [Sesión M05.1.2 a M05.1.4](FASES/FASE1/meta_first/sesiones/M05.1.2-M05.1.4.md) |
+| `H-E1-18` | Pendiente (observación), diferido por `D-M06.1a-M06.2a-09`; no se reprodujo en M06.1a-M06.2a | Tarea aparte, fuera de la ruta | [Sesión M05.1.2 a M05.1.4](FASES/FASE1/meta_first/sesiones/M05.1.2-M05.1.4.md) |
+| `H-E1-19` | Resuelto en M06.1a | M06.1a | [Sesión M05.1.2 a M05.1.4](FASES/FASE1/meta_first/sesiones/M05.1.2-M05.1.4.md); [Sesión M06.1a-M06.2a](FASES/FASE1/meta_first/sesiones/M06.1a-M06.2a.md) |
 | `H-E1-20` | Pendiente (observación de entorno) | Ninguna (a verificar si se repite) | [Revisión de implementación 1](FASES/FASE1/meta_first/sesiones/M05.1.2-M05.1.4-implementation-review-1.md) |
 | `H-E1-21` | Pendiente | M16.1 y M16.2 | [Spec M06.1a-M06.2a, `Q-02`](FASES/FASE1/M06.1a-M06.2a/spec.md) |
 | `H-E1-22` | Pendiente | M16.1 y M16.2 | [Auditoría 2 de la spec M06.1a-M06.2a, A-08](FASES/FASE1/M06.1a-M06.2a/revisiones/spec-audit-2.md) |
+| `H-E1-23` | Pendiente | Próxima corrección de la ruta `meta_first` (spec, CB-06); no es de M06.1a-M06.2a | [Sesión M06.1a-M06.2a](FASES/FASE1/meta_first/sesiones/M06.1a-M06.2a.md) |
 
 
 ## Detalle de los hallazgos de la ruta `meta_first` registrados en M04a
@@ -76,5 +77,17 @@ Impacto y evidencia en una línea cada uno. El contexto completo está en la fue
 - **`H-E1-21`** — Con una conexión en `pending_selection` todavía no vencida, el dueño no puede iniciar ninguna autorización útil: CA-28 rechaza un intento `initial` porque la empresa ya tiene una conexión viva, y un intento `reauth` no sirve porque CA-37c exige que la cuenta conectada esté entre las delegadas y una conexión pendiente todavía no tiene cuenta. *Impacto:* si el dueño abandona la selección de cuenta, queda trabado hasta que la pendiente venza (30 minutos, DEC-17). *Evidencia:* spec `meta_first`, CA-28, CA-37c y DEC-17; pregunta `Q-02` de la spec de M06.1a-M06.2a. *Asignación:* M16.1 y M16.2 tienen que definir si un intento nuevo purga la pendiente vigente.
 
 - **`H-E1-22`** — Ninguna función de la base puede registrar una clase de error que no lleve a `needs_reauth` (desconocido, límite, temporal, transporte o error propio). CA-39 pide registrar la clase en esos casos sin cambiar el estado, pero la tabla de funciones de `worker_api` (II.4) no tiene una función para eso, `authenticated` no escribe en `integration_connections` y M16.1 y M16.2 no tienen migración en la ruta. *Impacto:* esos errores no quedarían registrados en la conexión, o M16.x tendría que sumar una función y una migración que la ruta no prevé. *Evidencia:* spec `meta_first`, CA-39; plan `meta_first`, II.4 (tabla de funciones) y II.9 a II.10; auditoría 2 de la spec de M06.1a-M06.2a, A-08. *Asignación:* M16.1 y M16.2 tienen que definir cómo se registran esas clases.
+
+## Actualizaciones y hallazgos registrados en M06.1a-M06.2a
+
+Evidencia completa en [sesiones/M06.1a-M06.2a.md](FASES/FASE1/meta_first/sesiones/M06.1a-M06.2a.md).
+
+- **`H-E1-05`** — *Resolución:* las tres tablas de `0012` tienen RLS habilitada y forzada (`relforcerowsecurity`, T-08). Las once migraciones anteriores siguen sin `force`; pasarlas es un pendiente declarado en CA-14, fuera de la ruta.
+- **`H-E1-06`** — *Verificado:* la parte 2 de `10_demo_closure` prueba que borrar el usuario antes que la empresa falla con `23503`, y que en el orden empresa → usuario el cierre deja cero filas. El flujo de baja del producto sigue pendiente (M28.3a).
+- **`H-E1-07`** — *Descartado:* la parte 1 de `10_demo_closure`, corrida sola antes de escribir `0012`, pasó (8/8). Borrar una empresa con contexto activo y reporte procede y deja cero filas. La protección se conserva: borrar solo un contexto con reportes sigue fallando con `23503`. `0012` no toca `reports` y `0003` no cambió.
+- **`H-E1-11`** — *Resolución:* `integration_connections` tiene `grant select` explícito para `authenticated`, y `tests/app/integrations-data-api.test.ts` verifica la lectura por la Data API. Las tablas de `0013` y `0014` tendrán que repetir la verificación.
+- **`H-E1-18`** — *Estado:* diferido por `D-M06.1a-M06.2a-09`. No se reprodujo en las dos corridas de `npm run verify` de esta microfase (las dos con exit 0, 8 archivos y 145 pruebas). `vitest.config.mts` no cambió.
+- **`H-E1-19`** — *Resolución:* `public.oauth_attempts` tiene `created_at` y `provider`, y la base hace cumplir la vida máxima de 10 minutos con `oauth_attempts_expiry_window` y con la validación de `create_oauth_attempt` (`D-M06.1a-M06.2a-10`; T-17 y T-18).
+- **`H-E1-23`** — CB-06 dice que una prueba omitida por configuración no aprueba el gate, pero no delimita a qué suites se aplica. En M06.1a-M06.2a, `npm run test:app` pasó con 29 pruebas y omitió las 3 de `tests/app/email-flows.test.ts`. Esas pruebas son opt-in por diseño (`SUPABASE_TEST_EMAIL_FLOWS`, README: consumen la cuota de correo del proyecto) y ajenas al corte: sus casos son de la parte de correo (`H-E1-08`, M28.2a) y fallarían con el SMTP por defecto. La spec de la microfase pedía "ninguna omitida". *Impacto:* una lectura literal bloquearía cualquier gate que corra `test:app` mientras el correo no esté configurado. *Decisión del usuario (2026-09-27):* para `G-DB-META`, esas tres pruebas quedan fuera de alcance con su motivo documentado, y las suites exigidas por III.3 corrieron completas. *Asignación:* la próxima corrección de la ruta `meta_first` debe precisar CB-06 en su spec: aplica a las suites que exige la microfase, y las pruebas opt-in ajenas se documentan con su motivo y no bloquean. No es de M06.1a-M06.2a.
 
 No se agregan aquí montos, identificadores completos de cuentas, correos ni datos de clientes.
