@@ -1,6 +1,6 @@
 ---
 name: qa-review
-description: QA y verificación final de una microfase en contexto aislado. Comprueba desde afuera el comportamiento frente a cada criterio (positivos, negativos y de borde), corre la verificación completa, evalúa la condición del gate y prepara la descripción del PR. Emite LISTO PARA PR, REQUIERE CAMBIOS o BLOQUEADO. No corrige código. Solo cuando el usuario invoca /qa-review [ID].
+description: QA y verificación final de una microfase en contexto aislado. Comprueba desde afuera el comportamiento frente a cada criterio (positivos, negativos y de borde), corre la verificación completa, evalúa la condición del gate y prepara la descripción del PR. Emite LISTO PARA PR (todos los criterios cumplidos y el PR puede abrirse), REQUIERE CAMBIOS (se necesitan correcciones dentro de la microfase) o BLOQUEADO (faltan requisitos del usuario o del entorno). No corrige código. Solo cuando el usuario invoca /qa-review [ID].
 argument-hint: "[ID de la microfase]"
 disable-model-invocation: true
 context: fork

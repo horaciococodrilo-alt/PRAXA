@@ -1,6 +1,6 @@
 ---
 name: plan-auditor
-description: Audita en contexto aislado docs/FASES/FASE1/[ID]/plan.md contra la spec aprobada de la microfase, la ruta meta_first y el repositorio. Emite APROBABLE, REQUIERE CAMBIOS o BLOQUEADO en revisiones/plan-audit-N.md y no edita el plan. Solo cuando el usuario invoca /plan-auditor [ID].
+description: Audita en contexto aislado docs/FASES/FASE1/[ID]/plan.md contra la spec aprobada de la microfase, la ruta meta_first y el repositorio. Emite un veredicto en revisiones/plan-audit-N.md: APROBABLE si todos los ítems están en PASS o NO APLICA justificado; REQUIERE CAMBIOS si al menos un ítem está en FAIL por un defecto; BLOQUEADO si la auditoría no puede completarse por precondiciones faltantes. No edita el plan. Solo cuando el usuario invoca /plan-auditor [ID].
 argument-hint: "[ID de la microfase]"
 disable-model-invocation: true
 context: fork
