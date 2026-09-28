@@ -4,7 +4,7 @@
 
 Estados posibles: `BORRADOR` → `APROBADO`. Solo el usuario aprueba el plan después de una auditoría APROBABLE.
 
-**Spec base:** `docs/FASES/FASE1/M06.1a-M06.2a/spec.md`, APROBADA, con hash de contenido verificado `e57d8a7fefc5c45575343d9c045c9e096b97b063`.
+**Spec base:** `docs/FASES/FASE1/M06.1a-M06.2a/spec.md`, APROBADA, con hash de contenido verificado `e57d8a7fefc5c45575343d9c045c9e096b97b063` al aprobar este plan. Entre el 2026-09-27 y el 2026-09-28, ya en implementación, el usuario enmendó la spec en cinco rondas para corregir revisiones del PR #12 y alinearla con `AGENTS.md:48` (`D-M06.1a-M06.2a-11` a `-27`), sin nueva auditoría por decisión explícita del usuario; ver la sección "Auditorías" de la spec. El hash de contenido actual de la spec ya no coincide con el citado arriba. Los cambios posteriores de este plan documentan la repetición automatizada de T-05 y su adaptación a la condición nueva del rol limpio.
 
 **Auditoría base:** `revisiones/spec-audit-5.md`, APROBABLE. Sus observaciones bajas A-01 y A-02 se incorporan en los pasos 5 y 13, sin modificar la spec.
 
@@ -29,6 +29,7 @@ Los nombres abreviados usados en los pasos corresponden exclusivamente a estas r
 | `supabase/migrations/0012_integrations.sql` | Nuevo | 7–9 | Spec, Archivos previstos; II.4; corrección condicional autorizada por ficha M06.2a |
 | `supabase/tests/08_integration_isolation.test.sql` | Nuevo | 4, 9 | Spec; II.5.1 |
 | `supabase/tests/09_integration_privileges.test.sql` | Nuevo | 3, 9 | Spec; II.5.2 |
+| `scripts/run-pgtap.mjs` | Modificado por las correcciones de revisión | Repetición automática de T-05 con un rol sintético limpio | Pedido del usuario de automatizar el ensayo con membresía entrante (2026-09-28) y de rechazar roles preexistentes con privilegios directos |
 | `supabase/tests/09b_integration_lifecycle.test.sql` | Nuevo | 5, 9 | Spec; II.5.3 y 3b |
 | `supabase/tests/10_demo_closure.test.sql` | Nuevo, construido en dos tiempos | 2, 6, 9 | Spec; II.5.4 |
 | `tests/app/integrations-data-api.test.ts` | Nuevo | 6, 11 | Spec; II.5.5 |
@@ -38,7 +39,7 @@ Los nombres abreviados usados en los pasos corresponden exclusivamente a estas r
 | `docs/FASES/FASE1/M06.1a-M06.2a/plan.md` | Nuevo; cambios posteriores solo para resolver revisión | Preparación del pipeline | Spec; precondición 9 |
 | `docs/FASES/FASE1/M06.1a-M06.2a/revisiones/*.md` | Nuevos, exclusivamente por las revisiones invocadas | Preparación y 13 | Spec; precondición 9 |
 
-La spec aprobada es de solo lectura. No se modifican scripts, configuración, contratos ni pruebas existentes. El script temporal del ensayo vive fuera del repositorio, como autoriza expresamente Diseño §12.5; no agrega archivos ni scripts npm al proyecto.
+El alcance original no modificaba scripts, configuración, contratos ni pruebas existentes. Por el pedido posterior del usuario de corregir la cobertura de T-05, `scripts/run-pgtap.mjs` repite `09` en una transacción: crea un rol sintético limpio, concede membresías entrante y saliente, ejecuta el bloque real de normalización de `0012` con solo el nombre del rol sustituido y comprueba que se revocaron. El rol persistido ya tiene privilegios de la aplicación anterior, así que la precondición nueva debe rechazarlo. El ensayo general de la migración sigue usando un script temporal fuera del repositorio, como autoriza Diseño §12.5; no se agrega un comando npm.
 
 ## Pasos
 
