@@ -4,7 +4,7 @@
 
 Estados posibles: `BORRADOR` → `APROBADO`. Solo el usuario aprueba el plan después de una auditoría APROBABLE.
 
-**Spec base:** `docs/FASES/FASE1/M06.1a-M06.2a/spec.md`, APROBADA, con hash de contenido verificado `e57d8a7fefc5c45575343d9c045c9e096b97b063` al aprobar este plan. El 2026-09-27, ya en implementación, el usuario enmendó la spec en dos rondas para alinearla con `AGENTS.md:48` (`D-M06.1a-M06.2a-11` a `-21`), sin nueva auditoría por decisión explícita del usuario; ver la sección "Auditorías" de la spec. El hash de contenido actual de la spec ya no coincide con el citado arriba; este plan no se modifica por eso, porque sus pasos y su cobertura no cambian.
+**Spec base:** `docs/FASES/FASE1/M06.1a-M06.2a/spec.md`, APROBADA, con hash de contenido verificado `e57d8a7fefc5c45575343d9c045c9e096b97b063` al aprobar este plan. Entre el 2026-09-27 y el 2026-09-28, ya en implementación, el usuario enmendó la spec en tres rondas (la tercera, por la revisión del PR #12) para alinearla con `AGENTS.md:48` (`D-M06.1a-M06.2a-11` a `-22`), sin nueva auditoría por decisión explícita del usuario; ver la sección "Auditorías" de la spec. El hash de contenido actual de la spec ya no coincide con el citado arriba; este plan no se modifica por eso, porque sus pasos y su cobertura no cambian.
 
 **Auditoría base:** `revisiones/spec-audit-5.md`, APROBABLE. Sus observaciones bajas A-01 y A-02 se incorporan en los pasos 5 y 13, sin modificar la spec.
 

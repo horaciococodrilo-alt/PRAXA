@@ -10,7 +10,7 @@ Agrega `supabase/migrations/0012_integrations.sql`: el esquema `worker_api` (no 
 |---|---|
 | Aislamiento entre empresas (CA-19, CA-21, CA-29) | `08_integration_isolation.test.sql` (26/26); confirmado además contra la base real con una mutación de control que suprime el filtro de empresa en `get_credential` y muestra que `throws_ok` lo detectaría |
 | Privilegios de esquema, tablas y funciones (CA-14 a CA-17, CA-20 a CA-22) | `09_integration_privileges.test.sql` (52/52); confirmado con una mutación de control (grant de más sobre `count_credentials_by_key_version`) contra la base real |
-| Idempotencia de los doce reintentos exactos (`D-M06.1a-M06.2a-11` a `-21`) | `09b_integration_lifecycle.test.sql` (146/146) |
+| Idempotencia de las escrituras repetibles (`create_pending_connection`, `confirm_connection`, `mark_needs_reauth`, `replace_credential`, `rewrap_credential` y `create_oauth_attempt`; `D-M06.1a-M06.2a-11` a `-22`) | `09b_integration_lifecycle.test.sql` (147/147) |
 | Transiciones de estado y purga de intentos vencidos (CA-07, CA-38b) | `09b_integration_lifecycle.test.sql` (mismo archivo) |
 | Cierre administrativo de una empresa, con integración (CA-67, CA-68, `H-E1-06`, `H-E1-07`) | `10_demo_closure.test.sql` (21/21); `H-E1-07` descartada con la parte 1 sola, antes de que existiera `0012` |
 | Lectura efectiva por la Data API (sección 5b, CA-21) | `tests/app/integrations-data-api.test.ts` (6/6) |
@@ -44,7 +44,7 @@ Además, dos mutaciones de control ejecutadas contra la base real (rollback inco
 
 ## Qué mirar primero
 
-- `supabase/migrations/0012_integrations.sql` — especialmente los doce reintentos idempotentes y la traducción de errores de clase `23`.
-- `supabase/tests/09b_integration_lifecycle.test.sql` — el archivo más grande (146 aserciones), cubre ciclo de vida completo y los reintentos.
+- `supabase/migrations/0012_integrations.sql` — especialmente los reintentos de las seis escrituras repetibles (`consume_oauth_attempt` rechaza cualquier reintento a propósito, CA-03) y la traducción de errores de clase `23`.
+- `supabase/tests/09b_integration_lifecycle.test.sql` — el archivo más grande (147 aserciones), cubre ciclo de vida completo y los reintentos.
 - `docs/FASES/FASE1/M06.1a-M06.2a/revisiones/qa-review-1.md` — matriz de criterios y las dos pruebas exploratorias contra la base real.
 - `docs/HALLAZGOS.md` (`H-E1-23` a `H-E1-27`) y `docs/PROJECT_STATE.md` — estado del gate y hallazgos diferidos.

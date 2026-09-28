@@ -14,7 +14,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(146);
+select plan(147);
 
 -- ---------------------------------------------------------------------------
 -- Helpers (pg_temp: desaparecen con el rollback)
@@ -1045,6 +1045,15 @@ select throws_ok(
   $$select * from worker_api.rewrap_credential(pg_temp.uid(221), pg_temp.cid(221), pg_temp.kid(221),
       0, 1, 'DDDD', 'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 2)$$,
   'PX008', null, 'T-28: misma versión esperada con otro material → PX008, no es un reintento');
+
+-- Con el MISMO material ya guardado, pedir la versión guardada como esperada y como nueva
+-- no es un reintento (D-M06.1a-M06.2a-22): ninguna llamada exitosa pudo haber tenido la
+-- versión esperada igual a la nueva, porque D-15 la habría rechazado. Tiene que dar 22023.
+select throws_ok(
+  $$select * from worker_api.rewrap_credential(pg_temp.uid(221), pg_temp.cid(221), pg_temp.kid(221),
+      0, 2, 'BBBB', 'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 2)$$,
+  '22023', 'praxa: argumento inválido',
+  'T-28: mismo material con versión esperada igual a la nueva → 22023, no es un reintento');
 
 -- La versión nueva tiene que ser posterior a la guardada (D-M06.1a-M06.2a-15).
 select throws_ok(

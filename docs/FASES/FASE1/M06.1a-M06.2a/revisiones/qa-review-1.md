@@ -38,7 +38,7 @@ No encontré ningún caso previsto por la spec (positivo, negativo o de borde) s
 
 `implementation-review-3.md` había diseñado y razonado tres mutaciones de control, pero no pudo ejecutarlas contra la base real: su worktree (`../praxa-review-M06.1a-M06.2a`) no tiene `.env.local` ni `SUPABASE_TEST_DB_URL` por regla de seguridad, así que `run-pgtap.mjs` se negó a correr. Repetí dos de esas tres (aislamiento y privilegios) directamente contra el proyecto de pruebas persistente, con la interfaz pública (llamadas a `worker_api.*`, `has_function_privilege`, y una redefinición transaccional de la función bajo prueba), cada una dentro de su propia transacción con `ROLLBACK` incondicional. No usé `test:policies` para esto porque agregar un archivo a `supabase/tests/` habría ensuciado el árbol; en su lugar usé un script Node temporal en `__qa__/`, con `resolveSqlTestTarget` (nunca `SUPABASE_DB_URL`), igual que el ensayo de la propia sesión de implementación.
 
-Antes de correr: `npm run db:check:test` → "Destino verificado." (proyecto `yknuvgvnloppxkykhyrc`, desechable, confirmación presente). Después de correr: confirmé con una consulta aparte que no quedó ningún residuo (`select count(*) from auth.users where email like 'qa-q1-%@praxa.test'` → `0`; `has_function_privilege('authenticated', 'worker_api.count_credentials_by_key_version()', 'EXECUTE')` → `false`), y que el comando de árbol limpio del paso 1 sigue sin salida tras borrar `__qa__/`.
+Antes de correr: `npm run db:check:test` → "Destino verificado." (proyecto `[ref de praxa-test redactada]`, desechable, confirmación presente). Después de correr: confirmé con una consulta aparte que no quedó ningún residuo (`select count(*) from auth.users where email like 'qa-q1-%@praxa.test'` → `0`; `has_function_privilege('authenticated', 'worker_api.count_credentials_by_key_version()', 'EXECUTE')` → `false`), y que el comando de árbol limpio del paso 1 sigue sin salida tras borrar `__qa__/`.
 
 ### Q1 — Aislamiento cruzado en `get_credential` (CA-19, C-16, T-16)
 
@@ -134,7 +134,7 @@ await withRollback('Q2: privilegio de más — count_credentials_by_key_version 
 
 Confirmado contra la base real: la consulta que usa T-12 deja de estar vacía apenas se agrega el grant de más, así que `is_empty(...)` fallaría con esta mutación exactamente como predice `implementation-review-3.md` (mutación M6 de la sesión de implementación, ahí solo verificada en el ensayo con rollback, acá contra el proyecto persistente).
 
-**Cantidad ejecutada:** 2 casos exploratorios (Q1, Q2), cada uno con su corrida "antes" y "después" de mutar (4 verificaciones en total), sobre el proyecto de pruebas `yknuvgvnloppxkykhyrc`. Ningún caso falló de forma inesperada.
+**Cantidad ejecutada:** 2 casos exploratorios (Q1, Q2), cada uno con su corrida "antes" y "después" de mutar (4 verificaciones en total), sobre el proyecto de pruebas `[ref de praxa-test redactada]`. Ningún caso falló de forma inesperada.
 
 **Limpieza:** `rm __qa__/explore-mutations.mjs && rmdir __qa__`. Verificado después: `git status --porcelain --untracked-files=all -- . ':(exclude)docs/FASES/FASE1/*/revisiones/*' ':(exclude)docs/FASES/FASE1/meta_first/sesiones/*-review-*'` sin salida, y `git rev-parse HEAD` sigue en `9ce95e3`.
 
@@ -150,7 +150,7 @@ Todas las corridas de esta sección son de esta sesión de QA, independientes de
 
 | Comando | Resultado | Coincide con la evidencia previa |
 |---|---|---|
-| `npm run db:check:test` | "Destino verificado.", proyecto `yknuvgvnloppxkykhyrc`, desechable | Sí |
+| `npm run db:check:test` | "Destino verificado.", proyecto `[ref de praxa-test redactada]`, desechable | Sí |
 | `npm run test:policies` | 11 archivos, **390 aserciones, 0 problemas** (`08` 26/26, `09` 52/52, `09b` 146/146, `10` 21/21; `01`–`07` sin cambios) | Sí, idéntico |
 | `npx vitest run --project app --reporter=verbose` (Git Bash) | 5 archivos, **29 pasadas, 7 omitidas** (36); Data API 6/6; 4 avisos "NO EJECUTADA" de suites que sí corrieron y 3 de `email-flows` opt-in (`H-E1-23`) | Sí, idéntico |
 | `npm run verify` (Git Bash) | exit 0: lint, typegen, typecheck, `Test Files 8 passed (8)`, `Tests 145 passed (145)`, build "Compiled successfully", 11 páginas | Sí, idéntico |
