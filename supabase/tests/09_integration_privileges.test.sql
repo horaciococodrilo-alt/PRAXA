@@ -13,7 +13,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(54);
+select plan(55);
 
 -- Ejecuta una sentencia con el rol pedido y devuelve el SQLSTATE del error, o null si no
 -- hubo error. El bloque `exception` revierte la subtransacción, incluido el cambio de
@@ -29,6 +29,22 @@ begin
   return null;
 exception when others then
   return sqlstate;
+end;
+$fn$;
+
+create function pg_temp.role_error_of(p_sql text)
+returns table (sqlstate text, message text)
+language plpgsql
+as $fn$
+declare
+  v_sqlstate text;
+  v_message text;
+begin
+  execute p_sql;
+  return query select null::text, null::text;
+exception when others then
+  get stacked diagnostics v_sqlstate = returned_sqlstate, v_message = message_text;
+  return query select v_sqlstate, v_message;
 end;
 $fn$;
 
@@ -119,6 +135,18 @@ select is_empty(
 select ok(
   not pg_has_role('praxa_inbound_probe', 'praxa_integrations', 'SET'),
   'T-05: el rol de prueba no puede hacer SET ROLE praxa_integrations');
+
+-- Un privilegio directo preexistente impide reutilizar el rol. Ejecutamos el bloque real
+-- de 0012 en la subtransacción de role_error_of; el grant y el esquema son transitorios.
+create schema praxa_acl_probe;
+grant usage on schema praxa_acl_probe to praxa_integrations;
+select results_eq(
+  $query$select sqlstate, message from pg_temp.role_error_of(
+      $role_sql$__ROLE_NORMALIZATION_BLOCK__$role_sql$)$query$,
+  $query$values ('P0001', 'praxa: praxa_integrations tiene objetos, privilegios o configuraciones; hay que borrar el rol a mano antes de aplicar esta migración')$query$,
+  'T-05: la normalización rechaza un privilegio directo y pide borrar el rol a mano');
+revoke usage on schema praxa_acl_probe from praxa_integrations;
+drop schema praxa_acl_probe;
 
 -- ---------------------------------------------------------------------------
 -- T-06: enums (C-06)

@@ -20,9 +20,9 @@ import { resolveSqlTestTarget } from './lib/sql-target.mjs';
  *   - no hay plan;
  *   - hay un error SQL.
  *
- * Repite 09 con una membresía entrante y otra saliente sintéticas y el bloque real de
- * normalización de 0012, todo dentro del rollback de la prueba. Así T-05 detecta una
- * revocación omitida en cualquiera de las dos direcciones.
+ * Repite 09 tras normalizar un rol sintético limpio con membresías entrante y saliente.
+ * El bloque es el real de 0012, con solo el nombre del rol sustituido. El rol persistido
+ * ya tiene privilegios directos, por lo que la nueva precondición debe rechazarlo.
  * Siempre deja la conexión limpia: ante un error a mitad de archivo, la transacción
  * queda abortada y se emite un ROLLBACK explícito antes de seguir.
  */
@@ -31,14 +31,21 @@ const TESTS_DIR = join(process.cwd(), 'supabase', 'tests');
 const INTEGRATIONS_MIGRATION = join(process.cwd(), 'supabase', 'migrations', '0012_integrations.sql');
 const ROLE_TEST_FILE = '09_integration_privileges.test.sql';
 
-async function roleNormalizationSetup() {
+async function roleNormalizationBlock() {
   const migration = await readFile(INTEGRATIONS_MIGRATION, 'utf8');
   const roleBlock = migration.match(/^do \$\$\r?\n[\s\S]*?^\$\$;/m)?.[0];
   if (!roleBlock?.includes('alter role praxa_integrations')) {
     throw new Error('No se encontró el bloque de normalización de praxa_integrations en 0012.');
   }
+  return roleBlock;
+}
 
+async function roleNormalizationSetup() {
+  const roleBlock = (await roleNormalizationBlock()).replaceAll(
+    'praxa_integrations', 'praxa_integrations_probe',
+  );
   return `
+create role praxa_integrations_probe nologin;
 do $probe$
 begin
   if not exists (select 1 from pg_catalog.pg_roles where rolname = 'praxa_inbound_probe') then
@@ -47,19 +54,30 @@ begin
 end;
 $probe$;
 create role praxa_outbound_probe nologin;
-grant praxa_integrations to praxa_inbound_probe;
-grant praxa_outbound_probe to praxa_integrations;
+grant praxa_integrations_probe to praxa_inbound_probe;
+grant praxa_outbound_probe to praxa_integrations_probe;
 do $probe$
 begin
-  if not pg_has_role('praxa_inbound_probe', 'praxa_integrations', 'SET') then
+  if not pg_has_role('praxa_inbound_probe', 'praxa_integrations_probe', 'SET') then
     raise exception 'T-05: el grant entrante de preparación no quedó activo';
   end if;
-  if not pg_has_role('praxa_integrations', 'praxa_outbound_probe', 'SET') then
+  if not pg_has_role('praxa_integrations_probe', 'praxa_outbound_probe', 'SET') then
     raise exception 'T-05: el grant saliente de preparación no quedó activo';
   end if;
 end;
 $probe$;
 ${roleBlock}
+do $probe$
+begin
+  if exists (
+    select 1 from pg_catalog.pg_auth_members m
+    join pg_catalog.pg_roles r on r.oid = m.member
+    where r.rolname = 'praxa_integrations_probe'
+  ) or pg_has_role('praxa_inbound_probe', 'praxa_integrations_probe', 'SET') then
+    raise exception 'T-05: la normalización dejó membresías sintéticas';
+  end if;
+end;
+$probe$;
 `;
 }
 
@@ -110,6 +128,10 @@ function collectLines(result) {
 
 async function runFile(client, file, setupSql = null) {
   let sql = await readFile(join(TESTS_DIR, file), 'utf8');
+  if (file === ROLE_TEST_FILE) {
+    const roleBlock = await roleNormalizationBlock();
+    sql = sql.replace('__ROLE_NORMALIZATION_BLOCK__', () => roleBlock);
+  }
   if (setupSql !== null) {
     const begin = /^begin;\r?$/im;
     if (!begin.test(sql)) throw new Error(`${file} no inicia una transacción de prueba.`);

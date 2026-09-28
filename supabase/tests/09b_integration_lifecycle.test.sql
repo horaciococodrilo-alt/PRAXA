@@ -14,7 +14,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(149);
+select plan(155);
 
 -- ---------------------------------------------------------------------------
 -- Helpers (pg_temp: desaparecen con el rollback)
@@ -415,6 +415,46 @@ select throws_ok(
 
 -- ===========================================================================
 -- T-19: consume_oauth_attempt (C-18)
+-- Un hash con forma inválida es un argumento inválido incluso si no coincide con ninguna
+-- fila. La validación ocurre antes del único UPDATE del consumo.
+select pg_temp.new_company(299);
+
+select results_eq(
+  $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
+      from pg_temp.error_of($q$select * from worker_api.consume_oauth_attempt(
+        pg_temp.uid(299), pg_temp.cid(299), 'abc', pg_temp.h(2331))$q$)$$,
+  $$values ('22023', 'praxa: argumento inválido', '', '')$$,
+  'T-19: state_hash corto → 22023 antes de tocar filas');
+select results_eq(
+  $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
+      from pg_temp.error_of($q$select * from worker_api.consume_oauth_attempt(
+        pg_temp.uid(299), pg_temp.cid(299), repeat('A', 64), pg_temp.h(2331))$q$)$$,
+  $$values ('22023', 'praxa: argumento inválido', '', '')$$,
+  'T-19: state_hash en mayúsculas → 22023');
+select results_eq(
+  $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
+      from pg_temp.error_of($q$select * from worker_api.consume_oauth_attempt(
+        pg_temp.uid(299), pg_temp.cid(299), repeat('g', 64), pg_temp.h(2331))$q$)$$,
+  $$values ('22023', 'praxa: argumento inválido', '', '')$$,
+  'T-19: state_hash con caracteres inválidos → 22023');
+select results_eq(
+  $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
+      from pg_temp.error_of($q$select * from worker_api.consume_oauth_attempt(
+        pg_temp.uid(299), pg_temp.cid(299), pg_temp.h(2332), 'abc')$q$)$$,
+  $$values ('22023', 'praxa: argumento inválido', '', '')$$,
+  'T-19: browser_binding_hash corto → 22023');
+select results_eq(
+  $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
+      from pg_temp.error_of($q$select * from worker_api.consume_oauth_attempt(
+        pg_temp.uid(299), pg_temp.cid(299), pg_temp.h(2332), repeat('A', 64))$q$)$$,
+  $$values ('22023', 'praxa: argumento inválido', '', '')$$,
+  'T-19: browser_binding_hash en mayúsculas → 22023');
+select results_eq(
+  $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
+      from pg_temp.error_of($q$select * from worker_api.consume_oauth_attempt(
+        pg_temp.uid(299), pg_temp.cid(299), pg_temp.h(2332), repeat('g', 64))$q$)$$,
+  $$values ('22023', 'praxa: argumento inválido', '', '')$$,
+  'T-19: browser_binding_hash con caracteres inválidos → 22023');
 -- ===========================================================================
 
 select pg_temp.new_company(206);

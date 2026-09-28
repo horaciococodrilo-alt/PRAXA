@@ -109,9 +109,10 @@ create schema worker_api;
 revoke all on schema worker_api from public, anon, authenticated;
 alter default privileges in schema worker_api revoke execute on functions from public;
 
--- Sin contraseña: la fija el usuario fuera del repositorio. Idempotente
--- (D-M06.1a-M06.2a-16, `-18`): si el rol ya existe, se le vuelven a fijar los mismos
--- atributos y no se toca su contraseña. Se revocan tanto las membresías en otros roles
+-- Sin contraseña: la fija el usuario fuera del repositorio. Si el rol ya existe, solo se
+-- reutiliza si no tiene propiedades, ACL directas, configuraciones ni default ACL;
+-- de otro modo hay que borrarlo a mano (D-M06.1a-M06.2a-27). Un rol limpio conserva su
+-- contraseña y recibe los atributos previstos. Se revocan las membresías en otros roles
 -- (NOINHERIT no impide SET ROLE) como los grants de este rol a otros, salvo al
 -- administrador que ejecuta la migración; si alguna de las dos direcciones no se pudo
 -- revocar, la migración se detiene. Si ya es SUPERUSER, la migración no puede corregirlo
@@ -120,8 +121,29 @@ alter default privileges in schema worker_api revoke execute on functions from p
 do $$
 declare
   v_membership record;
+  v_role_oid oid;
 begin
-  if exists (select 1 from pg_catalog.pg_roles r where r.rolname = 'praxa_integrations') then
+  select r.oid into v_role_oid
+    from pg_catalog.pg_roles r where r.rolname = 'praxa_integrations';
+
+  if v_role_oid is not null then
+    if exists (
+      select 1 from pg_catalog.pg_shdepend d
+       where d.refclassid = 'pg_catalog.pg_authid'::regclass
+         and d.refobjid = v_role_oid
+         and d.deptype in ('o', 'a')
+    ) or exists (
+      select 1 from pg_catalog.pg_db_role_setting s where s.setrole = v_role_oid
+    ) or exists (
+      select 1 from pg_catalog.pg_default_acl a
+       where a.defaclrole = v_role_oid
+          or exists (select 1 from pg_catalog.aclexplode(a.defaclacl) x
+                      where x.grantee = v_role_oid)
+    ) then
+      raise exception
+        'praxa: praxa_integrations tiene objetos, privilegios o configuraciones; hay que borrar el rol a mano antes de aplicar esta migración';
+    end if;
+
     if exists (
       select 1 from pg_catalog.pg_roles r
        where r.rolname = 'praxa_integrations' and r.rolsuper
@@ -497,6 +519,9 @@ begin
   if p_purpose is null or p_state_hash is null or p_browser_binding_hash is null
      or p_return_path is null or p_expires_at is null
      or p_purpose not in ('initial', 'reauth')
+     or p_state_hash !~ '^[0-9a-f]{64}$'
+     or p_browser_binding_hash !~ '^[0-9a-f]{64}$'
+     or p_return_path <> '/app/integraciones'
      or (p_purpose = 'initial' and p_expected_connection_id is not null)
      or (p_purpose = 'reauth' and p_expected_connection_id is null)
      or p_expires_at <= now()
@@ -615,7 +640,9 @@ declare
 begin
   perform private.assert_worker_actor(p_actor_user_id, p_company_id);
 
-  if p_state_hash is null or p_browser_binding_hash is null then
+  if p_state_hash is null or p_browser_binding_hash is null
+     or p_state_hash !~ '^[0-9a-f]{64}$'
+     or p_browser_binding_hash !~ '^[0-9a-f]{64}$' then
     raise exception 'praxa: argumento inválido' using errcode = '22023';
   end if;
 
@@ -685,7 +712,14 @@ begin
 
   if p_connection_id is null or p_client_business_id is null or p_ciphertext is null
      or p_iv is null or p_auth_tag is null or p_key_version is null
-     or p_token_type is null or p_issued_for_app_id is null or p_granted_scopes is null then
+     or p_token_type is null or p_issued_for_app_id is null or p_granted_scopes is null
+     or p_client_business_id !~ '^[A-Za-z0-9_-]{1,64}$'
+     or p_ciphertext !~ '^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$'
+     or p_ciphertext = '' or p_iv !~ '^[A-Za-z0-9+/]{16}$'
+     or p_auth_tag !~ '^[A-Za-z0-9+/]{22}==$'
+     or p_key_version <= 0 or p_token_type <> 'system_user'
+     or p_issued_for_app_id !~ '^[A-Za-z0-9_-]{1,64}$'
+     or not private.valid_granted_scopes(p_granted_scopes) then
     raise exception 'praxa: argumento inválido' using errcode = '22023';
   end if;
 
@@ -854,6 +888,10 @@ begin
 
   if p_connection_id is null or p_external_account_id is null or p_currency is null
      or p_timezone is null or p_probe_succeeded is distinct from true
+     or p_external_account_id !~ '^[A-Za-z0-9_-]{1,64}$'
+     or p_currency !~ '^[A-Z]{3}$'
+     or (p_timezone <> 'UTC'
+         and p_timezone !~ '^[A-Z][A-Za-z_]+(/[A-Za-z0-9_+-]+)+$')
      or not exists (select 1 from pg_catalog.pg_timezone_names z where z.name = p_timezone) then
     raise exception 'praxa: argumento inválido' using errcode = '22023';
   end if;
@@ -957,7 +995,13 @@ begin
 
   if p_connection_id is null or p_attempt_id is null or p_ciphertext is null
      or p_iv is null or p_auth_tag is null or p_key_version is null
-     or p_token_type is null or p_issued_for_app_id is null or p_granted_scopes is null then
+     or p_token_type is null or p_issued_for_app_id is null or p_granted_scopes is null
+     or p_ciphertext !~ '^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$'
+     or p_ciphertext = '' or p_iv !~ '^[A-Za-z0-9+/]{16}$'
+     or p_auth_tag !~ '^[A-Za-z0-9+/]{22}==$'
+     or p_key_version <= 0 or p_token_type <> 'system_user'
+     or p_issued_for_app_id !~ '^[A-Za-z0-9_-]{1,64}$'
+     or not private.valid_granted_scopes(p_granted_scopes) then
     raise exception 'praxa: argumento inválido' using errcode = '22023';
   end if;
 
@@ -1382,7 +1426,11 @@ begin
 
   if p_connection_id is null or p_expected_generation is null
      or p_expected_key_version is null or p_ciphertext is null or p_iv is null
-     or p_auth_tag is null or p_key_version is null then
+     or p_auth_tag is null or p_key_version is null
+     or p_ciphertext !~ '^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$'
+     or p_ciphertext = '' or p_iv !~ '^[A-Za-z0-9+/]{16}$'
+     or p_auth_tag !~ '^[A-Za-z0-9+/]{22}==$'
+     or p_key_version <= 0 then
     raise exception 'praxa: argumento inválido' using errcode = '22023';
   end if;
 
