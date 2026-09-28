@@ -131,6 +131,8 @@ async function runFile(client, file, setupSql = null) {
   if (file === ROLE_TEST_FILE) {
     const roleBlock = await roleNormalizationBlock();
     sql = sql.replace('__ROLE_NORMALIZATION_BLOCK__', () => roleBlock);
+    sql = sql.replace('__CROSS_ROLE_NORMALIZATION_BLOCK__', () =>
+      roleBlock.replaceAll('praxa_integrations', 'praxa_cross_worker'));
   }
   if (setupSql !== null) {
     const begin = /^begin;\r?$/im;

@@ -13,7 +13,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(55);
+select plan(57);
 
 -- Ejecuta una sentencia con el rol pedido y devuelve el SQLSTATE del error, o null si no
 -- hubo error. El bloque `exception` revierte la subtransacción, incluido el cambio de
@@ -147,6 +147,32 @@ select results_eq(
   'T-05: la normalización rechaza un privilegio directo y pide borrar el rol a mano');
 revoke usage on schema praxa_acl_probe from praxa_integrations;
 drop schema praxa_acl_probe;
+
+-- T-05: un grant saliente hecho por otro rol no puede sobrevivir a la
+-- normalización. El bloque real de 0012 se ejecuta sobre un rol sintético
+-- dentro de la subtransacción de role_error_of; todo termina con ROLLBACK.
+create role praxa_cross_worker nologin;
+create role praxa_cross_target nologin;
+create role praxa_cross_grantor nologin;
+grant praxa_cross_target to praxa_cross_grantor with admin option;
+grant praxa_cross_grantor to current_user;
+set local role praxa_cross_grantor;
+grant praxa_cross_target to praxa_cross_worker;
+reset role;
+select results_eq(
+  $$select grantor.rolname::text collate "default" from pg_auth_members m
+      join pg_roles granted on granted.oid = m.roleid
+      join pg_roles member on member.oid = m.member
+      join pg_roles grantor on grantor.oid = m.grantor
+     where granted.rolname = 'praxa_cross_target'
+       and member.rolname = 'praxa_cross_worker'$$,
+  $$values ('praxa_cross_grantor'::text)$$,
+  'T-05: la membresía sintética viene de otro otorgante');
+select results_eq(
+  $query$select sqlstate, message from pg_temp.role_error_of(
+      $role_sql$__CROSS_ROLE_NORMALIZATION_BLOCK__$role_sql$)$query$,
+  $query$values ('P0001', 'praxa: praxa_cross_worker conserva membresías no autorizadas')$query$,
+  'T-05: la normalización rechaza una membresía concedida por otro rol');
 
 -- ---------------------------------------------------------------------------
 -- T-06: enums (C-06)
