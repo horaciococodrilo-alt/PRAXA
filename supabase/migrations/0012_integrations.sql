@@ -111,9 +111,10 @@ alter default privileges in schema worker_api revoke execute on functions from p
 
 -- Sin contraseña: la fija el usuario fuera del repositorio. Idempotente
 -- (D-M06.1a-M06.2a-16, `-18`): si el rol ya existe, se le vuelven a fijar los mismos
--- atributos y no se toca su contraseña. También se le revoca cualquier membresía en otro
--- rol: NOINHERIT solo evita la herencia automática, pero el rol igual podría hacer
--- `SET ROLE` a lo que sea miembro. Si ya es SUPERUSER, la migración no puede corregirlo
+-- atributos y no se toca su contraseña. Se revocan tanto las membresías en otros roles
+-- (NOINHERIT no impide SET ROLE) como los grants de este rol a otros, salvo al
+-- administrador que ejecuta la migración; si alguna de las dos direcciones no se pudo
+-- revocar, la migración se detiene. Si ya es SUPERUSER, la migración no puede corregirlo
 -- (postgres no tiene permiso para tocar ese atributo) y se detiene: hace falta resolverlo
 -- a mano antes de reintentar.
 do $$
@@ -138,6 +139,39 @@ begin
     loop
       execute format('revoke %I from praxa_integrations', v_membership.target);
     end loop;
+
+    -- Desde PostgreSQL 16, REVOKE sin GRANTED BY solo quita los grants de current_user;
+    -- uno concedido por otro rol sobrevive con un WARNING (D-M06.1a-M06.2a-25).
+    if exists (
+      select 1
+        from pg_catalog.pg_auth_members m
+        join pg_catalog.pg_roles member_role on member_role.oid = m.member
+       where member_role.rolname = 'praxa_integrations'
+    ) then
+      raise exception 'praxa: praxa_integrations conserva membresías no autorizadas';
+    end if;
+
+    for v_membership in
+      select member_role.rolname as target
+        from pg_catalog.pg_auth_members m
+        join pg_catalog.pg_roles member_role on member_role.oid = m.member
+        join pg_catalog.pg_roles granted_role on granted_role.oid = m.roleid
+       where granted_role.rolname = 'praxa_integrations'
+         and member_role.rolname <> current_user
+    loop
+      execute format('revoke praxa_integrations from %I', v_membership.target);
+    end loop;
+
+    if exists (
+      select 1
+        from pg_catalog.pg_auth_members m
+        join pg_catalog.pg_roles member_role on member_role.oid = m.member
+        join pg_catalog.pg_roles granted_role on granted_role.oid = m.roleid
+       where granted_role.rolname = 'praxa_integrations'
+         and member_role.rolname <> current_user
+    ) then
+      raise exception 'praxa: praxa_integrations conserva miembros no autorizados';
+    end if;
 
     alter role praxa_integrations
       login nobypassrls noinherit nocreatedb nocreaterole noreplication;
@@ -475,16 +509,31 @@ begin
   delete from public.oauth_attempts a
    where a.company_id = p_company_id
      and ((a.consumed_at is null and a.expires_at <= now())
-          or a.consumed_at < now() - interval '10 minutes');
+           or a.consumed_at < now() - interval '10 minutes');
 
-  -- Reintento (AGENTS.md:48, D-M06.1a-M06.2a-20): mismo state, actor, empresa y
-  -- vinculación de navegador, con el intento sin consumir y sin vencer, devuelve la fila
-  -- ya creada en vez de chocar con la unicidad de state_hash. El browser_binding_hash se
-  -- suma a lo que pidió el usuario porque, sin él, un segundo intento real desde otro
-  -- navegador que reutilizara el mismo state por accidente se confundiría con un
-  -- reintento (T-46 exige que eso siga dando 22023). No hace falta comparar el resto de
-  -- los parámetros: dentro de esta transacción `now()` es constante, así que un reintento
-  -- legítimo con el mismo `p_expires_at` calculado de la misma forma coincide igual.
+  -- Antes de cualquier reintento, la conexión de una reautorización tiene que pertenecer
+  -- a esta empresa y seguir en un estado que admita reautorización (C-16, CA-28).
+  if p_purpose = 'reauth' then
+    select c.* into v_connection
+    from public.integration_connections c
+    where c.id = p_expected_connection_id
+      and c.company_id = p_company_id
+    for update;
+
+    if not found then
+      raise exception 'praxa: operación no autorizada' using errcode = 'PX001';
+    end if;
+
+    if v_connection.status not in ('active', 'needs_reauth') then
+      raise exception 'praxa: transición de estado no permitida' using errcode = 'PX004';
+    end if;
+
+    v_generation := v_connection.credential_generation;
+  end if;
+
+  -- Reintento exacto (AGENTS.md:48, D-M06.1a-M06.2a-20): la misma llamada vigente
+  -- devuelve la fila ya creada. El state repetido con otro propósito, conexión esperada,
+  -- navegador, retorno o vencimiento no es un reintento y sigue el camino normal.
   return query
   select a.id, a.purpose, a.expected_connection_id, a.expected_generation,
          a.created_at, a.expires_at
@@ -492,7 +541,11 @@ begin
   where a.state_hash = p_state_hash
     and a.actor_user_id = p_actor_user_id
     and a.company_id = p_company_id
+    and a.purpose = p_purpose
+    and a.expected_connection_id is not distinct from p_expected_connection_id
     and a.browser_binding_hash = p_browser_binding_hash
+    and a.return_path = p_return_path
+    and a.expires_at = p_expires_at
     and a.consumed_at is null
     and a.expires_at > now();
 
@@ -509,24 +562,6 @@ begin
     ) then
       raise exception 'praxa: la empresa ya tiene una conexión' using errcode = 'PX003';
     end if;
-  else
-    select c.* into v_connection
-    from public.integration_connections c
-    where c.id = p_expected_connection_id
-      and c.company_id = p_company_id
-    for update;
-
-    if not found then
-      raise exception 'praxa: operación no autorizada' using errcode = 'PX001';
-    end if;
-
-    -- Una pendiente no tiene cuenta que reautorizar (D-M06.1a-M06.2a-02, H-E1-21).
-    if v_connection.status not in ('active', 'needs_reauth') then
-      raise exception 'praxa: transición de estado no permitida' using errcode = 'PX004';
-    end if;
-
-    -- La generación esperada se lee de la fila; nunca viene del llamador.
-    v_generation := v_connection.credential_generation;
   end if;
 
   return query

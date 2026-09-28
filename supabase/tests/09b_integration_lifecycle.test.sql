@@ -14,7 +14,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(147);
+select plan(149);
 
 -- ---------------------------------------------------------------------------
 -- Helpers (pg_temp: desaparecen con el rollback)
@@ -385,6 +385,20 @@ select results_eq(
         now() + interval '5 minutes', pg_temp.kid(202))$$,
   $$values ('reauth', pg_temp.kid(202), 3)$$,
   'T-18: reauth sobre una activa guarda la conexión y la generación leída de la fila');
+
+select throws_ok(
+  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(202), pg_temp.cid(202),
+      'reauth', pg_temp.h(1805), pg_temp.h(1806), '/app/integraciones',
+      now() + interval '5 minutes', pg_temp.kid(204))$$,
+  'PX001', 'praxa: operación no autorizada',
+  'T-18: el mismo state no saltea la autorización de una conexión ajena');
+
+select throws_ok(
+  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(202), pg_temp.cid(202),
+      'initial', pg_temp.h(1805), pg_temp.h(1806), '/app/integraciones',
+      now() + interval '5 minutes')$$,
+  'PX003', 'praxa: la empresa ya tiene una conexión',
+  'T-18: el mismo state con otro propósito no es un reintento');
 
 select throws_ok(
   $$select * from worker_api.create_oauth_attempt(pg_temp.uid(204), pg_temp.cid(204),

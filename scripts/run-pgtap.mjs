@@ -20,11 +20,48 @@ import { resolveSqlTestTarget } from './lib/sql-target.mjs';
  *   - no hay plan;
  *   - hay un error SQL.
  *
+ * Repite 09 con una membresía entrante y otra saliente sintéticas y el bloque real de
+ * normalización de 0012, todo dentro del rollback de la prueba. Así T-05 detecta una
+ * revocación omitida en cualquiera de las dos direcciones.
  * Siempre deja la conexión limpia: ante un error a mitad de archivo, la transacción
  * queda abortada y se emite un ROLLBACK explícito antes de seguir.
  */
 
 const TESTS_DIR = join(process.cwd(), 'supabase', 'tests');
+const INTEGRATIONS_MIGRATION = join(process.cwd(), 'supabase', 'migrations', '0012_integrations.sql');
+const ROLE_TEST_FILE = '09_integration_privileges.test.sql';
+
+async function roleNormalizationSetup() {
+  const migration = await readFile(INTEGRATIONS_MIGRATION, 'utf8');
+  const roleBlock = migration.match(/^do \$\$\r?\n[\s\S]*?^\$\$;/m)?.[0];
+  if (!roleBlock?.includes('alter role praxa_integrations')) {
+    throw new Error('No se encontró el bloque de normalización de praxa_integrations en 0012.');
+  }
+
+  return `
+do $probe$
+begin
+  if not exists (select 1 from pg_catalog.pg_roles where rolname = 'praxa_inbound_probe') then
+    create role praxa_inbound_probe nologin;
+  end if;
+end;
+$probe$;
+create role praxa_outbound_probe nologin;
+grant praxa_integrations to praxa_inbound_probe;
+grant praxa_outbound_probe to praxa_integrations;
+do $probe$
+begin
+  if not pg_has_role('praxa_inbound_probe', 'praxa_integrations', 'SET') then
+    raise exception 'T-05: el grant entrante de preparación no quedó activo';
+  end if;
+  if not pg_has_role('praxa_integrations', 'praxa_outbound_probe', 'SET') then
+    raise exception 'T-05: el grant saliente de preparación no quedó activo';
+  end if;
+end;
+$probe$;
+${roleBlock}
+`;
+}
 
 function parseTap(lines) {
   let planned = null;
@@ -71,8 +108,13 @@ function collectLines(result) {
   return lines;
 }
 
-async function runFile(client, file) {
-  const sql = await readFile(join(TESTS_DIR, file), 'utf8');
+async function runFile(client, file, setupSql = null) {
+  let sql = await readFile(join(TESTS_DIR, file), 'utf8');
+  if (setupSql !== null) {
+    const begin = /^begin;\r?$/im;
+    if (!begin.test(sql)) throw new Error(`${file} no inicia una transacción de prueba.`);
+    sql = sql.replace(begin, (statement) => `${statement}\n${setupSql}`);
+  }
 
   try {
     const result = await client.query(sql);
@@ -189,19 +231,29 @@ async function main() {
 
   const failures = [];
   let totalAssertions = 0;
+  let executions = 0;
 
   try {
     for (const file of files) {
       const run = await runFile(client, file);
+      executions += 1;
       totalAssertions += run.assertions.length;
       failures.push(...report(run));
+
+      if (file === ROLE_TEST_FILE) {
+        const replay = await runFile(client, file, await roleNormalizationSetup());
+        replay.file = `${file} (normalización con membresías sintéticas)`;
+        executions += 1;
+        totalAssertions += replay.assertions.length;
+        failures.push(...report(replay));
+      }
     }
   } finally {
     await client.end();
   }
 
   console.log(
-    `\n${files.length} archivo(s), ${totalAssertions} aserción(es) ejecutada(s), ` +
+    `\n${files.length} archivo(s), ${executions} ejecución(es), ${totalAssertions} aserción(es), ` +
       `${failures.length} problema(s).`,
   );
 

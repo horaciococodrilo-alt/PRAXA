@@ -13,7 +13,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(52);
+select plan(54);
 
 -- Ejecuta una sentencia con el rol pedido y devuelve el SQLSTATE del error, o null si no
 -- hubo error. El bloque `exception` revierte la subtransacción, incluido el cambio de
@@ -96,6 +96,29 @@ select is(
   (select count(*)::int from pg_auth_members m join pg_roles r on r.oid = m.member
     where r.rolname = 'praxa_integrations'),
   0, 'T-05: praxa_integrations no es miembro de ningún otro rol');
+
+-- run-pgtap repite este archivo dentro de otro rollback: concede el rol al probe y
+-- ejecuta el bloque real de normalización de 0012 antes de estas aserciones. En la
+-- corrida ordinaria, el rol sintético nace acá dentro del rollback.
+do $test_role$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'praxa_inbound_probe') then
+    create role praxa_inbound_probe nologin;
+  end if;
+end;
+$test_role$;
+
+select is_empty(
+  $$select 1 from pg_auth_members m
+      join pg_roles member_role on member_role.oid = m.member
+      join pg_roles granted_role on granted_role.oid = m.roleid
+     where granted_role.rolname = 'praxa_integrations'
+       and member_role.rolname <> current_user$$,
+  'T-05: nadie salvo el administrador de la migración es miembro de praxa_integrations');
+
+select ok(
+  not pg_has_role('praxa_inbound_probe', 'praxa_integrations', 'SET'),
+  'T-05: el rol de prueba no puede hacer SET ROLE praxa_integrations');
 
 -- ---------------------------------------------------------------------------
 -- T-06: enums (C-06)
