@@ -1379,6 +1379,7 @@ begin
   -- (PX008). Otro recifrado genuino con la misma versión esperada trae su propio material,
   -- que no va a coincidir con el ya guardado.
   if v_key_version = p_key_version
+     and p_expected_key_version < p_key_version
      and exists (
        select 1 from private.integration_credentials k
        where k.connection_id = p_connection_id
