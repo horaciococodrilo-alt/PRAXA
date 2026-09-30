@@ -2,7 +2,8 @@
 --
 -- RLS no reemplaza los permisos SQL. Esta prueba verifica la capa de GRANT/REVOKE por
 -- separado: qué puede tocar cada rol, antes incluso de que las políticas entren en juego.
--- Es la matriz documentada en supabase/migrations/0004_grants.sql y docs/SECURITY.md.
+-- Es la matriz documentada en supabase/migrations/0004_grants.sql; docs/SECURITY.md
+-- enuncia el principio y remite acá y a la migración.
 
 begin;
 

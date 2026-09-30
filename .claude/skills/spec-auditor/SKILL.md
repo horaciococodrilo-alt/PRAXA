@@ -22,10 +22,10 @@ La spec existe y está en `BORRADOR`. Si no existe, o si ya está `APROBADA`, re
 2. `AGENTS.md`: la jerarquía y las reglas.
 3. `docs/FASES/FASE1/meta_first/plan.md`: la ficha de `$ARGUMENTS` en la Parte I, su sección en la Parte II, y las secciones III.2, III.3 y III.9. También las fichas de las microfases que dependen de esta, para saber qué van a necesitar de ella.
 4. `docs/FASES/FASE1/meta_first/spec.md`, **entero**, no solo los CA que cita la spec de la microfase.
-5. `docs/PROJECT_STATE.md`, entero: gates, pendientes, decisiones y estado de cada microfase.
+5. `docs/PROJECT_STATE.md`, entero: gates, bloqueos, decisiones pendientes y estado de cada microfase.
 6. `docs/HALLAZGOS.md`: los hallazgos asignados a esta microfase y los abiertos que la afecten.
 7. `docs/FASES/FASE1/meta_first/sesiones/`: la evidencia de las microfases de las que depende esta.
-8. `docs/SECURITY.md`.
+8. `docs/SECURITY.md` y `docs/ARCHITECTURE.md`.
 9. El código real: cada archivo que cita la spec, y lo que entregaron de verdad las microfases previas.
 
 ## 3. Checklist
@@ -48,7 +48,7 @@ Marcá cada ítem PASS o FAIL, con evidencia (archivo y sección o línea).
 9. **Lo entregado de verdad.** La spec usa las interfaces que las microfases previas entregaron en el código, no las que planeaba la ruta. Cada diferencia entre lo planeado y lo entregado está resuelta en la spec o registrada como pregunta.
 10. **Pendientes y hallazgos.** Cada hallazgo asignado a esta microfase, y cada pendiente de `PROJECT_STATE.md` que la toque, queda resuelto en la spec o diferido de forma explícita, con su motivo. Ninguno contradice la spec.
 11. **Contexto real.** Todas las referencias `archivo:línea` a lo **existente** existen y dicen lo que la spec afirma. Una sola falsa es FAIL. Lo que la microfase va a crear tiene que estar declarado como previsto; no se exige que exista.
-12. **Archivos previstos.** Cada archivo está autorizado por la tabla de la Parte II o es de seguimiento.
+12. **Archivos previstos.** Cada archivo está autorizado por la tabla de la Parte II o es de seguimiento. Según el "Contrato documental" de `AGENTS.md`, `docs/SECURITY.md` y `docs/ARCHITECTURE.md` figuran si y solo si la microfase cambia una propiedad que les pertenece.
 
 ### C. Se puede ejecutar
 

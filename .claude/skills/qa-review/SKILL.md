@@ -70,7 +70,7 @@ Clasificá cada parte de la "Condición para avanzar" y de la "Evidencia de cier
 - **Para el merge:** la revisión de Codex sin bloqueantes y la CI en verde.
 - **Para cerrar el gate:** la aprobación del usuario y las acciones que el plan ubica después del merge, como el `db:push` al proyecto `app`, cada una con su verificación.
 
-Revisá también que `PROJECT_STATE.md` y la sesión sean consistentes con el resultado.
+Revisá también que `PROJECT_STATE.md` y la sesión sean consistentes con el resultado, y que `PROJECT_STATE.md` contenga solo estado ("Contrato documental" de `AGENTS.md`).
 
 ## 6. Veredicto
 

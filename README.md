@@ -284,7 +284,7 @@ reportes).
 
 ```
 src/app/          rutas (landing, auth, onboarding, aplicación protegida)
-src/modules/      identity · company · onboarding · reporting/contract
+src/modules/      identity · company · tenant · onboarding · reporting/contract · integrations/contract
 src/lib/          configuración y clientes de Supabase
 proxy.ts          refresco de sesión y redirección (no es la autorización final)
 scripts/          preparación de entorno, verificación de destino, migración, pgTAP
@@ -295,8 +295,8 @@ docs/             arquitectura, seguridad y roadmap
 
 ## Documentación
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — módulos, decisiones y contrato del reporte.
-- [`docs/SECURITY.md`](docs/SECURITY.md) — autorización, matriz de privilegios y reglas futuras.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — componentes, flujos, fronteras y decisiones estructurales.
+- [`docs/SECURITY.md`](docs/SECURITY.md) — modelo de amenazas, fronteras de confianza, invariantes y controles.
 - [`docs/FASES/FASE1/meta_first/plan.md`](docs/FASES/FASE1/meta_first/plan.md) — roadmap vigente de la ruta `meta_first`, con microfases, dependencias y gates.
 
 ## Nota sobre el historial

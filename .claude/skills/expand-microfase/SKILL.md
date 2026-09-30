@@ -42,6 +42,7 @@ Si `$ARGUMENTS` está vacío, no hagas nada y reportá que falta el ID.
 - **Alcance.** Solo lo que exige la ruta. No agregues nada.
 - **Fuera de alcance.** Nunca vacío.
 - **Archivos previstos.** Todo archivo que se va a crear o modificar, con el paso de la Parte II que lo autoriza. Un archivo que no esté autorizado va a "Preguntas abiertas" como **REQUIERE CAMBIO EN LA RUTA**.
+  - **Documentos transversales.** Aplicá el "Contrato documental" de `AGENTS.md`: si la microfase cambia una propiedad de `docs/SECURITY.md` o `docs/ARCHITECTURE.md` (o convierte un control o componente de previsto en existente), incluí el archivo y la sección que cambia. No lo incluyas por un detalle volátil (tabla, función, TTL, conteo de pruebas): ese detalle queda en la spec, la migración o la evidencia.
 - **Contexto verificado.** Cada afirmación lleva `archivo:línea`. Si el plan de la ruta supone algo que el código contradice, va a "Preguntas abiertas" con la evidencia.
 - **Diseño concreto.**
   - Decidí vos lo que se deduce sin ambigüedad de la ruta y del código.

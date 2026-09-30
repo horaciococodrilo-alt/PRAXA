@@ -137,7 +137,8 @@ Mostrá un resumen con:
 
 ## 7. Entrega
 
-1. Actualizá `docs/PROJECT_STATE.md` con el estado final, la referencia a la evidencia y los pendientes.
+1. Actualizá `docs/PROJECT_STATE.md` con el estado final, la referencia a la evidencia y los pendientes. Solo estado: los comandos, conteos y el detalle técnico van a la sesión y a `HALLAZGOS.md` ("Contrato documental" de `AGENTS.md`).
+   Si lo que construiste cambia una propiedad de `docs/SECURITY.md` o `docs/ARCHITECTURE.md` según ese contrato, comprobá que el documento quedó actualizado dentro de los archivos del plan. Si el plan no lo autoriza, registralo como hallazgo; no lo edites.
 2. Reportá:
    - **Estado**, con el motivo si es `BLOQUEADO`;
    - **rama y archivos**;

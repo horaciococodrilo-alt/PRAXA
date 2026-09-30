@@ -43,6 +43,29 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Todas usan la misma plantilla operativa: ID, objetivo, implementación requerida, procedimiento del asistente, evidencia de cierre, aceptación, pruebas, condición para avanzar, dependencias y eventual intervención del usuario.
 - Los IDs con punto, por ejemplo `M07.2`, son subdivisiones del ID estable original.
 
+## Contrato documental
+
+Un dato volátil tiene una sola fuente. Los demás documentos lo enlazan, no lo copian.
+
+| Documento | Es dueño de | No debe contener |
+|---|---|---|
+| `docs/SECURITY.md` | Activos, fronteras de confianza, modelo de amenazas, invariantes, modelo de privilegios y de secretos, límites del cifrado, OAuth y LLM como propiedades, riesgos aceptados | Grants exactos, TTL, nombres de cada función, estado de microfases, conteos de pruebas |
+| `docs/ARCHITECTURE.md` | Componentes, módulos y responsabilidades, esquemas y roles, flujos, fronteras entre capas, decisiones estructurales; existente vs previsto | Orden de construcción, gates, siguiente microfase, CA, hallazgos abiertos, fechas |
+| `docs/PROJECT_STATE.md` | Microfases cerradas, gates aprobados, siguiente habilitada, trabajo en paralelo, bloqueos operativos | Explicaciones técnicas, decisiones, detalle de hallazgos, conteos de pruebas |
+| `docs/HALLAZGOS.md` | Todos los hallazgos, con estado y asignación | — |
+| Spec y plan de la ruta y de cada microfase | CA, DEC, TTL, estados, contratos, nombres de tablas y funciones, archivos, orden | — |
+| Migraciones y pgTAP | Matriz exacta de privilegios y comportamiento de la base | — |
+| `sesiones/` y `revisiones/` | Comandos, resultados y conteos reales | — |
+
+Cuándo se actualiza cada documento transversal:
+
+- **`SECURITY.md`**: solo si cambia el modelo de amenazas, una frontera de confianza, una invariante, el tratamiento de secretos, el modelo de privilegios o capacidades de un rol, una política transversal de datos, o la frontera con un sistema externo o con el LLM. También cuando un control pasa de previsto a vigente.
+- **`ARCHITECTURE.md`**: solo si cambia un componente, un flujo, una frontera, una dependencia estructural o la responsabilidad de un módulo. También cuando algo previsto pasa a existir.
+- **`PROJECT_STATE.md`**: cuando cambia el estado o el gate de una microfase, la siguiente habilitada o un bloqueo operativo.
+- **Nunca** por una tabla o función nueva, un TTL, un archivo de implementación o un número de pruebas, salvo que alteren una propiedad de las listas anteriores.
+
+Si una microfase cambia una propiedad de `SECURITY.md` o `ARCHITECTURE.md`, el archivo tiene que figurar en sus archivos previstos. Si la ruta no lo autoriza, es una pregunta abierta marcada **REQUIERE CAMBIO EN LA RUTA**; si se detecta después de implementar, es un hallazgo. Nunca se edita fuera del plan.
+
 ## Non-negotiables
 - El LLM nunca produce números, estados ni políticas autoritativas.
 - Toda escritura es idempotente, reversible y verificable.

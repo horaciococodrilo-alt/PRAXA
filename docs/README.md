@@ -8,12 +8,13 @@ Esta carpeta funciona como memory bank de PRAXA. Cada dato debe tener una única
 2. [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan.md): roadmap vigente (Parte I, Enmienda 1, ruta `meta_first`) y plan de ejecución. El contrato de ejecución para asistentes está en [AGENTS.md](../AGENTS.md). `ROADMAP.md` v2.3 está archivado fuera del repositorio.
 3. [HALLAZGOS.md](HALLAZGOS.md): registro de hallazgos abiertos, resueltos y pendientes.
 4. [FASES/](FASES/): evidencia y contexto de microfases ejecutadas.
-5. [ARCHITECTURE.md](ARCHITECTURE.md): arquitectura del sistema.
-6. [SECURITY.md](SECURITY.md): controles y riesgos de seguridad.
+5. [ARCHITECTURE.md](ARCHITECTURE.md): componentes, flujos y fronteras; existente vs previsto.
+6. [SECURITY.md](SECURITY.md): activos, fronteras de confianza, modelo de amenazas, invariantes y controles.
+
+Qué contiene cada documento y cuándo se actualiza: "Contrato documental" en [AGENTS.md](../AGENTS.md).
 
 ## Estructura
 
-- `adr/`: decisiones arquitectónicas aprobadas.
 - `FASES/`: documentos de ejecución y evidencia.
 - `_templates/`: plantillas para nuevos documentos.
 

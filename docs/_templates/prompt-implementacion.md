@@ -10,8 +10,8 @@ Branch: `[nombre-branch]`. Herramienta/modelo: [Claude Code | Codex] — [modelo
 4. `docs/FASES/FASE1/[MF]/spec.md` (versión [vX]).
 5. `docs/FASES/FASE1/[MF]/plan.md`: sección de [ID] en la Parte II, III.3 y III.9.
 6. `docs/FASES/FASE1/[MF]/gate.md`, si la microfase tiene uno.
-7. `docs/SECURITY.md`, secciones: [ej. "Invariantes que se aplican en la base", "Autorización en el servidor", "Credenciales"].
-8. `docs/ARCHITECTURE.md`, secciones: [ej. "Dos esquemas: public y private", "Las RPC del producto son SECURITY INVOKER"].
+7. `docs/SECURITY.md`, secciones: [ej. "3. Invariantes de seguridad", "5. Aislamiento multiempresa", "6. Credenciales, secretos y cifrado"].
+8. `docs/ARCHITECTURE.md`, secciones: [ej. "Base de datos", "Los dos caminos de una operación", "Concurrencia: reglas por subsistema"].
 9. Código existente relevante: [rutas, ej. `src/modules/reporting/contract/`, `supabase/migrations/0010_*.sql`].
 10. Si tocás APIs de Next: la guía correspondiente en `node_modules/next/dist/docs/`.
 

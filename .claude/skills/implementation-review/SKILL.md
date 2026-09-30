@@ -56,6 +56,7 @@ Marcá cada ítem PASS o FAIL, con evidencia.
    - Los archivos tocados están dentro del plan de la microfase (o de la tabla de la Parte II, con la regla de rutas sugeridas) más los de seguimiento.
    - No hay funcionalidad de más.
    - No falta nada de lo que exige "Implementación requerida".
+   - **Documentos transversales** ("Contrato documental" de `AGENTS.md`): si el cambio altera una propiedad de `docs/SECURITY.md` o `docs/ARCHITECTURE.md`, o vuelve vigente algo que figuraba como previsto, el documento lo refleja. Ninguno de los dos incorpora estado, conteos ni detalle volátil, y `PROJECT_STATE.md` solo registra estado.
 2. **Criterios.** Para cada criterio heredado y operativo:
    - existe al menos una prueba;
    - leés la prueba y confirmás que su aserción verifica ese criterio, y no otra cosa;
