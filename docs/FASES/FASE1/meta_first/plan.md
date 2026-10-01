@@ -507,15 +507,19 @@ Las columnas de las tablas nuevas tienen que coincidir con los contratos K02 a K
 | 3 | `seal` y `open` con AES-256-GCM (`node:crypto`), IV aleatorio de 12 bytes por operación, AAD = `company_id`, `connection_id` y proveedor | `src/modules/integrations/crypto/seal.ts` | CA-11b, CA-23 y CA-24 |
 | 4 | Cliente `pg` del rol de C con `import 'server-only'`, por el pooler en modo transacción y sin prepared statements con nombre, según la guía de Supabase para node-postgres | `src/modules/integrations/db/worker-api.ts` | — |
 | 5 | Repositorio de credenciales sobre `worker_api` | `src/modules/integrations/repository/credentials.ts` | CA-21 |
-| 6 | Mover `pg` de `devDependencies` a `dependencies` | `package.json` | `npm run build` |
+| 6 | Mover `pg` de `devDependencies` a `dependencies` | `package.json`, `package-lock.json` | `npm run build` |
 | 7 | Extender la prueba: `PRAXA_INTEGRATIONS_DB_URL` solo puede aparecer en el módulo del paso 4 | `tests/unit/no-privileged-credentials.test.ts` | CA-27 reescrita |
-| 7b | Extender `check-target` para `PRAXA_INTEGRATIONS_TEST_DB_URL`: mismo proyecto que `SUPABASE_TEST_DB_URL`, `SUPABASE_TEST_IS_DISPOSABLE` activo y sin recurrir a `PRAXA_INTEGRATIONS_DB_URL` | `scripts/check-target.mjs`, `tests/unit/sql-test-target.test.ts` | T09 |
+| 7b | Extender `check-target` para `PRAXA_INTEGRATIONS_TEST_DB_URL`: mismo proyecto que `SUPABASE_TEST_DB_URL`, `SUPABASE_TEST_IS_DISPOSABLE` activo y sin recurrir a `PRAXA_INTEGRATIONS_DB_URL` | `scripts/check-target.mjs`, `scripts/lib/sql-target.mjs`, `tests/unit/sql-test-target.test.ts` | T09 |
 | 7c | Cerrar `H-M04.1-02`: quitar la excepción `SUPABASE_TEST_ALLOW_APP_PROJECT` de la guarda de destino y de los helpers de `test:app` | `scripts/lib/target.mjs`, `tests/app/helpers.ts`, `docs/SECURITY.md` (líneas que describen la excepción) | `H-M04.1-02` |
 | 8 | Recorrido del árbol: ninguna clave, token o código OAuth en código, fixtures o documentación | `tests/unit/no-secrets-in-tree.test.ts` | CA-26 |
-| 9 | Documentar la excepción acotada: una credencial, con sus capacidades enumeradas | `docs/SECURITY.md`, `docs/ARCHITECTURE.md` | Revisión |
+| 9 | Documentar la excepción acotada: una credencial, con categorías de autoridad y restricciones enumeradas; matriz exacta enlazada a migraciones y pgTAP, sin duplicarla | `docs/SECURITY.md`, `docs/ARCHITECTURE.md` | Revisión |
 | 10 | Variables nuevas en `.env.example`, **sin valores** (la prueba existente lo exige) | `.env.example` | `npm run test:unit` |
+| 11 | Suite permanente: autenticación real del rol, capacidades/restricciones y recorrido del repositorio; falla ante URL ausente, inválida o de otro proyecto, sin fallback ni skip | `tests/app/integrations-worker-api-client.test.ts` | Trust path real; H-E1-36; CB-06 |
+| 12 | Actualizar solo tabla de variables de prueba y párrafo de salvaguardas relacionado | `README.md` | Sin duplicar arquitectura ni contratos |
 
-**Cierre:** `npm run verify`.
+**Ajuste documental aprobado en el grill del 2026-10-01:** Q-01, Q-02 y Q-09; decisiones en la spec M06.3a. No cambia el alcance funcional ni el orden de la ruta.
+
+**Cierre:** `npm run db:check:test`, `npm run test:app` y `npm run verify`.
 
 **Trampa conocida.** El IV no se deriva de nada ni se reutiliza: se genera al azar en cada operación y se guarda junto al texto cifrado. Reutilizarlo en GCM no debilita el cifrado, lo rompe.
 
@@ -786,7 +790,7 @@ Ninguna clave se pega en el chat.
 | `M05.1.1` a `M05.1.4` | — |
 | `M06.1a` | `db:check:test`, `db:push:test` |
 | `M06.2a` | `db:check:test`, `test:policies`, `test:app` |
-| `M06.3a` | — (las pruebas nuevas son `unit`) |
+| `M06.3a` | `db:check:test`, `test:app`; la suite del cliente real es obligatoria y falla ante configuración inválida |
 | `M28.2a` | `npm run verify`; checklist manual y registro con una dirección externa |
 | `M03a` | — (documento; revisión cruzada con la spec) |
 | `M16.1` | `test:app`. Sin autorización real |
