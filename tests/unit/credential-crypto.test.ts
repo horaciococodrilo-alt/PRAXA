@@ -5,6 +5,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { inspect } from 'node:util';
+import { createRequire } from 'node:module';
 
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -49,6 +50,25 @@ const ctx = Object.freeze({ user_id: actorId, company_id: companyId, role: 'owne
 const writeInput = Object.freeze({ token: sample, tokenType: 'system_user' as const, issuedForAppId: 'app_sintetica', grantedScopes: ['ads_read'], expiresAt: null });
 const testRef = 'a'.repeat(20);
 const roleUrl = `postgresql://praxa_integrations.${testRef}:clave@aws-0-us-west-2.pooler.supabase.com:6543/postgres`;
+const ConnectionParameters = createRequire(import.meta.url)('pg/lib/connection-parameters') as new (options: Record<string, unknown>) => {
+  user: string; host: string; port: number; sslnegotiation: string; ssl: { rejectUnauthorized: boolean; ca: string };
+};
+
+function expectRedacted(error: unknown, code: string, message: string) {
+  expect(error).toMatchObject({ code, message });
+  expect(error).not.toHaveProperty('cause');
+  expect(error).not.toHaveProperty('issues');
+  const serialized = JSON.stringify(error);
+  for (const secret of [sample, roleUrl, actorId, companyId, 'marca-sintetica-confidencial']) {
+    expect(serialized).not.toContain(secret);
+    expect((error as Error).message).not.toContain(secret);
+  }
+}
+
+async function rejection(task: Promise<unknown>): Promise<unknown> {
+  try { await task; } catch (error) { return error; }
+  throw new Error('La operación debía fallar.');
+}
 
 let createWorkerApi: (typeof import('@/modules/integrations/db/worker-api'))['createWorkerApi'];
 let getWorkerApi: (typeof import('@/modules/integrations/db/worker-api'))['getWorkerApi'];
@@ -66,17 +86,17 @@ let prepareReplaceCredential: (typeof import('@/modules/integrations/repository/
 let readCredential: (typeof import('@/modules/integrations/repository/credentials'))['readCredential'];
 
 async function loadWorker() {
-  const module = await vi.importActual<typeof import('@/modules/integrations/db/worker-api')>('@/modules/integrations/db/worker-api');
-  ({ createWorkerApi, getWorkerApi, SUPABASE_ROOT_CA, WorkerApiError } = module);
+  const loadedWorker = await vi.importActual<typeof import('@/modules/integrations/db/worker-api')>('@/modules/integrations/db/worker-api');
+  ({ createWorkerApi, getWorkerApi, SUPABASE_ROOT_CA, WorkerApiError } = loadedWorker);
 }
 
 async function loadRepository() {
   await loadWorker();
-  const module = await vi.importActual<typeof import('@/modules/integrations/repository/credentials')>('@/modules/integrations/repository/credentials');
+  const loadedRepository = await vi.importActual<typeof import('@/modules/integrations/repository/credentials')>('@/modules/integrations/repository/credentials');
   ({ CredentialChangedError, CredentialNotFoundError, CredentialRepositoryError,
     canRetireKeyVersion, countCredentialsByKeyVersion, createPendingConnectionWithCredential,
     executePreparedCredentialOperation, preparePendingConnectionWithCredential,
-    prepareReplaceCredential, readCredential } = module);
+    prepareReplaceCredential, readCredential } = loadedRepository);
 }
 
 function material() {
@@ -336,21 +356,34 @@ describe('M06.3a paso 2 RED: repositorio', () => {
   });
 
   it('T-42 prepara una vez y repite argumentos idénticos sin resellar', async () => {
-    const ring = keyring();
-    const workerApi = api(async (fn, args) => fn === 'create_pending_connection'
-      ? [{ connection_id: args[2], status: 'pending_selection', pending_expires_at: new Date(), credential_generation: 1 }]
-      : [{ connection_id: args[2], status: 'active', credential_generation: 2 }]);
+    const originalRing = keyring();
+    const ring = { ...originalRing, currentVersion: 1 };
+    let loseResponse = true;
+    const workerApi = api(async (fn, args) => {
+      if (loseResponse) { loseResponse = false; throw new WorkerApiError('unavailable', 'transport'); }
+      return fn === 'create_pending_connection'
+        ? [{ connection_id: args[2], status: 'pending_selection', pending_expires_at: new Date(), credential_generation: 1 }]
+        : [{ connection_id: args[2], status: 'active', credential_generation: 2 }];
+    });
     const create = preparePendingConnectionWithCredential(ctx, { ...writeInput, clientBusinessId: 'business_sintetico' }, { keyring: ring });
     const replace = prepareReplaceCredential(ctx, { ...writeInput, connectionId, attemptId }, { keyring: ring });
     expect(JSON.stringify(create)).not.toContain(sample);
     expect(Object.isFrozen(create)).toBe(true);
+    await expect(executePreparedCredentialOperation(ctx, create, { workerApi })).rejects.toMatchObject({ code: 'unavailable' });
+    expect(workerApi.call).toHaveBeenCalledTimes(1);
+    ring.currentVersion = 2;
     await executePreparedCredentialOperation(ctx, create, { workerApi });
-    await executePreparedCredentialOperation(ctx, create, { workerApi });
-    await executePreparedCredentialOperation(ctx, replace, { workerApi });
+    loseResponse = true;
+    await expect(executePreparedCredentialOperation(ctx, replace, { workerApi })).rejects.toMatchObject({ code: 'unavailable' });
+    expect(workerApi.call).toHaveBeenCalledTimes(3);
     await executePreparedCredentialOperation(ctx, replace, { workerApi });
     expect(workerApi.call.mock.calls[0]).toEqual(workerApi.call.mock.calls[1]);
     expect(workerApi.call.mock.calls[2]).toEqual(workerApi.call.mock.calls[3]);
+    expect((workerApi.call.mock.calls[0][1] as unknown[])[7]).toBe(1);
+    expect((workerApi.call.mock.calls[2][1] as unknown[])[7]).toBe(1);
     expect(workerApi.call).toHaveBeenCalledTimes(4);
+    await expect(executePreparedCredentialOperation({ ...ctx, user_id: otherConnectionId }, replace, { workerApi }))
+      .rejects.toMatchObject({ code: 'prepared_context_mismatch' });
     await expect(executePreparedCredentialOperation({ ...ctx, company_id: otherCompanyId }, create, { workerApi }))
       .rejects.toMatchObject({ code: 'prepared_context_mismatch' });
     expect(workerApi.call).toHaveBeenCalledTimes(4);
@@ -358,57 +391,139 @@ describe('M06.3a paso 2 RED: repositorio', () => {
 
   it('T-45 clasifica incertidumbre de rewrap antes o después de escritura sin retry', async () => {
     const ring = keyring(2);
-    for (const persisted of [false, true]) {
+    for (const [persisted, reason] of [[false, 'transport'], [true, 'transport'], [false, 'timeout'], [true, 'timeout']] as const) {
       let current = credentialRow(ring, 'active', 1);
       const workerApi = api(async (fn, args) => {
         if (fn === 'get_credential') return [current];
         if (persisted) current = { ...current, ciphertext: args[5] as string, iv: args[6] as string, auth_tag: args[7] as string, key_version: 2 };
-        throw new WorkerApiError('unavailable', 'transport');
+        throw new WorkerApiError('unavailable', reason);
       });
       const first = await readCredential(ctx, connectionId, { workerApi, keyring: ring });
+      expect(first.token.reveal()).toBe(sample);
       expect(first.keyVersion).toBe(1);
-      expect(first.rewrap).toEqual({ status: 'unconfirmed', reason: 'transport' });
+      expect(first.rewrap).toEqual({ status: 'unconfirmed', reason });
       expect(workerApi.call).toHaveBeenCalledTimes(2);
+      expect(workerApi.call.mock.calls.map(([fn]) => fn)).toEqual(['get_credential', 'rewrap_credential']);
       const next = await readCredential(ctx, connectionId, { workerApi, keyring: ring });
       expect(next.keyVersion).toBe(persisted ? 2 : 1);
+      expect(next.token.reveal()).toBe(sample);
+      expect(workerApi.call).toHaveBeenCalledTimes(persisted ? 3 : 4);
     }
   });
 
   it('T-46 no trata errores explícitos como incertidumbre', async () => {
     const ring = keyring(2);
-    for (const [code, kind] of [['privilege_missing', 'other'], ['unavailable', 'other'], ['generation_mismatch', 'other']] as const) {
+    for (const [code, kind] of [['privilege_missing', 'other'], ['unavailable', 'other'], ['generation_mismatch', 'other'], ['not_authorized', 'other'], ['invalid_argument', 'other']] as const) {
       const workerApi = api(async (fn) => {
         if (fn === 'get_credential') return [credentialRow(ring, 'active', 1)];
         throw new WorkerApiError(code, kind);
       });
-      await expect(readCredential(ctx, connectionId, { workerApi, keyring: ring })).rejects.toThrow();
+      if (code === 'generation_mismatch') {
+        await expect(readCredential(ctx, connectionId, { workerApi, keyring: ring }))
+          .rejects.toMatchObject({ code: 'credential_changed', message: 'La credencial cambió; volvé a empezar.' });
+      } else {
+        await expect(readCredential(ctx, connectionId, { workerApi, keyring: ring }))
+          .rejects.toMatchObject({ code, failureKind: 'other' });
+      }
+      expect(workerApi.call).toHaveBeenCalledTimes(2);
     }
     const failRead = api(async () => { throw new WorkerApiError('unavailable', 'transport'); });
     await expect(readCredential(ctx, connectionId, { workerApi: failRead, keyring: ring })).rejects.toMatchObject({ code: 'unavailable' });
     expect(failRead.call).toHaveBeenCalledTimes(1);
+    const malformed = credentialRow(ring, 'active', 1);
+    const invalid = api(async () => [{ ...malformed, auth_tag: 'malformed' }]);
+    await expect(readCredential(ctx, connectionId, { workerApi: invalid, keyring: ring }))
+      .rejects.toMatchObject({ code: 'invalid_response' });
+    expect(invalid.call).toHaveBeenCalledTimes(1);
+    const tampered = api(async () => [{ ...malformed, ciphertext: flipByte(malformed.ciphertext) }]);
+    await expect(readCredential(ctx, connectionId, { workerApi: tampered, keyring: ring }))
+      .rejects.toBeInstanceOf(CredentialDecryptionError);
+    expect(tampered.call).toHaveBeenCalledTimes(1);
+    const failedSealRing = { ...ring, keyFor: (version: number) => {
+      if (version === 2) throw new CredentialKeyVersionUnknownError(version);
+      return ring.keyFor(version);
+    } };
+    const failedSeal = api(async () => [malformed]);
+    await expect(readCredential(ctx, connectionId, { workerApi: failedSeal, keyring: failedSealRing }))
+      .rejects.toBeInstanceOf(CredentialKeyVersionUnknownError);
+    expect(failedSeal.call).toHaveBeenCalledTimes(1);
+    const conflict = api(async (fn) => fn === 'get_credential'
+      ? [malformed] : Promise.reject(new WorkerApiError('key_version_mismatch')));
+    const conflictResult = await readCredential(ctx, connectionId, { workerApi: conflict, keyring: ring });
+    expect(conflictResult.rewrap).toEqual({ status: 'version_conflict' });
+    expect(conflictResult.keyVersion).toBe(1);
+    expect(conflict.call).toHaveBeenCalledTimes(2);
+    const success = api(async (fn) => fn === 'get_credential'
+      ? [malformed] : [{ connection_id: connectionId, key_version: 2 }]);
+    expect((await readCredential(ctx, connectionId, { workerApi: success, keyring: ring })).rewrap)
+      .toEqual({ status: 'confirmed' });
+    const disconnected = api(async () => [credentialRow(ring, 'disconnected', 1)]);
+    expect((await readCredential(ctx, connectionId, { workerApi: disconnected, keyring: ring })).rewrap)
+      .toEqual({ status: 'not_attempted' });
+    expect(disconnected.call).toHaveBeenCalledTimes(1);
+    for (const signal of [conflictResult.rewrap, { status: 'unconfirmed', reason: 'timeout' }]) {
+      const serialized = JSON.stringify(signal);
+      expect(serialized).not.toContain(sample);
+      expect(serialized).not.toContain(malformed.ciphertext);
+    }
   });
 
   it('T-51 rechaza entradas y operaciones forjadas antes de DB', async () => {
-    const ring = keyring();
+    const originalRing = keyring();
+    const ring = { ...originalRing, keyFor: vi.fn(originalRing.keyFor) };
     const workerApi = api(async () => []);
     const badContexts = [
       { ...ctx, user_id: 'bad' }, { ...ctx, company_id: 'bad' },
       { ...ctx, request_id: 'bad' }, { ...ctx, role: 'reader' }, { ...ctx, extra: true },
+      { ...ctx, user_id: null }, { ...ctx, company_id: null },
+      { ...ctx, request_id: null }, { ...ctx, role: null },
     ];
     for (const bad of badContexts) {
-      await expect(readCredential(bad as typeof ctx, connectionId, { workerApi, keyring: ring }))
-        .rejects.toMatchObject({ code: 'invalid_input', message: 'Entrada de credenciales inválida.' });
+      const error = await rejection(readCredential(bad as typeof ctx, connectionId, { workerApi, keyring: ring }));
+      expect(error).toBeInstanceOf(CredentialRepositoryError);
+      expectRedacted(error, 'invalid_input', 'Entrada de credenciales inválida.');
     }
-    for (const bad of [{ ...writeInput, token: '' }, { ...writeInput, grantedScopes: ['otro'] }, { ...writeInput, expiresAt: 'bad' }]) {
-      expect(() => preparePendingConnectionWithCredential(ctx, { ...bad, clientBusinessId: 'business_sintetico' }, { keyring: ring }))
-        .toThrow(CredentialRepositoryError);
+    for (const bad of [
+      { ...writeInput, token: '' }, { ...writeInput, token: null }, { ...writeInput, tokenType: 'otro' },
+      { ...writeInput, grantedScopes: ['otro'] }, { ...writeInput, expiresAt: 'bad' },
+      { ...writeInput, issuedForAppId: '' }, { ...writeInput, extra: true },
+    ]) {
+      let error: unknown;
+      try { preparePendingConnectionWithCredential(ctx, { ...bad, clientBusinessId: 'business_sintetico' } as never, { keyring: ring }); }
+      catch (caught) { error = caught; }
+      expect(error).toBeInstanceOf(CredentialRepositoryError);
+      expectRedacted(error, 'invalid_input', 'Entrada de credenciales inválida.');
     }
-    await expect(executePreparedCredentialOperation(ctx, {} as never, { workerApi }))
-      .rejects.toMatchObject({ code: 'invalid_prepared_operation' });
+    for (const bad of [
+      { ...writeInput, clientBusinessId: '' }, { ...writeInput, clientBusinessId: 'business_sintetico', companyId },
+      { ...writeInput, connectionId: 'bad', attemptId }, { ...writeInput, connectionId, attemptId: 'bad' },
+    ]) {
+      let error: unknown;
+      try {
+        if ('clientBusinessId' in bad) preparePendingConnectionWithCredential(ctx, bad as never, { keyring: ring });
+        else prepareReplaceCredential(ctx, bad as never, { keyring: ring });
+      } catch (caught) { error = caught; }
+      expectRedacted(error, 'invalid_input', 'Entrada de credenciales inválida.');
+    }
+    expect(ring.keyFor).not.toHaveBeenCalled();
+    for (const version of [0, -1, 1.5, 2_147_483_648, NaN]) {
+      const error = await rejection(canRetireKeyVersion(version, { workerApi }));
+      expect(error).toBeInstanceOf(CredentialRepositoryError);
+      expectRedacted(error, 'invalid_input', 'Entrada de credenciales inválida.');
+    }
+    const forgedError = await rejection(executePreparedCredentialOperation(ctx, {} as never, { workerApi }));
+    expect(forgedError).toBeInstanceOf(CredentialRepositoryError);
+    expectRedacted(forgedError, 'invalid_prepared_operation', 'Operación de credenciales preparada inválida.');
     const authentic = preparePendingConnectionWithCredential(ctx, { ...writeInput, clientBusinessId: 'business_sintetico' }, { keyring: ring });
-    await expect(executePreparedCredentialOperation(ctx, { ...authentic } as never, { workerApi }))
-      .rejects.toMatchObject({ code: 'invalid_prepared_operation' });
+    for (const other of [{ ...ctx, user_id: otherConnectionId }, { ...ctx, company_id: otherCompanyId }]) {
+      const error = await rejection(executePreparedCredentialOperation(other, authentic, { workerApi }));
+      expect(error).toBeInstanceOf(CredentialRepositoryError);
+      expectRedacted(error, 'prepared_context_mismatch', 'La operación preparada no corresponde al contexto actual.');
+    }
+    const clonedError = await rejection(executePreparedCredentialOperation(ctx, { ...authentic } as never, { workerApi }));
+    expectRedacted(clonedError, 'invalid_prepared_operation', 'Operación de credenciales preparada inválida.');
     expect(workerApi.call).not.toHaveBeenCalled();
+    expect(ring.keyFor).toHaveBeenCalledTimes(1);
   });
 
   it('T-52 valida get_credential antes de descifrar y proyecta K04', async () => {
@@ -417,17 +532,22 @@ describe('M06.3a paso 2 RED: repositorio', () => {
     await expect(readCredential(ctx, connectionId, { workerApi: api(async () => []), keyring: ring }))
       .rejects.toBeInstanceOf(CredentialNotFoundError);
     const badRows = [
-      [valid, valid], [null], [{ ...valid, company_id: otherCompanyId }],
+      [valid, valid], [null], [{ ...valid, connection_id: otherConnectionId }], [{ ...valid, company_id: otherCompanyId }],
       [{ ...valid, provider: 'otro' }], [{ ...valid, status: 'otro' }],
       [{ ...valid, credential_generation: -1 }], [{ ...valid, credential_generation: 1.5 }],
+      [{ ...valid, credential_generation: 2_147_483_648 }], [{ ...valid, credential_generation: null }],
       [{ ...valid, expires_at: new Date(NaN) }], [{ ...valid, ciphertext: 'bad' }],
+      [{ ...valid, key_version: 0 }], [{ ...valid, token_type: 'otro' }],
       [{ ...valid, unexpected_column: 1 }],
     ];
     for (const rows of badRows) {
       const workerApi = api(async () => rows);
-      await expect(readCredential(ctx, connectionId, { workerApi, keyring: ring }))
-        .rejects.toMatchObject({ code: 'invalid_response' });
+      vi.mocked(createDecipheriv).mockClear();
+      const error = await rejection(readCredential(ctx, connectionId, { workerApi, keyring: ring }));
+      expect(error).toBeInstanceOf(CredentialRepositoryError);
+      expectRedacted(error, 'invalid_response', 'Respuesta de credenciales inválida.');
       expect(workerApi.call).toHaveBeenCalledTimes(1);
+      expect(createDecipheriv).not.toHaveBeenCalled();
     }
     const result = await readCredential(ctx, connectionId, { workerApi: api(async () => [valid]), keyring: ring });
     expect(result.token.reveal()).toBe(sample);
@@ -506,8 +626,53 @@ describe('M06.3a paso 2 RED: cliente worker_api', () => {
   it('T-53 rechaza envelopes y filas no objeto en la frontera del cliente', async () => {
     for (const result of [null, {}, { rows: null }, { rows: {} }, { rows: [null] }, { rows: [[]] }]) {
       const pool: Queryable = { query: vi.fn(async () => result as never), on: vi.fn(), end: vi.fn(async () => {}) };
-      await expect(createWorkerApi({ pool }).call('get_credential', [actorId, companyId, connectionId]))
-        .rejects.toMatchObject({ code: 'unexpected', message: 'Respuesta de base de datos inválida.' });
+      const error = await rejection(createWorkerApi({ pool }).call('get_credential', [actorId, companyId, connectionId]));
+      expect(error).toBeInstanceOf(WorkerApiError);
+      expectRedacted(error, 'unexpected', 'Respuesta de base de datos inválida.');
+      expect(pool.query).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('T-53 valida respuestas create/replace/rewrap y conteos con errores redactados', async () => {
+    const ring = keyring(2);
+    const create = preparePendingConnectionWithCredential(ctx, { ...writeInput, clientBusinessId: 'business_sintetico' }, { keyring: ring });
+    const replace = prepareReplaceCredential(ctx, { ...writeInput, connectionId, attemptId }, { keyring: ring });
+    for (const operation of [create, replace]) {
+      const variations: ((base: Record<string, unknown>) => unknown[])[] = [
+        () => [], (base) => [base, base], () => [null],
+        (base) => [{ ...base, connection_id: otherConnectionId }],
+        (base) => [{ ...base, status: 'otro' }],
+        (base) => [{ ...base, credential_generation: -1 }],
+        (base) => [{ ...base, extra: 'marca-sintetica-confidencial' }],
+      ];
+      if (operation === create) variations.push((base) => [{ ...base, pending_expires_at: new Date(NaN) }]);
+      for (const vary of variations) {
+        const workerApi = api(async (_fn, args) => {
+          const base = operation === create
+            ? { connection_id: args[2], status: 'pending_selection', pending_expires_at: new Date(), credential_generation: 1 }
+            : { connection_id: args[2], status: 'active', credential_generation: 2 };
+          return vary(base);
+        });
+        const error = await rejection(executePreparedCredentialOperation(ctx, operation, { workerApi }));
+        expect(error).toBeInstanceOf(CredentialRepositoryError);
+        expectRedacted(error, 'invalid_response', 'Respuesta de credenciales inválida.');
+      }
+    }
+    const old = credentialRow(ring, 'active', 1);
+    for (const rows of [[], [null], [{ connection_id: otherConnectionId, key_version: 2 }],
+      [{ connection_id: connectionId, key_version: 1 }], [{ connection_id: connectionId, key_version: 2, extra: true }]]) {
+      const workerApi = api(async (fn) => fn === 'get_credential' ? [old] : rows);
+      const error = await rejection(readCredential(ctx, connectionId, { workerApi, keyring: ring }));
+      expect(error).toBeInstanceOf(CredentialRepositoryError);
+      expectRedacted(error, 'invalid_response', 'Respuesta de credenciales inválida.');
+    }
+    for (const rows of [[null], [{ key_version: 0, credential_count: '1' }],
+      [{ key_version: 1, credential_count: '-1' }], [{ key_version: 1, credential_count: '9007199254740992' }],
+      [{ key_version: 1, credential_count: '1', extra: true }],
+      [{ key_version: 1, credential_count: '1' }, { key_version: 1, credential_count: '2' }]]) {
+      const error = await rejection(countCredentialsByKeyVersion({ workerApi: api(async () => rows) }));
+      expect(error).toBeInstanceOf(WorkerApiError);
+      expectRedacted(error, 'unexpected', 'Respuesta de base de datos inválida.');
     }
   });
 
@@ -538,11 +703,18 @@ describe('M06.3a paso 2 RED: cliente worker_api', () => {
       roleUrl.replace('aws-0-us-west-2.pooler.supabase.com', 'db.example.com'),
       roleUrl.replace('aws-0-us-west-2.pooler.supabase.com', 'aws-0-us-west-2.pooler.supabase.com.evil.test'),
       roleUrl.replace('aws-0-us-west-2.pooler.supabase.com', '127.0.0.1'),
+      roleUrl.replace('aws-0-us-west-2.pooler.supabase.com', '%2Fvar%2Frun%2Fpostgresql'),
       roleUrl.replace('praxa_integrations.', 'postgres.'),
     ];
     pgState.constructed.length = 0;
     for (const url of bad) expect(() => createWorkerApi({ connectionString: url })).toThrow(WorkerApiError);
     expect(pgState.constructed).toHaveLength(0);
+    for (const host of ['aws-0-us-west-2.pooler.supabase.com', 'eu-1.pooler.supabase.com']) {
+      const url = roleUrl.replace('aws-0-us-west-2.pooler.supabase.com', host);
+      createWorkerApi({ connectionString: url });
+      const effective = new ConnectionParameters(pgState.constructed.at(-1) as Record<string, unknown>);
+      expect([effective.user, effective.host, effective.port]).toEqual([`praxa_integrations.${testRef}`, host, 6543]);
+    }
   });
 
   it('T-48/T-50 versiona la CA y fija TLS y negociación postgres', async () => {
@@ -560,6 +732,12 @@ describe('M06.3a paso 2 RED: cliente worker_api', () => {
         sslnegotiation: 'postgres', ssl: { ca: SUPABASE_ROOT_CA, rejectUnauthorized: true },
       });
       expect(options.ssl).not.toHaveProperty('checkServerIdentity');
+      const effective = new ConnectionParameters(options);
+      expect(effective.sslnegotiation).toBe('postgres');
+      expect(effective.ssl).toMatchObject({ ca: SUPABASE_ROOT_CA, rejectUnauthorized: true });
+      expect([effective.user, effective.host, effective.port]).toEqual([
+        `praxa_integrations.${testRef}`, 'aws-0-us-west-2.pooler.supabase.com', 6543,
+      ]);
       expect(pgState.listeners).toContainEqual(['error', expect.any(Function)]);
       await client.end();
     } finally { vi.unstubAllEnvs(); }

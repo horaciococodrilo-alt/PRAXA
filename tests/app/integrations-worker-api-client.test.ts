@@ -38,7 +38,7 @@ describe('M06.3a: cliente real praxa_integrations → worker_api', () => {
 
     const originalOn = pg.Pool.prototype.on;
     const observer = vi.spyOn(pg.Pool.prototype, 'on').mockImplementation(function (this: pg.Pool, ...args) {
-      pool = this;
+      pool = observer.mock.contexts.at(-1) as pg.Pool;
       return originalOn.apply(this, args);
     });
     try { client = workerApiModule.createWorkerApi({ connectionString: target.connectionString }); }
@@ -118,6 +118,8 @@ describe('M06.3a: cliente real praxa_integrations → worker_api', () => {
     expect(read.rewrap).toEqual({ status: 'confirmed' });
     const raw = await client!.call<{ key_version: number }>('get_credential', [ctx.user_id, ctx.company_id, created.connectionId]);
     expect(raw[0].key_version).toBe(ring.version + 1);
+    const counts = await repository.countCredentialsByKeyVersion({ workerApi: client! });
+    expect(counts.some((entry) => entry.keyVersion === ring.version)).toBe(false);
     expect(await repository.canRetireKeyVersion(ring.version, { workerApi: client! })).toBe(true);
   });
 
@@ -130,6 +132,8 @@ describe('M06.3a: cliente real praxa_integrations → worker_api', () => {
     expect(read.token.reveal()).toBe(token);
     expect(read.status).toBe('disconnected');
     expect(read.rewrap).toEqual({ status: 'not_attempted' });
+    const raw = await client!.call<{ key_version: number }>('get_credential', [ctx.user_id, ctx.company_id, created.connectionId]);
+    expect(raw[0].key_version).toBe(ring.version);
     expect(await repository.canRetireKeyVersion(ring.version, { workerApi: client! })).toBe(false);
   });
 
@@ -141,9 +145,15 @@ describe('M06.3a: cliente real praxa_integrations → worker_api', () => {
     let reached!: () => void;
     const barrier = new Promise<void>((resolve) => { release = resolve; });
     const atRewrap = new Promise<void>((resolve) => { reached = resolve; });
+    let rewrapFailure: unknown;
     const intercepted: WorkerApi = {
       call: (fn, args) => fn === 'rewrap_credential'
-        ? (async () => { reached(); await barrier; return client!.call(fn, args); })()
+        ? (async () => {
+          reached();
+          await barrier;
+          try { return await client!.call(fn, args); }
+          catch (error) { rewrapFailure = error; throw error; }
+        })()
         : client!.call(fn, args),
     };
     const reading = repository.readCredential(ctx, created.connectionId, { workerApi: intercepted, keyring: ring.current });
@@ -151,6 +161,7 @@ describe('M06.3a: cliente real praxa_integrations → worker_api', () => {
     await client!.call('begin_disconnect', [ctx.user_id, ctx.company_id, created.connectionId]);
     release();
     await expect(reading).rejects.toBeInstanceOf(repository.CredentialChangedError);
+    expect(rewrapFailure).toMatchObject({ code: 'generation_mismatch' });
     const raw = await client!.call<{ key_version: number }>('get_credential', [ctx.user_id, ctx.company_id, created.connectionId]);
     expect(raw[0].key_version).toBe(ring.version);
   });

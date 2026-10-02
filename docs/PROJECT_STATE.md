@@ -21,13 +21,11 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 ## En curso
 
 **M06.3a — Cifrado, cliente acotado y documentación de la excepción.** Habilitada por
-`G-DB-META`. Implementación en `mf/M06.3a`: **BLOQUEADO en el paso 11** por la intervención
-de entorno reservada al usuario. `G-CRYPTO` pendiente de verificación y aprobación. Evidencia
+`G-DB-META`. Implementación en `mf/M06.3a`: **VERIFICADO — PENDIENTE DE APROBACIÓN**.
+`G-CRYPTO` espera aprobación visible del usuario. Evidencia
 en [sesiones/M06.3a.md](FASES/FASE1/meta_first/sesiones/M06.3a.md).
 
-Bloqueos antes de verificarla: intervención del usuario de la ficha (contraseña del rol
-`praxa_integrations` en el proyecto de pruebas, `PRAXA_INTEGRATIONS_TEST_DB_URL` y claves del
-llavero en `.env.local`).
+La verificación técnica terminó; M28.2a permanece sin habilitar hasta aprobar `G-CRYPTO`.
 
 Hallazgos asignados a M06.3a: `H-M04.1-02`, `H-E1-09`, `H-E1-10`, `H-E1-17`, `H-E1-37`, y la
 comprobación de acceso real del rol de `H-E1-36`. Detalle en [HALLAZGOS.md](HALLAZGOS.md).

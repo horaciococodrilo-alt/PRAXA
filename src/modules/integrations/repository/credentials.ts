@@ -136,11 +136,6 @@ function status(value: unknown): string {
   return value;
 }
 
-function positiveDbVersion(value: unknown): number {
-  if (!Number.isInteger(value) || (value as number) < 1 || (value as number) > MAX_VERSION) invalidResponse();
-  return value as number;
-}
-
 function dateIso(value: unknown): string | null {
   if (value === null) return null;
   if (!(value instanceof Date) || !Number.isFinite(value.getTime())) invalidResponse();
