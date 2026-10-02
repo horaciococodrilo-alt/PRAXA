@@ -62,6 +62,7 @@ Registro único de hallazgos documentados en la auditoría M04.1, el baseline M0
 | `H-E1-45` | Resuelto en M06.3a: identidad ambigua por re-codificación de pg-connection-string, rechazada en cliente y resolvedor | M06.3a | [QA 4](FASES/FASE1/M06.3a/revisiones/qa-review-4.md); [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 | `H-E1-46` | Resuelto en M06.3a: puerto no canónico `06543` rechazado, decisión del usuario 2026-10-02 | M06.3a | [QA 4](FASES/FASE1/M06.3a/revisiones/qa-review-4.md); [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 | `H-E1-47` | Resuelto en M06.3a: rechazo de parámetros TLS acotado a la URL del rol, decisión del usuario 2026-10-02 | M06.3a | [QA 4](FASES/FASE1/M06.3a/revisiones/qa-review-4.md); [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-48` | Resuelto en M06.3a: `AMBIGUOUS_ENCODING` no cubría el `%` ambiguo en el fin de cadena | M06.3a | [QA 6](FASES/FASE1/M06.3a/revisiones/qa-review-6.md); [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 
 `H-E1-43` — Impacto: la guarda del rol podía aceptar una configuración de pruebas sin
 descartar el proyecto de la aplicación cuando la URL SQL de app estaba definida pero su
@@ -123,6 +124,28 @@ parámetro que desactiva el rechazo TLS; se usa al inspeccionar `SUPABASE_TEST_D
 `SUPABASE_DB_URL`, que conservan el rechazo de overrides de `user`/`host`/`port`. La URL del
 rol sigue rechazando TLS sin cambios. T-22 agrega el caso positivo (`sslmode=require`
 aceptado en la referencia) y conserva el rechazo en la URL del rol.
+
+`H-E1-48` — Impacto: `AMBIGUOUS_ENCODING`
+(`/ |%[^a-f0-9]|%[a-f0-9][^a-f0-9]/i`) necesita, para sus dos alternativas con `%`, uno o
+dos caracteres *después* del `%` para decidir si la secuencia es ambigua. Cuando el `%`
+problemático caía en el último o penúltimo carácter de toda la cadena de conexión (nada
+después, o un solo dígito hexadecimal y nada más), ninguna alternativa tenía carácter
+siguiente que inspeccionar y la expresión no coincidía, aunque el propio comentario del
+código describe la ambigüedad sin excepción de posición ("un `%` que no va seguido de dos
+dígitos hexadecimales"). Violaba, para ese caso de borde, el mismo invariante que `H-E1-45`
+cierra para el resto de los casos ("ningún rechazo construye `Pool`/`Client`"): con
+`pg` real, el fallo ocurría más tarde dentro de `pool.query()` como `URIError: URI
+malformed` de `pg-connection-string` al decodificar el *pathname* — capturado por el
+`try/catch` de `call()` y traducido a `WorkerApiError('unexpected')` sin exponer nada, por lo
+que no era una fuga de secretos ni un bypass de identidad (el carácter ambiguo no puede caer
+en usuario/contraseña, que nunca son los últimos caracteres de una URL válida), sino un
+hueco de robustez/diagnóstico en la guarda. Evidencia: `qa-review-6`, Q-01 — sondas
+exploratorias E-01/E-02 con `createWorkerApi` y `resolveIntegrationsTestTarget` sobre URLs
+terminadas en `%` y en `%` seguido de un solo dígito hexadecimal. Corrección: ambas copias de
+`AMBIGUOUS_ENCODING` (`worker-api.ts` y `sql-target.mjs`) agregan la alternativa
+`%[a-f0-9]?$`, que cubre el `%` ambiguo cuando cae en el fin de cadena sin afectar la
+re-codificación conocida (`%XX` válido al final de la cadena sigue sin coincidir). T-49 y
+T-22 agregan las dos URLs de borde como regresión.
 
 ## Detalle de los hallazgos de la ruta `meta_first` registrados en M04a
 

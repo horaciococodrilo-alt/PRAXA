@@ -182,6 +182,10 @@ describe('M06.3a paso 3 RED: destino del rol de integraciones', () => {
       roleUrl(TEST_REF).replace('praxa_integrations.', 'praxa%5Fintegrations.').replace(':secreta@', ':sec reta@'),
       `${roleUrl(TEST_REF).replace('praxa_integrations.', 'praxa%5Fintegrations.')}%zz`,
       `${roleUrl(TEST_REF).replace('praxa_integrations.', 'praxa%5Fintegrations.')}?application_name=a%zz`,
+      // Q-01/H-E1-48 de qa-review-6: el `%` ambiguo cae en el último o penúltimo
+      // carácter de toda la cadena, donde no hay carácter siguiente que inspeccionar.
+      `${roleUrl(TEST_REF)}%`,
+      `${roleUrl(TEST_REF)}%4`,
       ...['user=x', 'host=x', 'port=5432', 'user=', 'host=', 'port=', '%75ser=x', 'user=x&user=y', 'sslmode=disable', 'sslcert=', 'sslnegotiation=direct'].map((query) => `${roleUrl(TEST_REF)}?${query}`),
     ];
     for (const url of variants) expect(resolveIntegrationsTestTarget(baseEnv({ PRAXA_INTEGRATIONS_TEST_DB_URL: url })).ok).toBe(false);

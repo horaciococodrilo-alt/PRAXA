@@ -749,6 +749,10 @@ describe('M06.3a paso 2 RED: cliente worker_api', () => {
       roleUrl.replace('praxa_integrations.', 'praxa%5Fintegrations.').replace(':clave@', ':cla ve@'),
       `${roleUrl.replace('praxa_integrations.', 'praxa%5Fintegrations.')}%zz`,
       `${roleUrl.replace('praxa_integrations.', 'praxa%5Fintegrations.')}?application_name=a%zz`,
+      // Q-01/H-E1-48 de qa-review-6: el `%` ambiguo cae en el último o penúltimo
+      // carácter de toda la cadena, donde no hay carácter siguiente que inspeccionar.
+      `${roleUrl}%`,
+      `${roleUrl}%4`,
     ];
     pgState.constructed.length = 0;
     for (const url of bad) expect(() => createWorkerApi({ connectionString: url })).toThrow(WorkerApiError);

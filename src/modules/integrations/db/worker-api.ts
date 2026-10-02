@@ -118,9 +118,12 @@ const ROLE_USER = /^praxa_integrations\.[a-z0-9]{20}$/;
  * hexadecimales (pg-connection-string/index.js:20). Esa re-codificación no decodifica
  * un `%XX` ya presente (por ejemplo `%5F`): lo deja como texto literal en el usuario
  * que pg termina usando, distinto del que valida esta guarda. Ante esa ambigüedad se
- * rechaza la URL entera, sin intentar replicar la re-codificación.
+ * rechaza la URL entera, sin intentar replicar la re-codificación. La última alternativa
+ * (`%[a-f0-9]?$`) cubre el mismo caso cuando el `%` ambiguo cae en los últimos 1-2
+ * caracteres de toda la cadena, donde las alternativas anteriores no tienen carácter
+ * siguiente que inspeccionar (H-E1-48).
  */
-const AMBIGUOUS_ENCODING = / |%[^a-f0-9]|%[a-f0-9][^a-f0-9]/i;
+const AMBIGUOUS_ENCODING = / |%[^a-f0-9]|%[a-f0-9][^a-f0-9]|%[a-f0-9]?$/i;
 
 /** Puerto literal de la autoridad de la URL original, sin la normalización de `new URL()`. */
 function literalAuthorityPort(raw: string): string | null {
