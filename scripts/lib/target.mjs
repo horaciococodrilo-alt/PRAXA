@@ -179,11 +179,10 @@ export function resolveTarget(scope, options = {}) {
   if (scope === 'test') {
     const appUrl = env.NEXT_PUBLIC_SUPABASE_URL;
 
-    if (apiUrl && appUrl && apiUrl === appUrl && env.SUPABASE_TEST_ALLOW_APP_PROJECT !== 'true') {
+    if (apiUrl && appUrl && apiUrl === appUrl) {
       problems.push(
         'SUPABASE_TEST_URL apunta al mismo proyecto que la aplicación. Usá un proyecto ' +
-          'aparte, o definí SUPABASE_TEST_ALLOW_APP_PROJECT=true si ese proyecto también ' +
-          'es desechable.',
+          'aparte y desechable.',
       );
     }
 

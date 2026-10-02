@@ -79,4 +79,46 @@ describe('la aplicación no usa credenciales privilegiadas', () => {
 
     expect(assignmentsWithValue).toEqual([]);
   });
+
+  it('T-21: la URL del rol solo aparece en worker-api.ts y allí está presente', async () => {
+    const files = [...(await collectFiles(join(projectRoot, 'src'))), join(projectRoot, 'proxy.ts')];
+    const found: string[] = [];
+    for (const file of files) {
+      if ((await readFile(file, 'utf8')).includes('PRAXA_INTEGRATIONS_DB_URL')) found.push(relative(projectRoot, file).replaceAll('\\', '/'));
+    }
+    expect(found).toEqual(['src/modules/integrations/db/worker-api.ts']);
+  });
+
+  it('T-21: worker-api.ts tiene server-only como primera sentencia', async () => {
+    const source = await readFile(join(projectRoot, 'src/modules/integrations/db/worker-api.ts'), 'utf8');
+    const withoutLeadingComments = source.replace(/^\s*(?:(?:\/\*[\s\S]*?\*\/|\/\/[^\n]*)(?:\r?\n|\s*))*/, '').trimStart();
+    expect(withoutLeadingComments.startsWith("import 'server-only';")).toBe(true);
+  });
+
+  it('T-21: la URL de pruebas del rol no aparece en src ni proxy', async () => {
+    const files = [...(await collectFiles(join(projectRoot, 'src'))), join(projectRoot, 'proxy.ts')];
+    for (const file of files) expect(await readFile(file, 'utf8')).not.toContain('PRAXA_INTEGRATIONS_TEST_DB_URL');
+  });
+
+  it('T-21: solo worker-api.ts importa pg', async () => {
+    const files = [...(await collectFiles(join(projectRoot, 'src'))), join(projectRoot, 'proxy.ts')];
+    const found: string[] = [];
+    for (const file of files) {
+      if (/(?:from\s*['"]pg['"]|require\s*\(\s*['"]pg['"]\s*\))/.test(await readFile(file, 'utf8'))) {
+        found.push(relative(projectRoot, file).replaceAll('\\', '/'));
+      }
+    }
+    expect(found).toEqual(['src/modules/integrations/db/worker-api.ts']);
+  });
+
+  it('T-21: solo keyring.ts lee variables del llavero', async () => {
+    const files = [...(await collectFiles(join(projectRoot, 'src'))), join(projectRoot, 'proxy.ts')];
+    for (const variable of ['PRAXA_CREDENTIAL_KEYS', 'PRAXA_CREDENTIAL_KEY_CURRENT']) {
+      const found: string[] = [];
+      for (const file of files) {
+        if ((await readFile(file, 'utf8')).includes(variable)) found.push(relative(projectRoot, file).replaceAll('\\', '/'));
+      }
+      expect(found).toEqual(['src/modules/integrations/crypto/keyring.ts']);
+    }
+  });
 });

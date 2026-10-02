@@ -18,10 +18,12 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 | M05.1.2 a M05.1.4 — K02 a K04 | `G-K02-K04` | 2026-09-26 | [sesiones/M05.1.2-M05.1.4.md](FASES/FASE1/meta_first/sesiones/M05.1.2-M05.1.4.md) |
 | M06.1a y M06.2a — Migración `0012`, aislamiento y privilegios | `G-DB-META` | 2026-09-28 (PR #12) | [sesiones/M06.1a-M06.2a.md](FASES/FASE1/meta_first/sesiones/M06.1a-M06.2a.md) |
 
-## Siguiente
+## En curso
 
 **M06.3a — Cifrado, cliente acotado y documentación de la excepción.** Habilitada por
-`G-DB-META`. Cierra con `G-CRYPTO`.
+`G-DB-META`. Implementación en `mf/M06.3a`: **BLOQUEADO en el paso 11** por la intervención
+de entorno reservada al usuario. `G-CRYPTO` pendiente de verificación y aprobación. Evidencia
+en [sesiones/M06.3a.md](FASES/FASE1/meta_first/sesiones/M06.3a.md).
 
 Bloqueos antes de verificarla: intervención del usuario de la ficha (contraseña del rol
 `praxa_integrations` en el proyecto de pruebas, `PRAXA_INTEGRATIONS_TEST_DB_URL` y claves del

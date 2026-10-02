@@ -1,0 +1,619 @@
+import { randomBytes, createDecipheriv } from 'node:crypto';
+import { X509Certificate } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { inspect } from 'node:util';
+
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+
+import { secretCredentialSchema, type CredentialAadInput } from '@/modules/integrations/contract';
+import type { WorkerApi, Queryable } from '@/modules/integrations/db/worker-api';
+import {
+  CredentialKeyringError,
+  CredentialKeyVersionUnknownError,
+  parseCredentialKeyring,
+} from '@/modules/integrations/crypto/keyring';
+import {
+  CredentialDecryptionError,
+  CredentialMaterialError,
+  openCredential,
+  sealCredential,
+} from '@/modules/integrations/crypto/seal';
+
+vi.mock('server-only', () => ({}));
+const pgState = vi.hoisted(() => ({ constructed: [] as unknown[], queries: [] as unknown[], ended: 0, listeners: [] as unknown[] }));
+vi.mock('pg', () => ({
+  default: { Pool: class {
+    constructor(options: unknown) { pgState.constructed.push(options); }
+    query(config: unknown) { pgState.queries.push(config); return Promise.resolve({ rows: [] }); }
+    on(event: string, listener: unknown) { pgState.listeners.push([event, listener]); }
+    end() { pgState.ended += 1; return Promise.resolve(); }
+  } },
+}));
+vi.mock('node:crypto', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:crypto')>();
+  return { ...actual, createDecipheriv: vi.fn(actual.createDecipheriv) };
+});
+
+const companyId = '0f1e2d3c-4b5a-4968-8778-6a5b4c3d2e1f';
+const otherCompanyId = '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
+const connectionId = '4f1a7c2e-1b2c-4d5e-8f90-0a1b2c3d4e5f';
+const otherConnectionId = '5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8d';
+const aad: CredentialAadInput = { company_id: companyId, connection_id: connectionId, provider: 'meta' };
+const sample = 'token-sintetico-de-prueba';
+const actorId = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
+const attemptId = '6b7c8d9e-0f1a-4b2c-9d3e-4f5a6b7c8d9e';
+const ctx = Object.freeze({ user_id: actorId, company_id: companyId, role: 'owner' as const, request_id: '7c8d9e0f-1a2b-4c3d-8e4f-5a6b7c8d9e0f' });
+const writeInput = Object.freeze({ token: sample, tokenType: 'system_user' as const, issuedForAppId: 'app_sintetica', grantedScopes: ['ads_read'], expiresAt: null });
+const testRef = 'a'.repeat(20);
+const roleUrl = `postgresql://praxa_integrations.${testRef}:clave@aws-0-us-west-2.pooler.supabase.com:6543/postgres`;
+
+let createWorkerApi: (typeof import('@/modules/integrations/db/worker-api'))['createWorkerApi'];
+let getWorkerApi: (typeof import('@/modules/integrations/db/worker-api'))['getWorkerApi'];
+let SUPABASE_ROOT_CA: (typeof import('@/modules/integrations/db/worker-api'))['SUPABASE_ROOT_CA'];
+let WorkerApiError: (typeof import('@/modules/integrations/db/worker-api'))['WorkerApiError'];
+let CredentialChangedError: (typeof import('@/modules/integrations/repository/credentials'))['CredentialChangedError'];
+let CredentialNotFoundError: (typeof import('@/modules/integrations/repository/credentials'))['CredentialNotFoundError'];
+let CredentialRepositoryError: (typeof import('@/modules/integrations/repository/credentials'))['CredentialRepositoryError'];
+let canRetireKeyVersion: (typeof import('@/modules/integrations/repository/credentials'))['canRetireKeyVersion'];
+let countCredentialsByKeyVersion: (typeof import('@/modules/integrations/repository/credentials'))['countCredentialsByKeyVersion'];
+let createPendingConnectionWithCredential: (typeof import('@/modules/integrations/repository/credentials'))['createPendingConnectionWithCredential'];
+let executePreparedCredentialOperation: (typeof import('@/modules/integrations/repository/credentials'))['executePreparedCredentialOperation'];
+let preparePendingConnectionWithCredential: (typeof import('@/modules/integrations/repository/credentials'))['preparePendingConnectionWithCredential'];
+let prepareReplaceCredential: (typeof import('@/modules/integrations/repository/credentials'))['prepareReplaceCredential'];
+let readCredential: (typeof import('@/modules/integrations/repository/credentials'))['readCredential'];
+
+async function loadWorker() {
+  const module = await vi.importActual<typeof import('@/modules/integrations/db/worker-api')>('@/modules/integrations/db/worker-api');
+  ({ createWorkerApi, getWorkerApi, SUPABASE_ROOT_CA, WorkerApiError } = module);
+}
+
+async function loadRepository() {
+  await loadWorker();
+  const module = await vi.importActual<typeof import('@/modules/integrations/repository/credentials')>('@/modules/integrations/repository/credentials');
+  ({ CredentialChangedError, CredentialNotFoundError, CredentialRepositoryError,
+    canRetireKeyVersion, countCredentialsByKeyVersion, createPendingConnectionWithCredential,
+    executePreparedCredentialOperation, preparePendingConnectionWithCredential,
+    prepareReplaceCredential, readCredential } = module);
+}
+
+function material() {
+  return [randomBytes(32).toString('base64'), randomBytes(32).toString('base64')] as const;
+}
+
+function keyring(current = 1) {
+  const [first, second] = material();
+  return parseCredentialKeyring(`1:${first}, 2:${second}`, String(current));
+}
+
+function flipByte(base64: string) {
+  const bytes = Buffer.from(base64, 'base64');
+  bytes[0] ^= 1;
+  return bytes.toString('base64');
+}
+
+function api(handler: (fn: string, args: readonly unknown[]) => Promise<unknown[]>): WorkerApi & { call: ReturnType<typeof vi.fn> } {
+  return { call: vi.fn(handler) } as unknown as WorkerApi & { call: ReturnType<typeof vi.fn> };
+}
+
+function credentialRow(ring: ReturnType<typeof keyring>, status = 'active', version = ring.currentVersion) {
+  const keys = ring.versions.map((v) => `${v}:${ring.keyFor(v).toString('base64')}`).join(',');
+  const old = parseCredentialKeyring(keys, String(version));
+  return {
+    connection_id: connectionId, company_id: companyId, provider: 'meta', status,
+    credential_generation: 3, ...sealCredential(sample, aad, old),
+    token_type: 'system_user', issued_for_app_id: 'app_sintetica',
+    granted_scopes: ['ads_read'], expires_at: null,
+  };
+}
+
+describe('M06.3a paso 1 RED: llavero y cifrado', () => {
+  it('T-01 acepta dos versiones, ordena y entrega copias de 32 bytes', () => {
+    const [first, second] = material();
+    const ring = parseCredentialKeyring(` 2:${second} , 1:${first} `, '2');
+    expect(ring.currentVersion).toBe(2);
+    expect(ring.versions).toEqual([1, 2]);
+    expect(ring.has(1)).toBe(true);
+    expect(ring.has(3)).toBe(false);
+    const copy = ring.keyFor(1);
+    expect(copy).toHaveLength(32);
+    copy.fill(0);
+    expect(ring.keyFor(1).toString('base64')).toBe(first);
+  });
+
+  it('T-02 rechaza cada forma inválida sin exponer la clave', () => {
+    const [first, second] = material();
+    const invalid: Array<[string | undefined, string | undefined, string, number | null]> = [
+      [undefined, '1', 'keyring_missing', null],
+      ['', '1', 'keyring_missing', null],
+      [`1${first}`, '1', 'keyring_invalid', 1],
+      [`0:${first}`, '0', 'keyring_invalid', 1],
+      [`-1:${first}`, '1', 'keyring_invalid', 1],
+      [`01:${first}`, '1', 'keyring_invalid', 1],
+      [`1.5:${first}`, '1', 'keyring_invalid', 1],
+      [`2147483648:${first}`, '1', 'keyring_invalid', 1],
+      [`1:${first},1:${second}`, '1', 'keyring_invalid', 2],
+      ['1:not-base64', '1', 'keyring_invalid', 1],
+      [`1:${randomBytes(31).toString('base64')}`, '1', 'keyring_invalid', 1],
+      [`1:${randomBytes(33).toString('base64')}`, '1', 'keyring_invalid', 1],
+      [`1:${first}`, undefined, 'current_invalid', null],
+      [`1:${first}`, 'x', 'current_invalid', null],
+      [`1:${first}`, '2', 'current_invalid', null],
+    ];
+    for (const [keys, current, code, position] of invalid) {
+      let error: unknown;
+      try { parseCredentialKeyring(keys, current); } catch (caught) { error = caught; }
+      expect(error).toBeInstanceOf(CredentialKeyringError);
+      expect((error as CredentialKeyringError).code).toBe(code);
+      if (position !== null) expect((error as Error).message).toContain(String(position));
+      expect((error as Error).message).not.toContain(first);
+      expect((error as Error).message).not.toContain(second);
+      expect(error).not.toHaveProperty('cause');
+    }
+  });
+
+  it('T-03 sella y abre material conforme K04 usando la versión actual', () => {
+    const ring = keyring(2);
+    const sealed = sealCredential(sample, aad, ring);
+    expect(sealed.key_version).toBe(2);
+    expect(secretCredentialSchema.safeParse({
+      ...sealed, company_id: companyId, connection_id: connectionId,
+      token_type: 'system_user', issued_for_app_id: 'app_sintetica',
+      granted_scopes: ['ads_read'], expires_at: null,
+    }).success).toBe(true);
+    expect(openCredential(sealed, aad, ring).reveal()).toBe(sample);
+  });
+
+  it('T-04 usa IV aleatorio nuevo de 12 bytes y etiqueta de 16 bytes', () => {
+    const ring = keyring();
+    const a = sealCredential(sample, aad, ring);
+    const b = sealCredential(sample, aad, ring);
+    expect(a.iv).not.toBe(b.iv);
+    expect(a.ciphertext).not.toBe(b.ciphertext);
+    expect(Buffer.from(a.iv, 'base64')).toHaveLength(12);
+    expect(Buffer.from(a.auth_tag, 'base64')).toHaveLength(16);
+  });
+
+  it('T-05 rechaza texto vacío', () => {
+    expect(() => sealCredential('', aad, keyring())).toThrow(CredentialMaterialError);
+  });
+
+  it('T-06 distingue una clave errónea de material válido', () => {
+    const sealed = sealCredential(sample, aad, keyring());
+    expect(() => openCredential(sealed, aad, keyring())).toThrow(CredentialDecryptionError);
+  });
+
+  it('T-07 rechaza alteraciones de ciphertext, etiqueta e IV', () => {
+    const ring = keyring();
+    const sealed = sealCredential(sample, aad, ring);
+    for (const field of ['ciphertext', 'auth_tag', 'iv'] as const) {
+      expect(() => openCredential({ ...sealed, [field]: flipByte(sealed[field]) }, aad, ring))
+        .toThrow(CredentialDecryptionError);
+    }
+  });
+
+  it('T-08 autentica empresa y conexión como AAD', () => {
+    const ring = keyring();
+    const sealed = sealCredential(sample, aad, ring);
+    expect(() => openCredential(sealed, { ...aad, company_id: otherCompanyId }, ring))
+      .toThrow(CredentialDecryptionError);
+    expect(() => openCredential(sealed, { ...aad, connection_id: otherConnectionId }, ring))
+      .toThrow(CredentialDecryptionError);
+  });
+
+  it('T-09 valida etiqueta corta antes de llamar al descifrador', () => {
+    const ring = keyring();
+    const sealed = sealCredential(sample, aad, ring);
+    vi.mocked(createDecipheriv).mockClear();
+    expect(() => openCredential({ ...sealed, auth_tag: randomBytes(4).toString('base64') }, aad, ring))
+      .toThrow(CredentialMaterialError);
+    expect(createDecipheriv).not.toHaveBeenCalled();
+  });
+
+  it('T-10 informa versión ausente con error propio y sin material', () => {
+    const ring = keyring();
+    const sealed = { ...sealCredential(sample, aad, ring), key_version: 99 };
+    let error: unknown;
+    try { openCredential(sealed, aad, ring); } catch (caught) { error = caught; }
+    expect(error).toBeInstanceOf(CredentialKeyVersionUnknownError);
+    expect(error).not.toBeInstanceOf(CredentialDecryptionError);
+    expect((error as Error).message).toContain('99');
+    expect((error as Error).message).not.toContain(sealed.ciphertext);
+    expect(error).not.toHaveProperty('cause');
+  });
+
+  it('T-11 conserva la clave anterior para leer y usa la actual para escribir', () => {
+    const [first, second] = material();
+    const old = parseCredentialKeyring(`1:${first}`, '1');
+    const both = parseCredentialKeyring(`1:${first},2:${second}`, '2');
+    const next = parseCredentialKeyring(`2:${second}`, '2');
+    const sealedOld = sealCredential(sample, aad, old);
+    expect(openCredential(sealedOld, aad, both).reveal()).toBe(sample);
+    expect(sealCredential(sample, aad, both).key_version).toBe(2);
+    expect(() => openCredential(sealedOld, aad, next)).toThrow(CredentialKeyVersionUnknownError);
+  });
+
+  it('T-20 solo reveal expone el valor de SecretValue', () => {
+    const ring = keyring();
+    const secret = openCredential(sealCredential(sample, aad, ring), aad, ring);
+    expect(String(secret)).toBe('[redactado]');
+    expect(`${secret}`).toBe('[redactado]');
+    expect(JSON.stringify({ t: secret })).toBe('{"t":"[redactado]"}');
+    expect(inspect(secret)).toBe('[redactado]');
+    expect(secret.reveal()).toBe(sample);
+  });
+});
+
+describe('M06.3a paso 2 RED: repositorio', () => {
+  beforeAll(loadRepository);
+
+  it('T-12 recifra con generación y versión leídas; devuelve la versión leída', async () => {
+    const ring = keyring(2);
+    const row = credentialRow(ring, 'active', 1);
+    const workerApi = api(async (fn) => fn === 'get_credential'
+      ? [row]
+      : [{ connection_id: connectionId, key_version: 2 }]);
+    const result = await readCredential(ctx, connectionId, { workerApi, keyring: ring });
+    expect(result.token.reveal()).toBe(sample);
+    expect(result.keyVersion).toBe(1);
+    expect(result.rewrap).toEqual({ status: 'confirmed' });
+    expect(workerApi.call).toHaveBeenCalledTimes(2);
+    const [fn, args] = workerApi.call.mock.calls[1] as [string, unknown[]];
+    expect(fn).toBe('rewrap_credential');
+    expect(args.slice(0, 5)).toEqual([actorId, companyId, connectionId, 3, 1]);
+    expect(args[8]).toBe(2);
+    expect(openCredential({ ciphertext: args[5], iv: args[6], auth_tag: args[7], key_version: args[8] } as ReturnType<typeof sealCredential>, aad, ring).reveal()).toBe(sample);
+  });
+
+  it('T-13 evita recifrar si la versión es igual o mayor', async () => {
+    const ring = keyring(1);
+    for (const version of [1, 2]) {
+      const workerApi = api(async () => [credentialRow(ring, 'active', version)]);
+      const result = await readCredential(ctx, connectionId, { workerApi, keyring: ring });
+      expect(result.keyVersion).toBe(version);
+      expect(result.rewrap).toEqual({ status: 'not_attempted' });
+      expect(workerApi.call).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('T-14 descifra disconnected y recifra solo estados permitidos', async () => {
+    const ring = keyring(2);
+    for (const status of ['disconnected', 'pending_selection', 'needs_reauth']) {
+      const workerApi = api(async (fn) => fn === 'get_credential'
+        ? [credentialRow(ring, status, 1)]
+        : [{ connection_id: connectionId, key_version: 2 }]);
+      const result = await readCredential(ctx, connectionId, { workerApi, keyring: ring });
+      expect(result.token.reveal()).toBe(sample);
+      expect(result.rewrap.status).toBe(status === 'disconnected' ? 'not_attempted' : 'confirmed');
+      expect(workerApi.call).toHaveBeenCalledTimes(status === 'disconnected' ? 1 : 2);
+    }
+  });
+
+  it('T-15 distingue conflicto de generación y conflicto de versión', async () => {
+    const ring = keyring(2);
+    for (const [code, expected] of [['generation_mismatch', 'changed'], ['key_version_mismatch', 'version_conflict']] as const) {
+      const workerApi = api(async (fn) => {
+        if (fn === 'get_credential') return [credentialRow(ring, 'active', 1)];
+        throw new WorkerApiError(code);
+      });
+      if (expected === 'changed') {
+        await expect(readCredential(ctx, connectionId, { workerApi, keyring: ring })).rejects.toBeInstanceOf(CredentialChangedError);
+      } else {
+        const result = await readCredential(ctx, connectionId, { workerApi, keyring: ring });
+        expect(result.keyVersion).toBe(1);
+        expect(result.rewrap).toEqual({ status: 'version_conflict' });
+      }
+      expect(workerApi.call).toHaveBeenCalledTimes(2);
+    }
+  });
+
+  it('T-16 convierte conteos y limita canRetireKeyVersion a la condición DB', async () => {
+    const two = api(async () => [{ key_version: 1, credential_count: '2' }]);
+    expect(await countCredentialsByKeyVersion({ workerApi: two })).toEqual([{ keyVersion: 1, credentialCount: 2 }]);
+    expect(await canRetireKeyVersion(1, { workerApi: two })).toBe(false);
+    expect(await canRetireKeyVersion(1, { workerApi: api(async () => []) })).toBe(true);
+    expect(await canRetireKeyVersion(1, { workerApi: api(async () => [{ key_version: 1, credential_count: '0' }]) })).toBe(true);
+    await expect(countCredentialsByKeyVersion({ workerApi: api(async () => [{ key_version: 1, credential_count: '1.5' }]) }))
+      .rejects.toMatchObject({ code: 'unexpected' });
+  });
+
+  it('T-19 valida K01 antes de consultas y genera conexión nueva con AAD propio', async () => {
+    const ring = keyring();
+    const workerApi = api(async (_fn, args) => [{ connection_id: args[2], status: 'pending_selection', pending_expires_at: new Date(), credential_generation: 1 }]);
+    await expect(createPendingConnectionWithCredential({ ...ctx, company_id: 'inválido' }, { ...writeInput, clientBusinessId: 'business_sintetico' }, { workerApi, keyring: ring }))
+      .rejects.toMatchObject({ code: 'invalid_input' });
+    expect(workerApi.call).not.toHaveBeenCalled();
+    const created = await createPendingConnectionWithCredential(ctx, { ...writeInput, clientBusinessId: 'business_sintetico' }, { workerApi, keyring: ring });
+    expect(created.connectionId).toMatch(/^[0-9a-f-]{36}$/);
+    const args = workerApi.call.mock.calls[0][1] as unknown[];
+    expect(args.slice(0, 3)).toEqual([actorId, companyId, created.connectionId]);
+    const newAad = { ...aad, connection_id: created.connectionId };
+    expect(openCredential({ ciphertext: args[4], iv: args[5], auth_tag: args[6], key_version: args[7] } as ReturnType<typeof sealCredential>, newAad, ring).reveal()).toBe(sample);
+    expect(() => openCredential({ ciphertext: args[4], iv: args[5], auth_tag: args[6], key_version: args[7] } as ReturnType<typeof sealCredential>, aad, ring))
+      .toThrow(CredentialDecryptionError);
+  });
+
+  it('T-42 prepara una vez y repite argumentos idénticos sin resellar', async () => {
+    const ring = keyring();
+    const workerApi = api(async (fn, args) => fn === 'create_pending_connection'
+      ? [{ connection_id: args[2], status: 'pending_selection', pending_expires_at: new Date(), credential_generation: 1 }]
+      : [{ connection_id: args[2], status: 'active', credential_generation: 2 }]);
+    const create = preparePendingConnectionWithCredential(ctx, { ...writeInput, clientBusinessId: 'business_sintetico' }, { keyring: ring });
+    const replace = prepareReplaceCredential(ctx, { ...writeInput, connectionId, attemptId }, { keyring: ring });
+    expect(JSON.stringify(create)).not.toContain(sample);
+    expect(Object.isFrozen(create)).toBe(true);
+    await executePreparedCredentialOperation(ctx, create, { workerApi });
+    await executePreparedCredentialOperation(ctx, create, { workerApi });
+    await executePreparedCredentialOperation(ctx, replace, { workerApi });
+    await executePreparedCredentialOperation(ctx, replace, { workerApi });
+    expect(workerApi.call.mock.calls[0]).toEqual(workerApi.call.mock.calls[1]);
+    expect(workerApi.call.mock.calls[2]).toEqual(workerApi.call.mock.calls[3]);
+    expect(workerApi.call).toHaveBeenCalledTimes(4);
+    await expect(executePreparedCredentialOperation({ ...ctx, company_id: otherCompanyId }, create, { workerApi }))
+      .rejects.toMatchObject({ code: 'prepared_context_mismatch' });
+    expect(workerApi.call).toHaveBeenCalledTimes(4);
+  });
+
+  it('T-45 clasifica incertidumbre de rewrap antes o después de escritura sin retry', async () => {
+    const ring = keyring(2);
+    for (const persisted of [false, true]) {
+      let current = credentialRow(ring, 'active', 1);
+      const workerApi = api(async (fn, args) => {
+        if (fn === 'get_credential') return [current];
+        if (persisted) current = { ...current, ciphertext: args[5] as string, iv: args[6] as string, auth_tag: args[7] as string, key_version: 2 };
+        throw new WorkerApiError('unavailable', 'transport');
+      });
+      const first = await readCredential(ctx, connectionId, { workerApi, keyring: ring });
+      expect(first.keyVersion).toBe(1);
+      expect(first.rewrap).toEqual({ status: 'unconfirmed', reason: 'transport' });
+      expect(workerApi.call).toHaveBeenCalledTimes(2);
+      const next = await readCredential(ctx, connectionId, { workerApi, keyring: ring });
+      expect(next.keyVersion).toBe(persisted ? 2 : 1);
+    }
+  });
+
+  it('T-46 no trata errores explícitos como incertidumbre', async () => {
+    const ring = keyring(2);
+    for (const [code, kind] of [['privilege_missing', 'other'], ['unavailable', 'other'], ['generation_mismatch', 'other']] as const) {
+      const workerApi = api(async (fn) => {
+        if (fn === 'get_credential') return [credentialRow(ring, 'active', 1)];
+        throw new WorkerApiError(code, kind);
+      });
+      await expect(readCredential(ctx, connectionId, { workerApi, keyring: ring })).rejects.toThrow();
+    }
+    const failRead = api(async () => { throw new WorkerApiError('unavailable', 'transport'); });
+    await expect(readCredential(ctx, connectionId, { workerApi: failRead, keyring: ring })).rejects.toMatchObject({ code: 'unavailable' });
+    expect(failRead.call).toHaveBeenCalledTimes(1);
+  });
+
+  it('T-51 rechaza entradas y operaciones forjadas antes de DB', async () => {
+    const ring = keyring();
+    const workerApi = api(async () => []);
+    const badContexts = [
+      { ...ctx, user_id: 'bad' }, { ...ctx, company_id: 'bad' },
+      { ...ctx, request_id: 'bad' }, { ...ctx, role: 'reader' }, { ...ctx, extra: true },
+    ];
+    for (const bad of badContexts) {
+      await expect(readCredential(bad as typeof ctx, connectionId, { workerApi, keyring: ring }))
+        .rejects.toMatchObject({ code: 'invalid_input', message: 'Entrada de credenciales inválida.' });
+    }
+    for (const bad of [{ ...writeInput, token: '' }, { ...writeInput, grantedScopes: ['otro'] }, { ...writeInput, expiresAt: 'bad' }]) {
+      expect(() => preparePendingConnectionWithCredential(ctx, { ...bad, clientBusinessId: 'business_sintetico' }, { keyring: ring }))
+        .toThrow(CredentialRepositoryError);
+    }
+    await expect(executePreparedCredentialOperation(ctx, {} as never, { workerApi }))
+      .rejects.toMatchObject({ code: 'invalid_prepared_operation' });
+    const authentic = preparePendingConnectionWithCredential(ctx, { ...writeInput, clientBusinessId: 'business_sintetico' }, { keyring: ring });
+    await expect(executePreparedCredentialOperation(ctx, { ...authentic } as never, { workerApi }))
+      .rejects.toMatchObject({ code: 'invalid_prepared_operation' });
+    expect(workerApi.call).not.toHaveBeenCalled();
+  });
+
+  it('T-52 valida get_credential antes de descifrar y proyecta K04', async () => {
+    const ring = keyring();
+    const valid = credentialRow(ring);
+    await expect(readCredential(ctx, connectionId, { workerApi: api(async () => []), keyring: ring }))
+      .rejects.toBeInstanceOf(CredentialNotFoundError);
+    const badRows = [
+      [valid, valid], [null], [{ ...valid, company_id: otherCompanyId }],
+      [{ ...valid, provider: 'otro' }], [{ ...valid, status: 'otro' }],
+      [{ ...valid, credential_generation: -1 }], [{ ...valid, credential_generation: 1.5 }],
+      [{ ...valid, expires_at: new Date(NaN) }], [{ ...valid, ciphertext: 'bad' }],
+      [{ ...valid, unexpected_column: 1 }],
+    ];
+    for (const rows of badRows) {
+      const workerApi = api(async () => rows);
+      await expect(readCredential(ctx, connectionId, { workerApi, keyring: ring }))
+        .rejects.toMatchObject({ code: 'invalid_response' });
+      expect(workerApi.call).toHaveBeenCalledTimes(1);
+    }
+    const result = await readCredential(ctx, connectionId, { workerApi: api(async () => [valid]), keyring: ring });
+    expect(result.token.reveal()).toBe(sample);
+    expect(Object.keys(result)).toEqual(expect.arrayContaining(['connectionId', 'status', 'credentialGeneration', 'keyVersion', 'tokenType', 'issuedForAppId', 'grantedScopes', 'expiresAt', 'token', 'rewrap']));
+    const tampered = { ...valid, ciphertext: flipByte(valid.ciphertext) };
+    await expect(readCredential(ctx, connectionId, { workerApi: api(async () => [tampered]), keyring: ring }))
+      .rejects.toBeInstanceOf(CredentialDecryptionError);
+  });
+});
+
+describe('M06.3a paso 2 RED: cliente worker_api', () => {
+  beforeAll(loadWorker);
+
+  it('T-18 usa SQL fijo, casts, aridad y valores copiados sin name', async () => {
+    const calls: unknown[] = [];
+    const pool = {
+      query: vi.fn(async (config: unknown) => { calls.push(config); return { rows: [{ ok: true }] }; }),
+      on: vi.fn(), end: vi.fn(async () => {}),
+    } as unknown as Queryable & { on: ReturnType<typeof vi.fn>; end: ReturnType<typeof vi.fn> };
+    const client = createWorkerApi({ pool });
+    const arities = {
+      create_oauth_attempt: 8, consume_oauth_attempt: 4, create_pending_connection: 12,
+      get_credential: 3, confirm_connection: 7, replace_credential: 12,
+      mark_needs_reauth: 6, begin_disconnect: 3, purge_connection: 3,
+      list_pending_purges: 2, count_credentials_by_key_version: 0, rewrap_credential: 9,
+    } as const;
+    for (const [fn, arity] of Object.entries(arities)) {
+      const args = Array.from({ length: arity }, (_, i) => `arg${i}`);
+      expect(await client.call(fn as keyof typeof arities, args)).toEqual([{ ok: true }]);
+      const config = calls.at(-1) as { text: string; values: unknown[]; name?: string };
+      expect(config.text).toMatch(new RegExp(`^select \\* from worker_api\\.${fn}\\(`));
+      expect(config.values).toEqual(args);
+      expect(config.values).not.toBe(args);
+      expect(config).not.toHaveProperty('name');
+      expect(config.text.match(/\$\d+::/g) ?? []).toHaveLength(arity);
+      await expect(client.call(fn as keyof typeof arities, Array(arity + 1).fill(null))).rejects.toMatchObject({ code: 'invalid_argument' });
+    }
+    expect(calls).toHaveLength(Object.keys(arities).length);
+    expect(pool.on).toHaveBeenCalledWith('error', expect.any(Function));
+    await client.end();
+    expect(pool.end).toHaveBeenCalledTimes(1);
+  });
+
+  it('T-18 no usa URL runtime como fallback en ausencia de la variable', () => {
+    vi.stubEnv('PRAXA_INTEGRATIONS_DB_URL', undefined);
+    try {
+      expect(() => getWorkerApi()).toThrow(WorkerApiError);
+      expect(() => getWorkerApi()).toThrow('Falta PRAXA_INTEGRATIONS_DB_URL.');
+    } finally { vi.unstubAllEnvs(); }
+  });
+
+  it('T-17 traduce y redacta errores de pg sin cause ni propiedades originales', async () => {
+    const mappings = [
+      ...Object.entries({ PX001: 'not_authorized', PX002: 'attempt_rejected', PX003: 'live_connection_exists', PX004: 'invalid_transition', PX005: 'pending_expired', PX006: 'generation_mismatch', PX007: 'account_conflict', PX008: 'key_version_mismatch', '22023': 'invalid_argument', '42501': 'privilege_missing', '42883': 'privilege_missing', '28P01': 'unavailable', ECONNREFUSED: 'unavailable', ETIMEDOUT: 'unavailable', OTHER: 'unexpected' }),
+    ];
+    const marker = 'marca-sintetica-confidencial';
+    for (const [source, expected] of mappings) {
+      const pool: Queryable = {
+        query: async () => { throw Object.assign(new Error(marker), { code: source, detail: marker, hint: marker, connectionString: roleUrl }); },
+        on: vi.fn(), end: vi.fn(async () => {}),
+      };
+      let error: unknown;
+      try { await createWorkerApi({ pool }).call('get_credential', [actorId, companyId, connectionId]); }
+      catch (caught) { error = caught; }
+      expect(error).toBeInstanceOf(WorkerApiError);
+      expect((error as InstanceType<typeof WorkerApiError>).code).toBe(expected);
+      expect((error as Error).message).not.toContain(marker);
+      expect(JSON.stringify(error)).not.toContain(marker);
+      expect(JSON.stringify(error)).not.toContain(roleUrl);
+      expect(error).not.toHaveProperty('cause');
+      expect(error).not.toHaveProperty('detail');
+      expect(error).not.toHaveProperty('hint');
+    }
+  });
+
+  it('T-53 rechaza envelopes y filas no objeto en la frontera del cliente', async () => {
+    for (const result of [null, {}, { rows: null }, { rows: {} }, { rows: [null] }, { rows: [[]] }]) {
+      const pool: Queryable = { query: vi.fn(async () => result as never), on: vi.fn(), end: vi.fn(async () => {}) };
+      await expect(createWorkerApi({ pool }).call('get_credential', [actorId, companyId, connectionId]))
+        .rejects.toMatchObject({ code: 'unexpected', message: 'Respuesta de base de datos inválida.' });
+    }
+  });
+
+  it('T-47/T-49 rechaza overrides de identidad y TLS antes de construir Pool', () => {
+    const forbidden = [
+      'user=x', 'host=x', 'port=5432', 'user=', 'host=', 'port=',
+      'user=x&user=y', '%75ser=x', '%68ost=x', '%70ort=5432',
+      'sslmode=disable', 'sslcert=', 'sslkey=x', 'sslrootcert=x',
+      'ssl=', 'sslnegotiation=direct', 'uselibpqcompat=true', '%73slmode=disable',
+    ];
+    pgState.constructed.length = 0;
+    for (const query of forbidden) {
+      const url = `${roleUrl}?${query}`;
+      let error: unknown;
+      try { createWorkerApi({ connectionString: url }); } catch (caught) { error = caught; }
+      expect(error).toBeInstanceOf(WorkerApiError);
+      expect((error as InstanceType<typeof WorkerApiError>).code).toBe('config_invalid');
+      expect((error as InstanceType<typeof WorkerApiError>).failureKind).toBe('other');
+      expect(JSON.stringify(error)).not.toContain(url);
+      expect(error).not.toHaveProperty('cause');
+    }
+    expect(pgState.constructed).toHaveLength(0);
+  });
+
+  it('T-49 rechaza endpoint que no sea shared transaction pooler 6543', () => {
+    const bad = [
+      roleUrl.replace(':6543/', ':5432/'), roleUrl.replace(':6543/', '/'),
+      roleUrl.replace('aws-0-us-west-2.pooler.supabase.com', 'db.example.com'),
+      roleUrl.replace('aws-0-us-west-2.pooler.supabase.com', 'aws-0-us-west-2.pooler.supabase.com.evil.test'),
+      roleUrl.replace('aws-0-us-west-2.pooler.supabase.com', '127.0.0.1'),
+      roleUrl.replace('praxa_integrations.', 'postgres.'),
+    ];
+    pgState.constructed.length = 0;
+    for (const url of bad) expect(() => createWorkerApi({ connectionString: url })).toThrow(WorkerApiError);
+    expect(pgState.constructed).toHaveLength(0);
+  });
+
+  it('T-48/T-50 versiona la CA y fija TLS y negociación postgres', async () => {
+    const certificate = new X509Certificate(SUPABASE_ROOT_CA);
+    expect(certificate.fingerprint256).toBe('80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA');
+    vi.stubEnv('PGSSLNEGOTIATION', 'direct');
+    try {
+      pgState.constructed.length = 0;
+      const client = createWorkerApi({ connectionString: roleUrl });
+      expect(pgState.constructed).toHaveLength(1);
+      const options = pgState.constructed[0] as Record<string, unknown>;
+      expect(options).toMatchObject({
+        max: 3, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 10_000,
+        query_timeout: 15_000, application_name: 'praxa-worker-api', allowExitOnIdle: true,
+        sslnegotiation: 'postgres', ssl: { ca: SUPABASE_ROOT_CA, rejectUnauthorized: true },
+      });
+      expect(options.ssl).not.toHaveProperty('checkServerIdentity');
+      expect(pgState.listeners).toContainEqual(['error', expect.any(Function)]);
+      await client.end();
+    } finally { vi.unstubAllEnvs(); }
+  });
+});
+
+describe('M06.3a paso 4 RED: configuración obligatoria de la suite real', () => {
+  it('T-37 falla por URL de rol ausente antes de Pool, Client, conexión, fetch o fixtures', async () => {
+    const root = resolve(process.cwd());
+    const temporary = mkdtempSync(join(tmpdir(), 'praxa-m063a-negative-'));
+    const configPath = join(temporary, 'vitest.config.mts');
+    const setupPath = join(temporary, 'setup.mts');
+    const suitePath = join(root, 'tests/app/integrations-worker-api-client.test.ts');
+    try {
+      writeFileSync(configPath, `export default {
+        root: ${JSON.stringify(root)}, envDir: false,
+        resolve: { alias: { '@': ${JSON.stringify(join(root, 'src'))}, vitest: ${JSON.stringify(join(root, 'node_modules/vitest/dist/index.js'))} } },
+        test: { projects: [{
+          resolve: { alias: { '@': ${JSON.stringify(join(root, 'src'))}, vitest: ${JSON.stringify(join(root, 'node_modules/vitest/dist/index.js'))} } },
+          test: { name: 'app', include: [${JSON.stringify(suitePath.replaceAll('\\', '/'))}], environment: 'node', setupFiles: [${JSON.stringify(setupPath)}], fileParallelism: false }
+        }] }
+      };`, 'utf8');
+      writeFileSync(setupPath, `import { vi, afterAll } from 'vitest';
+        delete process.env.PRAXA_INTEGRATIONS_TEST_DB_URL;
+        const counters = { pool: 0, client: 0, connect: 0, fetch: 0 };
+        vi.mock('pg', () => ({ default: {
+          Pool: class { constructor() { counters.pool++; throw new Error('red bloqueada'); } },
+          Client: class { constructor() { counters.client++; throw new Error('red bloqueada'); } }
+        } }));
+        globalThis.fetch = async () => { counters.fetch++; throw new Error('red bloqueada'); };
+        afterAll(() => console.log('HARNESS_STATE ' + JSON.stringify({ missing: !Object.hasOwn(process.env, 'PRAXA_INTEGRATIONS_TEST_DB_URL'), ...counters })));
+      `, 'utf8');
+      const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(PRAXA|SUPABASE|NEXT_PUBLIC_SUPABASE|PG)/i.test(name))) as NodeJS.ProcessEnv;
+      env.PRAXA_INTEGRATIONS_DB_URL = roleUrl;
+      const output = await new Promise<{ code: number | null; stdout: string; stderr: string; timeout: boolean }>((done, reject) => {
+        const child = spawn(process.execPath, [join(root, 'node_modules/vitest/vitest.mjs'), 'run', '--config', configPath, '--project', 'app', suitePath], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
+        let stdout = '';
+        let stderr = '';
+        let timeout = false;
+        const timer = setTimeout(() => { timeout = true; child.kill(); }, 110_000);
+        child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
+        child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+        child.on('error', reject);
+        child.on('close', (code) => { clearTimeout(timer); done({ code, stdout, stderr, timeout }); });
+      });
+      const report = output.stdout + output.stderr;
+      expect(output.timeout).toBe(false);
+      expect(output.code).not.toBe(0);
+      expect(report).toMatch(/Test Files\s+1 failed/);
+      expect(report).toContain('Falta PRAXA_INTEGRATIONS_TEST_DB_URL');
+      expect(report).toContain('HARNESS_STATE {"missing":true,"pool":0,"client":0,"connect":0,"fetch":0}');
+      expect(report).not.toMatch(/Test Files\s+1 skipped/);
+    } finally {
+      rmSync(temporary, { recursive: true, force: true });
+    }
+  }, 120_000);
+});

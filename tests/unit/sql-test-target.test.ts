@@ -1,6 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
-import { DISPOSABLE_ACK, resolveSqlTestTarget } from '../../scripts/lib/sql-target.mjs';
+import { describe, expect, it, vi } from 'vitest';
+
+import { DISPOSABLE_ACK, resolveIntegrationsTestTarget, resolveSqlTestTarget } from '../../scripts/lib/sql-target.mjs';
+import { resolveTarget } from '../../scripts/lib/target.mjs';
 
 /**
  * Elección del destino de las pruebas SQL.
@@ -17,6 +22,8 @@ const pooler = (ref: string) =>
 
 const direct = (ref: string) =>
   `postgresql://postgres:secreta@db.${ref}.supabase.co:5432/postgres`;
+const roleUrl = (ref: string) =>
+  `postgresql://praxa_integrations.${ref}:secreta@aws-0-us-east-1.pooler.supabase.com:6543/postgres`;
 
 function baseEnv(overrides: Record<string, string | undefined> = {}) {
   return {
@@ -107,5 +114,63 @@ describe('destino de las pruebas SQL', () => {
       baseEnv({ SUPABASE_DB_URL: undefined, NEXT_PUBLIC_SUPABASE_URL: undefined }),
     );
     expect(result.ok).toBe(true);
+  });
+});
+
+describe('M06.3a paso 3 RED: destino del rol de integraciones', () => {
+  it('T-22 acepta solo el rol del proyecto desechable por shared transaction pooler', () => {
+    const result = resolveIntegrationsTestTarget(baseEnv({ PRAXA_INTEGRATIONS_TEST_DB_URL: roleUrl(TEST_REF) }));
+    expect(result).toMatchObject({ ok: true, projectRef: TEST_REF, connectionString: roleUrl(TEST_REF) });
+  });
+
+  it('T-22 falla sin URL propia y no propone la URL runtime', () => {
+    const result = resolveIntegrationsTestTarget(baseEnv({ PRAXA_INTEGRATIONS_DB_URL: roleUrl(TEST_REF) }));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.problems?.join(' ')).toMatch(/Falta PRAXA_INTEGRATIONS_TEST_DB_URL/);
+    expect(result.problems?.join(' ')).toMatch(/No se usa PRAXA_INTEGRATIONS_DB_URL/);
+  });
+
+  it('T-22 rechaza rol, proyecto, desechabilidad, marcador y fallback incorrectos', () => {
+    const variants = [
+      { PRAXA_INTEGRATIONS_TEST_DB_URL: pooler(TEST_REF) },
+      { PRAXA_INTEGRATIONS_TEST_DB_URL: roleUrl(APP_REF) },
+      { PRAXA_INTEGRATIONS_TEST_DB_URL: roleUrl(TEST_REF), PRAXA_INTEGRATIONS_DB_URL: roleUrl(TEST_REF) },
+      { PRAXA_INTEGRATIONS_TEST_DB_URL: roleUrl(TEST_REF), SUPABASE_TEST_DB_URL: pooler(APP_REF) },
+      { PRAXA_INTEGRATIONS_TEST_DB_URL: roleUrl(TEST_REF), SUPABASE_TEST_DB_URL: 'no-es-una-url' },
+      { PRAXA_INTEGRATIONS_TEST_DB_URL: roleUrl(TEST_REF), SUPABASE_TEST_IS_DISPOSABLE: undefined },
+      { PRAXA_INTEGRATIONS_TEST_DB_URL: roleUrl(TEST_REF).replace(':secreta@', ':%5BYOUR-PASSWORD%5D@') },
+    ];
+    for (const variant of variants) expect(resolveIntegrationsTestTarget(baseEnv(variant)).ok).toBe(false);
+  });
+
+  it('T-22/T-49 rechaza 5432, puerto ausente, host falso y overrides de URL', () => {
+    const variants = [
+      roleUrl(TEST_REF).replace(':6543/', ':5432/'),
+      roleUrl(TEST_REF).replace(':6543/', '/'),
+      roleUrl(TEST_REF).replace('aws-0-us-east-1.pooler.supabase.com', 'db.example.com'),
+      roleUrl(TEST_REF).replace('aws-0-us-east-1.pooler.supabase.com', 'aws-0-us-east-1.pooler.supabase.com.evil.test'),
+      ...['user=x', 'host=x', 'port=5432', 'user=', 'host=', 'port=', '%75ser=x', 'user=x&user=y', 'sslmode=disable', 'sslcert=', 'sslnegotiation=direct'].map((query) => `${roleUrl(TEST_REF)}?${query}`),
+    ];
+    for (const url of variants) expect(resolveIntegrationsTestTarget(baseEnv({ PRAXA_INTEGRATIONS_TEST_DB_URL: url })).ok).toBe(false);
+    for (const query of ['user=x', 'host=x', 'port=', '%75ser=x', 'sslmode=disable']) {
+      expect(resolveIntegrationsTestTarget(baseEnv({ PRAXA_INTEGRATIONS_TEST_DB_URL: roleUrl(TEST_REF), SUPABASE_TEST_DB_URL: `${pooler(TEST_REF)}?${query}` })).ok).toBe(false);
+    }
+  });
+
+  it('T-23: SUPABASE_TEST_ALLOW_APP_PROJECT=true ya no habilita el proyecto app', () => {
+    const root = mkdtempSync(join(tmpdir(), 'praxa-m063a-target-'));
+    vi.stubEnv('SUPABASE_TEST_URL', `https://${APP_REF}.supabase.co`);
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', `https://${APP_REF}.supabase.co`);
+    vi.stubEnv('SUPABASE_TEST_IS_DISPOSABLE', DISPOSABLE_ACK);
+    vi.stubEnv('SUPABASE_TEST_ALLOW_APP_PROJECT', 'true');
+    try {
+      const result = resolveTarget('test', { root });
+      expect(result.ok).toBe(false);
+      expect(result.problems.join(' ')).not.toContain('SUPABASE_TEST_ALLOW_APP_PROJECT');
+    } finally {
+      vi.unstubAllEnvs();
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
