@@ -57,7 +57,13 @@ Registro único de hallazgos documentados en la auditoría M04.1, el baseline M0
 | `H-E1-40` | Pendiente de decisión del usuario | Próxima corrección de la ruta `meta_first` (plan y spec) | Esta sección |
 | `H-E1-41` | Resuelto: categorías y restricciones, decisión del usuario 2026-10-01 | M06.3a (paso 9 de II.6) | Esta sección |
 | `H-E1-42` | Pendiente: comentario obsoleto de configuración pública | M16.1, al conectar el flujo OAuth al runtime | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-43` | Resuelto en M06.3a: referencia SQL de app ambigua rechazada en la guarda del rol | M06.3a | [QA 2](FASES/FASE1/M06.3a/revisiones/qa-review-2.md); [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 
+`H-E1-43` — Impacto: la guarda del rol podía aceptar una configuración de pruebas sin
+descartar el proyecto de la aplicación cuando la URL SQL de app estaba definida pero su
+referencia no era deducible. Evidencia: Q-02 reprodujo `ok: true` con entradas sintéticas
+y sin red. M06.3a la corrigió comparando por separado las referencias SQL y pública y
+rechazando la SQL configurada pero indeducible; T-22 fija la regresión.
 
 ## Detalle de los hallazgos de la ruta `meta_first` registrados en M04a
 

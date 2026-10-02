@@ -90,8 +90,12 @@ export function resolveIntegrationsTestTarget(env) {
   if (sql.ok && projectRef && sql.projectRef !== projectRef) {
     problems.push('La URL del rol apunta a un proyecto distinto del proyecto de pruebas.');
   }
-  const appRef = app?.ok ? refFromDbUrl(env.SUPABASE_DB_URL) : refFromApiUrl(env.NEXT_PUBLIC_SUPABASE_URL);
-  if (projectRef && appRef && projectRef === appRef) {
+  const appDbRef = app?.ok ? refFromDbUrl(env.SUPABASE_DB_URL) : null;
+  const appApiRef = refFromApiUrl(env.NEXT_PUBLIC_SUPABASE_URL);
+  if (app?.ok && !appDbRef) {
+    problems.push('No se pudo deducir el proyecto de SUPABASE_DB_URL.');
+  }
+  if (projectRef && (projectRef === appDbRef || projectRef === appApiRef)) {
     problems.push('La URL del rol apunta al proyecto de la aplicación.');
   }
   if (env.PRAXA_INTEGRATIONS_DB_URL && env.PRAXA_INTEGRATIONS_DB_URL === roleUrl) {

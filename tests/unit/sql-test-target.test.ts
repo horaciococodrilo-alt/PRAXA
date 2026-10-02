@@ -144,6 +144,30 @@ describe('M06.3a paso 3 RED: destino del rol de integraciones', () => {
     for (const variant of variants) expect(resolveIntegrationsTestTarget(baseEnv(variant)).ok).toBe(false);
   });
 
+  it('T-22 rechaza una referencia SQL de app configurada pero indeducible', () => {
+    const result = resolveIntegrationsTestTarget(baseEnv({
+      PRAXA_INTEGRATIONS_TEST_DB_URL: roleUrl(TEST_REF),
+      SUPABASE_DB_URL: 'postgresql://usuario:clave@db.example.test:5432/postgres',
+      SUPABASE_TEST_URL: undefined,
+      NEXT_PUBLIC_SUPABASE_URL: `https://${TEST_REF}.supabase.co`,
+    }));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.problems?.join(' ')).toMatch(/no se pudo deducir.*SUPABASE_DB_URL/i);
+    expect(result.problems?.join(' ')).not.toContain('db.example.test');
+  });
+
+  it('T-22 contrasta por separado las referencias SQL y pública de app', () => {
+    const result = resolveIntegrationsTestTarget(baseEnv({
+      PRAXA_INTEGRATIONS_TEST_DB_URL: roleUrl(TEST_REF),
+      SUPABASE_TEST_URL: undefined,
+      NEXT_PUBLIC_SUPABASE_URL: `https://${TEST_REF}.supabase.co`,
+    }));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.problems?.join(' ')).toMatch(/proyecto de la aplicación/i);
+  });
+
   it('T-22/T-49 rechaza 5432, puerto ausente, host falso y overrides de URL', () => {
     const variants = [
       roleUrl(TEST_REF).replace(':6543/', ':5432/'),

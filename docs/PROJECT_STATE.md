@@ -21,14 +21,13 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 ## En curso
 
 **M06.3a — Cifrado, cliente acotado y documentación de la excepción.** Habilitada por
-`G-DB-META`. Implementación en `mf/M06.3a`: **VERIFICADO — PENDIENTE DE APROBACIÓN**
-tras corregir R-01 y R-02 de `implementation-review-5.md`. `G-CRYPTO` espera aprobación
-visible del usuario. Evidencia
+`G-DB-META`. Implementación en `mf/M06.3a`: **VERIFICADO — PENDIENTE DE NUEVA
+REVISIÓN Y QA** tras la corrección de Q-02. `G-CRYPTO` sigue pendiente. Evidencia
 en [sesiones/M06.3a.md](FASES/FASE1/meta_first/sesiones/M06.3a.md).
 
-La verificación técnica terminó; M28.2a permanece sin habilitar hasta aprobar `G-CRYPTO`.
+M28.2a permanece sin habilitar hasta aprobar `G-CRYPTO`.
 
-Hallazgos asignados a M06.3a: `H-M04.1-02`, `H-E1-09`, `H-E1-10`, `H-E1-17`, `H-E1-37`, y la
+Hallazgos asignados a M06.3a: `H-M04.1-02`, `H-E1-09`, `H-E1-10`, `H-E1-17`, `H-E1-37`, `H-E1-43` y la
 comprobación de acceso real del rol de `H-E1-36`. Detalle en [HALLAZGOS.md](HALLAZGOS.md).
 
 Después, en este orden: M28.2a, M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a.
