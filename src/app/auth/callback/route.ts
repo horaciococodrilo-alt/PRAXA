@@ -2,6 +2,7 @@ import { type EmailOtpType } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { safeNextPath } from '@/lib/safe-next';
 
 /**
  * Punto de aterrizaje de los enlaces de correo: confirmación de cuenta y recuperación
@@ -22,10 +23,7 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get('type') as EmailOtpType | null;
 
   const requestedNext = searchParams.get('next');
-  const next =
-    requestedNext && requestedNext.startsWith('/') && !requestedNext.startsWith('//')
-      ? requestedNext
-      : '/app';
+  const next = safeNextPath(requestedNext);
 
   const failure = (reason: string) =>
     NextResponse.redirect(`${origin}/verify-email?error=${encodeURIComponent(reason)}`);

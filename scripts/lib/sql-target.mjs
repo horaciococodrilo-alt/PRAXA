@@ -1,4 +1,4 @@
-import { dbUrlHasPlaceholderPassword, dbUrlIsParsable, refFromApiUrl, refFromDbUrl } from './target.mjs';
+import { dbUrlHasPlaceholderPassword, dbUrlIsParsable, refFromApiUrl, refFromDbUrl, testDbUrlHasUnsupportedQuery } from './target.mjs';
 
 /**
  * Elección del destino de las pruebas SQL.
@@ -177,7 +177,9 @@ export function resolveSqlTestTarget(env) {
   }
 
   const testRef = refFromDbUrl(dbUrl);
-  const appRef = appDbUrl ? refFromDbUrl(appDbUrl) : refFromApiUrl(appApiUrl);
+  const appDbRef = refFromDbUrl(appDbUrl);
+  const appApiRef = refFromApiUrl(appApiUrl);
+  const testApiRef = refFromApiUrl(testApiUrl);
 
   // Coincidencia por cadena exacta: el caso más obvio de copiar y pegar mal.
   if (appDbUrl && dbUrl === appDbUrl) {
@@ -189,18 +191,29 @@ export function resolveSqlTestTarget(env) {
 
   // Coincidencia por proyecto, que atrapa además el caso de dos cadenas distintas
   // (pooler y conexión directa) hacia el mismo proyecto.
-  if (testRef && appRef && testRef === appRef) {
+  if (testRef && (testRef === appDbRef || testRef === appApiRef)) {
     problems.push(
       `SUPABASE_TEST_DB_URL apunta al proyecto ${testRef}, que es el de la aplicación. ` +
         'Usá un proyecto aparte y desechable.',
     );
   }
 
-  if (testApiUrl && appApiUrl && testApiUrl === appApiUrl) {
+  if (testApiUrl && appApiUrl && (testApiUrl === appApiUrl || (testApiRef && testApiRef === appApiRef))) {
     problems.push(
       'SUPABASE_TEST_URL y NEXT_PUBLIC_SUPABASE_URL son el mismo proyecto.',
     );
   }
+
+  if (testDbUrlHasUnsupportedQuery(dbUrl)) {
+    problems.push('SUPABASE_TEST_DB_URL contiene parámetros de conexión no permitidos.');
+  }
+
+  if (testApiRef && (testApiRef === appDbRef || (testRef && testApiRef !== testRef))) {
+    problems.push('SUPABASE_TEST_URL no identifica el proyecto SQL de pruebas separado de la aplicación.');
+  }
+  if (appDbUrl && !appDbRef) problems.push('No se pudo deducir el proyecto de SUPABASE_DB_URL.');
+  if (appApiUrl && !appApiRef) problems.push('No se pudo deducir el proyecto de NEXT_PUBLIC_SUPABASE_URL.');
+  if (testApiUrl && !testApiRef) problems.push('No se pudo deducir el proyecto de SUPABASE_TEST_URL.');
 
   // Si no se puede deducir de qué proyecto se trata, no hay forma de descartar que sea
   // el de la aplicación. Ante la duda, no se corre.

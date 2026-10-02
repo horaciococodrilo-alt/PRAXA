@@ -3,9 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
+import pg from 'pg';
 
 import { DISPOSABLE_ACK, resolveIntegrationsTestTarget, resolveSqlTestTarget } from '../../scripts/lib/sql-target.mjs';
 import { resolveTarget } from '../../scripts/lib/target.mjs';
+import { verifiedTestDbConfig } from '../../scripts/lib/test-db-client.mjs';
 
 /**
  * Elección del destino de las pruebas SQL.
@@ -87,6 +89,53 @@ describe('destino de las pruebas SQL', () => {
       baseEnv({ SUPABASE_TEST_URL: `https://${APP_REF}.supabase.co` }),
     );
     expect(problems).toMatch(/mismo proyecto/i);
+  });
+
+  it('rechaza equivalencias canónicas y cada referencia de app por separado', () => {
+    expect(problemsOf(baseEnv({ SUPABASE_TEST_URL: `https://${APP_REF}.supabase.co/` }))).toMatch(/mismo proyecto/i);
+    expect(problemsOf(baseEnv({
+      SUPABASE_DB_URL: 'postgresql://usuario:clave@db.example.test:5432/postgres',
+      NEXT_PUBLIC_SUPABASE_URL: `https://${TEST_REF}.supabase.co/`,
+    }))).toMatch(/el de la aplicación|mismo proyecto/i);
+    expect(problemsOf(baseEnv({
+      SUPABASE_DB_URL: pooler(TEST_REF),
+      NEXT_PUBLIC_SUPABASE_URL: undefined,
+    }))).toMatch(/el de la aplicación|proyecto de la aplicación/i);
+    expect(problemsOf(baseEnv({
+      SUPABASE_TEST_URL: `https://${APP_REF}.supabase.co/`,
+      SUPABASE_TEST_DB_URL: pooler(TEST_REF),
+    }))).toMatch(/mismo proyecto|separado de la aplicación/i);
+  });
+
+  it('rechaza una API de pruebas distinta de su base SQL', () => {
+    expect(problemsOf(baseEnv({ SUPABASE_TEST_URL: `https://${APP_REF}.supabase.co` }))).toMatch(/proyecto SQL de pruebas/i);
+  });
+
+  it('rechaza una URL directa con referencias de usuario y host contradictorias', () => {
+    const conflicted = `postgresql://postgres.${TEST_REF}:secreta@db.${APP_REF}.supabase.co:5432/postgres`;
+    expect(problemsOf(baseEnv({ SUPABASE_TEST_DB_URL: conflicted }))).toMatch(/No se pudo deducir/i);
+  });
+
+  it('rechaza overrides de destino antes de pasar la URL a pg o la CLI', () => {
+    for (const query of ['host=db.example.test', '%68ost=db.example.test', 'port=5433', 'user=x', 'sslmode=require&host=x']) {
+      expect(problemsOf(baseEnv({ SUPABASE_TEST_DB_URL: `${pooler(TEST_REF)}?${query}` }))).toMatch(/parámetros de conexión no permitidos/i);
+    }
+  });
+
+  it('fija TLS real de pg aun con sslmode=require permitido en la URL', () => {
+    const config = verifiedTestDbConfig(`${pooler(TEST_REF)}?sslmode=require`, 'praxa-test');
+    expect(config.connectionString).toBe(pooler(TEST_REF));
+    const effective = (new pg.Client(config) as unknown as {
+      connectionParameters: { ssl: unknown; sslnegotiation: string; user: string; host: string; port: number };
+    }).connectionParameters;
+    expect(effective.ssl).toMatchObject({ rejectUnauthorized: true, ca: expect.stringContaining('BEGIN CERTIFICATE') });
+    expect(effective.sslnegotiation).toBe('postgres');
+    expect([effective.user, effective.host, effective.port]).toEqual([
+      `postgres.${TEST_REF}`, 'aws-0-us-east-1.pooler.supabase.com', 5432,
+    ]);
+    for (const query of ['sslmode=disable', 'ssl=no-verify', 'sslrootcert=x', 'user=x', 'sslmode=require&sslmode=require']) {
+      expect(() => verifiedTestDbConfig(`${pooler(TEST_REF)}?${query}`, 'praxa-test')).toThrow();
+    }
   });
 
   it('rechaza si no se puede deducir a qué proyecto apunta', () => {
@@ -215,6 +264,28 @@ describe('M06.3a paso 3 RED: destino del rol de integraciones', () => {
       const result = resolveTarget('test', { root });
       expect(result.ok).toBe(false);
       expect(result.problems.join(' ')).not.toContain('SUPABASE_TEST_ALLOW_APP_PROJECT');
+    } finally {
+      vi.unstubAllEnvs();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('T-23 rechaza la misma referencia con otra representación o DB de app independiente', () => {
+    const root = mkdtempSync(join(tmpdir(), 'praxa-m063a-target-'));
+    try {
+      vi.stubEnv('SUPABASE_TEST_URL', `https://${APP_REF}.supabase.co/`);
+      vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', `https://${APP_REF}.supabase.co`);
+      vi.stubEnv('SUPABASE_TEST_IS_DISPOSABLE', DISPOSABLE_ACK);
+      expect(resolveTarget('test', { root }).ok).toBe(false);
+      vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', `https://${TEST_REF}.supabase.co`);
+      vi.stubEnv('SUPABASE_DB_URL', pooler(APP_REF));
+      expect(resolveTarget('test', { root }).ok).toBe(false);
+      vi.stubEnv('SUPABASE_TEST_URL', `https://${TEST_REF}.supabase.co`);
+      vi.stubEnv('SUPABASE_TEST_DB_URL', `${pooler(TEST_REF)}?host=db.${APP_REF}.supabase.co&port=5432`);
+      expect(resolveTarget('test', { root, requireDbUrl: true }).problems.join(' ')).toMatch(/parámetros de conexión no permitidos/i);
+      vi.stubEnv('SUPABASE_TEST_DB_URL', `postgresql://postgres.${TEST_REF}:secreta@db.${APP_REF}.supabase.co:5432/postgres`);
+      expect(resolveTarget('test', { root, requireDbUrl: true }).dbRef).toBeNull();
+      expect(resolveTarget('test', { root, requireDbUrl: true }).ok).toBe(false);
     } finally {
       vi.unstubAllEnvs();
       rmSync(root, { recursive: true, force: true });

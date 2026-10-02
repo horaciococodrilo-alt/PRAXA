@@ -13,6 +13,7 @@ import {
   type TestUser,
 } from './helpers';
 import { resolveSqlTestTarget } from '../../scripts/lib/sql-target.mjs';
+import { verifiedTestDbConfig } from '../../scripts/lib/test-db-client.mjs';
 
 /**
  * Lectura efectiva de las tablas del conector por la Data API (sección 5b, H-E1-11).
@@ -86,11 +87,7 @@ describe.skipIf(!canRun)('tablas del conector por la Data API (proyecto remoto)'
       .single<{ id: string }>();
     expect(bobError).toBeNull();
 
-    sql = new pg.Client({
-      connectionString: sqlTarget.connectionString,
-      ssl: { rejectUnauthorized: false },
-      application_name: 'praxa-integrations-data-api',
-    });
+    sql = new pg.Client(verifiedTestDbConfig(sqlTarget.connectionString, 'praxa-integrations-data-api'));
     await sql.connect();
     // Sin esto, un cerrojo tomado por otra sesión colgaría la siembra en lugar de fallar.
     await sql.query(`set statement_timeout = ${STATEMENT_TIMEOUT_MS}`);

@@ -63,6 +63,27 @@ Registro único de hallazgos documentados en la auditoría M04.1, el baseline M0
 | `H-E1-46` | Resuelto en M06.3a: puerto no canónico `06543` rechazado, decisión del usuario 2026-10-02 | M06.3a | [QA 4](FASES/FASE1/M06.3a/revisiones/qa-review-4.md); [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 | `H-E1-47` | Resuelto en M06.3a: rechazo de parámetros TLS acotado a la URL del rol, decisión del usuario 2026-10-02 | M06.3a | [QA 4](FASES/FASE1/M06.3a/revisiones/qa-review-4.md); [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 | `H-E1-48` | Resuelto en M06.3a: `AMBIGUOUS_ENCODING` no cubría el `%` ambiguo en el fin de cadena | M06.3a | [QA 6](FASES/FASE1/M06.3a/revisiones/qa-review-6.md); [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-49` | Corregido en árbol de trabajo: redirección externa tras login | M06.3a (remediación transversal solicitada por el usuario; gate pendiente) | `src/lib/safe-next.ts`; `tests/unit/safe-next.test.ts` |
+| `H-E1-50` | Corregido en árbol de trabajo: aislamiento de pruebas por comparación textual y overrides SQL | M06.3a (remediación transversal solicitada por el usuario; gate pendiente) | `scripts/lib/target.mjs`; `scripts/lib/sql-target.mjs`; `tests/unit/sql-test-target.test.ts` |
+| `H-E1-51` | Corregido en árbol de trabajo: TLS sin verificación en clientes SQL de pruebas | M06.3a (remediación transversal solicitada por el usuario; gate pendiente) | `scripts/lib/test-db-client.mjs`; `tests/unit/sql-test-target.test.ts` |
+
+`H-E1-49` — Impacto: `next=/\evil.example/` pasaba la guarda de login y `router.replace`
+podía enviar al usuario fuera de PRAXA. Evidencia: guarda anterior en `login/page.tsx` y
+resolución estándar de URL; la ruta de callback compartía la validación débil. La función
+`safeNextPath` restringe ambos flujos a rutas internas y las pruebas cubren destinos
+válidos, externos y ambiguos.
+
+`H-E1-50` — Impacto: una URL de API con barra final o una URL SQL con `host`/`port` en
+la consulta podía eludir el aislamiento antes de pruebas o `db:push:test`. Evidencia:
+comparación textual anterior de URLs y prioridad de los parámetros de consulta en `pg`.
+Las guardas ahora contrastan referencias de API y SQL por separado, rechazan referencias
+contradictorias y solo admiten `sslmode=require` en la URL SQL de pruebas.
+
+`H-E1-51` — Impacto: tres clientes SQL de pruebas usaban `rejectUnauthorized: false`,
+exponiendo credenciales y datos de prueba ante un servidor SQL suplantado. Evidencia:
+`run-pgtap.mjs`, `concurrency.test.ts` e `integrations-data-api.test.ts` antes del cambio.
+Comparten la CA pública de Supabase y exigen verificación TLS; el parámetro permitido
+`sslmode=require` se retira de la URL antes de entregar la configuración a `pg`.
 
 `H-E1-43` — Impacto: la guarda del rol podía aceptar una configuración de pruebas sin
 descartar el proyecto de la aplicación cuando la URL SQL de app estaba definida pero su

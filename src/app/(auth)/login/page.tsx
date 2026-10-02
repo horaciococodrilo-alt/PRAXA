@@ -7,6 +7,7 @@ import { Suspense, useState } from 'react';
 import { ConfigurationMissing } from '@/components/configuration-missing';
 import { Button, Callout, Card, Field, Input } from '@/components/ui';
 import { isSupabaseConfigured } from '@/lib/env';
+import { safeNextPath } from '@/lib/safe-next';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 function LoginForm() {
@@ -39,8 +40,7 @@ function LoginForm() {
       }
 
       // El servidor tiene que volver a leer la sesión desde las cookies.
-      const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/app';
-      router.replace(safeNext);
+      router.replace(safeNextPath(next));
       router.refresh();
     } finally {
       setPending(false);

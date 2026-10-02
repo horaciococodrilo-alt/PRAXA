@@ -39,10 +39,9 @@ export function refFromDbUrl(url) {
     const parsed = new URL(url);
 
     const fromUser = parsed.username.match(/^postgres\.([a-z0-9]{20})$/i);
-    if (fromUser) return fromUser[1];
-
     const fromHost = parsed.hostname.match(/^db\.([a-z0-9]{20})\.supabase\.(co|in|red)$/i);
-    if (fromHost) return fromHost[1];
+    if (fromUser && fromHost && fromUser[1].toLowerCase() !== fromHost[1].toLowerCase()) return null;
+    if (fromUser || fromHost) return (fromUser?.[1] ?? fromHost[1]).toLowerCase();
 
     return null;
   } catch {
@@ -58,6 +57,18 @@ export function dbUrlIsParsable(url) {
     return Boolean(parsed.hostname) && parsed.protocol.startsWith('postgres');
   } catch {
     return false;
+  }
+}
+
+/** La URL administrativa de pruebas solo admite el sslmode=require de la spec. */
+export function testDbUrlHasUnsupportedQuery(value) {
+  try {
+    const parsed = new URL(value);
+    const entries = [...parsed.searchParams];
+    return Boolean(parsed.hash) || entries.length > 1 ||
+      entries.some(([name, mode]) => name.toLowerCase() !== 'sslmode' || mode !== 'require');
+  } catch {
+    return true;
   }
 }
 
@@ -141,6 +152,8 @@ export function resolveTarget(scope, options = {}) {
           'incluidos— por la contraseña del proyecto (Dashboard → Project Settings → ' +
           'Database; ahí también podés reiniciarla si no la tenés).',
       );
+    } else if (scope === 'test' && testDbUrlHasUnsupportedQuery(dbUrl)) {
+      problems.push('SUPABASE_TEST_DB_URL contiene parámetros de conexión no permitidos.');
     } else {
       dbRef = refFromDbUrl(dbUrl);
 
@@ -178,12 +191,30 @@ export function resolveTarget(scope, options = {}) {
 
   if (scope === 'test') {
     const appUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+    const appApiRef = refFromApiUrl(appUrl);
+    const appDbRef = refFromDbUrl(env.SUPABASE_DB_URL);
 
-    if (apiUrl && appUrl && apiUrl === appUrl) {
+    if (apiUrl && appUrl && (apiUrl === appUrl || (apiRef && apiRef === appApiRef))) {
       problems.push(
         'SUPABASE_TEST_URL apunta al mismo proyecto que la aplicación. Usá un proyecto ' +
           'aparte y desechable.',
       );
+    }
+
+    if (appDbRef && (appDbRef === apiRef || appDbRef === dbRef)) {
+      problems.push('El destino de pruebas apunta al proyecto de SUPABASE_DB_URL.');
+    }
+    if (env.SUPABASE_DB_URL && !appDbRef) {
+      problems.push('No se pudo deducir el proyecto de SUPABASE_DB_URL.');
+    }
+    if (appUrl && !appApiRef) {
+      problems.push('No se pudo deducir el proyecto de NEXT_PUBLIC_SUPABASE_URL.');
+    }
+    if (!apiRef) {
+      problems.push('No se pudo deducir el proyecto de SUPABASE_TEST_URL.');
+    }
+    if (requireDbUrl && !dbRef) {
+      problems.push('No se pudo deducir el proyecto de SUPABASE_TEST_DB_URL.');
     }
 
     if (env.SUPABASE_TEST_IS_DISPOSABLE !== 'yes-this-project-is-disposable') {

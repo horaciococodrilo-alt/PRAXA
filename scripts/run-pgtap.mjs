@@ -5,6 +5,7 @@ import pg from 'pg';
 
 import { loadEnv } from './lib/env.mjs';
 import { resolveSqlTestTarget } from './lib/sql-target.mjs';
+import { verifiedTestDbConfig } from './lib/test-db-client.mjs';
 
 /**
  * Ejecutor de pruebas pgTAP contra PostgreSQL REMOTO, sin contenedores.
@@ -237,11 +238,7 @@ async function main() {
     process.exit(1);
   }
 
-  const client = new pg.Client({
-    connectionString,
-    ssl: { rejectUnauthorized: false },
-    application_name: 'praxa-pgtap',
-  });
+  const client = new pg.Client(verifiedTestDbConfig(connectionString, 'praxa-pgtap'));
 
   try {
     await client.connect();
