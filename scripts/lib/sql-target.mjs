@@ -25,8 +25,32 @@ const TLS_QUERY = new Set(['sslmode', 'sslcert', 'sslkey', 'sslrootcert', 'ssl',
 const DESTINATION_QUERY = new Set(['user', 'host', 'port']);
 const POOLER_HOST = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.pooler\.supabase\.com$/i;
 
-function inspectedUrl(value) {
+/**
+ * pg-connection-string vuelve a codificar toda la cadena con `encodeURI` cuando
+ * encuentra un espacio sin codificar o un `%` que no va seguido de dos dígitos
+ * hexadecimales (pg-connection-string/index.js:20). Esa re-codificación no decodifica
+ * un `%XX` ya presente (por ejemplo `%5F`): lo deja como texto literal en el usuario
+ * que pg termina usando, distinto del que valida esta guarda. Ante esa ambigüedad se
+ * rechaza la URL entera, sin intentar replicar la re-codificación.
+ */
+const AMBIGUOUS_ENCODING = / |%[^a-f0-9]|%[a-f0-9][^a-f0-9]/i;
+
+/** Puerto literal de la autoridad de la URL original, sin la normalización de `new URL()`. */
+function literalAuthorityPort(raw) {
+  const afterScheme = raw.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
+  const end = afterScheme.search(/[/?#]/);
+  const authority = end === -1 ? afterScheme : afterScheme.slice(0, end);
+  const at = authority.lastIndexOf('@');
+  const hostport = at === -1 ? authority : authority.slice(at + 1);
+  const match = /:(\d+)$/.exec(hostport);
+  return match ? match[1] : null;
+}
+
+function inspectedUrl(value, { allowTls = false } = {}) {
   if (typeof value !== 'string' || !/^postgres(?:ql)?:\/\//i.test(value)) {
+    return { ok: false, problem: 'La URL de conexión no es válida.' };
+  }
+  if (AMBIGUOUS_ENCODING.test(value)) {
     return { ok: false, problem: 'La URL de conexión no es válida.' };
   }
   let url;
@@ -46,7 +70,7 @@ function inspectedUrl(value) {
     if (DESTINATION_QUERY.has(normalized)) {
       return { ok: false, problem: 'La URL de conexión contiene overrides de identidad o destino no permitidos.' };
     }
-    if (TLS_QUERY.has(normalized)) {
+    if (!allowTls && TLS_QUERY.has(normalized)) {
       return { ok: false, problem: 'La URL de conexión contiene parámetros TLS no permitidos; TLS se configura en el módulo.' };
     }
   }
@@ -64,8 +88,8 @@ export function resolveIntegrationsTestTarget(env) {
   }
 
   const role = inspectedUrl(roleUrl);
-  const reference = env.SUPABASE_TEST_DB_URL ? inspectedUrl(env.SUPABASE_TEST_DB_URL) : null;
-  const app = env.SUPABASE_DB_URL ? inspectedUrl(env.SUPABASE_DB_URL) : null;
+  const reference = env.SUPABASE_TEST_DB_URL ? inspectedUrl(env.SUPABASE_TEST_DB_URL, { allowTls: true }) : null;
+  const app = env.SUPABASE_DB_URL ? inspectedUrl(env.SUPABASE_DB_URL, { allowTls: true }) : null;
   if (!role.ok) problems.push(role.problem);
   if (reference && !reference.ok) problems.push(`SUPABASE_TEST_DB_URL: ${reference.problem}`);
   if (app && !app.ok) problems.push(`SUPABASE_DB_URL: ${app.problem}`);
@@ -83,7 +107,7 @@ export function resolveIntegrationsTestTarget(env) {
     const match = username.match(/^praxa_integrations\.([a-z0-9]{20})$/);
     if (!match) problems.push('La URL del rol debe usar praxa_integrations.<ref>.');
     else projectRef = match[1];
-    if (!POOLER_HOST.test(role.url.hostname) || role.url.port !== '6543') {
+    if (!POOLER_HOST.test(role.url.hostname) || role.url.port !== '6543' || literalAuthorityPort(roleUrl) !== '6543') {
       problems.push('Se requiere el shared transaction pooler en el puerto 6543.');
     }
   }

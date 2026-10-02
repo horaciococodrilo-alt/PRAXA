@@ -174,12 +174,31 @@ describe('M06.3a paso 3 RED: destino del rol de integraciones', () => {
       roleUrl(TEST_REF).replace(':6543/', '/'),
       roleUrl(TEST_REF).replace('aws-0-us-east-1.pooler.supabase.com', 'db.example.com'),
       roleUrl(TEST_REF).replace('aws-0-us-east-1.pooler.supabase.com', 'aws-0-us-east-1.pooler.supabase.com.evil.test'),
+      // Q-04 de qa-review-4: puerto no canónico, aunque new URL() lo normalice a 6543.
+      roleUrl(TEST_REF).replace(':6543/', ':06543/'),
+      // Q-02/Q-C26-c de qa-review-4: usuario codificado combinado con un espacio o un
+      // `%` no hexadecimal en otra parte dispara la re-codificación de pg-connection-string,
+      // que deja el usuario efectivo de pg distinto del validado por esta guarda.
+      roleUrl(TEST_REF).replace('praxa_integrations.', 'praxa%5Fintegrations.').replace(':secreta@', ':sec reta@'),
+      `${roleUrl(TEST_REF).replace('praxa_integrations.', 'praxa%5Fintegrations.')}%zz`,
+      `${roleUrl(TEST_REF).replace('praxa_integrations.', 'praxa%5Fintegrations.')}?application_name=a%zz`,
       ...['user=x', 'host=x', 'port=5432', 'user=', 'host=', 'port=', '%75ser=x', 'user=x&user=y', 'sslmode=disable', 'sslcert=', 'sslnegotiation=direct'].map((query) => `${roleUrl(TEST_REF)}?${query}`),
     ];
     for (const url of variants) expect(resolveIntegrationsTestTarget(baseEnv({ PRAXA_INTEGRATIONS_TEST_DB_URL: url })).ok).toBe(false);
-    for (const query of ['user=x', 'host=x', 'port=', '%75ser=x', 'sslmode=disable']) {
+    // La URL de referencia conserva el rechazo de overrides de identidad/destino...
+    for (const query of ['user=x', 'host=x', 'port=', '%75ser=x']) {
       expect(resolveIntegrationsTestTarget(baseEnv({ PRAXA_INTEGRATIONS_TEST_DB_URL: roleUrl(TEST_REF), SUPABASE_TEST_DB_URL: `${pooler(TEST_REF)}?${query}` })).ok).toBe(false);
     }
+  });
+
+  it('T-22 acepta sslmode en la referencia de pruebas, decisión del usuario sobre Q-05 de qa-review-4: el rechazo de parámetros TLS se acota a la URL del rol', () => {
+    const result = resolveIntegrationsTestTarget(baseEnv({
+      PRAXA_INTEGRATIONS_TEST_DB_URL: roleUrl(TEST_REF),
+      SUPABASE_TEST_DB_URL: `${pooler(TEST_REF)}?sslmode=require`,
+    }));
+    expect(result).toMatchObject({ ok: true, projectRef: TEST_REF });
+    // La URL del rol sigue rechazando TLS: regla acotada a la referencia administrativa.
+    expect(resolveIntegrationsTestTarget(baseEnv({ PRAXA_INTEGRATIONS_TEST_DB_URL: `${roleUrl(TEST_REF)}?sslmode=require` })).ok).toBe(false);
   });
 
   it('T-23: SUPABASE_TEST_ALLOW_APP_PROJECT=true ya no habilita el proyecto app', () => {

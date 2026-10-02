@@ -741,6 +741,14 @@ describe('M06.3a paso 2 RED: cliente worker_api', () => {
       roleUrl.replace('aws-0-us-west-2.pooler.supabase.com', '127.0.0.1'),
       roleUrl.replace('aws-0-us-west-2.pooler.supabase.com', '%2Fvar%2Frun%2Fpostgresql'),
       roleUrl.replace('praxa_integrations.', 'postgres.'),
+      // Q-04 de qa-review-4: puerto no canónico, aunque new URL() lo normalice a 6543.
+      roleUrl.replace(':6543/', ':06543/'),
+      // Q-02/Q-C26-c de qa-review-4: usuario codificado combinado con un espacio o un
+      // `%` no hexadecimal en otra parte dispara la re-codificación de pg-connection-string,
+      // que deja el usuario efectivo de pg distinto del validado por esta guarda.
+      roleUrl.replace('praxa_integrations.', 'praxa%5Fintegrations.').replace(':clave@', ':cla ve@'),
+      `${roleUrl.replace('praxa_integrations.', 'praxa%5Fintegrations.')}%zz`,
+      `${roleUrl.replace('praxa_integrations.', 'praxa%5Fintegrations.')}?application_name=a%zz`,
     ];
     pgState.constructed.length = 0;
     for (const url of bad) expect(() => createWorkerApi({ connectionString: url })).toThrow(WorkerApiError);
@@ -781,53 +789,98 @@ describe('M06.3a paso 2 RED: cliente worker_api', () => {
 });
 
 describe('M06.3a paso 4 RED: configuración obligatoria de la suite real', () => {
-  it('T-37 falla por URL de rol ausente antes de Pool, Client, conexión, fetch o fixtures', async () => {
-    const root = resolve(process.cwd());
+  const root = resolve(process.cwd());
+  const suitePath = join(root, 'tests/app/integrations-worker-api-client.test.ts');
+
+  /**
+   * El arnés intercepta `pg` con un alias de `resolve.alias` de Vitest a un stub
+   * temporal, no con `vi.mock('pg', …)`: Q-01 de `qa-review-4` mostró que ese mock,
+   * registrado en un setup aparte, no intercepta el `pg` real de la suite (probablemente
+   * por el alias de `vitest` a `dist/index.js` o la externalización de `pg`), así que la
+   * aserción de contadores daba siempre cero sin probar nada. El alias sí intercepta.
+   */
+  async function runHarness(options: { missingRoleUrl?: boolean; healthOk?: boolean; extraEnv?: Record<string, string> }) {
     const temporary = mkdtempSync(join(tmpdir(), 'praxa-m063a-negative-'));
     const configPath = join(temporary, 'vitest.config.mts');
     const setupPath = join(temporary, 'setup.mts');
-    const suitePath = join(root, 'tests/app/integrations-worker-api-client.test.ts');
+    const stubPath = join(temporary, 'pg-stub.mjs').replaceAll('\\', '/');
     try {
+      writeFileSync(stubPath, [
+        "const counters = (globalThis.__praxaPgStub ??= { pool: 0, client: 0 });",
+        "class Pool { constructor() { counters.pool++; throw new Error('red bloqueada'); } on() {} }",
+        "class Client { constructor() { counters.client++; throw new Error('red bloqueada'); } }",
+        "export default { Pool, Client };",
+        "",
+      ].join('\n'), 'utf8');
       writeFileSync(configPath, `export default {
         root: ${JSON.stringify(root)}, envDir: false,
         resolve: { alias: { '@': ${JSON.stringify(join(root, 'src'))}, vitest: ${JSON.stringify(join(root, 'node_modules/vitest/dist/index.js'))} } },
         test: { projects: [{
-          resolve: { alias: { '@': ${JSON.stringify(join(root, 'src'))}, vitest: ${JSON.stringify(join(root, 'node_modules/vitest/dist/index.js'))} } },
+          resolve: { alias: { '@': ${JSON.stringify(join(root, 'src'))}, vitest: ${JSON.stringify(join(root, 'node_modules/vitest/dist/index.js'))}, pg: ${JSON.stringify(stubPath)} } },
           test: { name: 'app', include: [${JSON.stringify(suitePath.replaceAll('\\', '/'))}], environment: 'node', setupFiles: [${JSON.stringify(setupPath)}], fileParallelism: false }
         }] }
       };`, 'utf8');
-      writeFileSync(setupPath, `import { vi, afterAll } from 'vitest';
-        delete process.env.PRAXA_INTEGRATIONS_TEST_DB_URL;
-        const counters = { pool: 0, client: 0, connect: 0, fetch: 0 };
-        vi.mock('pg', () => ({ default: {
-          Pool: class { constructor() { counters.pool++; throw new Error('red bloqueada'); } },
-          Client: class { constructor() { counters.client++; throw new Error('red bloqueada'); } }
-        } }));
-        globalThis.fetch = async () => { counters.fetch++; throw new Error('red bloqueada'); };
-        afterAll(() => console.log('HARNESS_STATE ' + JSON.stringify({ missing: !Object.hasOwn(process.env, 'PRAXA_INTEGRATIONS_TEST_DB_URL'), ...counters })));
+      writeFileSync(setupPath, `import { afterAll } from 'vitest';
+        ${options.missingRoleUrl ? "delete process.env.PRAXA_INTEGRATIONS_TEST_DB_URL;" : ''}
+        const counters = (globalThis.__praxaPgStub ??= { pool: 0, client: 0 });
+        let fetchCount = 0;
+        globalThis.fetch = async () => {
+          fetchCount++;
+          ${options.healthOk ? "return new Response('{}', { status: 200 });" : "throw new Error('red bloqueada');"}
+        };
+        afterAll(() => console.log('HARNESS_STATE ' + JSON.stringify({
+          missing: !Object.hasOwn(process.env, 'PRAXA_INTEGRATIONS_TEST_DB_URL'),
+          pool: counters.pool, client: counters.client, fetch: fetchCount,
+        })));
       `, 'utf8');
-      const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(PRAXA|SUPABASE|NEXT_PUBLIC_SUPABASE|PG)/i.test(name))) as NodeJS.ProcessEnv;
-      env.PRAXA_INTEGRATIONS_DB_URL = roleUrl;
-      const output = await new Promise<{ code: number | null; stdout: string; stderr: string; timeout: boolean }>((done, reject) => {
+      const base = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(PRAXA|SUPABASE|NEXT_PUBLIC_SUPABASE|PG)/i.test(name))) as NodeJS.ProcessEnv;
+      const env = { ...base, ...options.extraEnv } as NodeJS.ProcessEnv;
+      return await new Promise<{ code: number | null; report: string; timeout: boolean }>((done, reject) => {
         const child = spawn(process.execPath, [join(root, 'node_modules/vitest/vitest.mjs'), 'run', '--config', configPath, '--project', 'app', suitePath], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
-        let stdout = '';
-        let stderr = '';
+        let report = '';
         let timeout = false;
         const timer = setTimeout(() => { timeout = true; child.kill(); }, 110_000);
-        child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
-        child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+        child.stdout.on('data', (chunk: Buffer) => { report += chunk.toString(); });
+        child.stderr.on('data', (chunk: Buffer) => { report += chunk.toString(); });
         child.on('error', reject);
-        child.on('close', (code) => { clearTimeout(timer); done({ code, stdout, stderr, timeout }); });
+        child.on('close', (code) => { clearTimeout(timer); done({ code, report, timeout }); });
       });
-      const report = output.stdout + output.stderr;
-      expect(output.timeout).toBe(false);
-      expect(output.code).not.toBe(0);
-      expect(report).toMatch(/Test Files\s+1 failed/);
-      expect(report).toContain('Falta PRAXA_INTEGRATIONS_TEST_DB_URL');
-      expect(report).toContain('HARNESS_STATE {"missing":true,"pool":0,"client":0,"connect":0,"fetch":0}');
-      expect(report).not.toMatch(/Test Files\s+1 skipped/);
     } finally {
       rmSync(temporary, { recursive: true, force: true });
     }
+  }
+
+  it('T-37 falla por URL de rol ausente antes de Pool, Client, conexión, fetch o fixtures', async () => {
+    const { code, report, timeout } = await runHarness({
+      missingRoleUrl: true,
+      healthOk: false,
+      extraEnv: { PRAXA_INTEGRATIONS_DB_URL: roleUrl },
+    });
+    expect(timeout).toBe(false);
+    expect(code).not.toBe(0);
+    expect(report).toMatch(/Test Files\s+1 failed/);
+    expect(report).toContain('Falta PRAXA_INTEGRATIONS_TEST_DB_URL');
+    expect(report).toContain('HARNESS_STATE {"missing":true,"pool":0,"client":0,"fetch":0}');
+    expect(report).not.toMatch(/Test Files\s+1 skipped/);
+  }, 120_000);
+
+  it('T-37 control positivo: el alias de pg del arnés intercepta y registra la construcción del Pool (Q-01 de qa-review-4)', async () => {
+    const positiveRef = 'c'.repeat(20);
+    const appRef = 'd'.repeat(20);
+    const extraEnv = {
+      NEXT_PUBLIC_SUPABASE_URL: `https://${appRef}.supabase.co`,
+      SUPABASE_DB_URL: `postgresql://postgres.${appRef}:secreta@aws-0-us-east-1.pooler.supabase.com:5432/postgres`,
+      SUPABASE_TEST_URL: `https://${positiveRef}.supabase.co`,
+      SUPABASE_TEST_DB_URL: `postgresql://postgres.${positiveRef}:secreta@aws-0-us-east-1.pooler.supabase.com:5432/postgres`,
+      SUPABASE_TEST_IS_DISPOSABLE: 'yes-this-project-is-disposable',
+      SUPABASE_TEST_PUBLISHABLE_KEY: 'sintetica',
+      SUPABASE_TEST_SECRET_KEY: 'sintetica',
+      PRAXA_INTEGRATIONS_TEST_DB_URL: `postgresql://praxa_integrations.${positiveRef}:clave@aws-0-us-west-2.pooler.supabase.com:6543/postgres`,
+    };
+    const { report, timeout } = await runHarness({ healthOk: true, extraEnv });
+    expect(timeout).toBe(false);
+    expect(/ENOTFOUND|getaddrinfo/.test(report)).toBe(false);
+    const state = JSON.parse(report.match(/HARNESS_STATE (\{.*\})/)?.[1] ?? '{}');
+    expect(state.pool).toBeGreaterThan(0);
   }, 120_000);
 });

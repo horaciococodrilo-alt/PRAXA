@@ -112,12 +112,34 @@ const DESTINATION_QUERY = new Set(['user', 'host', 'port']);
 const POOLER_HOST = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.pooler\.supabase\.com$/i;
 const ROLE_USER = /^praxa_integrations\.[a-z0-9]{20}$/;
 
+/**
+ * pg-connection-string vuelve a codificar toda la cadena con `encodeURI` cuando
+ * encuentra un espacio sin codificar o un `%` que no va seguido de dos dígitos
+ * hexadecimales (pg-connection-string/index.js:20). Esa re-codificación no decodifica
+ * un `%XX` ya presente (por ejemplo `%5F`): lo deja como texto literal en el usuario
+ * que pg termina usando, distinto del que valida esta guarda. Ante esa ambigüedad se
+ * rechaza la URL entera, sin intentar replicar la re-codificación.
+ */
+const AMBIGUOUS_ENCODING = / |%[^a-f0-9]|%[a-f0-9][^a-f0-9]/i;
+
+/** Puerto literal de la autoridad de la URL original, sin la normalización de `new URL()`. */
+function literalAuthorityPort(raw: string): string | null {
+  const afterScheme = raw.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
+  const end = afterScheme.search(/[/?#]/);
+  const authority = end === -1 ? afterScheme : afterScheme.slice(0, end);
+  const at = authority.lastIndexOf('@');
+  const hostport = at === -1 ? authority : authority.slice(at + 1);
+  const match = /:(\d+)$/.exec(hostport);
+  return match ? match[1] : null;
+}
+
 function configInvalid(message = MESSAGES.config_invalid): never {
   throw new WorkerApiError('config_invalid', 'other', message);
 }
 
 function validateConnectionString(connectionString: string): void {
   if (typeof connectionString !== 'string' || !/^postgres(?:ql)?:\/\//i.test(connectionString)) configInvalid();
+  if (AMBIGUOUS_ENCODING.test(connectionString)) configInvalid();
   let url: URL;
   try { url = new URL(connectionString); }
   catch { configInvalid(); }
@@ -139,7 +161,8 @@ function validateConnectionString(connectionString: string): void {
   let username: string;
   try { username = decodeURIComponent(url.username); }
   catch { configInvalid(); }
-  if (!ROLE_USER.test(username) || !POOLER_HOST.test(url.hostname) || url.port !== '6543') {
+  if (!ROLE_USER.test(username) || !POOLER_HOST.test(url.hostname) || url.port !== '6543' ||
+      literalAuthorityPort(connectionString) !== '6543') {
     configInvalid('Se requiere el shared transaction pooler en el puerto 6543.');
   }
 }

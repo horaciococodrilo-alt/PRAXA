@@ -58,12 +58,71 @@ Registro único de hallazgos documentados en la auditoría M04.1, el baseline M0
 | `H-E1-41` | Resuelto: categorías y restricciones, decisión del usuario 2026-10-01 | M06.3a (paso 9 de II.6) | Esta sección |
 | `H-E1-42` | Pendiente: comentario obsoleto de configuración pública | M16.1, al conectar el flujo OAuth al runtime | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 | `H-E1-43` | Resuelto en M06.3a: referencia SQL de app ambigua rechazada en la guarda del rol | M06.3a | [QA 2](FASES/FASE1/M06.3a/revisiones/qa-review-2.md); [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-44` | Resuelto en M06.3a: el arnés de T-37 intercepta `pg` con un alias, no con `vi.mock` | M06.3a | [QA 4](FASES/FASE1/M06.3a/revisiones/qa-review-4.md); [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-45` | Resuelto en M06.3a: identidad ambigua por re-codificación de pg-connection-string, rechazada en cliente y resolvedor | M06.3a | [QA 4](FASES/FASE1/M06.3a/revisiones/qa-review-4.md); [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-46` | Resuelto en M06.3a: puerto no canónico `06543` rechazado, decisión del usuario 2026-10-02 | M06.3a | [QA 4](FASES/FASE1/M06.3a/revisiones/qa-review-4.md); [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-47` | Resuelto en M06.3a: rechazo de parámetros TLS acotado a la URL del rol, decisión del usuario 2026-10-02 | M06.3a | [QA 4](FASES/FASE1/M06.3a/revisiones/qa-review-4.md); [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 
 `H-E1-43` — Impacto: la guarda del rol podía aceptar una configuración de pruebas sin
 descartar el proyecto de la aplicación cuando la URL SQL de app estaba definida pero su
 referencia no era deducible. Evidencia: Q-02 reprodujo `ok: true` con entradas sintéticas
 y sin red. M06.3a la corrigió comparando por separado las referencias SQL y pública y
 rechazando la SQL configurada pero indeducible; T-22 fija la regresión.
+
+`H-E1-44` — Impacto: el arnés negativo de T-37 registraba `vi.mock('pg', …)` en un setup
+temporal que no interceptaba el `pg` real de la suite (probablemente por el alias de
+`vitest` a `dist/index.js` o la externalización de `pg`; no se aisló la causa exacta), así
+que la aserción "cero Pool/Client" daba siempre cero sin probar nada y el arnés no
+garantizaba que la suite nunca intente conectar. Evidencia: `qa-review-4`, Q-01/Q-T37-a —
+con una configuración sintética válida y un host que no resuelve, `beforeAll` construyó un
+Pool de `pg` real (T-31 venció esperando la conexión) y el contador del mock quedó en 0; una
+versión anterior de esa prueba había llegado a abrir conexiones reales al pooler público.
+Q-T37-c mostró que un alias de `resolve.alias` de Vitest a un stub sí intercepta.
+Corrección: el arnés de T-37 en `tests/unit/credential-crypto.test.ts` ahora alía `pg` a un
+stub temporal en la configuración de Vitest en lugar de `vi.mock`; se agregó un control
+positivo permanente (configuración válida + host que no resuelve) que exige contador de
+`Pool` mayor que cero y ausencia de errores de DNS, para que una regresión futura del
+aislamiento se detecte.
+
+`H-E1-45` — Impacto: `pg-connection-string` vuelve a codificar toda la cadena de conexión
+con `encodeURI` cuando encuentra un espacio sin codificar o un `%` no seguido de dos
+dígitos hexadecimales en cualquier parte de la URL (incluida la contraseña o la query); esa
+re-codificación no decodifica un `%XX` ya presente en el usuario (por ejemplo `%5F`), así
+que el usuario efectivo que usa `pg` puede quedar distinto del validado por la guarda,
+contradiciendo A-02 ("la identidad, destino y puerto validados son exactamente los que pg
+utilizará"). Falla cerrada (un usuario inexistente no autentica) y no permite escalar a otro
+rol válido, pero viola el contrato. Evidencia: `qa-review-4`, Q-02/Q-C26-c — tres variantes
+con el usuario `praxa%5Fintegrations.<ref>` combinadas con un espacio en la contraseña o un
+`%zz` en la ruta o la query eran aceptadas por `createWorkerApi`, con `ConnectionParameters`
+mostrando `praxa%5Fintegrations.<ref>` como usuario efectivo frente al
+`praxa_integrations.<ref>` validado; el resolvedor de `sql-target.mjs` también las aceptaba.
+Corrección: tanto `worker-api.ts` como `sql-target.mjs` rechazan ahora, con el mismo
+criterio, cualquier URL de conexión que dispare el patrón de re-codificación de
+pg-connection-string (espacio, o `%` no hexadecimal, o `%` seguido de un dígito hexadecimal
+y uno que no lo es), antes de decodificar usuario/contraseña. Se falla cerrado: no se
+intenta replicar la re-codificación para decidir si coincide, se rechaza directamente. T-49
+y T-22 fijan las tres variantes como regresión.
+
+`H-E1-46` — Impacto: la regla 7 de Diseño §7 exige "puerto explícito decimal canónico
+`6543`", pero tanto el cliente como el resolvedor comparaban `url.port`, que WHATWG `URL`
+normaliza quitando ceros a la izquierda; una URL con `:06543` pasaba la guarda con el mismo
+puerto efectivo `6543`. Evidencia: `qa-review-4`, Q-04/Q-C13-d/Q-C26-d. **Decisión del
+usuario (2026-10-02):** rechazar el puerto no canónico. Corrección: `worker-api.ts` y
+`sql-target.mjs` exigen además que la autoridad de la URL *original* (antes de parsear)
+contenga el texto literal `6543`, no solo que `new URL()` lo normalice a ese valor; el
+mensaje de error sigue siendo el fijo de la spec. T-49 y T-22 agregan el caso `:06543` como
+regresión negativa.
+
+`H-E1-47` — Impacto: `resolveIntegrationsTestTarget` aplicaba el rechazo de parámetros TLS
+(`sslmode`, `sslcert`, etc.) también a `SUPABASE_TEST_DB_URL` y `SUPABASE_DB_URL`, que la
+spec solo exige para la URL del rol ("regla 7 aplica solo al cliente del rol"); una URL
+administrativa válida con `?sslmode=require` hacía fallar la guarda sin que la spec lo
+pidiera. Evidencia: `qa-review-4`, Q-05 (observación). **Decisión del usuario
+(2026-10-02):** acotar a la spec. Corrección: `inspectedUrl` en `sql-target.mjs` acepta un
+parámetro que desactiva el rechazo TLS; se usa al inspeccionar `SUPABASE_TEST_DB_URL` y
+`SUPABASE_DB_URL`, que conservan el rechazo de overrides de `user`/`host`/`port`. La URL del
+rol sigue rechazando TLS sin cambios. T-22 agrega el caso positivo (`sslmode=require`
+aceptado en la referencia) y conserva el rechazo en la URL del rol.
 
 ## Detalle de los hallazgos de la ruta `meta_first` registrados en M04a
 
