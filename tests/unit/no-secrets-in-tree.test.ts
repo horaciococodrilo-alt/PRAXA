@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { isAbsolute, join, posix, relative, resolve, sep, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -51,7 +51,23 @@ function filesFromGit(run: typeof execFileSync = execFileSync): string[] {
   }
 }
 
+function isWithinRoot(
+  rootPath: string,
+  targetPath: string,
+  paths: Pick<typeof posix, 'relative' | 'isAbsolute' | 'sep'> = { relative, isAbsolute, sep },
+) {
+  const pathFromRoot = paths.relative(rootPath, targetPath);
+  return pathFromRoot !== '..' && !pathFromRoot.startsWith(`..${paths.sep}`) && !paths.isAbsolute(pathFromRoot);
+}
+
 describe('M06.3a paso 3 RED: higiene del árbol', () => {
+  it('T-25 confina rutas en Windows y Linux sin aceptar directorios hermanos', () => {
+    expect(isWithinRoot('C:\\repo', 'C:\\repo\\tests\\case.test.ts', win32)).toBe(true);
+    expect(isWithinRoot('/repo', '/repo/tests/case.test.ts', posix)).toBe(true);
+    expect(isWithinRoot('/repo', '/repo-other/case.test.ts', posix)).toBe(false);
+    expect(isWithinRoot('/repo', '/repo/../outside/case.test.ts', posix)).toBe(false);
+    expect(isWithinRoot('C:\\repo', 'C:\\repo-other\\case.test.ts', win32)).toBe(false);
+  });
   it('T-25 autoprueba los ocho patrones con muestras creadas durante la ejecución', () => {
     const positives: Record<PatternName, string> = {
       meta_token: 'EA' + 'A' + 'x'.repeat(40),
@@ -91,7 +107,7 @@ describe('M06.3a paso 3 RED: higiene del árbol', () => {
     for (const path of filesFromGit()) {
       if (path === self) continue;
       const absolute = join(root, path);
-      if (!resolve(absolute).startsWith(root + '\\')) throw new Error('Ruta fuera del repositorio.');
+      if (!isWithinRoot(root, absolute)) throw new Error('Ruta fuera del repositorio.');
       const bytes = readFileSync(absolute);
       if (bytes.includes(0)) continue;
       for (const found of scan(bytes.toString('utf8'))) {

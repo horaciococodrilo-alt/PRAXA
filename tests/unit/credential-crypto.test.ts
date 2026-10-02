@@ -601,25 +601,61 @@ describe('M06.3a paso 2 RED: cliente worker_api', () => {
 
   it('T-17 traduce y redacta errores de pg sin cause ni propiedades originales', async () => {
     const mappings = [
-      ...Object.entries({ PX001: 'not_authorized', PX002: 'attempt_rejected', PX003: 'live_connection_exists', PX004: 'invalid_transition', PX005: 'pending_expired', PX006: 'generation_mismatch', PX007: 'account_conflict', PX008: 'key_version_mismatch', '22023': 'invalid_argument', '42501': 'privilege_missing', '42883': 'privilege_missing', '28P01': 'unavailable', ECONNREFUSED: 'unavailable', ETIMEDOUT: 'unavailable', OTHER: 'unexpected' }),
+      ...Object.entries({ PX001: 'not_authorized', PX002: 'attempt_rejected', PX003: 'live_connection_exists', PX004: 'invalid_transition', PX005: 'pending_expired', PX006: 'generation_mismatch', PX007: 'account_conflict', PX008: 'key_version_mismatch', '22023': 'invalid_argument', '42501': 'privilege_missing', '42883': 'privilege_missing' })
+        .map(([source, code]) => ({ source, code, failureKind: 'other' })),
+      ...['08006', 'ECONNREFUSED', 'ENOTFOUND', 'ECONNRESET']
+        .map((source) => ({ source, code: 'unavailable', failureKind: 'transport' })),
+      ...['ETIMEDOUT', 'ETIMEOUT', 'QUERY_TIMEOUT']
+        .map((source) => ({ source, code: 'unavailable', failureKind: 'timeout' })),
+      ...['28P01', '53300', '57P01', '57P03']
+        .map((source) => ({ source, code: 'unavailable', failureKind: 'other' })),
+      { source: 'OTHER', code: 'unexpected', failureKind: 'other' },
+      { source: null, code: 'unavailable', failureKind: 'timeout' },
     ];
     const marker = 'marca-sintetica-confidencial';
-    for (const [source, expected] of mappings) {
+    for (const { source, code, failureKind } of mappings) {
       const pool: Queryable = {
-        query: async () => { throw Object.assign(new Error(marker), { code: source, detail: marker, hint: marker, connectionString: roleUrl }); },
+        query: async () => { throw Object.assign(new Error(source === null ? 'Query read timeout' : marker), {
+          ...(source === null ? {} : { code: source }), detail: marker, hint: marker, connectionString: roleUrl,
+        }); },
         on: vi.fn(), end: vi.fn(async () => {}),
       };
-      let error: unknown;
-      try { await createWorkerApi({ pool }).call('get_credential', [actorId, companyId, connectionId]); }
-      catch (caught) { error = caught; }
+      const error = await rejection(createWorkerApi({ pool }).call('get_credential', [actorId, companyId, connectionId]));
       expect(error).toBeInstanceOf(WorkerApiError);
-      expect((error as InstanceType<typeof WorkerApiError>).code).toBe(expected);
+      expect(error).toMatchObject({ code, failureKind });
       expect((error as Error).message).not.toContain(marker);
       expect(JSON.stringify(error)).not.toContain(marker);
       expect(JSON.stringify(error)).not.toContain(roleUrl);
       expect(error).not.toHaveProperty('cause');
       expect(error).not.toHaveProperty('detail');
       expect(error).not.toHaveProperty('hint');
+    }
+  });
+
+  it('T-17/T-46 clasifica el error real del pool antes de decidir incertidumbre en readCredential', async () => {
+    await loadRepository();
+    const ring = keyring(2);
+    for (const [origin, expected] of [
+      [Object.assign(new Error('rechazo sintético'), { code: '28P01' }), 'other'],
+      [new Error('Query read timeout'), 'timeout'],
+    ] as const) {
+      const query = vi.fn(async (config: { text: string }) => {
+        if (config.text.includes('worker_api.get_credential(')) return { rows: [credentialRow(ring, 'active', 1)] };
+        throw origin;
+      });
+      const pool: Queryable = { query: query as Queryable['query'], on: vi.fn(), end: vi.fn(async () => {}) };
+      const workerApi = createWorkerApi({ pool });
+      if (expected === 'other') {
+        const error = await rejection(readCredential(ctx, connectionId, { workerApi, keyring: ring }));
+        expect(error).toBeInstanceOf(WorkerApiError);
+        expect(error).toMatchObject({ code: 'unavailable', failureKind: 'other' });
+      } else {
+        const read = await readCredential(ctx, connectionId, { workerApi, keyring: ring });
+        expect(read.token.reveal()).toBe(sample);
+        expect(read.keyVersion).toBe(1);
+        expect(read.rewrap).toEqual({ status: 'unconfirmed', reason: 'timeout' });
+      }
+      expect(query).toHaveBeenCalledTimes(2);
     }
   });
 

@@ -21,8 +21,9 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 ## En curso
 
 **M06.3a — Cifrado, cliente acotado y documentación de la excepción.** Habilitada por
-`G-DB-META`. Implementación en `mf/M06.3a`: **VERIFICADO — PENDIENTE DE APROBACIÓN**.
-`G-CRYPTO` espera aprobación visible del usuario. Evidencia
+`G-DB-META`. Implementación en `mf/M06.3a`: **VERIFICADO — PENDIENTE DE APROBACIÓN**
+tras corregir R-01 y R-02 de `implementation-review-5.md`. `G-CRYPTO` espera aprobación
+visible del usuario. Evidencia
 en [sesiones/M06.3a.md](FASES/FASE1/meta_first/sesiones/M06.3a.md).
 
 La verificación técnica terminó; M28.2a permanece sin habilitar hasta aprobar `G-CRYPTO`.
