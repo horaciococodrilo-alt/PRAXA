@@ -31,7 +31,7 @@ Registro único de hallazgos documentados en la auditoría M04.1, el baseline M0
 | `H-E1-14` | Resuelto en M04a | M04a | [Sesión M04a](FASES/FASE1/meta_first/sesiones/M04a.md) |
 | `H-E1-15` | Resuelto en M04a | M04a | [Sesión M04a](FASES/FASE1/meta_first/sesiones/M04a.md) |
 | `H-E1-16` | Resuelto en M04a | M04a | [Sesión M04a](FASES/FASE1/meta_first/sesiones/M04a.md) |
-| `H-E1-17` | Pendiente | M06.3a | [Sesión M05.1.1](FASES/FASE1/meta_first/sesiones/M05.1.1.md) |
+| `H-E1-17` | Resuelto a nivel de convención de testing (Q3, 2026-10-01); aplicación futura en suites nuevas | M06.3a | [Sesión M05.1.1](FASES/FASE1/meta_first/sesiones/M05.1.1.md) |
 | `H-E1-18` | Pendiente (observación), diferido por `D-M06.1a-M06.2a-09`; no se reprodujo en M06.1a-M06.2a | Tarea aparte, fuera de la ruta | [Sesión M05.1.2 a M05.1.4](FASES/FASE1/meta_first/sesiones/M05.1.2-M05.1.4.md) |
 | `H-E1-19` | Resuelto en M06.1a | M06.1a | [Sesión M05.1.2 a M05.1.4](FASES/FASE1/meta_first/sesiones/M05.1.2-M05.1.4.md); [Sesión M06.1a-M06.2a](FASES/FASE1/meta_first/sesiones/M06.1a-M06.2a.md) |
 | `H-E1-20` | Pendiente (observación de entorno) | Ninguna (a verificar si se repite) | [Revisión de implementación 1](FASES/FASE1/meta_first/sesiones/M05.1.2-M05.1.4-implementation-review-1.md) |
@@ -80,7 +80,7 @@ Impacto y evidencia en una línea cada uno. El contexto completo está en la fue
 
 ## Detalle de los hallazgos registrados en M05.1.1
 
-- **`H-E1-17`** — El paquete `server-only` no está en `package.json` ni en `node_modules`. Next lo resuelve internamente en el build, pero Vitest no. *Impacto:* toda suite que importe, directa o indirectamente, un módulo con `import 'server-only'` falla al resolverlo si no repite `vi.mock('server-only', () => ({}))`. Afecta a `src/modules/tenant/context.ts` y, según el plan, al módulo `worker-api.ts` de M06.3a. *Evidencia:* `node_modules/server-only/package.json` no existe; `tests/unit/tenant-context.test.ts` necesita el mock para importar. *Opciones, a decidir en M06.3a:* instalar `server-only` como dependencia o agregar un alias en `vitest.config.ts`. Las dos tocan archivos que no están en el plan de M05.1.1.
+- **`H-E1-17`** — El paquete `server-only` no está en `package.json` ni en `node_modules`. Next lo resuelve internamente en el build, pero Vitest no. *Impacto:* toda suite que importe, directa o indirectamente, un módulo con `import 'server-only'` falla al resolverlo si no repite `vi.mock('server-only', () => ({}))`. Afecta a `src/modules/tenant/context.ts` y, según el plan, al módulo `worker-api.ts` de M06.3a. *Evidencia:* `node_modules/server-only/package.json` no existe; `tests/unit/tenant-context.test.ts` necesita el mock para importar. *Resolución (Q3 confirmada, 2026-10-01):* convención explícita del repo: cada suite Vitest que atraviese directa o indirectamente módulos `server-only` incluye `vi.mock('server-only', () => ({}))`. Instalar el paquete por sí solo no resuelve esa frontera en Vitest; no queda decisión abierta entre instalar, alias o mock. *Estado:* resuelto a nivel de convención de testing. Las suites nuevas de M06.3a todavía no existen y deberán demostrar esta convención al implementarse (C-19/T-38); esta resolución no acredita pruebas futuras.
 
 ## Detalle de los hallazgos registrados en M05.1.2 a M05.1.4
 

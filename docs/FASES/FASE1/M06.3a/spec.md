@@ -1,6 +1,6 @@
 # M06.3a — Spec de la microfase
 
-**Estado:** BORRADOR
+**Estado:** APROBADA
 
 Estados posibles: `BORRADOR` → `APROBADA`. Solo el usuario pasa una spec a `APROBADA`, y solo después de una auditoría APROBABLE.
 
@@ -12,19 +12,19 @@ grep -v '^\*\*Estado:\*\*' docs/FASES/FASE1/M06.3a/spec.md | git hash-object --s
 
 ## Fuentes
 
-- Ruta: `docs/FASES/FASE1/meta_first/plan.md`: ficha de `M06.3a` en la Parte I (plan.md:210-223), sección II.6 (plan.md:501-522), precondiciones 8 y 9 de la Parte II (plan.md:370-371), III.2 (plan.md:767), III.3 (plan.md:789) y III.9 (plan.md:892-905). `docs/FASES/FASE1/meta_first/spec.md`: sección 5 (spec.md:91-106), sección 7 (spec.md:144-184), K04 (spec.md:218-225), sección 9, CA-21 y CA-23 a CA-27 (spec.md:238-250), 13b (spec.md:515) y CB-01 a CB-06 (spec.md:536-541).
-- Borrador original recuperado de `b1bb059` (rama local `M06.3a`), expandido sobre `06f6fae`. Actualizado por el grill del 2026-10-01 sobre `main@25bf4ab`, incluido el contrato documental de `a6e37ee`. Continúa BORRADOR; Q-01 a Q-11 resueltas, pendiente confirmación global del cierre del grill. Las referencias de línea al plan corresponden a la expansión original; los títulos de sección gobiernan la lectura.
+- Ruta: `docs/FASES/FASE1/meta_first/plan.md`: ficha M06.3a (Parte I), II.6, precondiciones 8–9 de Parte II y III.2/III.3/III.9. Spec general `docs/FASES/FASE1/meta_first/spec.md`: §5 Configuración, §7 Modelo de confianza, §8 K04, §9 CA-21/CA-23–27, §13b y §14 CB-01–06.
+- Borrador original recuperado de `b1bb059` (rama local `M06.3a`), expandido sobre `06f6fae`. Actualizado por el grill del 2026-10-01 sobre `main@25bf4ab`, incluido el contrato documental de `a6e37ee`. Q-01 a Q-11 y el grill quedaron cerrados por confirmación global del usuario. Continúa BORRADOR y G-CRYPTO no está aprobado. Corrección documental de A-01–A-09 autorizada después de spec-audit-1; siguiente paso: nueva ejecución de spec-auditor M06.3a.
 - Microfases previas en las que se apoya: `M05.1.1` (K01, `G-K01`), `M05.1.2` a `M05.1.4` (K02 a K04, `G-K02-K04`) y el grupo `M06.1a-M06.2a` (migración `0012`, `G-DB-META` aprobado el 2026-09-28; `docs/PROJECT_STATE.md`). Evidencia: `docs/FASES/FASE1/meta_first/sesiones/M05.1.1.md`, `M05.1.2-M05.1.4.md` y `M06.1a-M06.2a.md`.
 - IDs cubiertos: solo `M06.3a`. La sección II.6 no agrupa otras microfases.
 - Hallazgos asignados a esta microfase en `docs/HALLAZGOS.md`: `H-M04.1-02` (HALLAZGOS.md:8), `H-E1-09` (:26), `H-E1-10` (:27), `H-E1-17` (:34), `H-E1-36` (:53, solo la comprobación de acceso) y `H-E1-37` (:54). `H-E1-12` aplica a todas.
 
 ## Objetivo
 
-Tomado de la ficha (plan.md:215), sin ampliarlo: cifrar y descifrar credenciales en el servidor, y acceder a `worker_api` solo desde un módulo `server-only`.
+Tomado de la ficha M06.3a de la Parte I del plan de la ruta, sin ampliarlo: cifrar y descifrar credenciales en el servidor, y acceder a `worker_api` solo desde un módulo `server-only`.
 
 ## Alcance
 
-De la ficha (plan.md:216-217) y de II.6 (plan.md:503-516):
+De la ficha M06.3a de la Parte I del plan de la ruta y de II.6 del mismo plan:
 
 1. Llavero `PRAXA_CREDENTIAL_KEYS` (pares `versión:clave_base64`, 32 bytes cada clave) y versión actual `PRAXA_CREDENTIAL_KEY_CURRENT` (II.6, paso 2).
 2. `seal` y `open` con AES-256-GCM de `node:crypto`, IV aleatorio de 12 bytes por operación y AAD = empresa, conexión y proveedor (paso 3; CA-11b, CA-23, CA-24).
@@ -39,16 +39,16 @@ De la ficha (plan.md:216-217) y de II.6 (plan.md:503-516):
 11. Documentación de la excepción acotada en `docs/SECURITY.md` y `docs/ARCHITECTURE.md` (paso 9; spec.md:180-184).
 12. Variables nuevas en `.env.example`, sin valores (paso 10).
 13. La comprobación de acceso real con el rol (`H-E1-36`; `docs/PROJECT_STATE.md`, entrada de `M06.1a-M06.2a`), mediante la suite permanente decidida en D-M06.3a-01.
-14. La decisión sobre `H-E1-17` (`server-only` en Vitest), según `M06.3a-Q-03`.
+14. Aplicación a las nuevas suites de la convención ya resuelta de `H-E1-17`, según `M06.3a-Q-03`.
 
 ## Fuera de alcance
 
-- Cualquier migración. `0012` no se modifica (CB-03) y esta microfase no crea ninguna: la ruta reserva `0013` para `M16c` (plan.md:291). Q-04 quedó resuelta sin migración.
-- Rutas OAuth, canje del código, `debug_token`, cliente HTTP de Meta y su redacción de errores (`M16.1`). La segunda mitad de CA-26 ("otra verifica la redacción de errores del cliente HTTP") es de `M16.1`, paso 2 (plan.md:571); acá solo se prueba la redacción de los errores del cliente `pg`.
+- Cualquier migración. `0012` no se modifica (CB-03) y esta microfase no crea ninguna: la ruta reserva `0013` para `M16c` (plan de la ruta). Q-04 quedó resuelta sin migración.
+- Rutas OAuth, canje del código, `debug_token`, cliente HTTP de Meta y su redacción de errores (`M16.1`). La segunda mitad de CA-26 ("otra verifica la redacción de errores del cliente HTTP") es de `M16.1`, paso 2 (plan de la ruta); acá solo se prueba la redacción de los errores del cliente `pg`.
 - Repositorio de conexiones e intentos: `create_oauth_attempt`, `consume_oauth_attempt`, `confirm_connection`, `mark_needs_reauth`, `begin_disconnect`, `purge_connection` y `list_pending_purges` no tienen envoltorio de dominio en esta microfase (`M16.1`, `M16.2`). El cliente de `worker_api` las declara, pero solo el repositorio de credenciales las usa (ver Diseño §5).
-- Un comando explícito de recifrado masivo (CA-25, paso 3, admite "al usar cada credencial **o** con un comando explícito"): se elige el recifrado al usar (plan.md:452).
+- Un comando explícito de recifrado masivo (CA-25, paso 3, admite "al usar cada credencial **o** con un comando explícito"): se elige el recifrado al usar (plan de la ruta).
 - Variables `META_*` y `DEEPINFRA_API_KEY` en `.env.example`: son de `M16.1` y `M25a.2`. Esta microfase agrega solo las cuatro que usa.
-- Cargar variables en Vercel, la contraseña del rol en el proyecto `app`, `PRAXA_INTEGRATIONS_DB_URL` real y la verificación de esquemas expuestos del proyecto `app`: `M28.2a` (plan.md:533-535).
+- Cargar variables en Vercel, la contraseña del rol en el proyecto `app`, `PRAXA_INTEGRATIONS_DB_URL` real y la verificación de esquemas expuestos del proyecto `app`: `M28.2a` (plan de la ruta).
 - La política de retención: corresponde a M03a. Tras el refactor documental vive en SECURITY §9; las referencias antiguas de la ruta se siguen en H-E1-40 y no se corrigen en este corte.
 - `force row level security` en tablas existentes y el cambio de dueño de las funciones: pendientes declarados en CA-14, fuera de la ruta.
 - `H-E1-35` y el endurecimiento del rol de `H-E1-36` en la migración: `M16c`. Acá solo se comprueba el acceso.
@@ -171,7 +171,7 @@ Procedimiento canónico de esta spec, enlazado desde `SECURITY.md` sin duplicar 
 
 1. Generar la clave nueva y agregarla al llavero con una versión **mayor** que todas las existentes (`D-M06.1a-M06.2a-15` exige versiones crecientes en `rewrap_credential`).
 2. Cambiar `PRAXA_CREDENTIAL_KEY_CURRENT` a la versión nueva y redesplegar.
-3. Recifrado al usar: `readCredential` (§6) recifra toda credencial cuya versión guardada sea **menor** que la actual. Si es igual, no hace nada. Si es mayor (por ejemplo, porque se volvió atrás la versión actual), tampoco: descifra con la guardada y no llama a la base.
+3. Recifrado al usar: `readCredential` (§6) intenta recifrar la credencial cuya versión guardada sea **menor** que la actual y cuyo estado permita recifrado según §6; disconnected nunca se recifra. Q-10 distingue intento de confirmación. Si es igual, no hace nada. Si es mayor (por ejemplo, porque se volvió atrás la versión actual), tampoco: descifra con la guardada y no llama a la base.
 4. Antes del retiro, acreditar que la nueva versión es la única admitida para nuevas escrituras, que los writers/deployments antiguos dejaron de poder escribir y que terminaron las operaciones en vuelo. Después comprobar el conteo global cero de la versión vieja y retirar la clave. Si cualquiera de esas condiciones no puede acreditarse, conservarla. No se agrega infraestructura para imponerlas en este corte.
 5. `canRetireKeyVersion(v)` comprueba exclusivamente la condición de DB: ninguna fila con conteo positivo para esa versión. No autoriza integralmente el retiro. Las credenciales `disconnected` sin purgar siguen contando y bloquean el retiro hasta su purga. El operador puede consultar `select * from worker_api.count_credentials_by_key_version();` (solo conteos).
 
@@ -187,8 +187,16 @@ export type WorkerApiFunction =
   | 'begin_disconnect' | 'purge_connection' | 'list_pending_purges'
   | 'count_credentials_by_key_version' | 'rewrap_credential';
 
+export interface Queryable {
+  query<Row extends pg.QueryResultRow = pg.QueryResultRow>(
+    config: { text: string; values: unknown[] }
+  ): Promise<{ rows: Row[] }>;
+  on(event: 'error', listener: (error: Error) => void): unknown;
+  end(): Promise<void>;
+}
+
 export interface WorkerApi {
-  call<Row>(fn: WorkerApiFunction, args: readonly unknown[]): Promise<Row[]>;
+  call<Row extends pg.QueryResultRow = pg.QueryResultRow>(fn: WorkerApiFunction, args: readonly unknown[]): Promise<Row[]>;
 }
 
 export function createWorkerApi(options: { connectionString: string } | { pool: Queryable }): WorkerApi & { end(): Promise<void> };
@@ -196,6 +204,7 @@ export function getWorkerApi(): WorkerApi;   // singleton perezoso
 ```
 
 - **Única lectura de `PRAXA_INTEGRATIONS_DB_URL`** en todo `src/`: dentro de `getWorkerApi()`. Si falta, `WorkerApiError` `config_missing`, con el nombre de la variable y sin valores. Las pruebas usan `createWorkerApi({ connectionString })` con la URL de pruebas del rol y nunca pasan por `getWorkerApi()` (spec.md:106).
+- **Dependencia mínima.** `Queryable` es solo la superficie de `pg.Pool` necesaria: consulta parametrizada, manejador de error y cierre. `call` copia args a values mutable sin modificar el original. `end()` delega al pool, incluido uno inyectado; el caller es responsable de cerrarlo una sola vez. El genérico no valida filas en runtime: el cliente exige objeto con rows array de objetos no nulos y no arrays; de lo contrario, `WorkerApiError unexpected`, mensaje fijo `Respuesta de base de datos inválida.`. La validación de dominio corresponde a §6. No se agrega infraestructura ni archivo.
 - **SQL fijo.** Un mapa estático nombre → texto, con la firma exacta de `0012` y casts explícitos, por ejemplo `select * from worker_api.get_credential($1::uuid, $2::uuid, $3::uuid)`. El nombre de la función sale de la unión cerrada; nunca se interpola nada que venga de la entrada. La aridad se verifica antes de consultar.
 - **Sin prepared statements con nombre** (paso 4): ninguna consulta pasa `name` en su configuración. Se usa `pool.query({ text, values })`.
 - **Pool** (valores no materiales): `max: 3`, `idleTimeoutMillis: 10_000`, `connectionTimeoutMillis: 10_000`, `query_timeout: 15_000` (del lado del cliente; no se envían parámetros de sesión, que el pooler en modo transacción no conserva), `application_name: 'praxa-worker-api'`, `allowExitOnIdle: true`. `ssl` según `M06.3a-Q-05`.
@@ -217,7 +226,9 @@ export function getWorkerApi(): WorkerApi;   // singleton perezoso
 | Clase `08`, `28000`, `28P01`, `53300`, `57P01`, `57P03`, errores de red (`ECONNREFUSED`, `ETIMEDOUT`, `ENOTFOUND`, `ECONNRESET`) y el timeout de consulta | `unavailable` |
 | Cualquier otro | `unexpected` |
 | Falta la variable | `config_missing` |
-| URL inválida o con parámetros que controlan TLS | `config_invalid` |
+| URL inválida, con overrides de identidad/destino o con parámetros que controlan TLS | `config_invalid` |
+
+**Identidad y destino efectivos (A-02).** En runtime y pruebas, antes del parser de pg, Pool/Client o red, se exige URI absoluta `postgres:` o `postgresql:` con usuario, contraseña, host y puerto explícitos. Usuario/contraseña se decodifican una vez; escapes inválidos fallan. Se rechazan sockets, fragmentos y componentes vacíos que pudieran activar PGUSER/PGHOST/PGPORT. Se inspeccionan nombres con URLSearchParams (decodificación estándar, sin doble decodificación): cualquier presencia de `user`, `host` o `port` en query se rechaza, incluso vacía, repetida o percent-encoded. No se eliminan silenciosamente. La identidad, destino y puerto validados son exactamente los que pg utilizará. Error `WorkerApiError config_invalid`, `failureKind = other`, mensaje fijo `La URL de conexión contiene overrides de identidad o destino no permitidos.`; otras formas inválidas usan `La URL de conexión no es válida.`. Nunca incluyen URL, valores ni error original. La guarda §7 aplica la misma semántica y mensajes fijos. Esto no cambia otros clientes del repositorio.
 
 **Política TLS exclusiva del módulo (D-M06.3a-10).** Tanto `getWorkerApi()` como `createWorkerApi({ connectionString })` validan la URL antes de entregarla a `pg`, construir el pool o abrir una conexión. Se rechazan `sslmode`, `sslcert`, `sslkey` y `sslrootcert`, incluso con valor vacío. También se rechazan los controles alternativos del parser instalado que pueden modificar TLS (`ssl`, `sslnegotiation`, `uselibpqcompat`). La presencia se comprueba sobre nombres decodificados, incluidos parámetros repetidos; no se eliminan ni normalizan silenciosamente. El error `WorkerApiError` con `code = config_invalid` y `failureKind = other` usa un mensaje fijo: `La URL de conexión contiene parámetros TLS no permitidos; TLS se configura en el módulo.` No incluye URL, valores ni error original. Esto aplica por igual a la URL del runtime y a la de pruebas. El resolvedor de destino de pruebas informa el mismo problema antes de conectar. La validación no lee los archivos nombrados por parámetros de certificado. La configuración TLS definitiva se fija en D-M06.3a-11 y el contrato siguiente.
 
@@ -225,21 +236,22 @@ La configuración TLS del cliente de §5 queda fijada por **D-M06.3a-11**:
 
 - Constante pública PEM `SUPABASE_ROOT_CA` dentro de `db/worker-api.ts`, con comentario que registre fuente oficial, fecha de verificación (2026-10-01) y fingerprint SHA-256. No es un secreto ni una variable de entorno.
 - Fuente de descarga: `https://supabase-downloads.s3-ap-southeast-1.amazonaws.com/prod/ssl/prod-ca-2021.crt`, corroborada en el código oficial del dashboard (`apps/studio/hooks/custom-content/custom-content.json` y `SSLConfiguration.tsx`). Su procedencia y la prueba real están registradas en `meta_first/sesiones/M06.3a.md`.
-- Huella SHA-256 de la raíz verificada: `80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA`. Una prueba con `X509Certificate` comprueba esa huella sobre el PEM versionado para hacer auditable su sustitución. No se fija el certificado hoja.
-- Pool con `ssl: { ca: SUPABASE_ROOT_CA, rejectUnauthorized: true }`; se conserva la verificación estándar de hostname de Node. pg transmite el hostname DNS como SNI. No sustituir `checkServerIdentity` ni implementar un verificador propio sin necesidad demostrada.
+- Huella SHA-256 de la raíz verificada: `80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA`. Una prueba con `X509Certificate` comprueba esa huella sobre el PEM versionado para hacer auditable su sustitución. Fingerprint exclusivamente como evidencia/procedencia y aserción sobre el PEM versionado: no se compara el peer en runtime ni se agrega certificate pinning. No se fija el certificado hoja.
+- Pool con `sslnegotiation: 'postgres'` explícito y `ssl: { ca: SUPABASE_ROOT_CA, rejectUnauthorized: true }`; se conserva la verificación estándar de hostname de Node. pg transmite el hostname DNS como SNI. No sustituir `checkServerIdentity` ni implementar un verificador propio sin necesidad demostrada.
+- `sslnegotiation: 'postgres'` impide que `PGSSLNEGOTIATION` cambie la negociación. T-50 fija `PGSSLNEGOTIATION=direct` sintético y verifica configuración y parámetros efectivos en `postgres`, sin red.
 - Ambas URLs pasan la guarda Q-11 antes de llegar al parser de pg. No hay descarga de CA en runtime, variable adicional, confianza tomada de la cadena recibida ni fallback a TLS sin verificación. Una cadena no confiable, hostname incorrecto o certificado vencido hace fallar la conexión con error redactado; no se clasifica como fallo de transporte tolerable de Q-10.
 - Si Supabase cambia a una CA no incluida en el trust anchor versionado, la conexión falla hasta actualizarlo mediante cambio revisado y despliegue. Renovar el certificado hoja bajo la misma raíz confiable no requiere cambiar el trust anchor. El despliegue sigue reservado al usuario.
 
 ### 6. Repositorio de credenciales (`repository/credentials.ts`)
 
-Todas las funciones reciben dependencias opcionales `deps = { workerApi: getWorkerApi(), keyring: getCredentialKeyring() }` (decisión no material: permite probar sin red). Las que operan sobre una empresa reciben un K01 (`import type { TenantContext }`) y toman de ahí **solo** `user_id` y `company_id`, que validan con `uuidSchema` antes de llamar a la base; ninguna acepta una empresa por otro parámetro (spec.md:148-150).
+Todas las funciones reciben dependencias opcionales `deps: CredentialRepositoryDeps = {}` (decisión no material: permite probar sin red). La resolución de dependencias es perezosa y por operación según el contrato de validación de este §6. Las que operan sobre una empresa reciben un K01 (`import type { TenantContext }`) y toman de ahí **solo** `user_id` y `company_id`, que validan con `uuidSchema` antes de llamar a la base; ninguna acepta una empresa por otro parámetro (spec.md:148-150).
 
 | Función | `worker_api` | Comportamiento |
 |---|---|---|
 | `readCredential(ctx, connectionId, deps?)` | `get_credential` y, si corresponde, `rewrap_credential` | Cero filas: `CredentialNotFoundError`. Valida la fila; `expires_at` (`Date` o `null`) pasa a ISO. Descifra con AAD `{ company_id: ctx.company_id, connection_id, provider: 'meta' }`. **Recifrado** solo si `key_version < keyring.currentVersion` **y** el estado leído es `pending_selection`, `active` o `needs_reauth` (`H-E1-37`, opción A de `M06.3a-Q-04`): sella el mismo texto con la clave actual y llama a `rewrap_credential` con la generación y la versión leídas. `PX006`: `CredentialChangedError` (la credencial se reemplazó o la conexión se desconectó; el llamador vuelve a empezar). `PX008`: otro pedido ya recifró; se devuelve el token sin error. Devuelve `{ connectionId, status, credentialGeneration, keyVersion, tokenType, issuedForAppId, grantedScopes, expiresAt, token: SecretValue, rewrap: CredentialRewrapResult }`, con `keyVersion` de la versión del material efectivamente leído y descifrado, incluso si el recifrado tuvo éxito. No representa la versión actual en DB. Tras `PX008` no se asigna la versión intentada ni se relee automáticamente |
 | `createPendingConnectionWithCredential(ctx, input, deps?)` | `create_pending_connection` | Valida `clientBusinessId`, `token` no vacío, `tokenType`, `issuedForAppId`, `grantedScopes` (con `ads_read`) y `expiresAt` con los esquemas de K03 y K04. Genera `connectionId = randomUUID()` en el servidor, porque el AAD lo necesita antes de cifrar (`credential.ts:78-86`). Sella con AAD de `ctx.company_id`, ese id y `'meta'`. Devuelve `{ connectionId, status, pendingExpiresAt, credentialGeneration }` |
 | `replaceCredential(ctx, input, deps?)` | `replace_credential` | Mismo sellado, con el `connectionId` recibido. Pasa `attemptId`. Devuelve `{ connectionId, status, credentialGeneration }` |
-| `countCredentialsByKeyVersion(deps?)` | `count_credentials_by_key_version` | Sin K01 (única excepción de la ruta, plan.md:452). Convierte `credential_count` (bigint, cadena) a `number` entero no negativo; si no es seguro, `WorkerApiError` `unexpected` |
+| `countCredentialsByKeyVersion(deps?)` | `count_credentials_by_key_version` | Sin K01 (única excepción de la ruta, plan de la ruta). Convierte `credential_count` (bigint, cadena) a `number` entero no negativo; si no es seguro, `WorkerApiError` `unexpected` |
 | `canRetireKeyVersion(version, deps?)` | la anterior | `true` solo si ninguna fila tiene esa versión con conteo mayor que cero |
 
 `rewrap_credential` no se exporta como operación suelta: solo la usa `readCredential`, que es donde vive la condición de estado (`H-E1-37`).
@@ -269,6 +281,51 @@ Un reintento explícito reutiliza el mismo objeto preparado: no genera otro UUID
 
 `H-E1-37` queda mitigado / límite aceptado a nivel repository después de verificarlo: SQL sigue sin validar estado por sí mismo. La capacidad SQL es más amplia que la del único caller de aplicación previsto.
 
+#### Contratos de validación y errores (A-07)
+
+En `credentials.ts`, las entradas son objetos ordinarios de servidor. Se validan antes de obtener dependencias perezosas, cifrar o consultar. K01 se verifica estructuralmente con los cuatro campos de su contrato: user_id/company_id/request_id UUID y role owner, sin campos extra; se importa solo su tipo y se usan las primitivas existentes para esta comprobación local. Esto no construye identidad ni reemplaza requireTenantContext; únicamente rechaza entradas corruptas.
+
+Tipos públicos mínimos del repository (en el mismo archivo; los tipos K04 se importan del contrato):
+
+```ts
+export type CredentialWriteInput = {
+  token: string;
+  tokenType: TokenType;
+  issuedForAppId: string;
+  grantedScopes: readonly string[];
+  expiresAt: string | null;
+};
+export type PendingCredentialInput = CredentialWriteInput & { clientBusinessId: string };
+export type ReplaceCredentialInput = CredentialWriteInput & { connectionId: string; attemptId: string };
+export type CredentialRepositoryDeps = { workerApi?: WorkerApi; keyring?: CredentialKeyring };
+declare const preparedCredentialBrand: unique symbol;
+export type PreparedCredentialOperation = Readonly<{ [preparedCredentialBrand]: true }>;
+```
+
+Las dos preparaciones reciben respectivamente PendingCredentialInput/ReplaceCredentialInput y devuelven PreparedCredentialOperation de forma síncrona. Solo necesitan keyring; no resuelven workerApi. Se exige objeto exacto, token cadena no vacía, clientBusinessId de K03, UUID de conexión/intento y metadatos de K04 (expiresAt ISO o null). Nunca se acepta companyId/userId en input. Se copian y congelan arrays/argumentos capturados; el objeto opaco se registra en un WeakMap privado del módulo con actor, empresa, tipo create/replace y argumentos sellados. Una copia/objeto forjado/serializado no es una operación válida. No es persistencia ni una garantía tras reinicio.
+
+`executePreparedCredentialOperation` valida K01 y pertenencia del objeto al WeakMap, y compara actor/empresa capturados antes de resolver workerApi. No necesita keyring ni vuelve a sellar. Devuelve la unión de los resultados create/replace de la tabla; las funciones de conveniencia conservan el retorno específico de su operación. readCredential usa ambas dependencias; conteo/retiro solo workerApi. La resolución perezosa evita exigir llavero al ejecutar una operación ya preparada o consultar conteos. canRetireKeyVersion exige entero entre 1 y 2147483647 antes de consultar.
+
+Todos estos errores tienen name de su clase, code de la tabla y message fijo. No contienen ZodError crudo, cause, issues, input, SQL, URL, actor/empresa ni material criptográfico; tampoco los incorporan en propiedades o serialización. No se devuelve un error original de validación. Los errores criptográficos y WorkerApiError ya definidos conservan su contrato redactado.
+
+| Clase | code | Situación | Mensaje fijo |
+|---|---|---|---|
+| CredentialRepositoryError | invalid_input | K01, connectionId, inputs o versión de retiro inválidos | Entrada de credenciales inválida. |
+| CredentialRepositoryError | invalid_prepared_operation | Objeto no producido por las preparaciones de este módulo o estructura capturada inválida | Operación de credenciales preparada inválida. |
+| CredentialRepositoryError | prepared_context_mismatch | Actor o empresa actuales distintos de los capturados | La operación preparada no corresponde al contexto actual. |
+| CredentialRepositoryError | invalid_response | Cardinalidad/forma SQL, contexto/lifecycle o proyección K04 inválidos | Respuesta de credenciales inválida. |
+| CredentialNotFoundError | credential_not_found | get_credential devuelve cero filas | Credencial no encontrada. |
+| CredentialChangedError | credential_changed | PX006 durante rewrap | La credencial cambió; volvé a empezar. |
+
+**Proyección explícita de get_credential, antes de descifrar:**
+
+1. Cero filas produce CredentialNotFoundError; más de una produce invalid_response. La fila debe ser objeto no nulo, no array. Validar connection_id/company_id como UUID e igualdad con conexión pedida/K01; provider debe ser meta; status uno de pending_selection/active/needs_reauth/disconnected; credential_generation entero entre 0 y 2147483647. Campos extra desconocidos de la fila se rechazan como invalid_response, sin imprimir nombres ni valores.
+2. expires_at debe ser null o Date válido; convertir Date a ISO después de validar su tiempo finito. Construir un objeto nuevo con **solo** connection_id, company_id, ciphertext, iv, auth_tag, key_version, token_type, issued_for_app_id, granted_scopes y expires_at. Son las diez propiedades de SecretCredential.
+3. Validar ese objeto con secretCredentialSchema (K04), nunca pasar la fila completa a su strictObject. Un fallo K04 produce invalid_response, sin descifrado, rewrap ni señal unconfirmed. Provider/status/generation permanecen en el resultado de dominio ya validado, fuera de K04.
+4. Recién después ejecutar openCredential. Material con forma válida pero GCM no auténtico sigue siendo CredentialDecryptionError; versión ausente sigue siendo CredentialKeyVersionUnknownError. Ninguno pasa a unconfirmed.
+
+Las respuestas create/replace/rewrap exigen exactamente una fila, con las columnas de su RETURNS TABLE en 0012, UUID igual al solicitado, status válido y generación entera no negativa cuando corresponda. pending_expires_at de create es Date válido convertido a ISO; key_version de rewrap debe ser la versión enviada. Respuesta inesperada produce invalid_response, incluso después de una escritura; no se confunde con incertidumbre de transporte Q10. count exige filas con key_version entero positivo de PostgreSQL y credential_count convertible a entero seguro no negativo, sin versiones repetidas; lo inválido mantiene WorkerApiError unexpected con mensaje fijo `Respuesta de base de datos inválida.`. El cliente no expone contenido de filas en errores.
+
 ### 7. Destino de pruebas del rol (II.6, paso 7b)
 
 Función pura nueva en `scripts/lib/sql-target.mjs` (ubicación confirmada por D-M06.3a-02), junto a `resolveSqlTestTarget`:
@@ -287,7 +344,9 @@ Reglas, todas acumulativas:
 4. `resolveSqlTestTarget(env)` tiene que ser `ok` (desechable, distinto de la app, deducible), y su `projectRef` igual al `<ref>` de la regla 3.
 5. `<ref>` distinto del proyecto `app` (por `SUPABASE_DB_URL` o `NEXT_PUBLIC_SUPABASE_URL`).
 6. Distinta de `PRAXA_INTEGRATIONS_DB_URL` si esa existe.
-7. Puerto distinto de `6543`: nota, no problema ("no es el pooler en modo transacción").
+7. **Shared transaction pooler obligatorio (A-09):** host DNS con exactamente una etiqueta no vacía antes de `.pooler.supabase.com` (etiqueta DNS de 1–63 caracteres alfanuméricos/guiones, sin guion inicial/final), sin sufijos adicionales ni punto final; puerto explícito decimal canónico `6543`. Host comparado en minúsculas. No se fija una región ni hostname particular como regla universal. Se rechazan IP, sockets, host directo/dedicado, otro dominio, puerto ausente y `5432`. Debe ser el endpoint copiado de Connect → Transaction pooler del proyecto de pruebas; el routing al proyecto lo identifica el usuario de regla 3 y su autenticidad se verifica con TLS estándar. Otro modo produce problema fatal, nunca ok con nota; no acredita T-31/T-33 ni G-CRYPTO.
+
+Antes de las reglas 2–7 se aplica la validación URI y rechazo de user/host/port de §5 a la URL del rol y a `SUPABASE_TEST_DB_URL`: el cruce debe usar identidades/destinos efectivos. La referencia administrativa conserva su modo session/direct permitido; regla 7 aplica solo al cliente del rol. No se modifica `resolveSqlTestTarget` ni otros callers: las comprobaciones adicionales pertenecen a `resolveIntegrationsTestTarget`. Las URLs SQL de app configuradas para exclusión también se analizan sin admitir overrides; una referencia ambigua se rechaza, sin conectar. La validación del endpoint del rol de regla 7 rige también en createWorkerApi/getWorkerApi para runtime. Problema fijo: `Se requiere el shared transaction pooler en el puerto 6543.`. La URL del rol además pasa la guarda TLS de §5. Ningún rechazo crea Pool/Client ni intenta red.
 
 `scripts/check-target.mjs test` informa, sin valores: `rol de C según PRAXA_INTEGRATIONS_TEST_DB_URL: <ref> | (sin definir)` y el resultado. Si la variable está definida y falla alguna regla, el comando termina con código 1. Si no está definida, imprime `FALTA` como nota y no falla, igual que hoy con `SUPABASE_TEST_DB_URL` (`check-target.mjs:13`). Las pruebas que la necesitan fallan por su cuenta (§10).
 
@@ -297,6 +356,7 @@ Reglas, todas acumulativas:
 - `tests/app/helpers.ts:53-62`: igual.
 - `docs/SECURITY.md`: verificar que la sección de pruebas aisladas no permita esa excepción; actualizar solo si persiste. El refactor documental ya cambió su estructura.
 - `resolveSqlTestTarget` no cambia: ya no tenía la excepción.
+- **Sin soporte operativo (A-04):** el literal SUPABASE_TEST_ALLOW_APP_PROJECT queda prohibido en scripts/, src/, tests/app/, configuración operativa, .env.example, README y SECURITY. En tests/ la única excepción es el cuerpo del caso T-23 de tests/unit/sql-test-target.test.ts, incluido título/comentarios inmediatos; nunca helpers ni otro caso. Se activa el literal para probar rechazo de app, sin concatenarlo ni disfrazarlo para eludir búsquedas. Documentación histórica y esta spec pueden explicar su eliminación. T-24 verifica ausencia operativa y ubicación/contenido exclusivo de la regresión.
 
 ### 9. Recorrido del árbol (`tests/unit/no-secrets-in-tree.test.ts`, paso 8)
 
@@ -364,6 +424,10 @@ Suite permanente confirmada por D-M06.3a-01: `tests/app/integrations-worker-api-
 - Las aserciones usan `createWorkerApi({ connectionString })` con la URL del rol y el repositorio. El llavero es el de `.env.local`, que carga `tests/app/setup.ts`, más una versión sintética creada en tiempo de ejecución para la rotación: un número alto y aleatorio de la corrida, para que los conteos globales se puedan atribuir.
 - Una conexión fallida no es un salto: falla la suite y se frena el gate (`H-E1-36`).
 
+**T-37 — proceso negativo aislado (A-05).** Lo orquesta un caso unitario de `tests/unit/credential-crypto.test.ts`. Crea config/setup temporales fuera del árbol y ejecuta con Node el CLI local de Vitest sobre la suite real `tests/app/integrations-worker-api-client.test.ts`, con proyecto app, alias al src del repo, `envDir: false` para impedir carga automática de archivos de entorno, y setupFiles **exclusivamente** del harness. No importa tests/app/setup.ts, no carga dotenv/Next env ni lee .env.local. El caso unitario dispone de timeout de 120 segundos y el padre termina el hijo si lo supera (un timeout falla, nunca acredita el negativo). El proceso recibe entorno construido con las variables de sistema necesarias para Node y fixtures sintéticos, sin heredar variables PRAXA/SUPABASE; incluye una URL runtime sintética para detectar un fallback prohibido.
+
+El setup final del harness elimina PRAXA_INTEGRATIONS_TEST_DB_URL, acredita `Object.hasOwn(process.env, 'PRAXA_INTEGRATIONS_TEST_DB_URL') === false` y registra un mock pg que cuenta construcción de Pool/Client y cualquier intento de conectar; cada intento falla inmediatamente sin red. También bloquea fetch para que ningún fixture remoto pueda ejecutarse. La suite real debe validar destino en su primer beforeAll, antes de cualquier conexión/fixture, y lanzar el problema redactado del resolvedor. Un afterAll del harness emite solo ausencia y contadores; el padre exige exit no cero, resultado Vitest fallido (no suite omitida), motivo exacto de variable ausente, contador cero y presencia de la evidencia del harness. Una falla de arranque de Vitest no satisface el caso. Borra solo sus temporales al terminar. No hay flags de producto, nuevos archivos permanentes ni modificaciones de configuración global. El camino positivo sigue probando pg real en T-31/T-33; el mock se limita al proceso negativo que nunca debe conectar.
+
 ### 13. Secuencia (TDD)
 
 1. `git status` limpio; rama `mf/M06.3a` desde `main`.
@@ -427,7 +491,7 @@ Ningún otro archivo. Ninguna migración.
 | II.6, paso 9 (spec.md:182-183) | `SECURITY.md` documenta la excepción: una sola credencial, acotada, con sus capacidades enumeradas. `ARCHITECTURE.md` incorpora el conector y `worker_api` |
 | II.6, paso 10 | Variables nuevas en `.env.example`, sin valores; la prueba existente lo exige |
 | II.6, trampas 1 y 2 | IV nunca derivado ni reutilizado; versión ausente es un error explícito, distinto de un texto alterado |
-| `H-E1-36` (HALLAZGOS.md:120) | Se comprueba el acceso real del cliente con el rol; si falla, se detiene el gate |
+| `H-E1-36` (docs/HALLAZGOS.md, entrada H-E1-36) | Se comprueba el acceso real del cliente con el rol; si falla, se detiene el gate |
 | CB-01 a CB-06 | `verify` y las suites del corte pasan; ningún diff con secretos, tokens, montos o identificadores; ninguna migración modificada; ninguna prueba contra producción; evidencia real y redactada; una prueba omitida por configuración no aprueba el gate |
 
 ### Operativos de esta microfase
@@ -438,7 +502,7 @@ Ningún otro archivo. Ninguna migración.
 | M06.3a-C-02 | `sealCredential` usa la clave actual, un IV nuevo de 12 bytes por llamada, etiqueta de 16 bytes y el AAD de `buildCredentialAad`; su salida cumple las reglas de K04; rechaza texto vacío | CA-23, CA-11b, CA-10, CA-11; II.6, trampa 1 |
 | M06.3a-C-03 | `openCredential` devuelve el texto original; clave incorrecta, texto, etiqueta o IV alterados y AAD distinto dan `CredentialDecryptionError`; una etiqueta que no mide 16 bytes da `CredentialMaterialError` sin intentar descifrar | CA-24; trampa del código (`authTagLength`) |
 | M06.3a-C-04 | Una versión ausente del llavero da `CredentialKeyVersionUnknownError`, que no es `CredentialDecryptionError` ni subclase de él | CA-25; II.6, trampa 2 |
-| M06.3a-C-05 | Rotación: con la versión guardada menor que la actual, `readCredential` recifra una vez por `rewrap_credential` con la generación y la versión leídas; con igual o mayor, no llama; `canRetireKeyVersion` es `true` solo sin credenciales de esa versión | CA-25 |
+| M06.3a-C-05 | Rotación: con la versión guardada menor que la actual y estado permitido por C-06, `readCredential` intenta recifrar una vez por `rewrap_credential` con la generación y la versión leídas; con igual o mayor, no llama; `canRetireKeyVersion` es `true` solo sin credenciales de esa versión | CA-25 |
 | M06.3a-C-06 | `readCredential` nunca recifra una credencial de una conexión `disconnected`, pero la descifra; `PX006` en el recifrado da `CredentialChangedError`; `PX008` se tolera | `H-E1-37` (según `Q-04`); CA-38, paso 2 |
 | M06.3a-C-07 | `worker-api.ts` empieza con `import 'server-only'`, es el único lector de `PRAXA_INTEGRATIONS_DB_URL`, arma SQL solo desde el mapa estático, nunca pasa `name`, registra `pool.on('error')` y da `config_missing` sin valores si falta la variable | II.6, paso 4; spec.md:178 |
 | M06.3a-C-08 | Todo error del cliente sale como `WorkerApiError` con el código de la tabla de Diseño §5; su `message`, su `JSON.stringify` y sus propiedades no contienen `detail`, `hint`, parámetros, cadena de conexión ni contraseña, y no tiene `cause` | CA-26; spec.md:150 |
@@ -447,17 +511,19 @@ Ningún otro archivo. Ninguna migración.
 | M06.3a-C-11 | `pg` está en `dependencies` y no en `devDependencies`; `@types/pg` sigue en `devDependencies`; `npm run build` pasa; `npm ci` no falla por desincronización | `H-E1-09`; II.6, paso 6 |
 | M06.3a-C-12 | `no-privileged-credentials` exige las cinco reglas de Diseño §10 y los dos `it` existentes siguen pasando sin cambios | CA-27 reescrita; `H-E1-10` |
 | M06.3a-C-13 | `resolveIntegrationsTestTarget` cumple las siete reglas de Diseño §7; `db:check:test` informa el estado sin valores y sale con 1 si la variable definida es inválida | II.6, paso 7b (T09); spec.md:106 |
-| M06.3a-C-14 | `SUPABASE_TEST_ALLOW_APP_PROJECT` no aparece en `scripts/`, `tests/`, `src/`, `docs/SECURITY.md`, `.env.example` ni `README.md`; `resolveTarget('test')` rechaza la misma URL de app y pruebas aunque la variable valga `true` | II.6, paso 7c; `H-M04.1-02` |
+| M06.3a-C-14 | No existe soporte operativo de `SUPABASE_TEST_ALLOW_APP_PROJECT`; su única aparición permitida en tests es T-23 según Diseño §8; `resolveTarget('test')` rechaza la misma URL de app y pruebas aunque la variable valga `true` | II.6, paso 7c; `H-M04.1-02` |
 | M06.3a-C-15 | `no-secrets-in-tree` recorre `git ls-files -co --exclude-standard`, nunca `.env.local`, aplica los patrones de Diseño §9 con la lista sintética cerrada, informa `archivo:línea → patrón` sin el texto, falla si `git` falla y pasa sobre el árbol | CA-26; II.6, paso 8 |
 | M06.3a-C-16 | `SECURITY.md` y `ARCHITECTURE.md` contienen lo de Diseño §11; las capacidades se enumeran por categoría con enlaces a la matriz canónica; no se altera la política de retención | II.6, paso 9; spec.md:182-183 |
 | M06.3a-C-17 | `.env.example` tiene las cuatro variables nuevas sin valor, el conteo recalculado y la sección final corregida; la prueba de `.env.example` pasa | II.6, paso 10 |
 | M06.3a-C-18 | Contra el proyecto de pruebas y con `PRAXA_INTEGRATIONS_TEST_DB_URL`: el cliente conecta; `current_user` es `praxa_integrations`; leer las tres tablas da `42501`; crear y leer una credencial devuelve el mismo token y lo guardado no es el token; material movido a una conexión de otra empresa no descifra; la rotación recifra y el conteo de la versión sintética llega a cero; una conexión `disconnected` no se recifra; sin la variable o con una inválida, la suite falla | CA-11b, CA-21, CA-22, CA-24, CA-25; `H-E1-36`; spec.md:106 |
-| M06.3a-C-19 | `H-E1-17` queda resuelto según `M06.3a-Q-03` y registrado en `HALLAZGOS.md` | `H-E1-17` |
+| M06.3a-C-19 | `H-E1-17` está resuelto a nivel de convención por Q-03; las nuevas suites demuestran que aplican el mock explícito cuando se implementen | `H-E1-17` |
 | M06.3a-C-21 | Las operaciones preparadas conservan identidad y argumentos cifrados en cada reintento explícito; rechazan otro actor/empresa y no reintentan automáticamente. Sin durabilidad tras perder el objeto | Idempotencia de AGENTS; D-M06.3a-06 |
 | M06.3a-C-22 | Retiro documentado con writers antiguos inhabilitados, operaciones terminadas y conteo cero, incluidas disconnected. canRetireKeyVersion solo comprueba DB | CA-25; D-M06.3a-07 |
 | M06.3a-C-23 | Timeout/transporte exclusivamente durante rewrap devuelve la credencial autenticada con rewrap.status unconfirmed y motivo redactado; conserva keyVersion leída, sin retry ni relectura. Errores explícitos y fallos anteriores conservan su tratamiento | CA-24, CA-25, CA-26; D-M06.3a-09 |
 | M06.3a-C-24 | Ambas URLs rechazan parámetros que cambian TLS antes de pg, sin construir pool, conectar ni leer certificados; error fijo redactado, sin eliminación silenciosa | CA-26; D-M06.3a-10 |
 | M06.3a-C-25 | CA pública oficial versionada con fuente, fecha y huella; pool verifica cadena y hostname por Node, sin override propio, variable nueva, descarga o fallback. Fallos TLS se propagan redactados | D-M06.3a-11; frontera servidor → DB |
+| M06.3a-C-26 | Ambas URLs del cliente rechazan overrides user/host/port y usan identidad/destino/puerto validados; endpoint efectivo shared transaction pooler en 6543 obligatorio antes de Pool/Client/red. Las referencias SQL del resolvedor tampoco admiten overrides | Q1, II.6 paso 4; A-02/A-09 |
+| M06.3a-C-27 | Queryable satisface §5; repository valida entradas/operaciones/respuestas según §6 con errores tipados y fijos, sin datos ni error original; get_credential proyecta solo campos K04 después de validar contexto/lifecycle | CA-26, K01/K04; A-07 |
 | M06.3a-C-20 | `git diff --name-only main -- supabase/` vacío; ningún comando contra el proyecto `app`; el diff pasa `no-secrets-in-tree` | CB-02, CB-03, CB-04 |
 
 ## Casos de prueba
@@ -466,7 +532,7 @@ Ningún otro archivo. Ninguna migración.
 |---|---|---|---|---|---|
 | M06.3a-T-01 | C-01 | unit | `npm run test:unit -- tests/unit/credential-crypto.test.ts` | Llavero válido con dos versiones: `currentVersion`, `versions` ordenadas, `keyFor` devuelve 32 bytes | Sí: el módulo no existe |
 | M06.3a-T-02 | C-01 | unit | ídem | Rechazos: variable ausente o vacía; par sin `:`; versión `0`, negativa, con cero a la izquierda, no entera o mayor a 2147483647; versión repetida; clave no base64, de 31 y de 33 bytes; actual ausente, no entera o fuera del llavero. Ningún mensaje contiene la clave usada en el caso | Sí |
-| M06.3a-T-03 | C-02, C-03 | unit | ídem | Ciclo completo: `open(seal(x)) === x`; la salida cumple `ciphertext`, `iv` y `auth_tag` de K04; `key_version` es la actual | Sí |
+| M06.3a-T-03 | C-02, C-03 | unit | ídem | Ciclo completo: `openCredential(sealCredential(x, aad, keyring), aad, keyring).reveal() === x`; la salida cumple `ciphertext`, `iv` y `auth_tag` de K04; `key_version` es la actual | Sí |
 | M06.3a-T-04 | C-02 | unit | ídem | Dos sellos del mismo texto y AAD dan IV y texto cifrado distintos; IV de 12 bytes, etiqueta de 16 | Sí |
 | M06.3a-T-05 | C-02 | unit | ídem | Texto vacío: `CredentialMaterialError` | Sí |
 | M06.3a-T-06 | C-03 | unit | ídem | Misma versión con otra clave: `CredentialDecryptionError` | Sí |
@@ -485,22 +551,22 @@ Ningún otro archivo. Ninguna migración.
 | M06.3a-T-19 | C-09 | unit | ídem | K01 con `company_id` no UUID: error antes de llamar al pool. `createPendingConnectionWithCredential` genera un UUID nuevo, lo pasa como `p_connection_id` y el material abre solo con el AAD de ese id y de `ctx.company_id` | Sí |
 | M06.3a-T-20 | C-10 | unit | ídem | `SecretValue`: `JSON.stringify({ t })`, `String(t)`, `` `${t}` `` y `util.inspect(t)` dan `[redactado]`; `reveal()` da el texto | Sí |
 | M06.3a-T-21 | C-12 | unit | `npm run test:unit -- tests/unit/no-privileged-credentials.test.ts` | Las cinco reglas pasan sobre el árbol; los dos `it` originales siguen iguales | Sí: la regla 1 exige que `worker-api.ts` exista y contenga la variable |
-| M06.3a-T-22 | C-13 | unit | `npm run test:unit -- tests/unit/sql-test-target.test.ts` | `resolveIntegrationsTestTarget`: configuración válida `ok`; falta la variable (el mensaje no propone la de la app); usuario `postgres.<ref>`; otro proyecto; proyecto `app`; igual a `PRAXA_INTEGRATIONS_DB_URL`; `SUPABASE_TEST_DB_URL` inválida; sin confirmación de desechable; marcador de contraseña: todos rechazados. Puerto 5432: `ok` con nota. Los casos existentes siguen pasando | Sí: la función no existe |
+| M06.3a-T-22 | C-13 | unit | `npm run test:unit -- tests/unit/sql-test-target.test.ts` | `resolveIntegrationsTestTarget`: configuración válida `ok`; falta la variable (el mensaje no propone la de la app); usuario `postgres.<ref>`; otro proyecto; proyecto `app`; igual a `PRAXA_INTEGRATIONS_DB_URL`; `SUPABASE_TEST_DB_URL` inválida; sin confirmación de desechable; marcador de contraseña: todos rechazados. Puerto 5432/ausente y host fuera de la familia shared pooler: rechazo fatal. Host válido con 6543: ok. Overrides user/host/port en URL del rol/referencia: rechazo, incluso vacíos, repetidos y percent-encoded. Los casos existentes siguen pasando | Sí: la función no existe |
 | M06.3a-T-23 | C-14 | unit | ídem | `resolveTarget('test', { root: <temporal sin .env.local> })` con `vi.stubEnv` de la misma URL para app y pruebas y `SUPABASE_TEST_ALLOW_APP_PROJECT=true`: `ok` es `false` y ningún problema menciona la variable | Sí: hoy la excepción la acepta |
-| M06.3a-T-24 | C-14 | manual | `git grep -n SUPABASE_TEST_ALLOW_APP_PROJECT -- scripts tests src docs/SECURITY.md .env.example README.md` | Sin salida | Sí |
+| M06.3a-T-24 | C-14 | manual | `rg -n SUPABASE_TEST_ALLOW_APP_PROJECT scripts tests src .github docs/SECURITY.md .env.example README.md` y revisión de T-23 | Solo coincidencias en T-23 de tests/unit/sql-test-target.test.ts; ninguna operativa ni en otro caso; comprobar activación de variable y rechazo de app, sin literales disfrazados | Sí |
 | M06.3a-T-25 | C-15 | unit | `npm run test:unit -- tests/unit/no-secrets-in-tree.test.ts` | Autoprueba: cada patrón detecta su muestra positiva armada en tiempo de ejecución; las muestras sintéticas permitidas no se informan; el informe no contiene el texto coincidente. Recorrido: cero hallazgos en el árbol | Sí: el archivo no existe |
 | M06.3a-T-26 | C-15 | unit | ídem | La lista de archivos sale de `git ls-files -co --exclude-standard` y no incluye `.env.local` (aserción sobre la lista, sin leer ese archivo) | Sí |
 | M06.3a-T-27 | C-13 | manual | `npm run db:check:test` | Imprime el `<ref>` del rol y "Destino verificado."; ningún valor de variable | No aplica: salida de un script; se registra antes y después de la intervención |
 | M06.3a-T-28 | C-11 | manual | `node -e "const p=require('./package.json');console.log(Boolean(p.dependencies.pg),Boolean(p.devDependencies.pg),Boolean(p.devDependencies['@types/pg']))"` y `npm ci --dry-run` | `true false true`; `npm ci --dry-run` sin error de sincronización | Sí: hoy imprime `false true true` |
 | M06.3a-T-29 | C-16 | manual | `git diff main -- docs/SECURITY.md docs/ARCHITECTURE.md` | Contiene Diseño §11, categorías y enlaces canónicos; sin lista duplicada de funciones ni cambios a la política de retención | No aplica: documentación |
 | M06.3a-T-30 | C-17 | unit | `npm run test:unit -- tests/unit/no-privileged-credentials.test.ts` y `git diff main -- .env.example` | La prueba de `.env.example` pasa; el diff muestra las cuatro variables sin valor, el conteo y la sección final | No aplica para el conteo y los comentarios (revisión); sí para la prueba si se escribiera un valor |
-| M06.3a-T-31 | C-18 | app | `npm run test:app -- tests/app/integrations-worker-api-client.test.ts` | El cliente conecta con la URL del rol; `select current_user` da `praxa_integrations` | Sí: el módulo no existe (y, antes de la intervención, falla por falta de la variable) |
+| M06.3a-T-31 | C-18 | app | `npm run test:app -- tests/app/integrations-worker-api-client.test.ts` | La guarda exige endpoint shared transaction pooler efectivo en 6543 antes de conectar; el cliente conecta con la URL del rol; `select current_user` da `praxa_integrations` | Sí: el módulo no existe (y, antes de la intervención, falla por falta de la variable) |
 | M06.3a-T-32 | C-18 | app | ídem | Por la misma conexión, `select` sobre `public.integration_connections`, `public.oauth_attempts` y `private.integration_credentials` da `42501` | Sí |
 | M06.3a-T-33 | C-18 | app | ídem | Crear una pendiente con un token sintético y leerla: `reveal()` coincide; el `ciphertext` crudo de `get_credential` es distinto del token en base64 | Sí |
 | M06.3a-T-34 | C-18 | app | ídem | Material crudo de la conexión de la empresa A insertado con `create_pending_connection` en la empresa B: `readCredential` de B da `CredentialDecryptionError` | Sí |
 | M06.3a-T-35 | C-18 | app | ídem | Rotación con la versión sintética: sellado con la versión sintética V, cambio a V+1, lectura que recifra; `get_credential` informa V+1; `count_credentials_by_key_version` no tiene fila V; `canRetireKeyVersion(V)` es `true` | Sí |
 | M06.3a-T-36 | C-06, C-18 | app | ídem | Después de `begin_disconnect` (llamado con el cliente), una lectura con versión vieja descifra y la versión guardada no cambia | Sí |
-| M06.3a-T-37 | C-18 | manual | En PowerShell: `$env:PRAXA_INTEGRATIONS_TEST_DB_URL=''; npm run test:app -- tests/app/integrations-worker-api-client.test.ts` | La suite **falla** con los problemas del resolvedor; no figura como omitida | Sí |
+| M06.3a-T-37 | C-18 | unit, subproceso negativo | `npm run test:unit -- tests/unit/credential-crypto.test.ts` | Harness de Diseño §12 ejecuta suite real aislada: variable ausente tras setup, exit no cero por esa causa, suite fallida y no skip, cero Pool/Client/conexiones y ningún fallback; no carga ni modifica .env.local | Sí |
 | M06.3a-T-38 | C-19 | manual | `git diff main -- package.json` y revisión de las suites | Solo se mueve `pg`; las suites que cruzan `server-only` mockean el marcador. No se agrega dependencia ni alias global | No aplica: revisión |
 | M06.3a-T-39 | C-20 | manual | `git diff --name-only main -- supabase/` | Sin salida | No aplica: revisión del diff |
 | M06.3a-T-40 | todos | unit, component y build | `npm run verify` | Exit 0 | Sí, hasta que existan los módulos |
@@ -516,7 +582,12 @@ Casos adicionales del grill (sin renumerar los existentes):
 | M06.3a-T-45 | C-23 | unit; `npm run test:unit -- tests/unit/credential-crypto.test.ts` | Simular transporte/timeout de rewrap tanto antes de aplicar la escritura como después de aplicarla y perder la respuesta: ambos devuelven token leído, keyVersion original y señal unconfirmed. Exactamente una lectura y un intento de rewrap por llamada. Una lectura posterior independiente observa la versión realmente persistida. Rojo antes de implementar |
 | M06.3a-T-46 | C-23 | unit; comando de T-45 | No convertir en unconfirmed errores de lectura, material inválido, descifrado, sellado, permisos, autenticación DB, PX006 ni otros rechazos explícitos. PX008 produce version_conflict; éxito confirmed; ausencia de intento not_attempted. La serialización de la señal y errores no filtra datos. Rojo antes de implementar |
 | M06.3a-T-47 | C-24 | unit; `npm run test:unit -- tests/unit/credential-crypto.test.ts tests/unit/sql-test-target.test.ts` | Cada parámetro prohibido, vacío, repetido o con nombre codificado, se rechaza en runtime y pruebas. Espías confirman cero construcción de pool, conexión o lectura de certificados. Mensaje y propiedades sin URL/valores/cause. Una URL sin esos parámetros atraviesa esta guarda, sujeta a las demás validaciones y a Q-05. Rojo antes de implementar |
-| M06.3a-T-48 | C-25 | unit; `npm run test:unit -- tests/unit/credential-crypto.test.ts`; app T-31 | X509Certificate del PEM coincide con la huella documentada; pool recibe ca y rejectUnauthorized true sin checkServerIdentity propio. Errores de certificado/hostname no activan fallback ni unconfirmed. T-31 autentica con esa configuración real. Rojo antes de implementar; la evidencia TLS sin login del grill no sustituye T-31 |
+| M06.3a-T-48 | C-25 | unit; `npm run test:unit -- tests/unit/credential-crypto.test.ts`; app T-31 | X509Certificate del PEM coincide con la huella documentada; pool recibe ca y rejectUnauthorized true sin checkServerIdentity propio ni fingerprint pinning runtime; sslnegotiation postgres explícito. Errores de certificado/hostname no activan fallback ni unconfirmed. T-31 autentica con esa configuración real. Rojo antes de implementar; la evidencia TLS sin login del grill no sustituye T-31 |
+| M06.3a-T-49 | C-13, C-26 | unit; `npm run test:unit -- tests/unit/credential-crypto.test.ts tests/unit/sql-test-target.test.ts` | Cada override user/host/port, normal, percent-encoded, repetido o vacío falla en runtime/test antes de parser/Pool/Client/red. Referencia SUPABASE_TEST_DB_URL con override también falla. Host directo/IP/sufijo engañoso, socket, puerto ausente/5432 fallan; distintos hosts sintéticos de familia pooler y 6543 pasan. Comparar identidad/host/puerto efectivos del pg instalado con los validados, usando solo parser sin red |
+| M06.3a-T-50 | C-25 | unit; `npm run test:unit -- tests/unit/credential-crypto.test.ts` | PGSSLNEGOTIATION direct sintético no altera config ni parámetros efectivos: postgres. Inspección de opciones con fábrica de Pool simulada y parser de pg, cero conexiones; restaurar entorno. Mantener rechazo de sslnegotiation en URL |
+| M06.3a-T-51 | C-09, C-21, C-27 | unit; comando de T-50 | K01 inválido en cada campo/extra, input inválido, versión inválida y objeto preparado forjado/clonado producen clase/code/message de §6; actor/empresa distintos producen prepared_context_mismatch; cero consultas y sellados. Misma operación auténtica permite reutilización exacta. Los errores no exponen valores ni ZodError/cause |
+| M06.3a-T-52 | C-23, C-27 | unit; comando de T-50 | WorkerApi simulado para el repository: get_credential con cero filas credential_not_found; múltiples, nulo, ID/empresa incoherente, provider/status inválido, generation negativa/fraccionaria/fuera de int, Date inválido, K04 inválido y columnas desconocidas dan invalid_response antes de descifrar/rewrap. Fila válida con campos lifecycle se proyecta a diez campos K04 y descifra. Material de forma válida pero GCM alterado mantiene decryption_failed; ninguna validación activa unconfirmed |
+| M06.3a-T-53 | C-08, C-27 | unit; comando de T-50 | Queryable simulado registra consulta y cierre; envelope rows inválido, incluida fila null, da WorkerApiError unexpected en la frontera del cliente; no llega al repository. Respuestas create/replace/rewrap con cardinalidad/columnas/tipos/identidad inválidos dan invalid_response; conteos inválidos mantienen WorkerApiError unexpected. Mensajes, JSON y propiedades de todos los errores de validación son fijos, sin SQL, URL, actor/company, token, ciphertext/IV/tag, issues ni cause |
 
 La suite unit concentra los negativos criptográficos; la suite app prueba autenticación, capacidades/restricciones, recorrido real del repositorio y las regresiones SQL anteriores. El caso AAD contra filas reales es complementario, no reemplaza los negativos unitarios.
 
@@ -526,7 +597,7 @@ En este orden, con la salida real en la evidencia (CB-05):
 
 1. `npm run test:unit`: todas las suites, incluidas las cuatro nuevas o extendidas.
 2. `npm run db:check:test` después de la intervención (T-27).
-3. `npm run test:app`, con todas las suites exigidas ejecutadas. `tests/app/email-flows.test.ts` sigue siendo opt-in y ajena al corte (`H-E1-23`); la suite nueva no puede quedar omitida (CB-06).
+3. `npm run test:app`, con todas las suites exigidas ejecutadas y el endpoint efectivo shared transaction pooler en 6543 validado antes de conectar. `tests/app/email-flows.test.ts` sigue siendo opt-in y ajena al corte (`H-E1-23`); la suite nueva no puede quedar omitida (CB-06).
 4. `npm run verify`: exit 0. Si Vitest falla al cargar desde Git Bash, se repite con `powershell -NoProfile -Command "npm run verify"` antes de reportar una regresión (`H-E1-20`); un fallo de arranque del pool se repite una vez y se registra (`H-E1-18`).
 5. T-24, T-28, T-29, T-30, T-37, T-38 y T-39.
 
@@ -536,14 +607,14 @@ III.3 actualizado por D-M06.3a-01 exige `db:check:test` y `test:app`, además de
 
 | Paso | Qué hace el usuario | Cómo se verifica después |
 |---|---|---|
-| Antes de implementar | Confirmar cierre global del grill; después auditoría de spec y aprobación visible del usuario antes de continuar el pipeline | Decisiones `D-M06.3a-NN` en esta spec |
-| Secuencia, paso 7 | En el SQL editor de `praxa-test`, fijar la contraseña del rol: `alter role praxa_integrations with password '<generada>'`, fuera del repositorio y sin pegarla en el chat (ficha, plan.md:223; III.2) | T-31 conecta. Si falla, el asistente consulta como `postgres`, por `SUPABASE_TEST_DB_URL`, solo `rolcanlogin`, `rolconnlimit` y si `rolvaliduntil` es nulo o futuro (`H-E1-36`), y frena el gate |
+| Antes de implementar | Cierre del grill ya confirmado; falta nueva auditoría APROBABLE y aprobación visible de la spec por el usuario antes de continuar el pipeline | Decisiones `D-M06.3a-NN` en esta spec |
+| Secuencia, paso 7 | En el SQL editor de `praxa-test`, fijar la contraseña del rol: `alter role praxa_integrations with password '<generada>'`, fuera del repositorio y sin pegarla en el chat (ficha, plan de la ruta; III.2) | T-31 conecta. Si falla, el asistente consulta como `postgres`, por `SUPABASE_TEST_DB_URL`, solo `rolcanlogin`, `rolconnlimit` y si `rolvaliduntil` es nulo o futuro (`H-E1-36`), y frena el gate |
 | Secuencia, paso 7 | `npm run env:prepare`; cargar en `.env.local` `PRAXA_INTEGRATIONS_TEST_DB_URL` con usuario `praxa_integrations.<ref de pruebas>`, el host del pooler, puerto 6543 y la contraseña codificada en porcentaje | T-27 (`db:check:test`) |
 | Secuencia, paso 7 | Generar una clave de 32 bytes en base64 (por ejemplo `openssl rand -base64 32`) y cargar `PRAXA_CREDENTIAL_KEYS=1:<clave>` y `PRAXA_CREDENTIAL_KEY_CURRENT=1` en `.env.local`, sin pegarlas en el chat | T-33 descifra con ese llavero; no se omite esta comprobación |
 | Cierre | Aprobar `G-CRYPTO` | `PROJECT_STATE.md` lo registra con fecha |
 | Cuando lo pida | Commit, push y PR de `mf/M06.3a` | `git log` y estado del remoto |
 | Reservado al usuario | Push, despliegue en Vercel, `db:push` al proyecto `app` y `db:push:test` | El asistente no los ejecuta. Esta microfase no necesita ningún `db:push` |
-| No en esta microfase | Contraseña del rol en el proyecto `app`, `PRAXA_INTEGRATIONS_DB_URL` real y variables en Vercel | `M28.2a` (plan.md:533-535) |
+| No en esta microfase | Contraseña del rol en el proyecto `app`, `PRAXA_INTEGRATIONS_DB_URL` real y variables en Vercel | `M28.2a` (plan de la ruta) |
 
 ## Trampas y riesgos
 
@@ -565,7 +636,7 @@ Del código:
 11. **El recorrido del árbol se detecta a sí mismo** si contiene literales con forma de secreto: las muestras se arman en tiempo de ejecución y el propio archivo se excluye.
 12. **Fixtures sintéticos existentes** (`supabase-key-formats.test.ts:24`, contraseñas `secreta` y `clave`): la lista sintética es cerrada y declarada; no se editan esos archivos.
 13. **Conteo global de `count_credentials_by_key_version`.** El proyecto de pruebas puede tener credenciales de otras corridas: la rotación de T-35 usa una versión sintética propia de la corrida.
-14. **`server-only` en Vitest** (`H-E1-17`): sin mock o alias, toda suite que importe los módulos nuevos falla al resolver el paquete.
+14. **`server-only` en Vitest** (`H-E1-17`): sin el mock explícito por suite acordado, toda suite que importe los módulos nuevos falla al resolver el paquete.
 15. **Lockfile.** Mover `pg` sin actualizar `package-lock.json` rompe `npm ci` en la CI.
 16. **Reintento con otro IV.** Repetir una función de conveniencia prepara una operación nueva. Ante resultado incierto se reutiliza la operación preparada de Diseño §6. Perderla en un reinicio exige reconciliación en M16.1; este corte no ofrece idempotencia durable.
 17. **Memoización del llavero.** Cambiar las variables sin reiniciar el proceso no cambia la clave actual.
@@ -606,7 +677,7 @@ Riesgos:
 
 ## Preguntas abiertas
 
-Ninguna decisión de Q-01 a Q-11 queda abierta. Todas están incorporadas en D-M06.3a-01 a D-M06.3a-11. Falta la confirmación global del usuario de que se alcanzó entendimiento compartido para cerrar el grill. La spec continúa BORRADOR: no está auditada ni aprobada, y no autoriza implementación.
+Ninguna decisión de Q-01 a Q-11 queda abierta. Todas están incorporadas en D-M06.3a-01 a D-M06.3a-11. El grill está cerrado por confirmación global del usuario. La spec continúa BORRADOR, auditada con resultado REQUIERE CAMBIOS en spec-audit-1 y corregida documentalmente en esta ronda. No está aprobada, G-CRYPTO no está aprobado y no autoriza implementación. Siguiente paso: spec-auditor M06.3a sobre el nuevo hash.
 
 Fuentes para la comprobación: https://node-postgres.com/features/ssl y https://supabase.com/docs/guides/platform/ssl-enforcement. La documentación no sustituye la evidencia del destino de pruebas.
 
@@ -623,7 +694,7 @@ Fuentes para la comprobación: https://node-postgres.com/features/ssl y https://
 - `H-M04.1-02` (excepción `SUPABASE_TEST_ALLOW_APP_PROJECT`): se cierra en esta microfase (C-14, T-23, T-24).
 - `H-E1-09` (`pg` en `devDependencies`): se cierra (C-11, T-28).
 - `H-E1-10` (`no-privileged-credentials` como lista de nombres): se cierra con la invariante del paquete `pg` (C-12, T-21).
-- `H-E1-17` (`server-only` en Vitest): según `M06.3a-Q-03` (C-19, T-38).
+- `H-E1-17`: resuelto a nivel de convención de testing por Q-03; C-19/T-38 verificarán su aplicación en las suites nuevas cuando existan.
 - `H-E1-36` (atributos de conexión de un rol reutilizado): se comprueba el acceso (C-18, T-31); el endurecimiento sigue en `M16c`.
 - `H-E1-37`: mitigación / límite aceptado a nivel repository según D-M06.3a-04; pendiente de implementar y verificar. SQL conserva su capacidad más amplia.
 - `H-E1-12` (`verify` no corre pgTAP ni `test:app`): sección Verificación.
@@ -636,4 +707,20 @@ Fuentes para la comprobación: https://node-postgres.com/features/ssl y https://
 
 ## Auditorías
 
-Ninguna todavía.
+[spec-audit-1](revisiones/spec-audit-1.md): REQUIERE CAMBIOS sobre hash `b778be1253199fb871119af092255aa5c6036f5e`. Correcciones documentales autorizadas por el usuario, pendientes de nueva auditoría. El informe original y la historia de la sesión no se reescriben.
+
+### Trazabilidad de correcciones de spec-audit-1
+
+| Hallazgo | Cambio | Sección / criterio / prueba |
+|---|---|---|
+| A-01 | Sincronizar solo fila Cifrado de la spec general con Q1 | meta_first/spec.md §14; Verificación; C-18 |
+| A-02 | Rechazar overrides y comprobar destino/identidad efectivos | Diseño §5/§7; C-13/C-26; T-22/T-49 |
+| A-03 | Negociación postgres fija; huella solo procedencia | Diseño §5; C-25; T-48/T-50 |
+| A-04 | Sin soporte operativo; excepción cerrada para regresión | Diseño §8; C-14; T-23/T-24 |
+| A-05 | Suite negativa en proceso aislado sin cargar entorno local | Diseño §12; C-18; T-37 |
+| A-06 | Convención resuelta, aplicación en suites futuras | HALLAZGOS H-E1-17; C-19; T-38 |
+| A-07 | Queryable mínimo, errores y proyección K04 explícitos | Diseño §5/§6; C-27; T-51/T-52/T-53 |
+| A-08 | Referencias estables y cierre del grill; BORRADOR preservado | Fuentes, Preguntas abiertas, Intervenciones y Auditorías |
+| A-09 | Shared transaction pooler efectivo en 6543 obligatorio | Diseño §5/§7/§12; C-13/C-18/C-26; T-22/T-31/T-33/T-49 |
+
+Estas correcciones no aprueban la spec ni G-CRYPTO y no autorizan implementación. Siguiente paso: spec-auditor M06.3a sobre el nuevo hash.
