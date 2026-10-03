@@ -1,6 +1,6 @@
 # M28.2a — Spec de la microfase
 
-**Estado:** APROBADO
+**Estado:** APROBADA
 
 Estados posibles: `BORRADOR` → `APROBADA`. Solo el usuario pasa una spec a `APROBADA`, después de una auditoría APROBABLE.
 
