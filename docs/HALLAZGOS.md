@@ -84,6 +84,7 @@ Registro único de hallazgos documentados en la auditoría M04.1, el baseline M0
 | `H-E1-67` | Corregido en árbol de trabajo: `verifiedTestDbConfig` podía reventar fuera del mensaje curado de `run-pgtap.mjs` | M06.3a (corrección de revisión solicitada por el usuario, `/code-review ultra`) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 | `H-E1-68` | Corregido en árbol de trabajo: "mismo proyecto que la app" reimplementado en tres archivos | M06.3a (corrección de revisión solicitada por el usuario, `/code-review ultra`) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 | `H-E1-69` | Corregido en árbol de trabajo: configuración TLS de `pg` copiada entre `worker-api.ts` y `test-db-client.mjs` | M06.3a (corrección de revisión solicitada por el usuario, `/code-review ultra`) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-70` | Corregido en árbol de trabajo: el arnés de T-37 fallaba solo en CI de GitHub, nunca en local | M06.3a (primer `npm run verify` real en CI de GitHub, PR #14) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 
 `H-E1-49` — Impacto: `next=/\evil.example/` pasaba la guarda de login y `router.replace`
 podía enviar al usuario fuera de PRAXA. Evidencia: guarda anterior en `login/page.tsx` y
@@ -238,6 +239,19 @@ proyecto desechable real (`npm run test:app`).
 importan. Comportamiento sin cambios, verificado con `npm run test:policies` (conexión
 TLS real al proyecto desechable) y la prueba T-48/T-50 existente, que sigue comprobando
 la configuración efectiva del `Pool` sin modificarse.
+
+`H-E1-70` — Impacto: el arnés de `T-37` (`tests/unit/credential-crypto.test.ts`) lanza un
+proceso hijo de Vitest contra `tests/app/integrations-worker-api-client.test.ts` y
+compara su salida de texto con una regex (`/Test Files\s+1 failed/`). El filtro de
+variables de entorno del hijo solo bloqueaba `PRAXA`/`SUPABASE`/`NEXT_PUBLIC_SUPABASE`/`PG`;
+dejaba pasar `CI` y `GITHUB_ACTIONS`. Al heredarlas, el proceso hijo detecta que corre en
+GitHub Actions y Vitest agrega color ANSI y anotaciones `::error::` a su reporte, que
+rompen la comparación de texto plano. El arnés nunca se había ejecutado en CI de Linux:
+esta rama se subió a GitHub por primera vez en esta sesión (PR #14), y el fallo apareció
+ahí, nunca en local. Corrección: el filtro también excluye `CI`/`GITHUB_*`, y se fuerza
+`NO_COLOR=1`/`FORCE_COLOR=0` en el entorno del proceso hijo, para que su salida sea texto
+plano sin depender del entorno del proceso padre. Verificado localmente (pasa igual que
+antes) y en la corrida de CI del PR tras el push.
 
 **No corregidos, requieren decisión de spec:** la clase `28` (`28000`, `28P01`, fallos de
 autorización/contraseña del rol) se clasifica como `unavailable` igual que `53300`/`57P01`/

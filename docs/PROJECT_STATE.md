@@ -24,7 +24,7 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 **M28.2a — Entorno del piloto.** Habilitada por `G-CRYPTO`. Sin empezar.
 
 Hallazgos asignados a M06.3a (cerrada): `H-M04.1-02`, `H-E1-09`, `H-E1-10`, `H-E1-17`, `H-E1-37`,
-`H-E1-43` a `H-E1-69` y la comprobación de acceso real del rol de `H-E1-36`. Detalle en
+`H-E1-43` a `H-E1-70` y la comprobación de acceso real del rol de `H-E1-36`. Detalle en
 [HALLAZGOS.md](HALLAZGOS.md).
 
 Después de M28.2a, en este orden: M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a.

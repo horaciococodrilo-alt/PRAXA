@@ -914,8 +914,12 @@ describe('M06.3a paso 4 RED: configuración obligatoria de la suite real', () =>
           pool: counters.pool, client: counters.client, fetch: fetchCount,
         })));
       `, 'utf8');
-      const base = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(PRAXA|SUPABASE|NEXT_PUBLIC_SUPABASE|PG)/i.test(name))) as NodeJS.ProcessEnv;
-      const env = { ...base, ...options.extraEnv } as NodeJS.ProcessEnv;
+      // En GitHub Actions, Vitest detecta GITHUB_ACTIONS/CI y agrega color y anotaciones
+      // `::error::` a su salida; eso rompe el regex de texto plano de abajo solo en ese
+      // entorno (nunca en una corrida local). Se filtran esas señales y se fuerza "sin
+      // color" explícito para que el reporte sea texto plano en cualquier entorno.
+      const base = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(PRAXA|SUPABASE|NEXT_PUBLIC_SUPABASE|PG|CI|GITHUB_)/i.test(name))) as NodeJS.ProcessEnv;
+      const env = { ...base, ...options.extraEnv, NO_COLOR: '1', FORCE_COLOR: '0' } as NodeJS.ProcessEnv;
       return await new Promise<{ code: number | null; report: string; timeout: boolean }>((done, reject) => {
         const child = spawn(process.execPath, [join(root, 'node_modules/vitest/vitest.mjs'), 'run', '--config', configPath, '--project', 'app', suitePath], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
         let report = '';
