@@ -1,6 +1,6 @@
 # M28.2a — Spec de la microfase
 
-**Estado:** BORRADOR
+**Estado:** APROBADO
 
 Estados posibles: `BORRADOR` → `APROBADA`. Solo el usuario pasa una spec a `APROBADA`, después de una auditoría APROBABLE.
 
@@ -16,14 +16,14 @@ grep -v '^\*\*Estado:\*\*' docs/FASES/FASE1/M28.2a/spec.md | git hash-object --s
 
 - `AGENTS.md`: jerarquía, contrato de ejecución y documental, seguridad operativa y condiciones de parada.
 - `docs/_templates/mf-spec.md`: estructura de este documento.
-- `docs/PROJECT_STATE.md:19`: `G-DB-META`, `G-CRYPTO` y siguiente microfase.
+- `docs/PROJECT_STATE.md:19` (`G-DB-META`), `docs/PROJECT_STATE.md:20` (`G-CRYPTO`) y `docs/PROJECT_STATE.md:24` (M28.2a habilitada).
 - `docs/FASES/FASE1/meta_first/plan.md`: Parte I, Enmienda 1, mapa y gates, ficha M28.2a (líneas 225–238); Parte II, II.7 completa (pasos 1–9, incluido 8b, y aclaraciones autorizadas en el grill del 2026-10-03); III.2, III.3 y III.9. II.7 cubre exclusivamente **M28.2a**.
 - `docs/FASES/FASE1/meta_first/spec.md`: DEC-03, DEC-07, DEC-08, DEC-18; P-06; secciones 5, 5b y 13b; CB-01 a CB-06. La ficha no asigna ningún CA numerado: sus tres condiciones de aceptación se conservan abajo sin inventar IDs de la ruta.
 - `docs/HALLAZGOS.md:357`: H-E1-08; `:395`: H-E1-23 como antecedente sobre suites opt-in.
 - `docs/SECURITY.md`: secciones 2, 3, 4, 6, 11 y 12. `docs/ARCHITECTURE.md`: esquemas, roles y caminos A y B.
-- Evidencia previa: `docs/FASES/FASE1/meta_first/sesiones/M06.1a-M06.2a.md` y `docs/FASES/FASE1/meta_first/sesiones/M06.3a.md`, en particular cierre de G-CRYPTO (línea 467) y última verificación local (línea 656). Las entradas históricas pendientes no sustituyen el estado vigente de PROJECT_STATE. El cierre de G-CRYPTO fue decisión del usuario, sin revisión de implementación ni QA final sobre el HEAD cerrado; se conserva esa limitación.
+- Evidencia previa: `docs/FASES/FASE1/meta_first/sesiones/M06.1a-M06.2a.md` y `docs/FASES/FASE1/meta_first/sesiones/M06.3a.md`, en particular cierre de G-CRYPTO (línea 467) y última verificación local (línea 683, dentro de la sección que comienza en 656). Las entradas históricas pendientes no sustituyen el estado vigente de PROJECT_STATE. El cierre de G-CRYPTO fue decisión del usuario, sin revisión de implementación ni QA final sobre el HEAD cerrado; se conserva esa limitación.
 - Código y configuración: archivos de la tabla de contexto, `src/lib/supabase/{client,server}.ts`, `src/modules/identity/session.ts`, `src/modules/company/service.ts`, `src/modules/onboarding/repository.ts`, `scripts/lib/{env,target}.mjs`, `supabase/migrations/0012_integrations.sql`, `package.json`, `vitest.config.mts` y `tests/app/email-flows.test.ts`.
-- Commit base: `d3db802017b8367edba40e0a6ca9641167edb771`. Árbol limpio al comenzar la expansión, 2026-10-03.
+- Commit base: `d3db802017b8367edba40e0a6ca9641167edb771`. Árbol limpio al comenzar la expansión, 2026-10-03. Referencias de línea recontrastadas al corregir A-03 sobre `7b2a30f96f12284b5339b7591a8ce16d29a26555`; la auditoría preexistente sin seguimiento se preserva.
 - Fuentes oficiales consultadas el 2026-10-03: [SMTP](https://supabase.com/docs/guides/auth/auth-smtp), [redirecciones](https://supabase.com/docs/guides/auth/redirect-urls), [uso de Vercel](https://vercel.com/docs/limits/fair-use-guidelines), [changelog](https://supabase.com/changelog), cambios de [plantillas de email](https://supabase.com/changelog/46599-changes-to-email-template-customisation-on-free-tier) y [exposición de tablas](https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically). El índice `.md` no se pudo obtener por tipo de contenido; se consultó el HTML y los cambios pertinentes.
 
 ## Objetivo
@@ -35,7 +35,7 @@ Tener una URL pública estable, con la base, la autenticación y el email funcio
 1. Guiar al usuario para crear el proyecto Vercel conectado al repositorio y fijar el dominio HTTPS.
 2. Documentar y verificar, sin valores, las variables requeridas por II.7 y las exclusiones del despliegue. Aplicar D-M28.2a-01 y declarar la limitación de la verificación por presencia.
 3. Preparar la comprobación de destino y acompañar la aplicación por el usuario de las migraciones pendientes hasta `0012` en `app`, con la evidencia previa del proyecto de pruebas. El usuario fija la contraseña de `praxa_integrations` en `app`.
-4. Verificar con evidencia redactada que `worker_api` no está expuesto por la Data API y que Auth remoto usa el dominio del piloto.
+4. Verificar con evidencia redactada que `worker_api` y `private` no están expuestos por la Data API y que Auth remoto usa el dominio del piloto.
 5. Guiar la configuración de SMTP propio con SPF y DKIM; verificar confirmación de una dirección externa al equipo, login, cierre de registro y recuperación completa con registro cerrado.
 6. Verificar `/app/integraciones` por HTTPS con la sesión de prueba y la precondición de empresa descrita abajo, bajo la excepción manual de D-M28.2a-03.
 7. Ejecutar `npm run verify` durante la implementación, completar el checklist y documentar entorno y evidencia. Solo entonces presentar `G-ENTORNO` para aprobación; habilita M16.1, sin iniciarla automáticamente.
@@ -51,23 +51,23 @@ Tener una URL pública estable, con la base, la autenticación y el email funcio
 
 | Qué | Dónde (archivo:línea) | Qué implica para esta microfase |
 |---|---|---|
-| Node requerido y comandos existentes | `package.json:6`, `package.json:9` | Node 24; `verify` encadena lint, typegen, typecheck, unit/component y build. |
-| Proyectos separados de Vitest | `vitest.config.mts:30`, `vitest.config.mts:38`, `vitest.config.mts:51` | `app` no se ejecuta con `verify`; pgTAP tiene script independiente. |
+| Node requerido y comandos existentes | `package.json:6`, `package.json:14`, `package.json:26` | Node 24; `verify` encadena lint, typegen, typecheck, unit/component y build. |
+| Proyectos separados de Vitest | `vitest.config.mts:29`, `vitest.config.mts:37`, `vitest.config.mts:50`; `package.json:14`, `package.json:17`, `package.json:18` | `app` no se ejecuta con `verify`; pgTAP tiene script independiente. |
 | Variables públicas se leen con referencias estáticas; ausencia no rompe necesariamente el build | `src/lib/env.ts:33`, `src/lib/env.ts:59` | Un build exitoso no acredita Auth; `getSiteUrl(): string` cae a localhost si falta la variable. |
-| Registro manda callback con destino onboarding | `src/app/(auth)/signup/page.tsx:32` | `signUp` usa `/auth/callback?next=%2Fonboarding`; la confirmación debe llegar y abrirse. |
+| Registro manda callback con destino onboarding | `src/app/(auth)/signup/page.tsx:32`, `src/app/(auth)/signup/page.tsx:36` | `signUp` usa `/auth/callback?next=%2Fonboarding`; la confirmación debe llegar y abrirse. |
 | Recuperación manda callback distinto | `src/app/(auth)/forgot-password/page.tsx:26` | `resetPasswordForEmail` usa `/auth/callback?next=%2Freset-password`. |
 | Cambio de contraseña requiere sesión; luego cierra sesión | `src/app/(auth)/reset-password/page.tsx:29`, `:41`, `:50` | Ocho caracteres como mínimo, confirmación coincidente, regreso a `/login?notice=password-updated`. |
 | Login real con correo y contraseña | `src/app/(auth)/login/page.tsx:31` | Verificar sesión nueva, no solo una sesión persistente del callback. |
-| Callback ya admite PKCE y OTP | `src/app/auth/callback/route.ts:18` | `GET(NextRequest)`: `exchangeCodeForSession` o `verifyOtp`; errores `link-invalid`, `link-missing-params`, `server-error` hacia `/verify-email`. No requiere nueva ruta. |
-| Sesión y empresa protegen el shell | `src/app/(app)/app/layout.tsx:32`, `src/modules/company/service.ts:29`, `src/modules/identity/session.ts:19` | Sin sesión va al login; sin empresa va a onboarding. Identidad por `getClaims`, empresa bajo RLS. |
+| Callback ya admite PKCE y OTP | `src/app/auth/callback/route.ts:18`, `src/app/auth/callback/route.ts:28`, `src/app/auth/callback/route.ts:34`, `src/app/auth/callback/route.ts:40`, `src/app/auth/callback/route.ts:46` | `GET(NextRequest)`: `exchangeCodeForSession` o `verifyOtp`; errores `link-invalid`, `link-missing-params`, `server-error` hacia `/verify-email`. No requiere nueva ruta. |
+| Sesión y empresa protegen el shell | `src/app/(app)/app/layout.tsx:32`, `src/app/(app)/app/layout.tsx:36`, `src/modules/company/service.ts:29`, `src/modules/identity/session.ts:21` | Sin sesión va al login; sin empresa va a onboarding. Identidad por `getClaims`, empresa bajo RLS. |
 | Integraciones es una pantalla vacía | `src/app/(app)/app/integraciones/page.tsx:11`, `:25`; `src/modules/onboarding/repository.ts:140` | No hace llamadas Meta ni ejercita `worker_api`; el contexto activo puede ser nulo. No confundir esta pantalla con un conector funcionando. |
 | Configuración local no acredita dashboard remoto | `supabase/config.toml:7`, `:24`, `:169`, `:173`, `:186`, `:238` | Verificar remotamente exposición, Site URL, redirecciones, confirmación y cierre de registro. |
 | Migración existente crea esquema, rol sin contraseña y tablas | `supabase/migrations/0012_integrations.sql:108`, `:201`, `:277`, `:359`, `:407` | Reutilizar `worker_api`, `praxa_integrations`, `public.integration_connections`, `public.oauth_attempts`, `private.integration_credentials`. No editar SQL. |
-| `db:check` valida coherencia de referencias | `scripts/check-target.mjs:14`, `scripts/lib/target.mjs:194` | No prueba conexión, contraseña, SQL aplicado ni acceso del rol. Redactar referencias impresas. |
+| `db:check` valida coherencia de referencias | `scripts/check-target.mjs:15`, `scripts/lib/target.mjs:194` | No prueba conexión, contraseña, SQL aplicado ni acceso del rol. Redactar referencias impresas. |
 | Push aplica todas las pendientes y registra historial | `scripts/db-push.mjs:9`, `:27`, `:41` | El usuario usa el wrapper; no pegar `0012` en SQL Editor ni asumir que solo aplicará ese archivo. |
-| Contrato estricto de URL del rol | `src/modules/integrations/db/worker-api.ts:106`, `src/modules/integrations/db/connection-url.mjs:61`, `:76` | Usuario `praxa_integrations.<ref>`, shared transaction pooler en 6543, contraseña codificada, base explícita y ninguna query ni fragmento. TLS lo configura el módulo. |
+| Contrato estricto de URL del rol | `src/modules/integrations/db/worker-api.ts:108`; `src/modules/integrations/db/connection-url.mjs:15`, `:68`, `:80`, `:86`, `:99`, `:110` | Usuario `praxa_integrations.<ref>`, shared transaction pooler en 6543, contraseña codificada, base explícita y ninguna query ni fragmento. TLS lo configura el módulo. |
 | Llavero concreto | `src/modules/integrations/crypto/keyring.ts:43` | `parseCredentialKeyring(keys, current): CredentialKeyring`: pares separados por coma, versión positiva sin duplicados, base64 canónico de 32 bytes, versión actual presente. |
-| Pruebas de correo no leen la casilla | `tests/app/email-flows.test.ts:13`, `:24` | Opt-in `SUPABASE_TEST_EMAIL_FLOWS`; no reemplaza recepción/apertura manual. Un retorno por rate limit no acredita entregabilidad. |
+| Pruebas de correo no leen la casilla | `tests/app/email-flows.test.ts:15`, `:26`, `:41`, `:54` | Opt-in `SUPABASE_TEST_EMAIL_FLOWS`; no reemplaza recepción/apertura manual. Un retorno por rate limit no acredita entregabilidad. |
 
 ## Diseño concreto
 
@@ -109,7 +109,7 @@ La sesión registra commit verificado, fecha, operador, comandos exactos, códig
 
 ## Archivos previstos
 
-La expansión creó este `spec.md`; el grill autorizado actualiza este documento y II.7 de `meta_first/plan.md`. La tabla corresponde a la futura implementación:
+La expansión creó este `spec.md`; el grill actualizó este documento y II.7 de `meta_first/plan.md`. La corrección solicitada de A-01 alinea DEC-18 en `meta_first/spec.md` con la excepción ya aprobada, junto con su intervención de Auth y la referencia en CB-04. La tabla corresponde a la futura implementación:
 
 | Archivo | Nuevo o modificado | Para qué | Autorizado por |
 |---|---|---|---|
@@ -139,7 +139,7 @@ Además rigen DEC-07, DEC-08, DEC-18, P-06 y CB-01 a CB-06; no se presentan como
 | M28.2a-C-01 | Proyecto Vercel y origen fijo HTTPS configurados; Integraciones renderiza autenticada sin error con empresa sintética autorizada por D-M28.2a-03. | Aceptación 3; DEC-07; II.7.1 |
 | M28.2a-C-02 | Inventario del gate completo según D-M28.2a-01, verificado por presencia con la limitación declarada; llavero nuevo distinto del de pruebas confirmado por el usuario, variables públicas coherentes con `app`, servidor sin credenciales administrativas ni de pruebas. | DEC-03/07; II.7.2; CB-02 |
 | M28.2a-C-03 | Destino `app` comprobado, historial incluye `0012` aplicada por el usuario y contraseña del rol configurada; no se cambió ninguna migración. | DEC-07; II.7.3; CB-03 |
-| M28.2a-C-04 | Captura redactada demuestra `worker_api` no expuesto en el proyecto remoto. | DEC-03; II.7.4 |
+| M28.2a-C-04 | Captura redactada demuestra que ni `worker_api` ni `private` están expuestos en la Data API del proyecto remoto. Si cualquiera aparece expuesto, el criterio falla. | DEC-03; II.7.4 |
 | M28.2a-C-05 | Site URL y ambos callbacks de Auth usan el origen fijo, sin retorno a localhost ni pérdida del destino de recuperación. | DEC-07/18; II.7.5 y 8b |
 | M28.2a-C-06 | SMTP propio activo, SPF y DKIM verificados, confirmación recibida y abierta por dirección externa al equipo. | Aceptación 1; DEC-18; P-06; H-E1-08 |
 | M28.2a-C-07 | Cuenta confirmada inicia sesión nueva en el dominio; cuenta aún sin confirmar no inicia sesión. | Aceptación 2; DEC-18 |
@@ -156,7 +156,7 @@ Los casos manuales no tienen script npm: se ejecutan en navegador/dashboard por 
 | M28.2a-T-01 | C-01 | manual | Sin comando npm; dominio + `/app/integraciones` | HTTPS válido; sin sesión exige login; con sesión y empresa autorizada renderiza Integraciones. Sin empresa redirige a onboarding y aún no acredita positivo. | No aplica TDD; sin despliegue/configuración no acredita. |
 | M28.2a-T-02 | C-02 | manual | Sin comando npm; checklist Vercel | Presencia por nombre, correspondencia privada con `app`, exclusiones ausentes; llavero nuevo y distinto del de pruebas declarado por el usuario; límite de verificación por presencia registrado; Meta/DeepInfra no se exigen en este gate. | No aplica TDD; configuración incompleta falla checklist. |
 | M28.2a-T-03 | C-03 | manual | Usuario: `npm run db:check`, `npm run db:push`; opcional antes del push: `npm run db:preview` | Destino correcto e historial aplicado hasta `0012`, contraseña establecida. Ante destino inválido se detiene, sin forzarlo ni cambiar variables para provocar fallos. | No aplica TDD; check aislado no acredita aplicación. |
-| M28.2a-T-04 | C-04 | manual | Sin comando npm; Data API remota | Lista de esquemas no incluye `worker_api`; si aparece, FAIL, no invocar RPC como rodeo. | No aplica TDD; config local no basta. |
+| M28.2a-T-04 | C-04 | manual | Sin comando npm; Data API remota | Lista de esquemas no incluye `worker_api` ni `private`; si aparece cualquiera de los dos, FAIL, no invocar RPC como rodeo. | No aplica TDD; config local no basta. |
 | M28.2a-T-05 | C-05 | manual | Sin comando npm; abrir enlaces de T-06 y T-08 | Ambos aterrizan en el dominio y destino correctos, sin errores del callback. | No aplica TDD; callbacks mal configurados fallan. |
 | M28.2a-T-06 | C-06, C-07 | manual | Sin comando npm; `/signup`, casilla externa y `/login` | SMTP/SPF/DKIM verificados; antes de confirmar no permite login; email llega, enlace confirma, sesión nueva funciona. Dirección del equipo no es caso válido. | No aplica TDD; sin SMTP externo no se acredita P-06. |
 | M28.2a-T-07 | C-08 | manual | Sin comando npm; cerrar registro y repetir `/signup` con dirección nueva | Rechazo de Auth; no se crea una cuenta utilizable. | No aplica TDD; con registro abierto falla. |
@@ -204,7 +204,7 @@ El asistente guía, verifica y documenta; no ejecuta acciones de cuenta. No hay 
 
 ## Decisiones de la microfase
 
-Decisiones confirmadas por el usuario al cerrar el grill. DEC-07, DEC-08 y DEC-18 se mantienen; la spec sigue en BORRADOR hasta su auditoría y aprobación posterior. II.7 incorpora las aclaraciones autorizadas y enlaza esta sección para los dominios elegidos.
+Decisiones confirmadas por el usuario al cerrar el grill. DEC-07 y DEC-08 se mantienen; DEC-18 incorpora la excepción de registro ya aprobada en D-M28.2a-03, sin reabrir la decisión. La spec sigue en BORRADOR hasta su auditoría y aprobación posterior. II.7 incorpora las aclaraciones autorizadas y enlaza esta sección para los dominios elegidos.
 
 | ID | Decisión | Motivo | Decidió | Fecha |
 |---|---|---|---|---|
@@ -240,4 +240,14 @@ Elegir y configurar el proveedor SMTP sigue siendo una intervención necesaria p
 
 ## Auditorías
 
-Sin auditorías realizadas de esta spec. Con el grill concluido, ejecutar `$spec-auditor M28.2a`; sus informes se enlazarán aquí bajo `revisiones/spec-audit-N.md`. Esta expansión no equivale a una auditoría APROBABLE.
+[spec-audit-1.md](revisiones/spec-audit-1.md): **REQUIERE CAMBIOS**, sobre el commit `7b2a30f` y el hash de contenido indicado en el informe. Se conserva su veredicto histórico.
+
+Correcciones documentales del 2026-10-03, pendientes de nueva auditoría:
+
+| Hallazgo | Corrección aplicada | Verificación |
+|---|---|---|
+| A-01 | DEC-18 de la spec general incorpora la ventana manual de registro ya aprobada; se alinea la intervención de Auth y CB-04 enlaza esa excepción. | Contraste con II.7 y D-M28.2a-03; sin cambiar la cuenta, el entorno, la retención ni las acciones reservadas decididas en el grill. |
+| A-02 | Alcance, C-04 y T-04 comprueban tanto `worker_api` como `private`, con fallo si cualquiera está expuesto. | Coherencia con Diseño concreto, II.7 pasos 4–5. |
+| A-03 | Referencias de Fuentes y Contexto verificadas contra el árbol vigente; corregidas las citas de estado, scripts, URL del rol y pruebas de correo, y precisadas las restantes. | Lectura de las líneas citadas y revisión documental del diff. No se ejecutaron pruebas funcionales en esta corrección. |
+
+Siguiente paso: repetir `$spec-auditor M28.2a`. La spec permanece BORRADOR y G-ENTORNO pendiente; esta corrección no emite un veredicto APROBABLE.

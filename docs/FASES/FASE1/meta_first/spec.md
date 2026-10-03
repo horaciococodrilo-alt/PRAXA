@@ -55,7 +55,7 @@ Un usuario (el dueño), una empresa y una cuenta publicitaria conectada. El due�
 | DEC-15 | Acceso al modelo: pesos abiertos de V4.1 Flash en un host que no entrena con los datos y no los guarda en disco. Se acepta, y se declara, la excepción documentada de registros para depuración y seguridad. Se acepta un identificador de modelo fijo sin despliegue inmutable (P01). No se usa la API propia de DeepSeek. Se revisa antes de escalar | Cerrada |
 | DEC-16 | Host: DeepInfra, modelo `deepseek-ai/DeepSeek-V4.1-Flash`. Fireworks queda como alternativa si VR-02 falla, usando chat completions y nunca la Responses API | Cerrada |
 | DEC-17 | Una conexión en `pending_selection` vence a los 30 minutos. La purga sigue la secuencia de CA-38: bloqueo, intento de revocación en Meta y destrucción de la credencial (CA-37b) | Cerrada |
-| DEC-18 | Registro del dueño con SMTP propio, sobre el dominio del piloto verificado con SPF y DKIM. El registro público queda abierto solo mientras el dueño se registra y después se cierra desde el dashboard. No requiere cambios de código | Cerrada |
+| DEC-18 | Registro del dueño con SMTP propio, sobre el dominio del piloto verificado con SPF y DKIM. El registro público queda abierto solo mientras el dueño se registra en `M16.2` y después se cierra desde el dashboard. Excepción acotada aprobada por el usuario en el grill de `M28.2a` (2026-10-03): abrirlo durante el registro manual de la cuenta de prueba con casilla externa al equipo de Supabase y cerrarlo inmediatamente después de la comprobación; la recuperación se prueba con registro cerrado. La empresa sintética se crea por onboarding. Cuenta y empresa se conservan, se documentan sin datos personales y se eliminan con CA-67 al cierre del piloto, conforme a [II.7 del plan](plan.md#ii7-m282a--entorno-del-piloto). No autoriza suites ni fixtures contra `app`, ni adelanta el alta del dueño. No requiere cambios de código | Cerrada; excepción ya aprobada incorporada al corregir A-01 de la auditoría de M28.2a |
 | DEC-19 | Las respuestas del chat pueden incluir cifras en lenguaje natural. Cada afirmación numérica se vincula a un resultado de herramienta del turno actual y el servidor la verifica antes de mostrarla (CA-50). Reemplaza la prohibición de dígitos | Cerrada |
 | DEC-20 | `M28.3a` se cierra al completar la demostración. CA-67 se ejecuta al finalizar el piloto, no al terminar la demo | Cerrada |
 | DEC-21 | Los umbrales propuestos para VR-02 se adoptan como criterios iniciales de aprobación | Cerrada |
@@ -506,7 +506,7 @@ Ningún secreto se pega en el chat ni se guarda en el repositorio.
 | Meta | Agregar al dueño como tester y confirmar que tiene control total de su portfolio (P-04) | Antes de VR-01 |
 | Supabase | Fijar la contraseña del rol de C fuera del repositorio. Verificar que `worker_api` no esté expuesto por la Data API | Al aplicar la migración |
 | Supabase Auth | Cargar `site_url` y las URLs de redirección con el dominio del piloto. Configurar el SMTP propio (DEC-18) | Antes de VR-01 |
-| Supabase Auth | Probar la recuperación de contraseña completa con el registro público cerrado | En `M28.2a` |
+| Supabase Auth | Realizar el registro manual de prueba bajo la excepción de DEC-18, cerrar el registro público y probar la recuperación de contraseña completa con el registro cerrado | En `M28.2a` |
 | Supabase Auth y dueño | Abrir el registro público; el dueño se registra y crea su empresa; cerrar el registro (DEC-18). La demo reutiliza ese usuario | Antes de VR-01, en `M16.2` |
 | Supabase | Pasar a Pro cuando el dueño use el piloto sin acompañamiento (DEC-08) | Después de VR-01 |
 | Dominio | Registrar SPF y DKIM del proveedor de email | Antes de VR-01 |
@@ -536,7 +536,7 @@ Criterios transversales:
 - **CB-01** `verify` y las suites del corte pasan.
 - **CB-02** Ningún diff contiene secretos, tokens, montos reales ni identificadores completos de cuentas.
 - **CB-03** Ninguna migración existente se modifica.
-- **CB-04** Ninguna prueba se ejecuta contra producción.
+- **CB-04** Ninguna prueba se ejecuta contra producción, salvo el recorrido manual acotado de `M28.2a` aprobado por el usuario y descrito en DEC-18 e II.7 del plan. Ninguna suite automatizada ni fixture se ejecuta contra `app`.
 - **CB-05** La evidencia registra comandos y resultados reales, redactados.
 - **CB-06** Un gate obligatorio no se aprueba si una prueba requerida se omitió por falta de configuración. Una prueba omitida cuenta como no ejecutada.
 
