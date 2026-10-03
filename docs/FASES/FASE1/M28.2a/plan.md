@@ -1,12 +1,12 @@
 # M28.2a — Plan de implementación
 
-**Estado:** BORRADOR
+**Estado:** APROBADA
 
 Estados posibles: `BORRADOR` → `APROBADO`. Solo el usuario pasa un plan a `APROBADO`, y solo después de una auditoría APROBABLE.
 
-**Spec base:** `docs/FASES/FASE1/M28.2a/spec.md`, aprobada por el usuario, con hash de contenido sin línea de estado `7517041448d9579977406bf7c8cd6d39a954e922`. Ver la fórmula en `docs/_templates/mf-spec.md`. Coincide con `revisiones/spec-audit-2.md`, APROBABLE. La tercera auditoría consigna un hash diferente; no se usa como referencia de identidad del contenido.
+**Spec base:** `docs/FASES/FASE1/M28.2a/spec.md`, en BORRADOR tras la enmienda documental P-03, con hash de contenido sin línea de estado `acda93738f93352154ef899cd72d561f9dc09604`. Ver la fórmula en `docs/_templates/mf-spec.md`. La versión anterior, con hash `7517041448d9579977406bf7c8cd6d39a954e922`, fue aprobada por el usuario y auditada como APROBABLE en `revisiones/spec-audit-2.md`; esa auditoría no cubre la enmienda nueva. La spec enmendada requiere otra auditoría APROBABLE y aprobación visible antes de auditar o aprobar este plan.
 
-**Base inspeccionada:** `7b2a30f96f12284b5339b7591a8ce16d29a26555`, con modificaciones preexistentes en ambas specs y auditorías sin seguimiento. Se preservan. Las menciones internas antiguas a BORRADOR no sustituyen la aprobación explícita del usuario.
+**Base inspeccionada:** `a24963a8374df4c83b9d6774b1f1d1eae59bcee8`, rama `mf/M28.2a`. Al corregir este plan, `revisiones/plan-audit-4.md` ya existía sin seguimiento y se preserva. Las menciones internas antiguas a BORRADOR no sustituyen la aprobación explícita del usuario.
 
 **Objetivo:** disponer de `https://app.praxa.site`, con base, Auth y correo funcionando, y reunir evidencia para aprobar `G-ENTORNO`. El corte mantiene el límite de ocho horas de implementación; las esperas externas quedan registradas como intervenciones pendientes.
 
@@ -24,14 +24,12 @@ Abreviaturas utilizadas en los pasos: **E** = entorno; **S** = sesión; **P** = 
 
 | Archivo | Nuevo o modificado | Paso | Autorizado por |
 |---|---|---|---|
-| `docs/FASES/FASE1/M28.2a/plan.md` | Nuevo | Preparación; inventario de capturas en 9 | Pedido del usuario; plantilla `mf-plan.md`; seguimiento |
 | `docs/FASES/FASE1/meta_first/entorno.md` — E | Nuevo | 0–10 | II.7.9; evidencia de cierre de la ficha |
 | `docs/FASES/FASE1/meta_first/sesiones/M28.2a.md` — S | Nuevo | Todos | III.3; AGENTS, protocolo 6 |
-| Capturas redactadas de M28.2a, como anexos de seguimiento | Nuevas; rutas concretas incorporadas a esta tabla en 9 al disponer de ellas | 1–9 | Evidencia gráfica exigida por ficha y spec |
 | `docs/PROJECT_STATE.md` — P | Modificado únicamente ante cambio de estado, bloqueo o gate | 0, 11; bloqueos | Contrato documental de AGENTS |
 | `docs/HALLAZGOS.md` — H | Modificado al verificar H-E1-08 o registrar un hallazgo real | 7–11; fallos | II.7.7; AGENTS, protocolo 9 |
 
-No se fijan nombres de capturas inexistentes: la spec exige inventariar sus rutas reales en el paso 9. Esta excepción solo comprende evidencia gráfica redactada, no otros archivos.
+**P-03 — corrección documental preparada, pendiente de aprobación.** La spec enmendada asigna el índice de capturas a `docs/FASES/FASE1/meta_first/entorno.md#capturas-redactadas`; cada caso de la sesión enlaza allí su evidencia. Las capturas redactadas se conservan fuera del repositorio, en ubicaciones accesibles y verificables para la revisión. Esto mantiene la tabla de archivos dentro de II.7 y de los archivos de seguimiento, sin editar el plan durante la implementación. Si se necesitan anexos versionados adicionales, se detiene el paso y se solicita autorización en la ruta. La spec debe pasar auditoría y aprobación antes de que este plan pueda auditarse o ejecutarse.
 
 No hay cambios de APIs, tipos, interfaces, código, configuración versionada ni dependencias. SECURITY y ARCHITECTURE son fuentes de consulta.
 
@@ -43,8 +41,8 @@ En la tabla, `C-xx` y `T-xx` significan `M28.2a-C-xx` y `M28.2a-T-xx`.
 
 | # | Acción | Archivos | Criterios y casos que cubre | Verificación del paso |
 |---|---|---|---|---|
-| 0 | **Asistente:** comprobar Git, hash de spec, aprobación del plan, G-DB-META y G-CRYPTO. Preservar cambios existentes. Abrir E/S con matriz de casos inicialmente `NO EJECUTADO`; registrar comienzo en P. Consultar evidencia de `0012` en pruebas y limitación del cierre de G-CRYPTO. | E, S, P | C-03, C-10; T-03, T-11; CB-02/03/04/05/06 | Dependencias cerradas, alcance identificado y evidencia previa enlazada. No leer `.env.local`, ejecutar migraciones ni acceder a cuentas. |
-| 1 | **Usuario:** crear/conectar Vercel al repositorio, configurar Node 24 y asignar `app.praxa.site` mediante DNS de GoDaddy. Conservar DEC-07/08. Identificar el commit que se desplegará. Si falta publicarlo en la rama conectada, el usuario realiza el push. | E, S | C-01; preparación T-01; DEC-07/08 | Repositorio, rama y commit de despliegue comprobados sin registrar identificadores de cuenta. DNS y certificado se acreditan al completar el despliegue del paso 2. |
+| 0 | **Asistente:** comprobar `git status --short --branch` y exigir la rama `mf/M28.2a`; comprobar que la spec enmendada por P-03 obtuvo auditoría APROBABLE y aprobación visible del usuario, que el hash de este plan coincide, y que el plan recibió auditoría APROBABLE y aprobación. Comprobar G-DB-META y G-CRYPTO. Preservar cambios existentes. Abrir E/S con matriz de casos inicialmente `NO EJECUTADO`; registrar comienzo en P. Consultar evidencia de `0012` en pruebas y limitación del cierre de G-CRYPTO. | E, S, P | C-03, C-10; T-03, T-11; CB-02/03/04/05/06 | Rama correcta, P-03 resuelto y aprobado en las fuentes, dependencias cerradas y evidencia previa enlazada. Si falta cualquiera, detener; no leer `.env.local`, ejecutar migraciones ni acceder a cuentas. |
+| 1 | **Usuario:** crear/conectar Vercel a la rama `mf/M28.2a` del repositorio, configurar Node 24 y asignar `app.praxa.site` mediante DNS de GoDaddy. Conservar DEC-07/08. Identificar el commit de esa rama que se desplegará. Si falta publicarlo, el usuario realiza el push de `mf/M28.2a`. | E, S | C-01; preparación T-01; DEC-07/08 | Rama conectada y commit remoto/de despliegue corresponden a `mf/M28.2a`, sin registrar identificadores de cuenta. DNS y certificado se acreditan al completar el despliegue del paso 2. |
 | 2 | **Usuario:** cargar las seis variables obligatorias del gate, generar llavero nuevo para el piloto y excluir credenciales administrativas y de pruebas. Desplegar después de configurar las variables públicas; volver a desplegar tras cualquier cambio de ellas. **Asistente:** registrar inventario por nombre y estado. | E, S | C-01, C-02; T-02; parte de T-01 | Despliegue exitoso del commit previsto, HTTPS válido y checklist completo. Registrar declaración del llavero distinto del de pruebas y correspondencia privada con `app`. La presencia no acredita validez criptográfica ni conexión SQL. |
 | 3 | **Usuario:** ejecutar `npm run db:check`; comprobar privadamente que el destino es `app`. Ejecutar `npm run db:preview` para inspeccionar pendientes y luego `npm run db:push`. Fijar fuera del repositorio la contraseña de `praxa_integrations` y completar su URL en Vercel; redesplegar si cambia. | E, S | C-02, C-03; T-02, T-03; CB-03 | Salidas y códigos redactados; historial remoto coherente hasta `0012`; contraseña configurada declarada por el usuario. Si no hay pendientes, registrar ese resultado sin reaplicar SQL. Detener ante destino incorrecto, pendientes inesperadas o historial inconsistente. |
 | 3R | **Rama excepcional, no ejecución normal:** si la evidencia de pruebas resulta insuficiente o se requiere volver a aplicar migraciones al desechable, detener y registrar el bloqueo. Solo tras acordar expresamente esa intervención, el **usuario** ejecuta `npm run db:check:test` y `npm run db:push:test`. | S; P/H si corresponde | Precondición C-03/T-03; CB-04/05/06 | Destino desechable distinto de `app`, exit codes e historial redactados. El push no sustituye las suites que correspondan a la dependencia afectada. No continuar al paso 3 hasta resolverla; no repetir esta operación por rutina. |
@@ -56,7 +54,7 @@ En la tabla, `C-xx` y `T-xx` significan `M28.2a-C-xx` y `M28.2a-T-xx`.
 | 8b | **Usuario:** con registro cerrado, solicitar recuperación de la cuenta confirmada, recibir y abrir el correo en el navegador del flujo, establecer contraseña nueva válida y coincidente y completar el regreso al login. Intentar primero la contraseña anterior y luego la nueva. | E, S | C-05, C-09; T-05 —recuperación—, T-08; P-06 | Destino `/reset-password` correcto; cambio exitoso, cierre de sesión y llegada a `/login?notice=password-updated`. Contraseña anterior rechazada y nueva aceptada. Registro permanece cerrado. |
 | 8c | **Usuario:** en un contexto sin sesión, intentar cambiar contraseña desde `/reset-password` y abrir `/auth/callback` sin parámetros. | E, S | C-05, C-09; T-09 | Cambio rechazado por ausencia de sesión; callback redirige a `/verify-email?error=link-missing-params`. No fabricar tokens ni compartir enlaces reales. |
 | 8d | **Usuario:** comprobar `/app/integraciones` sin sesión y con sesión sin empresa. Crear después la empresa sintética mediante onboarding existente y volver a Integraciones autenticado. Conservar cuenta y empresa para su eliminación con CA-67. | E, S | C-01; T-01; aceptación 3 de la ficha; D-M28.2a-03, CB-04 | Sin sesión exige login; sin empresa conduce a onboarding. Con empresa muestra Integraciones y su estado vacío sobre HTTPS, sin 404/500. No hace falta activar un contexto. Registrar conservación sin datos personales. |
-| 9 | **Asistente:** completar E con checklist II.7, inventario, migraciones, Auth/SMTP y evidencias; completar S con comandos, resultados y límites. Revisar las capturas ya redactadas, incorporar sus rutas concretas a la tabla de archivos de este plan y enlazarlas desde E. | E, S, plan y capturas; H si hay hallazgos | C-02, C-03, C-10; T-11; CB-02/03/05/06 | Cada T-01–T-11 tiene estado, referencia y responsable. Capturas sin secretos, referencias de proyecto/cuenta, correos completos, cookies ni tokens. Distinguir lo observado de lo informado por el usuario. |
+| 9 | **Asistente:** completar E con checklist II.7, inventario, migraciones, Auth/SMTP y evidencias; completar S con comandos, resultados y límites. Revisar las capturas ya redactadas y registrar sus ubicaciones concretas en `docs/FASES/FASE1/meta_first/entorno.md#capturas-redactadas`, con enlace desde cada caso, conforme a la spec enmendada y aprobada en el paso 0. | E, S; H si hay hallazgos | C-02, C-03, C-10; T-11; CB-02/03/05/06 | Cada T-01–T-11 tiene estado, referencia y responsable. Capturas accesibles, verificables y redactadas, sin secretos, referencias de proyecto/cuenta, correos completos, cookies ni tokens. Distinguir lo observado de lo informado por el usuario. |
 | 10 | **Asistente:** ejecutar `npm run verify` sobre el código identificado y realizar revisión final de diff, archivos nuevos y migraciones. Registrar resultados reales. | S; E para completar checklist | C-10; T-10, T-11; CB-01/02/03/05/06 | Lint, typegen, typecheck, unit/component y build completos con exit 0. Diff dentro del alcance, migraciones intactas y evidencia redactada. Fallos diagnosticados y asignados; ninguna reparación de código en este corte. |
 | 11 | **Asistente:** presentar expediente completo de G-ENTORNO. **Usuario:** aprobar visiblemente el gate. Después, actualizar P y registrar la aprobación en S. | P, S; H si corresponde | C-01–C-10; T-01–T-11; tres aceptaciones de la ficha; CB-06 | Todos los casos obligatorios pasan, H-E1-08 verificado y decisiones aplicadas. Solo entonces M28.2a queda cerrada y M16.1 habilitada, sin iniciarla. Sin aprobación, estado verificado y gate pendiente. |
 
@@ -92,7 +90,7 @@ No agregar comodines generales de previews. Comprobar el destino efectivo al abr
 Comandos obligatorios del asistente durante la implementación:
 
 ```text
-git status --short
+git status --short --branch
 git rev-parse HEAD
 npm run verify
 git diff --check
@@ -101,7 +99,7 @@ git diff --cached --name-only
 git diff --exit-code HEAD -- supabase/migrations/
 ```
 
-Revisar también el contenido de archivos nuevos: `git diff` no incluye archivos sin seguimiento. Comparar contra el inventario inicial para preservar y distinguir los cambios preexistentes.
+Revisar también el contenido de archivos nuevos: `git diff` no incluye archivos sin seguimiento. Comparar contra el inventario inicial para preservar y distinguir los cambios preexistentes. Verificar que la rama sigue siendo `mf/M28.2a`.
 
 Comandos del usuario sobre `app`, en el paso 3:
 
@@ -128,7 +126,7 @@ La sesión debe registrar fecha, operador, commit, comandos, códigos de salida,
 | Acción reservada | Paso | Verificación posterior |
 |---|---|---|
 | Aprobar este plan después de auditoría APROBABLE | Antes de 0 | Aprobación visible; no confundir con aprobación de la spec |
-| Push de Git, si el commit requerido aún no está en la rama conectada | 1 | Commit remoto coincide con el seleccionado para Vercel; si ya está publicado, registrar que no fue necesario |
+| Push de Git de `mf/M28.2a`, si el commit requerido aún no está publicado | 1 | Rama remota, rama conectada en Vercel y commit desplegado coinciden con `mf/M28.2a`; si ya está publicado, registrar que no fue necesario |
 | Crear/configurar Vercel, dominio, DNS y variables; desplegar o redesplegar | 1–3 | Commit desplegado, build exitoso, variables por presencia y HTTPS |
 | `npm run db:push` sobre `app` y contraseña del rol | 3 | Destino comprobado, resultado redactado e historial hasta `0012` |
 | `npm run db:push:test`, exclusivamente si se acuerda la rama excepcional | 3R | Destino desechable, resultado e historial; comprobaciones de la dependencia que se haya reabierto |
