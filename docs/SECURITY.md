@@ -96,12 +96,12 @@ spec, con decisión del usuario.
 | Acceso cross-tenant por error del servidor | RLS (camino interactivo) y chequeo por actor/empresa en `worker_api` (camino privilegiado) | Vigente | En el camino privilegiado la base confía en el actor y la empresa que manda el servidor; protege contra **mezclarlos**, no contra un servidor que mienta |
 | Escalada por membresías | Sin privilegio de escritura sobre `company_members`; la membresía inicial la crea un trigger `SECURITY DEFINER` en la misma transacción que el alta; `owner_id` inmutable | Vigente | Una cuenta administra una sola empresa (ver "Limitaciones") |
 | Exposición de tokens por la Data API | Credenciales en `private` (no expuesto); `worker_api` no expuesto; `revoke all` explícito antes de cada grant; RLS forzada en las tablas de integraciones | Vigente en la base y en `supabase/config.toml` | En el proyecto remoto, la lista de esquemas expuestos se verifica en el panel (intervención del usuario al preparar el entorno) |
-| Privilegios excesivos del runtime | INV-04; rol `praxa_integrations` `LOGIN`, `NOBYPASSRLS`, `NOINHERIT`, sin grants sobre tablas, `EXECUTE` función por función; la migración rechaza un rol preexistente con privilegios o membresías | Base: vigente. Cliente Node del rol y prueba que confina su variable a un módulo `server-only` (CA-27): previstos | Mientras no exista el cliente, la invariante "una sola credencial privilegiada, en un solo módulo" no tiene prueba automática |
+| Privilegios excesivos del runtime | INV-04; rol `praxa_integrations` `LOGIN`, `NOBYPASSRLS`, `NOINHERIT`, sin grants sobre tablas, `EXECUTE` función por función; la migración rechaza un rol preexistente con privilegios o membresías | Base y cliente Node del rol vigentes; prueba automática del confinamiento a un módulo `server-only` | La base confía en el actor y la empresa enviados por el servidor |
 | Replay o abuso del flujo OAuth | Propiedades de la sección 7 | Tabla y funciones de intentos: vigentes en la base. Rutas `iniciar` y `callback`: previstas | La base no ata la creación de una conexión pendiente a un intento consumido: lo garantiza el orden del servidor (`H-E1-24`) |
-| Filtración de un dump o backup de la base | Tokens cifrados con AES-256-GCM y clave fuera de la base (sección 6) | Previsto (el esquema de la credencial cifrada es vigente; el cifrado en Node no) | Un dump expone todo lo que no es credencial: conexiones, métricas y registros del chat |
+| Filtración de un dump o backup de la base | Tokens cifrados con AES-256-GCM y clave fuera de la base (sección 6) | Esquema y cifrado en Node vigentes | Un dump expone todo lo que no es credencial: conexiones, métricas y registros del chat |
 | Filtración de las variables del runtime | Ninguno completo. Rotación del llavero (CA-25) y revocación en Meta como respuesta a incidentes | Parcial | **Límite deliberado:** si `PRAXA_CREDENTIAL_KEYS` y `PRAXA_INTEGRATIONS_DB_URL` viven en el mismo entorno, quien lo compromete alcanza base y llavero, y puede descifrar las credenciales |
-| Logs o errores que filtren secretos o identificadores | INV-06; errores de `worker_api` con mensajes fijos, sin `DETAIL` ni valores; clase de error + mensaje redactado en la conexión (CA-09); identificador de cuenta truncado fuera de la base (CA-40); la pregunta del chat nunca va a logs (CA-63) | Base: vigente. Redacción del cliente HTTP y recorrido del árbol (CA-26): previstos | La redacción por patrones no detecta datos personales en forma libre (CA-66) |
-| Pruebas destructivas contra el proyecto equivocado | Sección 11 | Vigente | La guarda de `test:app` todavía admite una excepción explícita (`H-M04.1-02`) |
+| Logs o errores que filtren secretos o identificadores | INV-06; errores de `worker_api` con mensajes fijos, sin `DETAIL` ni valores; clase de error + mensaje redactado en la conexión (CA-09); identificador de cuenta truncado fuera de la base (CA-40); la pregunta del chat nunca va a logs (CA-63) | Base, errores redactados del cliente del rol y recorrido del árbol vigentes; cliente HTTP de Meta previsto | La redacción por patrones no detecta datos personales en forma libre (CA-66) |
+| Pruebas destructivas contra el proyecto equivocado | Sección 11 | Guardas vigentes para pruebas SQL, de aplicación y del rol | Requiere configurar el proyecto desechable y su URL de rol; una guarda de destino no sustituye la prueba de conexión |
 | Prompt o pregunta maliciosa hacia el LLM | Catálogo cerrado de herramientas; el modelo no elige empresa, tabla ni SQL; las herramientas leen con el JWT del usuario bajo RLS (sección 8) | Previsto | La inyección puede degradar la respuesta; no puede ampliar el alcance de los datos |
 | Cifras o estados inventados por el LLM | Salida estructurada `text` + `claims`, verificación del servidor antes de mostrar; abstención controlada si no valida (sección 8) | Previsto | No garantiza que la herramienta elegida sea la correcta ni que el texto sin cifras sea fiel (CA-50b); eso lo mide VR-02 |
 
@@ -157,19 +157,21 @@ La matriz exacta de privilegios vive en cada migración y en su pgTAP. No se cop
 | Camino | Credencial | Alcance |
 |---|---|---|
 | Interactivo | Clave publishable + JWT del usuario | Pública por diseño; el aislamiento lo dan `GRANT` + RLS, no el secreto de la clave |
-| Privilegiado de integraciones | `PRAXA_INTEGRATIONS_DB_URL` (rol `praxa_integrations`) | Solo `EXECUTE` sobre funciones de `worker_api`; ninguna lectura directa de tablas. **Previsto:** confinada a un único módulo `server-only` (CA-27) |
+| Privilegiado de integraciones | `PRAXA_INTEGRATIONS_DB_URL` (rol `praxa_integrations`) | Solo `EXECUTE` sobre funciones de `worker_api`; ninguna lectura directa de tablas. Confinada a un único módulo `server-only` (CA-27) |
 | Pruebas de aplicación | `SUPABASE_TEST_SECRET_KEY` (`service_role`) | Solo fixtures administrativos en Node (sección 11) |
 | Operación administrativa | Rol administrativo desde el panel de Supabase | Fuera de la aplicación: cierre del piloto (CA-67) y migraciones ejecutadas por el usuario |
 
 Las capacidades exactas del rol `praxa_integrations` son las funciones que le concede la
 migración vigente (encabezado de `0012` y de cada migración posterior que sume funciones),
 probadas en `09_integration_privileges`. Por categoría: intentos OAuth, ciclo de vida de la
-conexión, lectura y reemplazo de la credencial cifrada, purga, y rotación de claves. Cada
-función, salvo el conteo global por versión de clave, recibe actor y empresa y verifica
-pertenencia y propiedad.
+conexión, lectura y reemplazo de la credencial cifrada, purga, y rotación de claves. No tiene
+lectura directa de tablas ni acceso administrativo. Cada función, salvo el conteo global por
+versión de clave, recibe actor y empresa y verifica pertenencia y propiedad. El cliente Node
+solo llama a las funciones previstas; la matriz exacta permanece en la migración y pgTAP.
 
-`tests/unit/no-privileged-credentials.test.ts` falla si aparece una clave de servicio bajo
-`src/` o en `proxy.ts`. Hoy compara nombres fijos, no una invariante general (`H-E1-10`).
+`tests/unit/no-privileged-credentials.test.ts` comprueba el confinamiento de la URL del rol,
+el llavero y la ausencia de claves administrativas en los módulos del runtime. El recorrido
+de archivos y patrones de secretos complementa esta guarda (`H-E1-10`).
 
 ### Reglas de secretos
 
@@ -190,11 +192,25 @@ Diseño aprobado:
   existe un campo de texto plano. **Vigente** (esquema de `private.integration_credentials`).
 - AES-256-GCM con IV aleatorio por operación; los datos autenticados (AAD) atan el texto
   cifrado a su empresa, conexión y proveedor: movido a otra fila, no descifra.
-  **Previsto.**
+  **Vigente** en el módulo de cifrado del servidor.
 - El llavero vive fuera de la base, en variables del servidor, con versiones. Se cifra con
   la versión actual y se descifra con la versión guardada; una versión ausente es un error
-  explícito. La rotación sigue el procedimiento de CA-25. **Previsto** (la función de la
-  base que cuenta credenciales por versión es vigente).
+  explícito. La rotación sigue el procedimiento de CA-25. **Vigente** en el llavero y el
+  repositorio del servidor, junto con la función de conteo de la base.
+
+El repositorio intenta recifrar al leer una credencial de una versión anterior solo cuando
+el estado de la conexión lo permite. Una credencial `disconnected` se puede descifrar para
+revocarla, pero no se recifra. Una desconexión o un reemplazo concurrente impiden persistir
+un recifrado basado en material anterior. Si el transporte falla después de una lectura y
+autenticación correctas, se entrega ese material con el recifrado marcado como no confirmado;
+no se presume que la nueva versión haya quedado guardada.
+
+Retirar una clave exige acreditar que solo la versión nueva puede usarse para escrituras,
+que los despliegues anteriores dejaron de escribir y que terminaron las operaciones en vuelo.
+Después debe comprobarse el conteo global cero de la versión vieja. Un conteo cero por sí
+solo no autoriza el retiro; si falta alguna condición, se conserva la clave. Las credenciales
+`disconnected` sin purgar siguen contando. El procedimiento completo está en la
+[spec de M06.3a, Diseño §4](FASES/FASE1/M06.3a/spec.md).
 
 Qué protege y qué no:
 
@@ -285,12 +301,10 @@ Cubierto por `05_delete_carveout.test.sql`.
   (`SUPABASE_TEST_IS_DISPOSABLE`) y con variables propias (`SUPABASE_TEST_*`), distintas de
   las de la aplicación.
 - Ninguna guarda recurre en silencio a una variable del runtime: las pruebas SQL no usan
-  `SUPABASE_DB_URL` como respaldo, y las del cliente del rol usarán solo
-  `PRAXA_INTEGRATIONS_TEST_DB_URL`, nunca `PRAXA_INTEGRATIONS_DB_URL` (spec, sección 5;
-  previsto).
-- La guarda de las pruebas SQL rechaza un destino que coincida con el proyecto de la
-  aplicación o que no se pueda comprobar. La de `test:app` y `db:check:test` todavía admite
-  `SUPABASE_TEST_ALLOW_APP_PROJECT=true`; su eliminación está asignada en `H-M04.1-02`.
+  `SUPABASE_DB_URL` como respaldo, y las del cliente del rol usan solo
+  `PRAXA_INTEGRATIONS_TEST_DB_URL`, nunca `PRAXA_INTEGRATIONS_DB_URL` (spec, sección 5).
+- Las guardas de las pruebas SQL, de aplicación y del cliente del rol rechazan un destino
+  que coincida con el proyecto de la aplicación o que no se pueda comprobar.
 - `service_role` solo prepara y limpia fixtures administrativos en Node (crear usuarios
   confirmados, borrar lo creado). Ninguna aserción de aislamiento se hace con él. Las tablas
   y funciones de integraciones le revocan todo privilegio: sus fixtures se siembran por

@@ -11,13 +11,20 @@ import { z } from 'zod';
 export const uuidSchema = z.uuid();
 export const isoDateTimeSchema = z.iso.datetime({ offset: true });
 
+/** Límite de un `integer` de Postgres: `key_version` y `credential_generation` lo usan (H-E1-62). */
+export const PG_INT4_MAX = 2_147_483_647;
+
 /** SHA-256 en hexadecimal, en minúsculas. Lo único que se persiste de un secreto de un solo uso. */
 export const sha256HexSchema = z.string().regex(/^[0-9a-f]{64}$/, 'debe ser un SHA-256 en hex');
 
+/**
+ * Base64 estándar con relleno. Única copia: `seal.ts` la reutiliza para decodificar
+ * material cifrado con la misma regla que valida este esquema (H-E1-64).
+ */
+export const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+
 /** Material binario codificado en base64 estándar, con relleno. */
-export const base64Schema = z
-  .string()
-  .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/, 'debe ser base64');
+export const base64Schema = z.string().regex(BASE64_PATTERN, 'debe ser base64');
 
 export function base64OfBytes(bytes: number) {
   return base64Schema.refine((value) => Buffer.from(value, 'base64').length === bytes, {

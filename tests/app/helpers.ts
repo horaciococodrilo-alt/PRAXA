@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { refFromApiUrl, refFromDbUrl, sameProject } from '../../scripts/lib/target.mjs';
 
 /**
  * Utilidades para las pruebas de aplicación contra un proyecto REMOTO de Supabase.
@@ -9,7 +10,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
  *
  *  1. Las credenciales de prueba tienen nombres PROPIOS (`SUPABASE_TEST_*`), distintos
  *     de los de la aplicación. Apuntar la suite al proyecto que usa la aplicación exige
- *     pegar esas credenciales a propósito; no puede pasar por descuido.
+ *     pegar esas credenciales a propósito; la guarda rechaza el mismo proyecto.
  *  2. Nada corre sin `SUPABASE_TEST_IS_DISPOSABLE=yes-this-project-is-disposable`.
  *  3. Cada ejecución marca lo que crea con un identificador único y borra al final
  *     exactamente eso, nada más.
@@ -50,14 +51,18 @@ export function blockedReason(): string | null {
     );
   }
 
-  // Última barrera: si alguien copió la URL de la aplicación en la variable de pruebas,
-  // se detiene salvo que lo declare a propósito.
+  // Última barrera: se rechaza siempre la URL de la aplicación en pruebas.
   const appUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (appUrl && appUrl === TEST_URL && process.env.SUPABASE_TEST_ALLOW_APP_PROJECT !== 'true') {
+  const testRef = refFromApiUrl(TEST_URL);
+  const appRef = refFromApiUrl(appUrl);
+  const appDbRef = refFromDbUrl(process.env.SUPABASE_DB_URL);
+  if (!testRef || (appUrl && !appRef) || (process.env.SUPABASE_DB_URL && !appDbRef)) {
+    return 'No se pudo verificar que el proyecto de pruebas sea distinto del de la aplicación.';
+  }
+  if (sameProject(appRef, testRef) || sameProject(appDbRef, testRef)) {
     return (
       'SUPABASE_TEST_URL apunta al mismo proyecto que usa la aplicación ' +
-      '(NEXT_PUBLIC_SUPABASE_URL). Usá un proyecto aparte, o definí ' +
-      'SUPABASE_TEST_ALLOW_APP_PROJECT=true si ese proyecto también es desechable.'
+      '(NEXT_PUBLIC_SUPABASE_URL). Usá un proyecto aparte y desechable.'
     );
   }
 

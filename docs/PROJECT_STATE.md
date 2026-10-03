@@ -17,20 +17,17 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 | M05.1.1 — K01 `TenantContext` | `G-K01` | 2026-09-25 | [sesiones/M05.1.1.md](FASES/FASE1/meta_first/sesiones/M05.1.1.md) |
 | M05.1.2 a M05.1.4 — K02 a K04 | `G-K02-K04` | 2026-09-26 | [sesiones/M05.1.2-M05.1.4.md](FASES/FASE1/meta_first/sesiones/M05.1.2-M05.1.4.md) |
 | M06.1a y M06.2a — Migración `0012`, aislamiento y privilegios | `G-DB-META` | 2026-09-28 (PR #12) | [sesiones/M06.1a-M06.2a.md](FASES/FASE1/meta_first/sesiones/M06.1a-M06.2a.md) |
+| M06.3a — Cifrado, cliente acotado y documentación de la excepción | `G-CRYPTO` | 2026-10-02 (decisión del usuario; sin `/implementation-review` ni `/qa-review` con veredicto final sobre el HEAD cerrado — detalle en la sesión) | [sesiones/M06.3a.md](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 
-## Siguiente
+## En curso
 
-**M06.3a — Cifrado, cliente acotado y documentación de la excepción.** Habilitada por
-`G-DB-META`. Cierra con `G-CRYPTO`.
+**M28.2a — Entorno del piloto.** Habilitada por `G-CRYPTO`. Sin empezar.
 
-Bloqueos antes de verificarla: intervención del usuario de la ficha (contraseña del rol
-`praxa_integrations` en el proyecto de pruebas, `PRAXA_INTEGRATIONS_TEST_DB_URL` y claves del
-llavero en `.env.local`).
+Hallazgos asignados a M06.3a (cerrada): `H-M04.1-02`, `H-E1-09`, `H-E1-10`, `H-E1-17`, `H-E1-37`,
+`H-E1-43` a `H-E1-70` y la comprobación de acceso real del rol de `H-E1-36`. Detalle en
+[HALLAZGOS.md](HALLAZGOS.md).
 
-Hallazgos asignados a M06.3a: `H-M04.1-02`, `H-E1-09`, `H-E1-10`, `H-E1-17`, `H-E1-37`, y la
-comprobación de acceso real del rol de `H-E1-36`. Detalle en [HALLAZGOS.md](HALLAZGOS.md).
-
-Después, en este orden: M28.2a, M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a.
+Después de M28.2a, en este orden: M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a.
 
 ## En paralelo
 

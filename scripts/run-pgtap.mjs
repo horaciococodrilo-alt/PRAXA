@@ -5,6 +5,7 @@ import pg from 'pg';
 
 import { loadEnv } from './lib/env.mjs';
 import { resolveSqlTestTarget } from './lib/sql-target.mjs';
+import { verifiedTestDbConfig } from './lib/test-db-client.mjs';
 
 /**
  * Ejecutor de pruebas pgTAP contra PostgreSQL REMOTO, sin contenedores.
@@ -237,13 +238,13 @@ async function main() {
     process.exit(1);
   }
 
-  const client = new pg.Client({
-    connectionString,
-    ssl: { rejectUnauthorized: false },
-    application_name: 'praxa-pgtap',
-  });
-
+  // verifiedTestDbConfig() es más estricto que resolveSqlTestTarget() (exige usuario,
+  // contraseña, puerto y ruta explícitos, sin encoding ambiguo): puede rechazar una URL
+  // que esa comprobación previa ya había aceptado. Va dentro del mismo try que connect()
+  // para no salir con una excepción sin el mensaje curado.
+  let client;
   try {
+    client = new pg.Client(verifiedTestDbConfig(connectionString, 'praxa-pgtap'));
     await client.connect();
   } catch (error) {
     console.error(`\nNo se pudo conectar a la base de pruebas: ${error.message}`);

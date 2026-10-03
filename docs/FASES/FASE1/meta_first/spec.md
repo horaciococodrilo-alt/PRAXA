@@ -525,7 +525,7 @@ Ningún secreto se pega en el chat ni se guarda en el repositorio.
 |---|---|
 | Contratos (K01–K04) | — |
 | Migración y aislamiento | `db:check:test`, `db:push:test`, `test:policies` (privilegios del rol de C y aislamiento), `test:app` (lectura efectiva de las tablas nuevas por la Data API) |
-| Cifrado | — |
+| Cifrado / M06.3a | `db:check:test` y `test:app` obligatorios, incluida la suite real del cliente `praxa_integrations`. Falla si `PRAXA_INTEGRATIONS_TEST_DB_URL` falta, es inválida o no corresponde al proyecto de pruebas; nunca usa `PRAXA_INTEGRATIONS_DB_URL` como fallback. Una suite omitida/skipped no acredita el gate (CB-06). |
 | OAuth | `test:app`: callback de otro actor o de otra empresa, `state` vencido o reutilizado, hash de vinculación distinto, intento `reauth` con generación vieja, URL limpia después del callback. Sin autorización real |
 | Ciclo de vida | `test:policies`: transiciones, pendiente → desconectada sin metadatos, confirmación vencida rechazada en la base, purga reanudable e idempotente, reconexión después de una purga, cierre (CA-67, CA-68). `test:app`: revocación y desconexión durante una sincronización. VR-01 |
 | Sincronización | `test:policies`, más pruebas unitarias con Meta simulada: paginación completa, fallo en una página intermedia, resincronización sin duplicados y con valores actualizados, ejecución desplazada (A vence, B publica, A es rechazada), snapshot nuevo sin fila donde el anterior tenía valor, captura parcial vista al día siguiente sin resincronizar, precisión SQL → API → TypeScript |

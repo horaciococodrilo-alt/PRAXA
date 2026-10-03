@@ -39,15 +39,28 @@ export function refFromDbUrl(url) {
     const parsed = new URL(url);
 
     const fromUser = parsed.username.match(/^postgres\.([a-z0-9]{20})$/i);
-    if (fromUser) return fromUser[1];
-
     const fromHost = parsed.hostname.match(/^db\.([a-z0-9]{20})\.supabase\.(co|in|red)$/i);
-    if (fromHost) return fromHost[1];
+    if (fromUser && fromHost && fromUser[1].toLowerCase() !== fromHost[1].toLowerCase()) return null;
+    if (fromUser || fromHost) return (fromUser?.[1] ?? fromHost[1]).toLowerCase();
 
     return null;
   } catch {
     return null;
   }
+}
+
+/**
+ * Dos referencias de proyecto son "el mismo proyecto" solo si ambas existen y son
+ * iguales; `null` nunca coincide con `null`. La usan `resolveTarget`,
+ * `resolveSqlTestTarget`, `resolveIntegrationsTestTarget` y `tests/app/helpers.ts` para
+ * que la regla de "mismo proyecto que la aplicación" no diverja entre esas guardas
+ * (hallazgo de la ultrareview sobre H-E1-59 a H-E1-66).
+ * @param {string | null} a
+ * @param {string | null} b
+ * @returns {boolean}
+ */
+export function sameProject(a, b) {
+  return Boolean(a) && Boolean(b) && a === b;
 }
 
 /** La cadena de conexión debe parsear; si no, casi siempre es la contraseña sin codificar. */
@@ -58,6 +71,18 @@ export function dbUrlIsParsable(url) {
     return Boolean(parsed.hostname) && parsed.protocol.startsWith('postgres');
   } catch {
     return false;
+  }
+}
+
+/** La URL administrativa de pruebas solo admite el sslmode=require de la spec. */
+export function testDbUrlHasUnsupportedQuery(value) {
+  try {
+    const parsed = new URL(value);
+    const entries = [...parsed.searchParams];
+    return Boolean(parsed.hash) || entries.length > 1 ||
+      entries.some(([name, mode]) => name.toLowerCase() !== 'sslmode' || mode !== 'require');
+  } catch {
+    return true;
   }
 }
 
@@ -113,9 +138,12 @@ export function resolveTarget(scope, options = {}) {
   }
 
   let dbRef = null;
+  // Si la cadena ya se rechazó por su forma, el ref ausente no es un problema aparte.
+  let dbUrlRejected = false;
   const dbUrl = env[dbUrlName];
 
   if (requireDbUrl) {
+    dbUrlRejected = true;
     if (!dbUrl) {
       problems.push(
         `Falta ${dbUrlName}: es la cadena de conexión para migrar y correr pgTAP. ` +
@@ -141,7 +169,10 @@ export function resolveTarget(scope, options = {}) {
           'incluidos— por la contraseña del proyecto (Dashboard → Project Settings → ' +
           'Database; ahí también podés reiniciarla si no la tenés).',
       );
+    } else if (scope === 'test' && testDbUrlHasUnsupportedQuery(dbUrl)) {
+      problems.push('SUPABASE_TEST_DB_URL contiene parámetros de conexión no permitidos.');
     } else {
+      dbUrlRejected = false;
       dbRef = refFromDbUrl(dbUrl);
 
       // La forma "Direct connection" solo resuelve por IPv6. No se bloquea —en una red
@@ -178,13 +209,30 @@ export function resolveTarget(scope, options = {}) {
 
   if (scope === 'test') {
     const appUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+    const appApiRef = refFromApiUrl(appUrl);
+    const appDbRef = refFromDbUrl(env.SUPABASE_DB_URL);
 
-    if (apiUrl && appUrl && apiUrl === appUrl && env.SUPABASE_TEST_ALLOW_APP_PROJECT !== 'true') {
+    if (apiUrl && appUrl && (apiUrl === appUrl || sameProject(apiRef, appApiRef))) {
       problems.push(
         'SUPABASE_TEST_URL apunta al mismo proyecto que la aplicación. Usá un proyecto ' +
-          'aparte, o definí SUPABASE_TEST_ALLOW_APP_PROJECT=true si ese proyecto también ' +
-          'es desechable.',
+          'aparte y desechable.',
       );
+    }
+
+    if (sameProject(appDbRef, apiRef) || sameProject(appDbRef, dbRef)) {
+      problems.push('El destino de pruebas apunta al proyecto de SUPABASE_DB_URL.');
+    }
+    if (env.SUPABASE_DB_URL && !appDbRef) {
+      problems.push('No se pudo deducir el proyecto de SUPABASE_DB_URL.');
+    }
+    if (appUrl && !appApiRef) {
+      problems.push('No se pudo deducir el proyecto de NEXT_PUBLIC_SUPABASE_URL.');
+    }
+    if (apiUrl && !apiRef) {
+      problems.push('No se pudo deducir el proyecto de SUPABASE_TEST_URL.');
+    }
+    if (requireDbUrl && !dbUrlRejected && !dbRef) {
+      problems.push('No se pudo deducir el proyecto de SUPABASE_TEST_DB_URL.');
     }
 
     if (env.SUPABASE_TEST_IS_DISPOSABLE !== 'yes-this-project-is-disposable') {

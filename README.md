@@ -101,6 +101,7 @@ aporta nada: no vale la pena crearlo.
 | `SUPABASE_TEST_PUBLISHABLE_KEY` | su clave publishable |
 | `SUPABASE_TEST_SECRET_KEY` | su clave **secret** (`sb_secret_…`, o la `service_role` heredada) |
 | `SUPABASE_TEST_DB_URL` | su cadena de conexión (Connect → Session pooler), para migrarlo |
+| `PRAXA_INTEGRATIONS_TEST_DB_URL` | URL del rol `praxa_integrations.<ref>` del proyecto desechable (Connect → Transaction pooler, puerto 6543); nunca en Vercel |
 | `SUPABASE_TEST_IS_DISPOSABLE` | exactamente `yes-this-project-is-disposable` |
 
 El proyecto de pruebas necesita las mismas migraciones que el de la aplicación:
@@ -217,8 +218,8 @@ administrativo ni siquiera se exporta desde `tests/app/helpers.ts`.
 
 Salvaguardas:
 
-1. **Nombres propios** (`SUPABASE_TEST_*`): apuntar la suite al proyecto de la aplicación
-   exige pegar esas credenciales adrede.
+1. **Nombres propios** (`SUPABASE_TEST_*` y `PRAXA_INTEGRATIONS_TEST_DB_URL`): las guardas
+   rechazan el proyecto de la aplicación y la suite del rol no usa la URL de runtime.
 2. **Confirmación explícita**: sin `SUPABASE_TEST_IS_DISPOSABLE` con el valor exacto, no
    corre nada.
 3. **Identificadores únicos por ejecución**: cada corrida etiqueta lo que crea.

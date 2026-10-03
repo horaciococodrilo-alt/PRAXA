@@ -10,6 +10,8 @@ import {
   type TestUser,
 } from './helpers';
 import { loadEnv } from '../../scripts/lib/env.mjs';
+import { resolveSqlTestTarget } from '../../scripts/lib/sql-target.mjs';
+import { verifiedTestDbConfig } from '../../scripts/lib/test-db-client.mjs';
 
 /**
  * Carrera entre EDITAR un borrador y CONFIRMARLO.
@@ -33,7 +35,8 @@ import { loadEnv } from '../../scripts/lib/env.mjs';
 
 const blocked = blockedReason();
 const env = loadEnv();
-const dbUrl = env.SUPABASE_TEST_DB_URL as string | undefined;
+const sqlTarget = resolveSqlTestTarget(env);
+const dbUrl = sqlTarget.ok ? sqlTarget.connectionString : undefined;
 
 const reachable = blocked || !dbUrl ? false : await remoteProjectReachable();
 const canRun = !blocked && Boolean(dbUrl) && reachable;
@@ -41,7 +44,7 @@ const canRun = !blocked && Boolean(dbUrl) && reachable;
 const skipReason = blocked
   ? blocked
   : !dbUrl
-    ? 'Falta SUPABASE_TEST_DB_URL: estas pruebas abren dos conexiones directas a PostgreSQL.'
+    ? `Destino SQL de pruebas inválido: ${sqlTarget.ok ? 'falta la URL.' : sqlTarget.problems.join(' ')}`
     : 'El proyecto remoto de pruebas no respondió.';
 
 const STATEMENT_TIMEOUT_MS = 15_000;
@@ -51,11 +54,7 @@ class UserSession {
   private client: pg.Client;
 
   constructor(private readonly userId: string) {
-    this.client = new pg.Client({
-      connectionString: dbUrl,
-      ssl: { rejectUnauthorized: false },
-      application_name: `praxa-concurrency-${userId.slice(0, 8)}`,
-    });
+    this.client = new pg.Client(verifiedTestDbConfig(dbUrl!, `praxa-concurrency-${userId.slice(0, 8)}`));
   }
 
   async connect() {

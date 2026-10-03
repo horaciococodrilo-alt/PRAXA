@@ -41,6 +41,9 @@ src/
     onboarding/             contexto declarado: esquemas, persistencia, acciones
     reporting/contract/     contrato versionado del reporte (sin generación)
     integrations/contract/  contratos K02–K04: intento OAuth, conexión, credencial
+    integrations/crypto/    llavero y cifrado autenticado de credenciales
+    integrations/db/        cliente PostgreSQL acotado a worker_api
+    integrations/repository/ preparación, lectura y recifrado de credenciales
 proxy.ts                    refresco de sesión y redirección (NO autorización)
 supabase/
   migrations/               migraciones SQL versionadas
@@ -53,8 +56,7 @@ tests/
 
 Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 
-- `integrations/`: cifrado y llavero, cliente del rol `praxa_integrations`, repositorios
-  sobre `worker_api`, cliente de Meta (OAuth, cuentas, Insights, errores) y ciclo de vida.
+- `integrations/`: cliente de Meta (OAuth, cuentas, Insights, errores) y ciclo de vida.
 - `chat/`: redacción, herramientas cerradas, adaptador del modelo, orquestador y guarda de
   afirmaciones numéricas.
 
@@ -68,7 +70,10 @@ Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 | `onboarding` | Contexto declarado, versionado e inmutable una vez activo | Existe |
 | `reporting/contract` | Esquema del reporte y su evidencia tipada por procedencia | Existe; sin generación |
 | `integrations/contract` | Contratos Zod de intento OAuth, conexión (registro interno y DTO público separados) y credencial cifrada | Existe |
-| `integrations` (resto) | Cifrado, acceso a `worker_api`, OAuth con Meta, ciclo de vida y sincronización manual | Previsto |
+| `integrations/crypto` | Llavero versionado y cifrado AES-256-GCM con AAD de empresa, conexión y proveedor; material descifrado en envoltorio redactado | Existe |
+| `integrations/db` | Cliente PostgreSQL `server-only` del rol `praxa_integrations`, limitado a `worker_api`, con TLS verificado y errores redactados | Existe |
+| `integrations/repository` | Prepara operaciones reutilizables, valida K01 y respuestas, lee y recifra credenciales según versión y estado | Existe |
+| `integrations` (resto) | OAuth con Meta, ciclo de vida y sincronización manual | Previsto |
 | `chat` | Consulta en lenguaje natural sobre gasto e impresiones, con cifras verificadas | Previsto |
 
 La ruta `meta_first` no construye Tiendanube, GA4, reportes publicados, métricas derivadas
@@ -95,7 +100,7 @@ invocar `private` por HTTP es que no está expuesto.
 |---|---|---|
 | `anon` | Visitante sin sesión | Nada sobre las tablas del producto |
 | `authenticated` | Usuario con JWT, por la Data API | Lo que conceden los grants, filtrado por RLS |
-| `praxa_integrations` | Código `server-only` del conector, por conexión PostgreSQL directa (previsto) | Solo `EXECUTE` sobre funciones de `worker_api`; ninguna tabla. `LOGIN`, `NOBYPASSRLS`, `NOINHERIT`, sin contraseña en el repositorio |
+| `praxa_integrations` | Código `server-only` del conector, por conexión PostgreSQL al pooler en modo transacción | Solo `EXECUTE` sobre funciones de `worker_api`; ninguna tabla. `LOGIN`, `NOBYPASSRLS`, `NOINHERIT`, sin contraseña en el repositorio |
 | Administrativos (`postgres`, `service_role`) | Migraciones, panel de Supabase y fixtures de prueba | Fuera del runtime de la aplicación |
 
 La matriz exacta está en el encabezado de cada migración y se prueba en pgTAP.
@@ -151,9 +156,11 @@ Navegador ──► Route Handler / Server Action
           ──► tablas de integraciones y private.integration_credentials
 ```
 
-- Existe: el esquema `worker_api`, el rol, las tablas y funciones de `0012`, probados en
-  pgTAP con `set role`.
-- Previsto: el cliente Node del rol, el cifrado, las rutas OAuth y el ciclo de vida.
+- Existen: el esquema `worker_api`, el rol, las tablas y funciones de `0012`, el cliente Node
+  del rol, el llavero, el cifrado y el repositorio de credenciales. El cliente usa el pooler
+  compartido en modo transacción con TLS verificado; el repositorio cifra antes de escribir
+  y descifra después de leer. La base solo recibe material cifrado.
+- Previstas: las rutas OAuth, el cliente de Meta y la orquestación del ciclo de vida.
 - Toda escritura de integraciones pasa por este camino (DEC-04). `authenticated` solo lee
   por RLS las tablas de integraciones que lo permiten.
 - El cifrado y descifrado de la credencial ocurren en Node; la base solo guarda y devuelve
