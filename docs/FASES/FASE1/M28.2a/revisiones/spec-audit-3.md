@@ -44,3 +44,9 @@ No se recomienda partir la microfase. El trabajo de implementación es documenta
 ## Siguiente paso
 
 La spec es APROBABLE. El usuario puede aprobarla para pasarla a `APROBADA` y continuar con el plan de M28.2a. Esta auditoría no cierra G-ENTORNO ni inicia la microfase.
+
+## Nota aclaratoria posterior (2026-10-03, añadida fuera de ronda)
+
+Al auditar el plan de M28.2a (`/plan-auditor`), se detectó que el hash `cb4ab933b0bcdf480a5ef699c278f7b96dbf55ec` registrado arriba no corresponde al contenido que terminó comiteado en `7b2a30f` ni en `8cc58eb` (el commit que fijó `spec.md` en estado `APROBADA`). Se buscó ese contenido en los dos commits que tocan `spec.md` y en todos los blobs colgantes del repositorio (`git fsck --unreachable --no-reflogs`, recalculando el hash de cada uno sin la línea de estado): no se encontró ninguna coincidencia. Esa versión solo existió transitoriamente en el árbol de trabajo durante esta tercera ronda y nunca quedó comiteada.
+
+El contenido vigente de `spec.md` (hash `7517041448d9579977406bf7c8cd6d39a954e922`, el mismo desde `7b2a30f` hasta hoy) es el que audita `revisiones/spec-audit-2.md`, también con veredicto APROBABLE. A efectos de identidad de contenido para auditorías posteriores del plan, debe tratarse `spec-audit-2.md` como la auditoría de spec vigente para ese hash, pese a no ser la de número más alto — esta nota dentro de `spec-audit-3.md` deja registrada la razón para no bloquear por ese desfase de numeración.
