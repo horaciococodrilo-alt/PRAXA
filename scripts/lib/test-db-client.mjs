@@ -1,9 +1,10 @@
+import { AMBIGUOUS_ENCODING } from '../../src/modules/integrations/db/connection-url.mjs';
 import { SUPABASE_ROOT_CA } from '../../src/modules/integrations/db/supabase-root-ca.mjs';
 import { testDbUrlHasUnsupportedQuery } from './target.mjs';
 
 /** Configuración de pg para conexiones administrativas al proyecto desechable. */
 export function verifiedTestDbConfig(connectionString, applicationName) {
-  if (typeof connectionString !== 'string' || / |%[^a-f0-9]|%[a-f0-9][^a-f0-9]|%[a-f0-9]?$/i.test(connectionString)) {
+  if (typeof connectionString !== 'string' || AMBIGUOUS_ENCODING.test(connectionString)) {
     throw new Error('SUPABASE_TEST_DB_URL no es válida.');
   }
 

@@ -17,4 +17,13 @@ describe('ruta posterior a la autenticación', () => {
   ])('rechaza un destino externo o ambiguo: %s', (value) => {
     expect(safeNextPath(value)).toBe('/app');
   });
+
+  it.each([
+    '/.//evil.example',
+    '/a/..//evil.example',
+    '/%2e//evil.example',
+    '/./%2e//evil.example/ruta?x=1',
+  ])('H-E1-53 rechaza rutas que la normalización vuelve relativas al protocolo: %s', (value) => {
+    expect(safeNextPath(value)).toBe('/app');
+  });
 });

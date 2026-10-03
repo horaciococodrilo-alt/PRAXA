@@ -270,6 +270,63 @@ describe('M06.3a paso 3 RED: destino del rol de integraciones', () => {
     }
   });
 
+  it('rechaza parámetros de sesión de pg en la URL del rol de pruebas', () => {
+    for (const query of [
+      'options=-c%20statement_timeout%3D1', 'statement_timeout=1', '%6Fptions=-c%20search_path%3Dpublic',
+      'lock_timeout=1', 'idle_in_transaction_session_timeout=1', 'replication=database',
+      'client_encoding=LATIN1', 'application_name=otro', 'fallback_application_name=otro',
+      'query_timeout=1', 'options=', 'options=x&options=y', 'unknown=1',
+    ]) {
+      const result = resolveIntegrationsTestTarget(baseEnv({ PRAXA_INTEGRATIONS_TEST_DB_URL: `${roleUrl(TEST_REF)}?${query}` }));
+      expect(result.ok, query).toBe(false);
+      if (!result.ok) expect(result.problems?.join(' ')).not.toContain('statement_timeout=1');
+    }
+  });
+
+  it('H-E1-55 rechaza la URL de pruebas del rol si apunta al proyecto de la URL de runtime', () => {
+    const otherHost = roleUrl(TEST_REF).replace('aws-0-us-east-1', 'aws-1-sa-east-1').replace(':secreta@', ':otra@');
+    const result = resolveIntegrationsTestTarget(baseEnv({
+      PRAXA_INTEGRATIONS_TEST_DB_URL: roleUrl(TEST_REF),
+      PRAXA_INTEGRATIONS_DB_URL: otherHost,
+      SUPABASE_DB_URL: undefined,
+      NEXT_PUBLIC_SUPABASE_URL: undefined,
+    }));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.problems?.join(' ')).toMatch(/mismo proyecto que la URL de runtime/);
+    // Un runtime de otro proyecto no bloquea; uno indeducible sí.
+    expect(resolveIntegrationsTestTarget(baseEnv({
+      PRAXA_INTEGRATIONS_TEST_DB_URL: roleUrl(TEST_REF), PRAXA_INTEGRATIONS_DB_URL: roleUrl(APP_REF.replace(/a/g, 'c')),
+    })).ok).toBe(true);
+    for (const runtime of ['no-es-una-url', pooler(TEST_REF)]) {
+      const rejected = resolveIntegrationsTestTarget(baseEnv({ PRAXA_INTEGRATIONS_TEST_DB_URL: roleUrl(TEST_REF), PRAXA_INTEGRATIONS_DB_URL: runtime }));
+      expect(rejected.ok).toBe(false);
+      if (!rejected.ok) expect(rejected.problems?.join(' ')).toMatch(/No se pudo deducir el proyecto de PRAXA_INTEGRATIONS_DB_URL/);
+    }
+  });
+
+  it('H-E1-57 resolveTarget no suma un ref indeducible cuando la URL ya se rechazó o falta', () => {
+    const root = mkdtempSync(join(tmpdir(), 'praxa-m063a-target-'));
+    try {
+      vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', `https://${APP_REF}.supabase.co`);
+      vi.stubEnv('SUPABASE_TEST_URL', `https://${TEST_REF}.supabase.co`);
+      vi.stubEnv('SUPABASE_TEST_IS_DISPOSABLE', DISPOSABLE_ACK);
+      vi.stubEnv('SUPABASE_TEST_DB_URL', `${pooler(TEST_REF)}?sslmode=verify-full`);
+      const query = resolveTarget('test', { root, requireDbUrl: true });
+      expect(query.ok).toBe(false);
+      expect(query.problems.join(' ')).toMatch(/parámetros de conexión no permitidos/);
+      expect(query.problems.join(' ')).not.toMatch(/No se pudo deducir/);
+      vi.stubEnv('SUPABASE_TEST_DB_URL', pooler(TEST_REF));
+      vi.stubEnv('SUPABASE_TEST_URL', undefined);
+      const missing = resolveTarget('test', { root, requireDbUrl: true });
+      expect(missing.ok).toBe(false);
+      expect(missing.problems.join(' ')).toMatch(/Falta SUPABASE_TEST_URL/);
+      expect(missing.problems.join(' ')).not.toMatch(/No se pudo deducir/);
+    } finally {
+      vi.unstubAllEnvs();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('T-23 rechaza la misma referencia con otra representación o DB de app independiente', () => {
     const root = mkdtempSync(join(tmpdir(), 'praxa-m063a-target-'));
     try {

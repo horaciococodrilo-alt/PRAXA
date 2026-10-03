@@ -66,6 +66,13 @@ Registro único de hallazgos documentados en la auditoría M04.1, el baseline M0
 | `H-E1-49` | Corregido en árbol de trabajo: redirección externa tras login | M06.3a (remediación transversal solicitada por el usuario; gate pendiente) | `src/lib/safe-next.ts`; `tests/unit/safe-next.test.ts` |
 | `H-E1-50` | Corregido en árbol de trabajo: aislamiento de pruebas por comparación textual y overrides SQL | M06.3a (remediación transversal solicitada por el usuario; gate pendiente) | `scripts/lib/target.mjs`; `scripts/lib/sql-target.mjs`; `tests/unit/sql-test-target.test.ts` |
 | `H-E1-51` | Corregido en árbol de trabajo: TLS sin verificación en clientes SQL de pruebas | M06.3a (remediación transversal solicitada por el usuario; gate pendiente) | `scripts/lib/test-db-client.mjs`; `tests/unit/sql-test-target.test.ts` |
+| `H-E1-52` | Corregido en árbol de trabajo: parámetros de sesión aceptados en la URL del rol | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-53` | Corregido en árbol de trabajo: `safeNextPath` devolvía rutas normalizadas a `//host` | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-54` | Corregido en árbol de trabajo: pérdida de conexión y timeouts sin `code` de `pg` clasificados como `unexpected` | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-55` | Corregido en árbol de trabajo: URL de pruebas del rol contrastada con la de runtime solo por cadena | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-56` | Corregido en árbol de trabajo: validación de URL de conexión copiada en tres archivos | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-57` | Corregido en árbol de trabajo: `resolveTarget` sumaba un "no se pudo deducir" redundante | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-58` | Corregido en árbol de trabajo: la guarda T-21 releía `src/` en cada prueba | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 
 `H-E1-49` — Impacto: `next=/\evil.example/` pasaba la guarda de login y `router.replace`
 podía enviar al usuario fuera de PRAXA. Evidencia: guarda anterior en `login/page.tsx` y
@@ -84,6 +91,55 @@ exponiendo credenciales y datos de prueba ante un servidor SQL suplantado. Evide
 `run-pgtap.mjs`, `concurrency.test.ts` e `integrations-data-api.test.ts` antes del cambio.
 Comparten la CA pública de Supabase y exigen verificación TLS; el parámetro permitido
 `sslmode=require` se retira de la URL antes de entregar la configuración a `pg`.
+
+`H-E1-52` — Impacto: la URL del rol aceptaba `options` y `statement_timeout` en la query;
+`pg` los envía como parámetros de inicio de sesión y puede alterar el comportamiento de
+`worker_api` pese a la configuración fija del pool. Evidencia: `resolveIntegrationsTestTarget`
+aceptaba una URL sintética con `options`; el parser instalado de `pg` conservaba esa opción.
+Corrección: `worker-api.ts` y `sql-target.mjs` rechazan cualquier query adicional en la URL
+del rol antes de crear el Pool o conectar. Se mantienen los rechazos específicos de
+identidad/destino y TLS, y la URL administrativa de pruebas conserva su contrato separado.
+Las dos pruebas de regresión fallaron antes del cambio y pasaron después.
+
+`H-E1-53` — Impacto: `next=/.//evil.example` (también `/a/..//` o `/%2e//`) pasaba las
+guardas de prefijo, la normalización de `new URL` lo convertía en `//evil.example` con el
+mismo origen y `router.replace` sacaba al usuario de PRAXA. Lo introdujo la corrección de
+`H-E1-49`. Corrección: `safeNextPath` rechaza también el resultado normalizado que empiece
+con `//`. Las cuatro pruebas de regresión fallaron antes del cambio y pasaron después.
+
+`H-E1-54` — Impacto: `pg` y `pg-pool` emiten la pérdida de conexión y los timeouts de
+conexión sin `code` (`Connection terminated unexpectedly`, `timeout exceeded when trying to
+connect`, entre otros), y `EPIPE`, `EHOSTUNREACH`, `ENETUNREACH` y `EAI_AGAIN` no estaban
+en la lista; terminaban como `unexpected`, y `readCredential` descartaba una credencial ya
+autenticada en lugar de devolverla con `rewrap` `unconfirmed` (C-23, T-45). Corrección:
+`worker-api.ts` reconoce esos mensajes exactos solo cuando el error no trae `code`, y esos
+códigos de red como transporte. Los errores TLS conservan sus códigos y siguen fuera de
+`transport` (D-M06.3a-11). `57P01` no se reclasificó: T-17 fija para él `failureKind`
+`other`, y cambiarlo exige una decisión sobre la spec. Las dos pruebas de regresión
+fallaron antes del cambio y pasaron después.
+
+`H-E1-55` — Impacto: la guarda del rol de pruebas solo rechazaba la URL de runtime si era
+idéntica como cadena; otro host del pooler o la contraseña codificada distinto hacia el
+mismo proyecto pasaban si faltaban las demás URLs de la app. Corrección: `sql-target.mjs`
+compara la referencia de `praxa_integrations.<ref>` de ambas URLs y rechaza una URL de
+runtime cuya referencia no se pueda deducir. La prueba de regresión falló antes del cambio.
+
+`H-E1-56` — Impacto: la expresión `AMBIGUOUS_ENCODING`, los conjuntos de parámetros
+prohibidos, el patrón del pooler y `literalAuthorityPort` estaban copiados a mano en
+`worker-api.ts`, `sql-target.mjs` y `test-db-client.mjs` (la de este último, sin nombre ni
+comentario); la corrección de `H-E1-48` tuvo que repetirse tres veces. Corrección:
+`src/modules/integrations/db/connection-url.mjs`, junto a la CA y con el mismo patrón de
+importación, concentra la validación de forma y query; los tres archivos la importan.
+Comportamiento sin cambios: las suites existentes pasan sin modificar sus aserciones.
+
+`H-E1-57` — Impacto: con `SUPABASE_TEST_DB_URL` rechazada por su query, o sin
+`SUPABASE_TEST_URL`, `resolveTarget` agregaba además "No se pudo deducir el proyecto",
+un mensaje engañoso. Corrección: ese problema solo se agrega cuando la URL pasó las
+comprobaciones de forma. La prueba de regresión falló antes del cambio.
+
+`H-E1-58` — Impacto: cinco pruebas de T-21 recorrían y leían `src/` por separado (la del
+llavero, dos veces). Corrección: un `beforeAll` lee el árbol una vez; las aserciones no
+cambian.
 
 `H-E1-43` — Impacto: la guarda del rol podía aceptar una configuración de pruebas sin
 descartar el proyecto de la aplicación cuando la URL SQL de app estaba definida pero su

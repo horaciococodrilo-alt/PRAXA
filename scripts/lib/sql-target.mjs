@@ -1,3 +1,4 @@
+import { inspectConnectionUrl, literalAuthorityPort, POOLER_HOST } from '../../src/modules/integrations/db/connection-url.mjs';
 import { dbUrlHasPlaceholderPassword, dbUrlIsParsable, refFromApiUrl, refFromDbUrl, testDbUrlHasUnsupportedQuery } from './target.mjs';
 
 /**
@@ -21,63 +22,14 @@ import { dbUrlHasPlaceholderPassword, dbUrlIsParsable, refFromApiUrl, refFromDbU
 export const DISPOSABLE_ACK = 'yes-this-project-is-disposable';
 export const INTEGRATIONS_ROLE = 'praxa_integrations';
 
-const TLS_QUERY = new Set(['sslmode', 'sslcert', 'sslkey', 'sslrootcert', 'ssl', 'sslnegotiation', 'uselibpqcompat']);
-const DESTINATION_QUERY = new Set(['user', 'host', 'port']);
-const POOLER_HOST = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.pooler\.supabase\.com$/i;
+const ROLE_USER = /^praxa_integrations\.([a-z0-9]{20})$/;
 
-/**
- * pg-connection-string vuelve a codificar toda la cadena con `encodeURI` cuando
- * encuentra un espacio sin codificar o un `%` que no va seguido de dos dígitos
- * hexadecimales (pg-connection-string/index.js:20). Esa re-codificación no decodifica
- * un `%XX` ya presente (por ejemplo `%5F`): lo deja como texto literal en el usuario
- * que pg termina usando, distinto del que valida esta guarda. Ante esa ambigüedad se
- * rechaza la URL entera, sin intentar replicar la re-codificación. La última alternativa
- * (`%[a-f0-9]?$`) cubre el mismo caso cuando el `%` ambiguo cae en los últimos 1-2
- * caracteres de toda la cadena, donde las alternativas anteriores no tienen carácter
- * siguiente que inspeccionar (H-E1-48).
- */
-const AMBIGUOUS_ENCODING = / |%[^a-f0-9]|%[a-f0-9][^a-f0-9]|%[a-f0-9]?$/i;
-
-/** Puerto literal de la autoridad de la URL original, sin la normalización de `new URL()`. */
-function literalAuthorityPort(raw) {
-  const afterScheme = raw.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
-  const end = afterScheme.search(/[/?#]/);
-  const authority = end === -1 ? afterScheme : afterScheme.slice(0, end);
-  const at = authority.lastIndexOf('@');
-  const hostport = at === -1 ? authority : authority.slice(at + 1);
-  const match = /:(\d+)$/.exec(hostport);
-  return match ? match[1] : null;
-}
-
-function inspectedUrl(value, { allowTls = false } = {}) {
-  if (typeof value !== 'string' || !/^postgres(?:ql)?:\/\//i.test(value)) {
-    return { ok: false, problem: 'La URL de conexión no es válida.' };
-  }
-  if (AMBIGUOUS_ENCODING.test(value)) {
-    return { ok: false, problem: 'La URL de conexión no es válida.' };
-  }
-  let url;
-  try { url = new URL(value); }
-  catch { return { ok: false, problem: 'La URL de conexión no es válida.' }; }
-  if (!['postgres:', 'postgresql:'].includes(url.protocol) || url.hash || !url.username ||
-      !url.password || !url.hostname || !url.port || !url.pathname || url.pathname === '/') {
-    return { ok: false, problem: 'La URL de conexión no es válida.' };
-  }
-  try {
-    if (!decodeURIComponent(url.username) || !decodeURIComponent(url.password)) {
-      return { ok: false, problem: 'La URL de conexión no es válida.' };
-    }
-  } catch { return { ok: false, problem: 'La URL de conexión no es válida.' }; }
-  for (const [name] of url.searchParams) {
-    const normalized = name.toLowerCase();
-    if (DESTINATION_QUERY.has(normalized)) {
-      return { ok: false, problem: 'La URL de conexión contiene overrides de identidad o destino no permitidos.' };
-    }
-    if (!allowTls && TLS_QUERY.has(normalized)) {
-      return { ok: false, problem: 'La URL de conexión contiene parámetros TLS no permitidos; TLS se configura en el módulo.' };
-    }
-  }
-  return { ok: true, url };
+/** Referencia de proyecto del usuario `praxa_integrations.<ref>`, o null si no se deduce. */
+function roleRef(url) {
+  let username;
+  try { username = decodeURIComponent(url.username); }
+  catch { return null; }
+  return username.match(ROLE_USER)?.[1] ?? null;
 }
 
 /** Comprueba la URL exclusiva del rol sin usar la de runtime como respaldo. No conecta. */
@@ -90,9 +42,9 @@ export function resolveIntegrationsTestTarget(env) {
     ] };
   }
 
-  const role = inspectedUrl(roleUrl);
-  const reference = env.SUPABASE_TEST_DB_URL ? inspectedUrl(env.SUPABASE_TEST_DB_URL, { allowTls: true }) : null;
-  const app = env.SUPABASE_DB_URL ? inspectedUrl(env.SUPABASE_DB_URL, { allowTls: true }) : null;
+  const role = inspectConnectionUrl(roleUrl);
+  const reference = env.SUPABASE_TEST_DB_URL ? inspectConnectionUrl(env.SUPABASE_TEST_DB_URL, { allowTls: true }) : null;
+  const app = env.SUPABASE_DB_URL ? inspectConnectionUrl(env.SUPABASE_DB_URL, { allowTls: true }) : null;
   if (!role.ok) problems.push(role.problem);
   if (reference && !reference.ok) problems.push(`SUPABASE_TEST_DB_URL: ${reference.problem}`);
   if (app && !app.ok) problems.push(`SUPABASE_DB_URL: ${app.problem}`);
@@ -104,12 +56,8 @@ export function resolveIntegrationsTestTarget(env) {
 
   let projectRef = null;
   if (role.ok) {
-    let username;
-    try { username = decodeURIComponent(role.url.username); }
-    catch { username = ''; }
-    const match = username.match(/^praxa_integrations\.([a-z0-9]{20})$/);
-    if (!match) problems.push('La URL del rol debe usar praxa_integrations.<ref>.');
-    else projectRef = match[1];
+    projectRef = roleRef(role.url);
+    if (!projectRef) problems.push('La URL del rol debe usar praxa_integrations.<ref>.');
     if (!POOLER_HOST.test(role.url.hostname) || role.url.port !== '6543' || literalAuthorityPort(roleUrl) !== '6543') {
       problems.push('Se requiere el shared transaction pooler en el puerto 6543.');
     }
@@ -125,8 +73,16 @@ export function resolveIntegrationsTestTarget(env) {
   if (projectRef && (projectRef === appDbRef || projectRef === appApiRef)) {
     problems.push('La URL del rol apunta al proyecto de la aplicación.');
   }
-  if (env.PRAXA_INTEGRATIONS_DB_URL && env.PRAXA_INTEGRATIONS_DB_URL === roleUrl) {
-    problems.push('La URL del rol de pruebas coincide con la URL de runtime.');
+  // Por referencia de proyecto, no por cadena: otro host del pooler o la contraseña
+  // codificada de otra forma siguen apuntando al mismo proyecto (H-E1-55).
+  if (env.PRAXA_INTEGRATIONS_DB_URL) {
+    let runtimeRef = null;
+    try { runtimeRef = roleRef(new URL(env.PRAXA_INTEGRATIONS_DB_URL)); }
+    catch { /* indeducible */ }
+    if (!runtimeRef) problems.push('No se pudo deducir el proyecto de PRAXA_INTEGRATIONS_DB_URL.');
+    else if (projectRef && runtimeRef === projectRef) {
+      problems.push('La URL del rol de pruebas apunta al mismo proyecto que la URL de runtime.');
+    }
   }
   if (problems.length) return { ok: false, problems };
   return { ok: true, connectionString: roleUrl, projectRef, notes: [] };

@@ -124,9 +124,12 @@ export function resolveTarget(scope, options = {}) {
   }
 
   let dbRef = null;
+  // Si la cadena ya se rechazó por su forma, el ref ausente no es un problema aparte.
+  let dbUrlRejected = false;
   const dbUrl = env[dbUrlName];
 
   if (requireDbUrl) {
+    dbUrlRejected = true;
     if (!dbUrl) {
       problems.push(
         `Falta ${dbUrlName}: es la cadena de conexión para migrar y correr pgTAP. ` +
@@ -155,6 +158,7 @@ export function resolveTarget(scope, options = {}) {
     } else if (scope === 'test' && testDbUrlHasUnsupportedQuery(dbUrl)) {
       problems.push('SUPABASE_TEST_DB_URL contiene parámetros de conexión no permitidos.');
     } else {
+      dbUrlRejected = false;
       dbRef = refFromDbUrl(dbUrl);
 
       // La forma "Direct connection" solo resuelve por IPv6. No se bloquea —en una red
@@ -210,10 +214,10 @@ export function resolveTarget(scope, options = {}) {
     if (appUrl && !appApiRef) {
       problems.push('No se pudo deducir el proyecto de NEXT_PUBLIC_SUPABASE_URL.');
     }
-    if (!apiRef) {
+    if (apiUrl && !apiRef) {
       problems.push('No se pudo deducir el proyecto de SUPABASE_TEST_URL.');
     }
-    if (requireDbUrl && !dbRef) {
+    if (requireDbUrl && !dbUrlRejected && !dbRef) {
       problems.push('No se pudo deducir el proyecto de SUPABASE_TEST_DB_URL.');
     }
 

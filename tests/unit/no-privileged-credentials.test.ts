@@ -2,7 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 /**
  * Guarda de credenciales.
@@ -40,22 +40,31 @@ async function collectFiles(dir: string): Promise<string[]> {
   return files.flat();
 }
 
-describe('la aplicación no usa credenciales privilegiadas', () => {
-  it('ningún archivo de src/ ni el proxy menciona una clave de servicio', async () => {
-    const files = [
-      ...(await collectFiles(join(projectRoot, 'src'))),
-      join(projectRoot, 'proxy.ts'),
-    ];
+/** Ruta relativa con `/` → contenido, de src/ y el proxy; se lee una sola vez (H-E1-58). */
+let sources: Map<string, string>;
 
+/** Archivos de src/ y el proxy cuyo contenido cumple `matches`. */
+function filesWhere(matches: (content: string) => boolean): string[] {
+  return [...sources].filter(([, content]) => matches(content)).map(([file]) => file);
+}
+
+beforeAll(async () => {
+  const files = [...(await collectFiles(join(projectRoot, 'src'))), join(projectRoot, 'proxy.ts')];
+  sources = new Map(await Promise.all(files.map(async (file) => [
+    relative(projectRoot, file).replaceAll('\\', '/'), await readFile(file, 'utf8'),
+  ] as const)));
+});
+
+describe('la aplicación no usa credenciales privilegiadas', () => {
+  it('ningún archivo de src/ ni el proxy menciona una clave de servicio', () => {
     const offenders: string[] = [];
 
-    for (const file of files) {
-      const content = await readFile(file, 'utf8');
+    for (const [file, content] of sources) {
       for (const token of FORBIDDEN) {
         // El propio archivo de prueba y los comentarios que explican la ausencia de la
         // clave están fuera de src/, así que cualquier aparición acá es real.
         if (content.includes(token)) {
-          offenders.push(`${relative(projectRoot, file)} → ${token}`);
+          offenders.push(`${file} → ${token}`);
         }
       }
     }
@@ -80,45 +89,29 @@ describe('la aplicación no usa credenciales privilegiadas', () => {
     expect(assignmentsWithValue).toEqual([]);
   });
 
-  it('T-21: la URL del rol solo aparece en worker-api.ts y allí está presente', async () => {
-    const files = [...(await collectFiles(join(projectRoot, 'src'))), join(projectRoot, 'proxy.ts')];
-    const found: string[] = [];
-    for (const file of files) {
-      if ((await readFile(file, 'utf8')).includes('PRAXA_INTEGRATIONS_DB_URL')) found.push(relative(projectRoot, file).replaceAll('\\', '/'));
-    }
-    expect(found).toEqual(['src/modules/integrations/db/worker-api.ts']);
+  it('T-21: la URL del rol solo aparece en worker-api.ts y allí está presente', () => {
+    expect(filesWhere((content) => content.includes('PRAXA_INTEGRATIONS_DB_URL')))
+      .toEqual(['src/modules/integrations/db/worker-api.ts']);
   });
 
-  it('T-21: worker-api.ts tiene server-only como primera sentencia', async () => {
-    const source = await readFile(join(projectRoot, 'src/modules/integrations/db/worker-api.ts'), 'utf8');
+  it('T-21: worker-api.ts tiene server-only como primera sentencia', () => {
+    const source = sources.get('src/modules/integrations/db/worker-api.ts') ?? '';
     const withoutLeadingComments = source.replace(/^\s*(?:(?:\/\*[\s\S]*?\*\/|\/\/[^\n]*)(?:\r?\n|\s*))*/, '').trimStart();
     expect(withoutLeadingComments.startsWith("import 'server-only';")).toBe(true);
   });
 
-  it('T-21: la URL de pruebas del rol no aparece en src ni proxy', async () => {
-    const files = [...(await collectFiles(join(projectRoot, 'src'))), join(projectRoot, 'proxy.ts')];
-    for (const file of files) expect(await readFile(file, 'utf8')).not.toContain('PRAXA_INTEGRATIONS_TEST_DB_URL');
+  it('T-21: la URL de pruebas del rol no aparece en src ni proxy', () => {
+    expect(filesWhere((content) => content.includes('PRAXA_INTEGRATIONS_TEST_DB_URL'))).toEqual([]);
   });
 
-  it('T-21: solo worker-api.ts importa pg', async () => {
-    const files = [...(await collectFiles(join(projectRoot, 'src'))), join(projectRoot, 'proxy.ts')];
-    const found: string[] = [];
-    for (const file of files) {
-      if (/(?:from\s*['"]pg['"]|require\s*\(\s*['"]pg['"]\s*\))/.test(await readFile(file, 'utf8'))) {
-        found.push(relative(projectRoot, file).replaceAll('\\', '/'));
-      }
-    }
-    expect(found).toEqual(['src/modules/integrations/db/worker-api.ts']);
+  it('T-21: solo worker-api.ts importa pg', () => {
+    expect(filesWhere((content) => /(?:from\s*['"]pg['"]|require\s*\(\s*['"]pg['"]\s*\))/.test(content)))
+      .toEqual(['src/modules/integrations/db/worker-api.ts']);
   });
 
-  it('T-21: solo keyring.ts lee variables del llavero', async () => {
-    const files = [...(await collectFiles(join(projectRoot, 'src'))), join(projectRoot, 'proxy.ts')];
+  it('T-21: solo keyring.ts lee variables del llavero', () => {
     for (const variable of ['PRAXA_CREDENTIAL_KEYS', 'PRAXA_CREDENTIAL_KEY_CURRENT']) {
-      const found: string[] = [];
-      for (const file of files) {
-        if ((await readFile(file, 'utf8')).includes(variable)) found.push(relative(projectRoot, file).replaceAll('\\', '/'));
-      }
-      expect(found).toEqual(['src/modules/integrations/crypto/keyring.ts']);
+      expect(filesWhere((content) => content.includes(variable))).toEqual(['src/modules/integrations/crypto/keyring.ts']);
     }
   });
 });

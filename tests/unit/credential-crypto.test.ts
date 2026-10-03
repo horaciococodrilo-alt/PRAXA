@@ -659,6 +659,47 @@ describe('M06.3a paso 2 RED: cliente worker_api', () => {
     }
   });
 
+  it('H-E1-54 clasifica la pérdida de conexión y los timeouts sin code de pg y pg-pool', async () => {
+    const cases = [
+      ...['Connection terminated unexpectedly', 'Client has encountered a connection error and is not queryable']
+        .map((message) => ({ origin: new Error(message), failureKind: 'transport' })),
+      ...['timeout expired', 'timeout exceeded when trying to connect', 'Connection terminated due to connection timeout']
+        .map((message) => ({ origin: new Error(message), failureKind: 'timeout' })),
+      ...['EPIPE', 'EHOSTUNREACH', 'ENETUNREACH', 'EAI_AGAIN']
+        .map((code) => ({ origin: Object.assign(new Error('sintético'), { code }), failureKind: 'transport' })),
+    ] as const;
+    for (const { origin, failureKind } of cases) {
+      const pool: Queryable = { query: async () => { throw origin; }, on: vi.fn(), end: vi.fn(async () => {}) };
+      const error = await rejection(createWorkerApi({ pool }).call('get_credential', [actorId, companyId, connectionId]));
+      expect(error, origin.message).toMatchObject({ code: 'unavailable', failureKind });
+    }
+    // Un mensaje de transporte con code de otra clase conserva la clasificación del code.
+    const coded = Object.assign(new Error('Connection terminated unexpectedly'), { code: '28P01' });
+    const pool: Queryable = { query: async () => { throw coded; }, on: vi.fn(), end: vi.fn(async () => {}) };
+    expect(await rejection(createWorkerApi({ pool }).call('get_credential', [actorId, companyId, connectionId])))
+      .toMatchObject({ code: 'unavailable', failureKind: 'other' });
+  });
+
+  it('H-E1-54 readCredential devuelve unconfirmed si el pool pierde la conexión durante rewrap', async () => {
+    await loadRepository();
+    const ring = keyring(2);
+    for (const [message, reason] of [
+      ['Connection terminated unexpectedly', 'transport'],
+      ['timeout exceeded when trying to connect', 'timeout'],
+    ] as const) {
+      const query = vi.fn(async (config: { text: string }) => {
+        if (config.text.includes('worker_api.get_credential(')) return { rows: [credentialRow(ring, 'active', 1)] };
+        throw new Error(message);
+      });
+      const pool: Queryable = { query: query as Queryable['query'], on: vi.fn(), end: vi.fn(async () => {}) };
+      const read = await readCredential(ctx, connectionId, { workerApi: createWorkerApi({ pool }), keyring: ring });
+      expect(read.token.reveal()).toBe(sample);
+      expect(read.keyVersion).toBe(1);
+      expect(read.rewrap).toEqual({ status: 'unconfirmed', reason });
+      expect(query).toHaveBeenCalledTimes(2);
+    }
+  });
+
   it('T-53 rechaza envelopes y filas no objeto en la frontera del cliente', async () => {
     for (const result of [null, {}, { rows: null }, { rows: {} }, { rows: [null] }, { rows: [[]] }]) {
       const pool: Queryable = { query: vi.fn(async () => result as never), on: vi.fn(), end: vi.fn(async () => {}) };
@@ -729,6 +770,25 @@ describe('M06.3a paso 2 RED: cliente worker_api', () => {
       expect((error as InstanceType<typeof WorkerApiError>).failureKind).toBe('other');
       expect(JSON.stringify(error)).not.toContain(url);
       expect(error).not.toHaveProperty('cause');
+    }
+    expect(pgState.constructed).toHaveLength(0);
+  });
+
+  it('rechaza parámetros de sesión de pg antes de construir Pool', () => {
+    const forbidden = [
+      'options=-c%20statement_timeout%3D1', 'statement_timeout=1', '%6Fptions=-c%20search_path%3Dpublic',
+      'lock_timeout=1', 'idle_in_transaction_session_timeout=1', 'replication=database',
+      'client_encoding=LATIN1', 'application_name=otro', 'fallback_application_name=otro',
+      'query_timeout=1', 'options=', 'options=x&options=y', 'unknown=1',
+    ];
+    pgState.constructed.length = 0;
+    for (const query of forbidden) {
+      const url = `${roleUrl}?${query}`;
+      let error: unknown;
+      try { createWorkerApi({ connectionString: url }); } catch (caught) { error = caught; }
+      expect(error).toBeInstanceOf(WorkerApiError);
+      expect((error as InstanceType<typeof WorkerApiError>).code).toBe('config_invalid');
+      expect(JSON.stringify(error)).not.toContain(url);
     }
     expect(pgState.constructed).toHaveLength(0);
   });

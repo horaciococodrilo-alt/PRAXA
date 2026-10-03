@@ -2,6 +2,7 @@ import 'server-only';
 
 import pg from 'pg';
 
+import { inspectConnectionUrl, literalAuthorityPort, POOLER_HOST } from './connection-url.mjs';
 import { SUPABASE_ROOT_CA } from './supabase-root-ca.mjs';
 
 export { SUPABASE_ROOT_CA } from './supabase-root-ca.mjs';
@@ -82,61 +83,35 @@ const SQL: Record<WorkerApiFunction, string> = Object.fromEntries(
   ]),
 ) as Record<WorkerApiFunction, string>;
 
-
-const TLS_QUERY = new Set(['sslmode', 'sslcert', 'sslkey', 'sslrootcert', 'ssl', 'sslnegotiation', 'uselibpqcompat']);
-const DESTINATION_QUERY = new Set(['user', 'host', 'port']);
-const POOLER_HOST = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.pooler\.supabase\.com$/i;
 const ROLE_USER = /^praxa_integrations\.[a-z0-9]{20}$/;
 
 /**
- * pg-connection-string vuelve a codificar toda la cadena con `encodeURI` cuando
- * encuentra un espacio sin codificar o un `%` que no va seguido de dos dígitos
- * hexadecimales (pg-connection-string/index.js:20). Esa re-codificación no decodifica
- * un `%XX` ya presente (por ejemplo `%5F`): lo deja como texto literal en el usuario
- * que pg termina usando, distinto del que valida esta guarda. Ante esa ambigüedad se
- * rechaza la URL entera, sin intentar replicar la re-codificación. La última alternativa
- * (`%[a-f0-9]?$`) cubre el mismo caso cuando el `%` ambiguo cae en los últimos 1-2
- * caracteres de toda la cadena, donde las alternativas anteriores no tienen carácter
- * siguiente que inspeccionar (H-E1-48).
+ * pg y pg-pool emiten la pérdida de conexión y los timeouts de conexión como `Error`
+ * sin `code` (pg/lib/client.js y pg-pool/index.js), así que se reconocen por mensaje
+ * exacto, igual que `Query read timeout` (H-E1-54).
  */
-const AMBIGUOUS_ENCODING = / |%[^a-f0-9]|%[a-f0-9][^a-f0-9]|%[a-f0-9]?$/i;
-
-/** Puerto literal de la autoridad de la URL original, sin la normalización de `new URL()`. */
-function literalAuthorityPort(raw: string): string | null {
-  const afterScheme = raw.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
-  const end = afterScheme.search(/[/?#]/);
-  const authority = end === -1 ? afterScheme : afterScheme.slice(0, end);
-  const at = authority.lastIndexOf('@');
-  const hostport = at === -1 ? authority : authority.slice(at + 1);
-  const match = /:(\d+)$/.exec(hostport);
-  return match ? match[1] : null;
-}
+const TRANSPORT_MESSAGES = new Set([
+  'Connection terminated unexpectedly',
+  'Client has encountered a connection error and is not queryable',
+]);
+const TIMEOUT_MESSAGES = new Set([
+  'Query read timeout',
+  'timeout expired',
+  'timeout exceeded when trying to connect',
+  'Connection terminated due to connection timeout',
+]);
+const TRANSPORT_CODES = new Set([
+  'ECONNREFUSED', 'ENOTFOUND', 'ECONNRESET', 'EPIPE', 'EHOSTUNREACH', 'ENETUNREACH', 'EAI_AGAIN',
+]);
 
 function configInvalid(message = MESSAGES.config_invalid): never {
   throw new WorkerApiError('config_invalid', 'other', message);
 }
 
 function validateConnectionString(connectionString: string): void {
-  if (typeof connectionString !== 'string' || !/^postgres(?:ql)?:\/\//i.test(connectionString)) configInvalid();
-  if (AMBIGUOUS_ENCODING.test(connectionString)) configInvalid();
-  let url: URL;
-  try { url = new URL(connectionString); }
-  catch { configInvalid(); }
-  if (!['postgres:', 'postgresql:'].includes(url.protocol) || url.hash || !url.username || !url.password ||
-      !url.hostname || !url.port || !url.pathname || url.pathname === '/') configInvalid();
-  try {
-    if (!decodeURIComponent(url.username) || !decodeURIComponent(url.password)) configInvalid();
-  } catch { configInvalid(); }
-
-  for (const [name] of url.searchParams) {
-    const normalized = name.toLowerCase();
-    if (DESTINATION_QUERY.has(normalized)) {
-      configInvalid('La URL de conexión contiene overrides de identidad o destino no permitidos.');
-    }
-    if (TLS_QUERY.has(normalized)) {
-      configInvalid('La URL de conexión contiene parámetros TLS no permitidos; TLS se configura en el módulo.');
-    }
-  }
+  const inspected = inspectConnectionUrl(connectionString);
+  if (!inspected.ok) configInvalid(inspected.problem);
+  const { url } = inspected;
   let username: string;
   try { username = decodeURIComponent(url.username); }
   catch { configInvalid(); }
@@ -157,10 +132,11 @@ function translated(error: unknown): WorkerApiError {
     '42501': 'privilege_missing', '42883': 'privilege_missing',
   };
   if (sql[source]) return new WorkerApiError(sql[source]);
-  if (source === 'ETIMEDOUT' || source === 'ETIMEOUT' || source === 'QUERY_TIMEOUT' || record.message === 'Query read timeout') {
+  const message = !source && typeof record.message === 'string' ? record.message : '';
+  if (source === 'ETIMEDOUT' || source === 'ETIMEOUT' || source === 'QUERY_TIMEOUT' || TIMEOUT_MESSAGES.has(message)) {
     return new WorkerApiError('unavailable', 'timeout');
   }
-  if (source.startsWith('08') || ['ECONNREFUSED', 'ENOTFOUND', 'ECONNRESET'].includes(source)) {
+  if (source.startsWith('08') || TRANSPORT_CODES.has(source) || TRANSPORT_MESSAGES.has(message)) {
     return new WorkerApiError('unavailable', 'transport');
   }
   if (source.startsWith('28') || ['53300', '57P01', '57P03'].includes(source)) {
