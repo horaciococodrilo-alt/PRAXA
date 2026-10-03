@@ -534,17 +534,21 @@ Casi todo es intervención del usuario. El asistente guía, verifica y documenta
 | Paso | Quién | Acción | Verificación |
 |---:|---|---|---|
 | 1 | Usuario | Crear el proyecto de Vercel conectado al repositorio y asignarle un dominio fijo | Responde por HTTPS |
-| 2 | Usuario | Cargar en Vercel las variables del servidor de la sección 5 de la spec y las existentes: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `NEXT_PUBLIC_SITE_URL` con el dominio del piloto. No cargar `SUPABASE_DB_URL` ni `SUPABASE_TEST_*` ni `PRAXA_INTEGRATIONS_TEST_DB_URL` | Checklist sin valores |
+| 2 | Usuario | Para `G-ENTORNO`, cargar en Vercel `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `NEXT_PUBLIC_SITE_URL` con el dominio del piloto, más `PRAXA_CREDENTIAL_KEYS`, `PRAXA_CREDENTIAL_KEY_CURRENT` y `PRAXA_INTEGRATIONS_DB_URL`. Generar un llavero nuevo para el piloto, distinto del de pruebas. Las variables de Meta de la sección 5 se cargan antes de `M16.1`; `DEEPINFRA_API_KEY`, en `M25a.2`. No cargar `SUPABASE_DB_URL` ni `SUPABASE_TEST_*` ni `PRAXA_INTEGRATIONS_TEST_DB_URL` | Checklist por presencia, sin valores. La presencia no acredita validez del llavero ni conectividad del rol; declarar esa limitación |
 | 3 | Usuario (el asistente prepara y verifica) | Aplicar `0012` al proyecto `app` con `npm run db:check` y `npm run db:push`, después de haberla verificado en el de pruebas. Fijar la contraseña del rol de C en `app` | `db:check` muestra el destino correcto |
 | 4 | Usuario | Verificar en el dashboard que `worker_api` no está entre los esquemas expuestos por la Data API | Captura redactada |
 | 5 | Usuario | En Supabase Auth del proyecto `app`, cargar `site_url` y las URLs de redirección con el dominio del piloto (en `config.toml` figuran solo las locales) | Captura redactada |
-| 6 | Usuario | Contratar un proveedor de email transaccional, verificar el dominio (SPF y DKIM) y configurar el SMTP propio en Supabase | Captura redactada |
+| 6 | Usuario | Elegir y contratar un proveedor de email transaccional (pendiente hasta este paso), verificar el dominio de envío con SPF y DKIM y configurar el SMTP propio en Supabase. Recomendar DMARC, sin convertirlo en requisito adicional del gate | Captura redactada |
 | 7 | Usuario | Registro de prueba con una dirección **que no pertenezca al equipo de Supabase** | Llega el email de confirmación y el login funciona |
 | 8 | Usuario | Cerrar el registro público hasta el alta del dueño en `M16.2` (DEC-18) | Un registro nuevo es rechazado |
 | 8b | Usuario | Con el registro cerrado, recuperación de contraseña completa de la cuenta de prueba: pedido, email y cambio | Las pantallas `forgot-password` y `reset-password` funcionan sobre el dominio |
 | 9 | Asistente | Documentar la configuración del entorno sin valores | `docs/FASES/FASE1/meta_first/entorno.md` |
 
 **Cierre:** `npm run verify` y `G-ENTORNO`.
+
+**Aclaraciones aprobadas por el usuario en el grill de M28.2a (2026-10-03).** El calendario del paso 2 concreta la carga escalonada de variables; no adelanta las intervenciones de Meta ni DeepInfra. Las decisiones de dominio y correo se registran en [M28.2a, Decisiones de la microfase](../M28.2a/spec.md#decisiones-de-la-microfase): el proveedor se elige en el paso 6. Si la entregabilidad externa falla por la extensión del dominio, registrar el hallazgo antes de `M16.1`; no dar por cumplido el envío externo. Si cambia la marca, migrar el dominio antes del alta del dueño en `M16.2`.
+
+**Excepción acotada para el recorrido manual.** Por decisión expresa del usuario, se permite en `app` exclusivamente el recorrido manual del usuario exigido por esta ficha: una casilla externa al equipo de Supabase y una empresa sintética creada mediante el onboarding, para verificar Auth y `/app/integraciones`. Esta excepción aclara para M28.2a la prohibición general de pruebas contra producción; no autoriza ninguna suite automatizada ni fixture contra `app`. La cuenta y la empresa se conservan, se documentan sin datos personales y se eliminan con CA-67 al cierre del piloto. No se adelanta el alta del dueño ni la entrada de datos reales de Meta.
 
 **Trampa conocida.** Sin SMTP propio, Supabase Auth solo envía emails a las direcciones del equipo de la organización y como máximo dos por hora. Una prueba de registro con tu propia dirección de equipo **pasa y no prueba nada**. Por eso el paso 7 exige una dirección de afuera.
 
