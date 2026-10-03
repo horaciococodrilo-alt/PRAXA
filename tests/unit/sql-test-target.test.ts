@@ -138,6 +138,15 @@ describe('destino de las pruebas SQL', () => {
     }
   });
 
+  it('H-E1-60 rechaza lo que el resolvedor de destino ya rechaza: sin credenciales o sin ruta', () => {
+    for (const url of [
+      `postgresql://@aws-0-us-east-1.pooler.supabase.com:5432/postgres`,
+      `postgresql://postgres.${TEST_REF}:secreta@aws-0-us-east-1.pooler.supabase.com:5432`,
+    ]) {
+      expect(() => verifiedTestDbConfig(url, 'praxa-test')).toThrow('SUPABASE_TEST_DB_URL no es válida.');
+    }
+  });
+
   it('rechaza si no se puede deducir a qué proyecto apunta', () => {
     const problems = problemsOf(
       baseEnv({ SUPABASE_TEST_DB_URL: 'postgresql://usuario:clave@base.interna:5432/postgres' }),

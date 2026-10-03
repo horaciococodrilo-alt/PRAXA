@@ -3,6 +3,7 @@ import 'server-only';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
 import { buildCredentialAad, type CredentialAadInput } from '@/modules/integrations/contract';
+import { BASE64_PATTERN, PG_INT4_MAX } from '@/modules/integrations/contract/primitives';
 import type { CredentialKeyring } from './keyring';
 
 export type SealedCredential = {
@@ -43,10 +44,9 @@ export class SecretValue {
   [inspectCustom](): '[redactado]' { return '[redactado]'; }
 }
 
-const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
-
-function decodeBase64(value: unknown, length?: number): Buffer | null {
-  if (typeof value !== 'string' || value.length === 0 || !BASE64.test(value)) return null;
+/** Decodifica base64 estándar, exigiendo codificación canónica (y, si se da, el largo exacto). */
+export function decodeBase64(value: unknown, length?: number): Buffer | null {
+  if (typeof value !== 'string' || value.length === 0 || !BASE64_PATTERN.test(value)) return null;
   const decoded = Buffer.from(value, 'base64');
   if (decoded.toString('base64') !== value || (length !== undefined && decoded.length !== length)) return null;
   return decoded;
@@ -80,7 +80,7 @@ export function openCredential(sealed: SealedCredential, aad: CredentialAadInput
   const iv = decodeBase64(material?.iv, 12);
   const authTag = decodeBase64(material?.auth_tag, 16);
   if (!ciphertext || !iv || !authTag || !Number.isInteger(material?.key_version) ||
-      (material?.key_version ?? 0) <= 0 || (material?.key_version ?? 0) > 2_147_483_647) {
+      (material?.key_version ?? 0) <= 0 || (material?.key_version ?? 0) > PG_INT4_MAX) {
     throw new CredentialMaterialError('invalid_material');
   }
   const aadBuffer = aadBytes(aad);

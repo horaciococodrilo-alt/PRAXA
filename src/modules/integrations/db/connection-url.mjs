@@ -7,9 +7,12 @@
  * mismas URLs (H-E1-56).
  */
 
+import { SUPABASE_ROOT_CA } from './supabase-root-ca.mjs';
+
 export const TLS_QUERY = new Set(['sslmode', 'sslcert', 'sslkey', 'sslrootcert', 'ssl', 'sslnegotiation', 'uselibpqcompat']);
 export const DESTINATION_QUERY = new Set(['user', 'host', 'port']);
 export const POOLER_HOST = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.pooler\.supabase\.com$/i;
+export const ROLE_USER = /^praxa_integrations\.([a-z0-9]{20})$/;
 
 /**
  * pg-connection-string vuelve a codificar toda la cadena con `encodeURI` cuando
@@ -45,6 +48,28 @@ export function literalAuthorityPort(raw) {
 }
 
 /**
+ * Referencia de proyecto de un usuario `praxa_integrations.<ref>` ya decodificado, o
+ * null si no coincide. La usan el cliente de runtime y el resolvedor de destino de
+ * pruebas para que la forma del usuario del rol no diverja entre ambos (H-E1-59).
+ * @param {string} username
+ * @returns {string | null}
+ */
+export function roleUserRef(username) {
+  return ROLE_USER.exec(username)?.[1] ?? null;
+}
+
+/**
+ * La URL exige el shared transaction pooler en el puerto 6543, comparando tanto el
+ * puerto normalizado por `new URL()` como el literal de la cadena original (H-E1-59).
+ * @param {URL} url
+ * @param {string} rawUrl
+ * @returns {boolean}
+ */
+export function isSharedTransactionPooler(url, rawUrl) {
+  return POOLER_HOST.test(url.hostname) && url.port === '6543' && literalAuthorityPort(rawUrl) === '6543';
+}
+
+/**
  * Forma de la URL, overrides de identidad/destino y, salvo `allowTls`, parámetros TLS y
  * cualquier otra query. `allowTls` es solo para la URL administrativa de pruebas, cuya
  * query restante valida `testDbUrlHasUnsupportedQuery`. No valida usuario ni host del rol.
@@ -73,4 +98,15 @@ export function inspectConnectionUrl(value, { allowTls = false } = {}) {
   // pg también interpreta opciones de sesión y overrides del pool desde la query (H-E1-52).
   if (!allowTls && url.search) return { ok: false, problem: EXTRA_QUERY };
   return { ok: true, url };
+}
+
+/**
+ * Configuración TLS fija para cualquier cliente `pg` contra Supabase: CA pública
+ * versionada, verificación completa y negociación `postgres` explícita (D-M06.3a-11). La
+ * usan tanto el cliente de runtime como el administrativo de pruebas, para que la
+ * política TLS no diverja entre ambos (hallazgo de la ultrareview sobre H-E1-59 a H-E1-66).
+ * @returns {{ sslnegotiation: 'postgres', ssl: { ca: string, rejectUnauthorized: true } }}
+ */
+export function supabaseTlsConfig() {
+  return { sslnegotiation: /** @type {'postgres'} */ ('postgres'), ssl: { ca: SUPABASE_ROOT_CA, rejectUnauthorized: true } };
 }

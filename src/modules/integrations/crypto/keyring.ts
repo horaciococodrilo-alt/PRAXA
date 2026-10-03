@@ -1,5 +1,8 @@
 import 'server-only';
 
+import { PG_INT4_MAX } from '@/modules/integrations/contract/primitives';
+import { decodeBase64 } from './seal';
+
 export type CredentialKeyring = {
   readonly currentVersion: number;
   readonly versions: readonly number[];
@@ -28,9 +31,8 @@ export class CredentialKeyVersionUnknownError extends Error {
   }
 }
 
-const MAX_VERSION = 2_147_483_647;
+const MAX_VERSION = PG_INT4_MAX;
 const VERSION = /^[1-9]\d*$/;
-const BASE64_KEY = /^[A-Za-z0-9+/]{43}=$/;
 
 function validVersion(value: string): number | null {
   if (!VERSION.test(value)) return null;
@@ -56,12 +58,10 @@ export function parseCredentialKeyring(keys: string | undefined, current: string
       throw new CredentialKeyringError('keyring_invalid', `Par ${index + 1}: versión repetida.`);
     }
     const encoded = parts[1].trim();
-    if (!BASE64_KEY.test(encoded)) {
+    // Mismo decodificador canónico que usa seal.ts para el material cifrado (H-E1-63).
+    const key = decodeBase64(encoded, 32);
+    if (!key) {
       throw new CredentialKeyringError('keyring_invalid', `Par ${index + 1}: clave base64 inválida.`);
-    }
-    const key = Buffer.from(encoded, 'base64');
-    if (key.length !== 32 || key.toString('base64') !== encoded) {
-      throw new CredentialKeyringError('keyring_invalid', `Par ${index + 1}: la clave debe medir 32 bytes.`);
     }
     parsed.set(version, key);
   }

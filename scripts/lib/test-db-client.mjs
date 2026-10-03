@@ -1,17 +1,12 @@
-import { AMBIGUOUS_ENCODING } from '../../src/modules/integrations/db/connection-url.mjs';
-import { SUPABASE_ROOT_CA } from '../../src/modules/integrations/db/supabase-root-ca.mjs';
+import { inspectConnectionUrl, supabaseTlsConfig } from '../../src/modules/integrations/db/connection-url.mjs';
 import { testDbUrlHasUnsupportedQuery } from './target.mjs';
 
 /** Configuración de pg para conexiones administrativas al proyecto desechable. */
 export function verifiedTestDbConfig(connectionString, applicationName) {
-  if (typeof connectionString !== 'string' || AMBIGUOUS_ENCODING.test(connectionString)) {
-    throw new Error('SUPABASE_TEST_DB_URL no es válida.');
-  }
-
-  let url;
-  try { url = new URL(connectionString); }
-  catch { throw new Error('SUPABASE_TEST_DB_URL no es válida.'); }
-  if (!['postgres:', 'postgresql:'].includes(url.protocol) || !url.hostname || url.hash) {
+  // Misma guarda de forma que el resolvedor de destino de pruebas, con el mismo
+  // `allowTls` para la URL administrativa: las tres guardas aceptan las mismas URLs,
+  // sin diverger en los campos que no cubría el chequeo propio anterior (H-E1-60).
+  if (!inspectConnectionUrl(connectionString, { allowTls: true }).ok) {
     throw new Error('SUPABASE_TEST_DB_URL no es válida.');
   }
 
@@ -24,8 +19,7 @@ export function verifiedTestDbConfig(connectionString, applicationName) {
 
   return {
     connectionString: connectionString.split('?')[0],
-    sslnegotiation: /** @type {const} */ ('postgres'),
-    ssl: { ca: SUPABASE_ROOT_CA, rejectUnauthorized: true },
+    ...supabaseTlsConfig(),
     application_name: applicationName,
   };
 }

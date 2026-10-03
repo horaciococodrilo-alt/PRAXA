@@ -1,5 +1,5 @@
-import { inspectConnectionUrl, literalAuthorityPort, POOLER_HOST } from '../../src/modules/integrations/db/connection-url.mjs';
-import { dbUrlHasPlaceholderPassword, dbUrlIsParsable, refFromApiUrl, refFromDbUrl, testDbUrlHasUnsupportedQuery } from './target.mjs';
+import { inspectConnectionUrl, isSharedTransactionPooler, roleUserRef } from '../../src/modules/integrations/db/connection-url.mjs';
+import { dbUrlHasPlaceholderPassword, dbUrlIsParsable, refFromApiUrl, refFromDbUrl, sameProject, testDbUrlHasUnsupportedQuery } from './target.mjs';
 
 /**
  * Elección del destino de las pruebas SQL.
@@ -22,14 +22,12 @@ import { dbUrlHasPlaceholderPassword, dbUrlIsParsable, refFromApiUrl, refFromDbU
 export const DISPOSABLE_ACK = 'yes-this-project-is-disposable';
 export const INTEGRATIONS_ROLE = 'praxa_integrations';
 
-const ROLE_USER = /^praxa_integrations\.([a-z0-9]{20})$/;
-
 /** Referencia de proyecto del usuario `praxa_integrations.<ref>`, o null si no se deduce. */
 function roleRef(url) {
   let username;
   try { username = decodeURIComponent(url.username); }
   catch { return null; }
-  return username.match(ROLE_USER)?.[1] ?? null;
+  return roleUserRef(username);
 }
 
 /** Comprueba la URL exclusiva del rol sin usar la de runtime como respaldo. No conecta. */
@@ -58,7 +56,7 @@ export function resolveIntegrationsTestTarget(env) {
   if (role.ok) {
     projectRef = roleRef(role.url);
     if (!projectRef) problems.push('La URL del rol debe usar praxa_integrations.<ref>.');
-    if (!POOLER_HOST.test(role.url.hostname) || role.url.port !== '6543' || literalAuthorityPort(roleUrl) !== '6543') {
+    if (!isSharedTransactionPooler(role.url, roleUrl)) {
       problems.push('Se requiere el shared transaction pooler en el puerto 6543.');
     }
   }
@@ -70,7 +68,7 @@ export function resolveIntegrationsTestTarget(env) {
   if (app?.ok && !appDbRef) {
     problems.push('No se pudo deducir el proyecto de SUPABASE_DB_URL.');
   }
-  if (projectRef && (projectRef === appDbRef || projectRef === appApiRef)) {
+  if (sameProject(projectRef, appDbRef) || sameProject(projectRef, appApiRef)) {
     problems.push('La URL del rol apunta al proyecto de la aplicación.');
   }
   // Por referencia de proyecto, no por cadena: otro host del pooler o la contraseña
@@ -80,7 +78,7 @@ export function resolveIntegrationsTestTarget(env) {
     try { runtimeRef = roleRef(new URL(env.PRAXA_INTEGRATIONS_DB_URL)); }
     catch { /* indeducible */ }
     if (!runtimeRef) problems.push('No se pudo deducir el proyecto de PRAXA_INTEGRATIONS_DB_URL.');
-    else if (projectRef && runtimeRef === projectRef) {
+    else if (sameProject(runtimeRef, projectRef)) {
       problems.push('La URL del rol de pruebas apunta al mismo proyecto que la URL de runtime.');
     }
   }
@@ -147,14 +145,14 @@ export function resolveSqlTestTarget(env) {
 
   // Coincidencia por proyecto, que atrapa además el caso de dos cadenas distintas
   // (pooler y conexión directa) hacia el mismo proyecto.
-  if (testRef && (testRef === appDbRef || testRef === appApiRef)) {
+  if (sameProject(testRef, appDbRef) || sameProject(testRef, appApiRef)) {
     problems.push(
       `SUPABASE_TEST_DB_URL apunta al proyecto ${testRef}, que es el de la aplicación. ` +
         'Usá un proyecto aparte y desechable.',
     );
   }
 
-  if (testApiUrl && appApiUrl && (testApiUrl === appApiUrl || (testApiRef && testApiRef === appApiRef))) {
+  if (testApiUrl && appApiUrl && (testApiUrl === appApiUrl || sameProject(testApiRef, appApiRef))) {
     problems.push(
       'SUPABASE_TEST_URL y NEXT_PUBLIC_SUPABASE_URL son el mismo proyecto.',
     );
@@ -164,7 +162,7 @@ export function resolveSqlTestTarget(env) {
     problems.push('SUPABASE_TEST_DB_URL contiene parámetros de conexión no permitidos.');
   }
 
-  if (testApiRef && (testApiRef === appDbRef || (testRef && testApiRef !== testRef))) {
+  if (sameProject(testApiRef, appDbRef) || (testApiRef && testRef && testApiRef !== testRef)) {
     problems.push('SUPABASE_TEST_URL no identifica el proyecto SQL de pruebas separado de la aplicación.');
   }
   if (appDbUrl && !appDbRef) problems.push('No se pudo deducir el proyecto de SUPABASE_DB_URL.');

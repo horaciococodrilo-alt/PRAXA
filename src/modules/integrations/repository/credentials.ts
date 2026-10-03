@@ -11,7 +11,7 @@ import {
   type SecretCredential,
   type TokenType,
 } from '@/modules/integrations/contract';
-import { isoDateTimeSchema, uuidSchema } from '@/modules/integrations/contract/primitives';
+import { PG_INT4_MAX, isoDateTimeSchema, uuidSchema } from '@/modules/integrations/contract/primitives';
 import type { TenantContext } from '@/modules/tenant/context';
 import { getCredentialKeyring, type CredentialKeyring } from '../crypto/keyring';
 import { openCredential, sealCredential, type SecretValue } from '../crypto/seal';
@@ -79,7 +79,7 @@ const writeSchema = z.strictObject({
 });
 const pendingSchema = writeSchema.extend({ clientBusinessId: clientBusinessIdSchema });
 const replaceSchema = writeSchema.extend({ connectionId: uuidSchema, attemptId: uuidSchema });
-const MAX_VERSION = 2_147_483_647;
+const MAX_VERSION = PG_INT4_MAX;
 const READ_STATUSES = new Set(['pending_selection', 'active', 'needs_reauth', 'disconnected']);
 const REWRAP_STATUSES = new Set(['pending_selection', 'active', 'needs_reauth']);
 
@@ -113,12 +113,15 @@ function validVersion(version: number): number {
   return version;
 }
 
+/** El valor es un objeto simple cuyas claves propias son exactamente `keys` (H-E1-65). */
+function hasExactKeys(value: unknown, keys: readonly string[]): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value) &&
+    Object.keys(value).length === keys.length && Object.keys(value).every((key) => keys.includes(key)));
+}
+
 function record(value: unknown, keys: readonly string[]): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value) ||
-      Object.keys(value).length !== keys.length || Object.keys(value).some((key) => !keys.includes(key))) {
-    invalidResponse();
-  }
-  return value as Record<string, unknown>;
+  if (!hasExactKeys(value, keys)) invalidResponse();
+  return value;
 }
 
 function one(rows: unknown, keys: readonly string[]): Record<string, unknown> {
@@ -321,11 +324,8 @@ export async function countCredentialsByKeyVersion(
   if (!Array.isArray(rows)) unexpectedResponse();
   const seen = new Set<number>();
   return rows.map((value) => {
-    if (!value || typeof value !== 'object' || Array.isArray(value) ||
-        Object.keys(value).length !== 2 || !Object.hasOwn(value, 'key_version') || !Object.hasOwn(value, 'credential_count')) {
-      unexpectedResponse();
-    }
-    const row = value as Record<string, unknown>;
+    if (!hasExactKeys(value, ['key_version', 'credential_count'])) unexpectedResponse();
+    const row = value;
     const version = row.key_version;
     if (!Number.isInteger(version) || (version as number) < 1 || (version as number) > MAX_VERSION || seen.has(version as number)) {
       unexpectedResponse();

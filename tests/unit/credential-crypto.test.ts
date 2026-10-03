@@ -850,6 +850,23 @@ describe('M06.3a paso 2 RED: cliente worker_api', () => {
       await client.end();
     } finally { vi.unstubAllEnvs(); }
   });
+
+  it('H-E1-61 el manejador del pool inactivo registra un mensaje fijo sin el error original', async () => {
+    pgState.listeners.length = 0;
+    const client = createWorkerApi({ connectionString: roleUrl });
+    const entry = pgState.listeners.find((item) => Array.isArray(item) && item[0] === 'error');
+    const [, listener] = entry as [string, (error: Error) => void];
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      listener(Object.assign(new Error('marca-sintetica-confidencial'), { host: 'host-secreto', code: 'ECONNRESET' }));
+      expect(errorLog).toHaveBeenCalledTimes(1);
+      const [message, ...rest] = errorLog.mock.calls[0] as unknown[];
+      expect(rest).toEqual([]);
+      expect(message).not.toContain('marca-sintetica-confidencial');
+      expect(message).not.toContain('host-secreto');
+      expect(message).not.toContain(roleUrl);
+    } finally { errorLog.mockRestore(); await client.end(); }
+  });
 });
 
 describe('M06.3a paso 4 RED: configuración obligatoria de la suite real', () => {

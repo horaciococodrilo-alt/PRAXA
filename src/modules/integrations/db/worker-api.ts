@@ -2,8 +2,7 @@ import 'server-only';
 
 import pg from 'pg';
 
-import { inspectConnectionUrl, literalAuthorityPort, POOLER_HOST } from './connection-url.mjs';
-import { SUPABASE_ROOT_CA } from './supabase-root-ca.mjs';
+import { inspectConnectionUrl, isSharedTransactionPooler, roleUserRef, supabaseTlsConfig } from './connection-url.mjs';
 
 export { SUPABASE_ROOT_CA } from './supabase-root-ca.mjs';
 
@@ -83,8 +82,6 @@ const SQL: Record<WorkerApiFunction, string> = Object.fromEntries(
   ]),
 ) as Record<WorkerApiFunction, string>;
 
-const ROLE_USER = /^praxa_integrations\.[a-z0-9]{20}$/;
-
 /**
  * pg y pg-pool emiten la pérdida de conexión y los timeouts de conexión como `Error`
  * sin `code` (pg/lib/client.js y pg-pool/index.js), así que se reconocen por mensaje
@@ -115,8 +112,7 @@ function validateConnectionString(connectionString: string): void {
   let username: string;
   try { username = decodeURIComponent(url.username); }
   catch { configInvalid(); }
-  if (!ROLE_USER.test(username) || !POOLER_HOST.test(url.hostname) || url.port !== '6543' ||
-      literalAuthorityPort(connectionString) !== '6543') {
+  if (!roleUserRef(username) || !isSharedTransactionPooler(url, connectionString)) {
     configInvalid('Se requiere el shared transaction pooler en el puerto 6543.');
   }
 }
@@ -159,12 +155,14 @@ export function createWorkerApi(options: { connectionString: string } | { pool: 
       query_timeout: 15_000,
       application_name: 'praxa-worker-api',
       allowExitOnIdle: true,
-      sslnegotiation: 'postgres',
-      ssl: { ca: SUPABASE_ROOT_CA, rejectUnauthorized: true },
+      ...supabaseTlsConfig(),
     };
     pool = new pg.Pool(config);
   }
-  pool.on('error', () => { /* Nunca registrar el error original del pool inactivo. */ });
+  // Nunca registrar el error original (puede traer host o usuario, spec.md:211); como
+  // mucho, un mensaje fijo, para no perder toda observabilidad de un pool degradado
+  // (H-E1-61).
+  pool.on('error', () => { console.error('praxa-worker-api: error en un cliente inactivo del pool.'); });
   return {
     async call<Row extends pg.QueryResultRow = pg.QueryResultRow>(fn: WorkerApiFunction, args: readonly unknown[]): Promise<Row[]> {
       if (!Object.hasOwn(SQL, fn) || !Array.isArray(args) || args.length !== SQL_CASTS[fn].length) {

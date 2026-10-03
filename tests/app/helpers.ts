@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { refFromApiUrl, refFromDbUrl } from '../../scripts/lib/target.mjs';
+import { refFromApiUrl, refFromDbUrl, sameProject } from '../../scripts/lib/target.mjs';
 
 /**
  * Utilidades para las pruebas de aplicación contra un proyecto REMOTO de Supabase.
@@ -59,7 +59,7 @@ export function blockedReason(): string | null {
   if (!testRef || (appUrl && !appRef) || (process.env.SUPABASE_DB_URL && !appDbRef)) {
     return 'No se pudo verificar que el proyecto de pruebas sea distinto del de la aplicación.';
   }
-  if ((appRef && appRef === testRef) || (appDbRef && appDbRef === testRef)) {
+  if (sameProject(appRef, testRef) || sameProject(appDbRef, testRef)) {
     return (
       'SUPABASE_TEST_URL apunta al mismo proyecto que usa la aplicación ' +
       '(NEXT_PUBLIC_SUPABASE_URL). Usá un proyecto aparte y desechable.'

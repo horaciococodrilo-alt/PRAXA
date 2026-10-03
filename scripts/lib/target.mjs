@@ -49,6 +49,20 @@ export function refFromDbUrl(url) {
   }
 }
 
+/**
+ * Dos referencias de proyecto son "el mismo proyecto" solo si ambas existen y son
+ * iguales; `null` nunca coincide con `null`. La usan `resolveTarget`,
+ * `resolveSqlTestTarget`, `resolveIntegrationsTestTarget` y `tests/app/helpers.ts` para
+ * que la regla de "mismo proyecto que la aplicación" no diverja entre esas guardas
+ * (hallazgo de la ultrareview sobre H-E1-59 a H-E1-66).
+ * @param {string | null} a
+ * @param {string | null} b
+ * @returns {boolean}
+ */
+export function sameProject(a, b) {
+  return Boolean(a) && Boolean(b) && a === b;
+}
+
 /** La cadena de conexión debe parsear; si no, casi siempre es la contraseña sin codificar. */
 export function dbUrlIsParsable(url) {
   if (!url) return false;
@@ -198,14 +212,14 @@ export function resolveTarget(scope, options = {}) {
     const appApiRef = refFromApiUrl(appUrl);
     const appDbRef = refFromDbUrl(env.SUPABASE_DB_URL);
 
-    if (apiUrl && appUrl && (apiUrl === appUrl || (apiRef && apiRef === appApiRef))) {
+    if (apiUrl && appUrl && (apiUrl === appUrl || sameProject(apiRef, appApiRef))) {
       problems.push(
         'SUPABASE_TEST_URL apunta al mismo proyecto que la aplicación. Usá un proyecto ' +
           'aparte y desechable.',
       );
     }
 
-    if (appDbRef && (appDbRef === apiRef || appDbRef === dbRef)) {
+    if (sameProject(appDbRef, apiRef) || sameProject(appDbRef, dbRef)) {
       problems.push('El destino de pruebas apunta al proyecto de SUPABASE_DB_URL.');
     }
     if (env.SUPABASE_DB_URL && !appDbRef) {

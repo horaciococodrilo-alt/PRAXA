@@ -73,6 +73,17 @@ Registro único de hallazgos documentados en la auditoría M04.1, el baseline M0
 | `H-E1-56` | Corregido en árbol de trabajo: validación de URL de conexión copiada en tres archivos | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 | `H-E1-57` | Corregido en árbol de trabajo: `resolveTarget` sumaba un "no se pudo deducir" redundante | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 | `H-E1-58` | Corregido en árbol de trabajo: la guarda T-21 releía `src/` en cada prueba | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-59` | Corregido en árbol de trabajo: usuario del rol y puerto del pooler validados por separado en `worker-api.ts` y `sql-target.mjs` | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-60` | Corregido en árbol de trabajo: `test-db-client.mjs` no usaba la guarda de forma compartida de `H-E1-56` | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-61` | Corregido en árbol de trabajo: el manejador del pool inactivo no registraba ninguna señal | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-62` | Corregido en árbol de trabajo: el límite de `integer` de Postgres copiado en tres archivos | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-63` | Corregido en árbol de trabajo: decodificación base64 de claves duplicada entre `keyring.ts` y `seal.ts` | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-64` | Corregido en árbol de trabajo: regla base64 copiada entre `seal.ts` y el esquema de `primitives.ts` | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-65` | Corregido en árbol de trabajo: chequeo de forma de fila duplicado en `credentials.ts` | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-66` | Corregido en árbol de trabajo: `PROJECT_STATE.md` tenía detalle de hallazgos y de decisión prohibido por el contrato documental | M06.3a (corrección de revisión solicitada por el usuario) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-67` | Corregido en árbol de trabajo: `verifiedTestDbConfig` podía reventar fuera del mensaje curado de `run-pgtap.mjs` | M06.3a (corrección de revisión solicitada por el usuario, `/code-review ultra`) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-68` | Corregido en árbol de trabajo: "mismo proyecto que la app" reimplementado en tres archivos | M06.3a (corrección de revisión solicitada por el usuario, `/code-review ultra`) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| `H-E1-69` | Corregido en árbol de trabajo: configuración TLS de `pg` copiada entre `worker-api.ts` y `test-db-client.mjs` | M06.3a (corrección de revisión solicitada por el usuario, `/code-review ultra`) | [Sesión M06.3a](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 
 `H-E1-49` — Impacto: `next=/\evil.example/` pasaba la guarda de login y `router.replace`
 podía enviar al usuario fuera de PRAXA. Evidencia: guarda anterior en `login/page.tsx` y
@@ -140,6 +151,101 @@ comprobaciones de forma. La prueba de regresión falló antes del cambio.
 `H-E1-58` — Impacto: cinco pruebas de T-21 recorrían y leían `src/` por separado (la del
 llavero, dos veces). Corrección: un `beforeAll` lee el árbol una vez; las aserciones no
 cambian.
+
+`H-E1-59` — Impacto: el patrón del usuario del rol (`praxa_integrations.<ref>`) y el
+chequeo del shared transaction pooler en el puerto 6543 estaban reimplementados por
+separado en `worker-api.ts` y `sql-target.mjs`, con regexes ya divergentes (uno sin grupo
+de captura, el otro con uno). Un cambio futuro al prefijo del rol o al puerto podía
+corregir una guarda y dejar la otra desactualizada, justo las dos cuyo trabajo es
+coincidir. Corrección: `roleUserRef` e `isSharedTransactionPooler` en
+`connection-url.mjs`, usadas por ambos archivos. Comportamiento sin cambios: las suites
+existentes pasan sin modificar sus aserciones.
+
+`H-E1-60` — Impacto: el comentario de `connection-url.mjs` (`H-E1-56`) afirma que las
+tres guardas "aceptan exactamente las mismas URLs", pero `test-db-client.mjs` seguía con
+su propio chequeo ad hoc, sin usuario/contraseña exigidos, sin puerto ni ruta obligatorios.
+Una `SUPABASE_TEST_DB_URL` sin credenciales o sin ruta pasaba esta guarda pero la hubiera
+rechazado el resolvedor de destino. Corrección: `verifiedTestDbConfig` llama a
+`inspectConnectionUrl(connectionString, { allowTls: true })`, igual que `sql-target.mjs`
+para esa misma variable. Las dos pruebas de regresión (sin userinfo, sin ruta) fallaron
+antes del cambio y pasaron después.
+
+`H-E1-61` — Impacto: `pool.on('error', …)` no registraba ninguna señal, ni siquiera un
+mensaje fijo, pese a que `spec.md:211` permite "como mucho, un mensaje fijo" sin el error
+original. Una degradación sostenida del pool (red, credencial rotada) no dejaba ningún
+rastro. Corrección: el manejador registra un mensaje fijo sin el error, el host ni el
+usuario. La prueba de regresión invoca el manejador con un error sintético que incluye
+host y mensaje marcados, y comprueba que el mensaje registrado no los contiene.
+
+`H-E1-62` — Impacto: el límite de un `integer` de Postgres (`2_147_483_647`) estaba
+repetido como constante nombrada en `keyring.ts` y `credentials.ts`, y como literal sin
+nombre en `seal.ts`; un cambio al límite real (por ejemplo si `key_version` pasara a
+`bigint`) no tenía garantía de alcanzar las tres validaciones. Corrección: `PG_INT4_MAX`
+en `contract/primitives.ts`, importado por los tres archivos. Comportamiento sin cambios.
+
+`H-E1-63` — Impacto: `keyring.ts` decodificaba las claves del llavero a mano (regex propia
+de 43 caracteres más `=`, luego `Buffer.from` y comparación de ida y vuelta), duplicando
+en espíritu el `decodeBase64` privado de `seal.ts`, que ya hace decodificación canónica
+con largo exacto para el mismo tipo de material. Corrección: `decodeBase64` se exporta de
+`seal.ts` y `keyring.ts` lo reutiliza con `length: 32`, sin cambiar los casos aceptados o
+rechazados (verificado con los casos de prueba existentes: base64 inválido, 31 y 33 bytes).
+
+`H-E1-64` — Impacto: la regex de base64 en `seal.ts` era una copia carácter por carácter
+de la regex detrás de `base64Schema` en `contract/primitives.ts`, que el propio `seal.ts`
+ya importa para otras cosas. Corrección: `BASE64_PATTERN` se exporta una sola vez desde
+`primitives.ts` y la usan tanto `base64Schema` como `decodeBase64`.
+
+`H-E1-65` — Impacto: `countCredentialsByKeyVersion` repetía a mano el mismo chequeo de
+"objeto simple con exactamente estas claves" que ya hace `record()` (usado por `one()`),
+con una implementación ligeramente distinta (`Object.hasOwn` en vez de
+`Object.keys().every()`) que podía divergir en un endurecimiento futuro de una sin la
+otra. Corrección: `hasExactKeys()` concentra el chequeo; `record()` y
+`countCredentialsByKeyVersion` lo usan, cada uno con su propio error de dominio
+(`invalidResponse` vs `unexpectedResponse`, sin cambios).
+
+`H-E1-66` — Impacto: la fila de M06.3a en `PROJECT_STATE.md` incluía el detalle completo
+de la decisión de cierre de `G-CRYPTO` (IDs de hallazgos, el veredicto de
+`implementation-review-13.md`, el análisis de falso positivo), contra la regla explícita
+de `AGENTS.md` de que ese archivo "no debe contener… decisiones, detalle de hallazgos".
+Ese detalle ya vive íntegro en `sesiones/M06.3a.md`. Corrección: la celda se recorta al
+estado (aprobado por decisión del usuario, sin veredicto final de revisión/QA) con enlace
+a la sesión para el detalle; no se perdió información, solo la única fuente que debía
+tenerla.
+
+`H-E1-67` — Impacto: `verifiedTestDbConfig()` es más estricta (exige usuario, contraseña,
+puerto y ruta explícitos, sin encoding ambiguo) que la comprobación previa
+`resolveSqlTestTarget()`/`dbUrlIsParsable()`, y la llamada estaba fuera del `try/catch`
+que da el mensaje curado de `run-pgtap.mjs`. Una `SUPABASE_TEST_DB_URL` sin puerto,
+credenciales o con un `%` parcialmente codificado pasaba el chequeo liviano y hacía
+reventar el script con una excepción sin capturar en vez de "No se pudo conectar...".
+Corrección: la construcción de la configuración se movió dentro del mismo `try` que
+`client.connect()`. Verificado corriendo `npm run test:policies` contra el proyecto
+desechable real: 11 archivos, 461 aserciones, 0 problemas.
+
+`H-E1-68` — Impacto: la regla "¿el destino de pruebas es el mismo proyecto que la
+aplicación?" estaba reimplementada por separado en `target.mjs`, `sql-target.mjs` (dos
+funciones) y `tests/app/helpers.ts`, con la forma `ref && ref === otraRef` repetida seis
+veces. Ya había pasado que algunas de esas guardas no honraban una corrección a tiempo
+(antecedente de `SUPABASE_TEST_ALLOW_APP_PROJECT`, T-23). Corrección: `sameProject(a, b)`
+en `target.mjs`, que las tres guardas importan. Comportamiento sin cambios, verificado
+sin modificar ninguna aserción existente, incluyendo `tests/app/helpers.ts` contra el
+proyecto desechable real (`npm run test:app`).
+
+`H-E1-69` — Impacto: el bloque de configuración TLS (`sslnegotiation: 'postgres'`,
+`ssl: { ca: SUPABASE_ROOT_CA, rejectUnauthorized: true }`) estaba copiado literal entre
+`worker-api.ts` y `test-db-client.mjs`. Corrección: `supabaseTlsConfig()` en
+`connection-url.mjs`, junto a la CA y las demás guardas compartidas; ambos archivos la
+importan. Comportamiento sin cambios, verificado con `npm run test:policies` (conexión
+TLS real al proyecto desechable) y la prueba T-48/T-50 existente, que sigue comprobando
+la configuración efectiva del `Pool` sin modificarse.
+
+**No corregidos, requieren decisión de spec:** la clase `28` (`28000`, `28P01`, fallos de
+autorización/contraseña del rol) se clasifica como `unavailable` igual que `53300`/`57P01`/
+`57P03`, por tabla explícita de la spec (spec.md, tabla de `translated()`); y
+`readCredential` espera el intento de `rewrap_credential` antes de devolver la credencial,
+por diseño de C-23/D-M06.3a-09 (la señal `unconfirmed` depende de intentarlo primero). Una
+revisión de código señaló ambos como posibles mejoras; cambiarlos requiere decisión del
+usuario sobre la spec, no una corrección de implementación.
 
 `H-E1-43` — Impacto: la guarda del rol podía aceptar una configuración de pruebas sin
 descartar el proyecto de la aplicación cuando la URL SQL de app estaba definida pero su
