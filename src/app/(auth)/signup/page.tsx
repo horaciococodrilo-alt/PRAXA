@@ -1,10 +1,20 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 
+import {
+  AltAction,
+  AuthCard,
+  AuthField,
+  AuthForm,
+  AuthSplit,
+  Notice,
+  SignupAside,
+  SubmitButton,
+  TextInput,
+} from '@/components/auth/parts';
+import { PasswordInput } from '@/components/auth/password-input';
 import { ConfigurationMissing } from '@/components/configuration-missing';
-import { Button, Callout, Card, Field, Input } from '@/components/ui';
 import { getSiteUrl, isSupabaseConfigured } from '@/lib/env';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
@@ -49,66 +59,65 @@ export default function SignupPage() {
 
   if (sent) {
     return (
-      <Card>
-        <h1 className="text-xl font-semibold tracking-tight">Revisá tu correo</h1>
-        <p className="mt-3 text-sm text-muted">
-          Enviamos un enlace de verificación a <strong className="text-foreground">{email}</strong>.
-          Abrilo para confirmar tu cuenta y continuar con la configuración de tu empresa.
-        </p>
-        <p className="mt-4 text-sm text-muted">
-          ¿Ya lo confirmaste?{' '}
-          <Link href="/login" className="font-medium text-accent hover:underline">
-            Iniciar sesión
-          </Link>
-        </p>
-      </Card>
+      <AuthCard
+        narrow
+        title="Revisá tu correo"
+        subtitle={
+          <>
+            Enviamos un enlace de verificación a <strong>{email}</strong>. Abrilo para confirmar tu
+            cuenta y continuar con la configuración de tu empresa.
+          </>
+        }
+        footer={<AltAction text="¿Ya lo confirmaste?" href="/login" action="Iniciá sesión" />}
+      />
     );
   }
 
   return (
-    <Card>
-      <h1 className="text-xl font-semibold tracking-tight">Crear cuenta</h1>
-      <p className="mt-2 text-sm text-muted">
-        Vas a ser el administrador del espacio de tu empresa.
-      </p>
+    <AuthSplit aside={<SignupAside />}>
+      <AuthCard
+        title="Creá tu cuenta"
+        footer={<AltAction text="¿Ya tenés una cuenta?" href="/login" action="Iniciá sesión" />}
+      >
+        <AuthForm onSubmit={handleSubmit}>
+          <AuthField label="Email">
+            {(field) => (
+              <TextInput
+                {...field}
+                type="email"
+                name="email"
+                autoComplete="email"
+                placeholder="tu@email.com"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            )}
+          </AuthField>
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        <Field label="Correo electrónico" required>
-          <Input
-            type="email"
-            name="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-        </Field>
+          <AuthField label="Contraseña" hint="Mínimo 8 caracteres.">
+            {(field) => (
+              <PasswordInput
+                {...field}
+                toggle="texto"
+                name="password"
+                autoComplete="new-password"
+                placeholder="Creá una contraseña"
+                required
+                minLength={8}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            )}
+          </AuthField>
 
-        <Field label="Contraseña" required hint="Mínimo 8 caracteres.">
-          <Input
-            type="password"
-            name="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </Field>
+          {error ? <Notice tone="danger">{error}</Notice> : null}
 
-        {error ? <Callout tone="danger">{error}</Callout> : null}
-
-        <Button type="submit" className="w-full" disabled={pending}>
-          {pending ? 'Creando cuenta…' : 'Crear cuenta'}
-        </Button>
-      </form>
-
-      <p className="mt-6 text-sm text-muted">
-        ¿Ya tenés cuenta?{' '}
-        <Link href="/login" className="font-medium text-accent hover:underline">
-          Iniciar sesión
-        </Link>
-      </p>
-    </Card>
+          <SubmitButton pending={pending} pendingLabel="Creando cuenta…">
+            Crear cuenta
+          </SubmitButton>
+        </AuthForm>
+      </AuthCard>
+    </AuthSplit>
   );
 }
