@@ -63,10 +63,19 @@ function Dato({ label, children, className }: { label: string; children: ReactNo
 export function Hero() {
   return (
     <section aria-labelledby="hero-t" className={s.hero}>
-      <picture>
-        <source media="(min-width: 768px)" srcSet="/landing/hero-campo-ancho.svg" />
-        <Img src="hero-campo-angosto.svg" alt="" className={s.campo} />
-      </picture>
+      {/* Fondo de puntos animado, uno por ancho. Con carga diferida el oculto no se
+          descarga; con movimiento reducido se usa la versión quieta. */}
+      {(
+        [
+          ['ancho', shared.soloEsc],
+          ['angosto', shared.soloMov],
+        ] as const
+      ).map(([campo, visible]) => (
+        <picture key={campo}>
+          <source media="(prefers-reduced-motion: reduce)" srcSet={`/landing/hero-campo-${campo}-quieto.svg`} />
+          <Img src={`hero-campo-${campo}.svg`} alt="" loading="lazy" className={cn(s.campo, visible)} />
+        </picture>
+      ))}
 
       <div className={s.inner}>
         <h1 id="hero-t" className={cn(s.title, shared.rise, s.titleDelay)}>
