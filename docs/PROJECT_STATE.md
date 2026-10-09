@@ -54,7 +54,8 @@ Después de M28.2a, en este orden: M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a.
 - Referencias por número de línea a `SECURITY.md` en la ficha de M03a, el plan y la spec
   (`H-E1-40`).
 - Pendientes de MF_FRONTEND: contraste en modo claro (`H-E1-76`), texto del CTA móvil
-  (`H-E1-78`) y prevención en `.gitignore` de `H-E1-81`.
+  (`H-E1-78`), prevención en `.gitignore` de `H-E1-81` y el texto de la landing sobre
+  disponibilidad de Meta Ads (`H-E1-82`).
 
 ## Regla de actualización
 

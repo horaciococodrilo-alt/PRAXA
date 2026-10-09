@@ -97,7 +97,7 @@ export function Hero() {
             {SOURCES.map((src) => (
               <div key={src.label} className={cn(s.source, shared.left, src.delay)}>
                 {src.logoDark ? (
-                  <ThemedImg light={src.logo} dark={src.logoDark} width={src.w} height={src.h} alt={src.alt} loading="eager" />
+                  <ThemedImg light={src.logo} dark={src.logoDark} width={src.w} height={src.h} alt={src.alt} />
                 ) : (
                   <Img src={src.logo} width={src.w} height={src.h} alt={src.alt} />
                 )}
@@ -105,7 +105,7 @@ export function Hero() {
               </div>
             ))}
             <div className={cn(s.source, s.sourceMore, shared.left, shared.d5, shared.soloEsc)}>
-              <ThemedImg light="fuente-mas.svg" dark="fuente-mas-osc.svg" alt="Icono de mas integraciones" loading="eager" />
+              <ThemedImg light="fuente-mas.svg" dark="fuente-mas-osc.svg" alt="Icono de mas integraciones" />
               <span>Y más</span>
             </div>
           </div>
@@ -145,7 +145,6 @@ export function Hero() {
                 width={551}
                 height={145}
                 alt="Praxa"
-                loading="eager"
               />
               <span>Resultado</span>
             </div>

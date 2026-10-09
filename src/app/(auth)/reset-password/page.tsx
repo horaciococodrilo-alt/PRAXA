@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { authErrorMessage, passwordProblem } from '@/components/auth/errors';
+import { MIN_PASSWORD_LENGTH, authErrorMessage, passwordProblem } from '@/components/auth/errors';
 import { AuthCard, AuthField, AuthForm, Notice, SubmitButton } from '@/components/auth/parts';
 import { PasswordInput } from '@/components/auth/password-input';
 import { ConfigurationMissing } from '@/components/configuration-missing';
@@ -64,14 +64,14 @@ export default function ResetPasswordPage() {
   return (
     <AuthCard narrow title="Elegí una contraseña nueva" subtitle="Vas a usarla para iniciar sesión.">
       <AuthForm onSubmit={handleSubmit}>
-        <AuthField label="Contraseña nueva" hint="Mínimo 8 caracteres.">
+        <AuthField label="Contraseña nueva" hint={`Mínimo ${MIN_PASSWORD_LENGTH} caracteres.`}>
           {(field) => (
             <PasswordInput
               {...field}
               autoComplete="new-password"
               placeholder="••••••••"
               required
-              minLength={8}
+              minLength={MIN_PASSWORD_LENGTH}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />

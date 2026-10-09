@@ -2,9 +2,28 @@ import Link from 'next/link';
 import { useId, type ComponentProps, type ReactNode } from 'react';
 
 import { cn } from '@/components/ui';
+import { ThemedImg } from '@/components/landing/img';
 
 import s from './auth.module.css';
 import { ArrowRightIcon, BrainIcon, LockIcon, ShieldCheckIcon, ZapIcon } from './icons';
+
+/**
+ * Marco de las pantallas de acceso (logo, fondo liso) y de 404: mismo logo, mismo header.
+ * El llamador envuelve con `LandingRoot` (tokens, tipografías y tema): acá solo va el
+ * marcado que antes se repetía en cada página.
+ */
+export function AuthShell({ children }: { children: ReactNode }) {
+  return (
+    <div className={s.shell}>
+      <header className={s.header}>
+        <Link href="/" aria-label="Praxa, ir al inicio">
+          <ThemedImg light="logo-praxa-tinta.png" dark="logo-praxa-blanco.png" width={551} height={145} alt="" />
+        </Link>
+      </header>
+      <main className={s.main}>{children}</main>
+    </div>
+  );
+}
 
 /** Formulario a la derecha y panel de presentación a la izquierda (oculto en móvil). */
 export function AuthSplit({ aside, children }: { aside: ReactNode; children: ReactNode }) {

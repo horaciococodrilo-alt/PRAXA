@@ -26,9 +26,13 @@ export function authErrorMessage(error: AuthErrorLike, fallback: string): string
   return fallback;
 }
 
-/** Contraseña aceptable para crear o cambiar: 8 caracteres y no solo espacios. */
+export const MIN_PASSWORD_LENGTH = 8;
+
+/** Contraseña aceptable para crear o cambiar: `MIN_PASSWORD_LENGTH` caracteres y no solo espacios. */
 export function passwordProblem(password: string): string | null {
-  if (password.length < 8) return 'La contraseña debe tener al menos 8 caracteres.';
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`;
+  }
   if (password.trim() === '') return 'La contraseña no puede tener solo espacios.';
   return null;
 }

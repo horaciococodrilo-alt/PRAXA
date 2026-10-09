@@ -76,7 +76,6 @@ export function Nav() {
             alt="Praxa"
             width={551}
             height={145}
-            loading="eager"
             className={s.brandLogo}
           />
         </Link>
@@ -112,7 +111,6 @@ export function Nav() {
                 alt="Praxa"
                 width={551}
                 height={145}
-                loading="eager"
                 className={s.panelLogo}
               />
               <button

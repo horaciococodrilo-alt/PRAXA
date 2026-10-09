@@ -25,7 +25,7 @@ function Grupo({ duplicado = false }: { duplicado?: boolean }) {
       {ACTIVAS.map((t) => (
         <span key={t.name} className={s.activa}>
           {t.dark ? (
-            <ThemedImg light={t.logo} dark={t.dark} width={t.w} height={t.h} alt={`Logo de ${t.name}`} loading="eager" />
+            <ThemedImg light={t.logo} dark={t.dark} width={t.w} height={t.h} alt={`Logo de ${t.name}`} />
           ) : (
             <Img src={t.logo} width={t.w} height={t.h} alt={`Logo de ${t.name}`} />
           )}
@@ -44,7 +44,6 @@ function Grupo({ duplicado = false }: { duplicado?: boolean }) {
                 height={t.h}
                 alt={`Logo de ${t.alt}`}
                 className={t.size}
-                loading="eager"
               />
               <span>{t.name}</span>
             </span>

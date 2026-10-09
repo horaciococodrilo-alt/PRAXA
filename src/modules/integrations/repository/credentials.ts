@@ -12,7 +12,7 @@ import {
   type TokenType,
 } from '@/modules/integrations/contract';
 import { PG_INT4_MAX, isoDateTimeSchema, uuidSchema } from '@/modules/integrations/contract/primitives';
-import type { TenantContext } from '@/modules/tenant/context';
+import { tenantContextSchema, type TenantContext } from '@/modules/tenant/context';
 import { getCredentialKeyring, type CredentialKeyring } from '../crypto/keyring';
 import { openCredential, sealCredential, type SecretValue } from '../crypto/seal';
 import { getWorkerApi, WorkerApiError, type WorkerApi } from '../db/worker-api';
@@ -63,13 +63,6 @@ export class CredentialChangedError extends Error {
   constructor() { super('La credencial cambió; volvé a empezar.'); this.name = 'CredentialChangedError'; }
 }
 
-const contextSchema = z.strictObject({
-  user_id: uuidSchema,
-  company_id: uuidSchema,
-  role: z.literal('owner'),
-  request_id: uuidSchema,
-});
-
 const writeSchema = z.strictObject({
   token: z.string().min(1),
   tokenType: tokenTypeSchema,
@@ -97,7 +90,7 @@ function invalidResponse(): never { throw new CredentialRepositoryError('invalid
 function unexpectedResponse(): never { throw new WorkerApiError('unexpected', 'other', 'Respuesta de base de datos inválida.'); }
 
 function context(input: TenantContext): TenantContext {
-  const parsed = contextSchema.safeParse(input);
+  const parsed = tenantContextSchema.safeParse(input);
   if (!parsed.success) invalidInput();
   return parsed.data;
 }

@@ -14,7 +14,7 @@ import {
   SubmitButton,
   TextInput,
 } from '@/components/auth/parts';
-import { authErrorMessage, passwordProblem } from '@/components/auth/errors';
+import { MIN_PASSWORD_LENGTH, authErrorMessage, passwordProblem } from '@/components/auth/errors';
 import { PasswordInput } from '@/components/auth/password-input';
 import { ConfigurationMissing } from '@/components/configuration-missing';
 import { getSiteUrl, isSupabaseConfigured } from '@/lib/env';
@@ -54,10 +54,14 @@ export default function SignupPage() {
 
       // Avisar que el correo ya tiene cuenta revela qué correos están registrados: es un
       // riesgo aceptado por el usuario (H-E1-73, SECURITY.md §12). Supabase lo señala de
-      // dos formas: con la confirmación por correo activa no da error, pero devuelve un
-      // usuario sin identidades y no envía nada; sin confirmación, responde
-      // user_already_exists.
-      if (signUpError?.code === 'user_already_exists' || data.user?.identities?.length === 0) {
+      // varias formas: con la confirmación por correo activa no da error, pero devuelve
+      // un usuario sin identidades y no envía nada; sin confirmación, responde
+      // user_already_exists o email_exists según la versión.
+      if (
+        signUpError?.code === 'user_already_exists' ||
+        signUpError?.code === 'email_exists' ||
+        data.user?.identities?.length === 0
+      ) {
         setRegistered(true);
         return;
       }
@@ -109,7 +113,7 @@ export default function SignupPage() {
             )}
           </AuthField>
 
-          <AuthField label="Contraseña" hint="Mínimo 8 caracteres.">
+          <AuthField label="Contraseña" hint={`Mínimo ${MIN_PASSWORD_LENGTH} caracteres.`}>
             {(field) => (
               <PasswordInput
                 {...field}
@@ -118,7 +122,7 @@ export default function SignupPage() {
                 autoComplete="new-password"
                 placeholder="Creá una contraseña"
                 required
-                minLength={8}
+                minLength={MIN_PASSWORD_LENGTH}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
               />

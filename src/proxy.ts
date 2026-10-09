@@ -21,6 +21,18 @@ import { readSupabaseEnv } from '@/lib/env';
 const PROTECTED_PREFIXES = ['/app', '/onboarding'];
 const AUTH_ONLY_PREFIXES = ['/login', '/signup'];
 
+function redirectWithSession(url: URL, sessionResponse: NextResponse) {
+  const redirect = NextResponse.redirect(url);
+  for (const cookie of sessionResponse.cookies.getAll()) {
+    redirect.cookies.set(cookie);
+  }
+  for (const header of ['cache-control', 'expires', 'pragma']) {
+    const value = sessionResponse.headers.get(header);
+    if (value !== null) redirect.headers.set(header, value);
+  }
+  return redirect;
+}
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -34,13 +46,16 @@ export async function proxy(request: NextRequest) {
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet) {
+      setAll(cookiesToSet, headers) {
         for (const { name, value } of cookiesToSet) {
           request.cookies.set(name, value);
         }
         response = NextResponse.next({ request });
         for (const { name, value, options } of cookiesToSet) {
           response.cookies.set(name, value, options);
+        }
+        for (const [name, value] of Object.entries(headers)) {
+          response.headers.set(name, value);
         }
       },
     },
@@ -56,14 +71,14 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('next', pathname);
-    return NextResponse.redirect(url);
+    return redirectWithSession(url, response);
   }
 
   if (isAuthenticated && AUTH_ONLY_PREFIXES.some((p) => pathname.startsWith(p))) {
     const url = request.nextUrl.clone();
     url.pathname = '/app';
     url.search = '';
-    return NextResponse.redirect(url);
+    return redirectWithSession(url, response);
   }
 
   return response;

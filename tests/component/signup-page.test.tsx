@@ -59,4 +59,13 @@ describe('Crear cuenta', () => {
     await completar();
     expect(await screen.findByRole('alert')).toHaveTextContent('Ese correo ya tiene una cuenta.');
   });
+
+  it('avisa lo mismo cuando Supabase responde email_exists', async () => {
+    signUp.mockResolvedValue({
+      data: { user: null },
+      error: { code: 'email_exists', message: 'Email already registered' },
+    });
+    await completar();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ese correo ya tiene una cuenta.');
+  });
 });

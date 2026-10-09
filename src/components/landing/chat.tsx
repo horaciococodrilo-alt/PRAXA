@@ -31,8 +31,8 @@ function Preguntas({ items, lineas, lado }: { items: typeof IZQ; lineas: string[
           <ThemedImg light={`${q.icon}.svg`} dark={`${q.icon}-osc.svg`} alt={q.alt} />
           <span>{q.text}</span>
           <svg className={s.linea} width="76" height="104" viewBox="0 0 76 104" fill="none" aria-hidden="true" focusable="false">
-            <path d={lineas[i]} stroke="#3ECFB8" strokeWidth="1.5" strokeLinecap="round" />
-            <circle cx={punto} cy="52" r="2.5" fill="#3ECFB8" />
+            <path d={lineas[i]} stroke="var(--lp-mint)" strokeWidth="1.5" strokeLinecap="round" />
+            <circle cx={punto} cy="52" r="2.5" fill="var(--lp-mint)" />
           </svg>
         </div>
       ))}
@@ -57,7 +57,7 @@ function Pensando({ className }: { className: string }) {
 }
 
 const BARRAS = [
-  { label: 'Remarketing', value: '27%', h: 101, color: '#0E6B5C', delay: '2.7s' },
+  { label: 'Remarketing', value: '27%', h: 101, color: 'var(--lp-accent-ink)', delay: '2.7s' },
   { label: 'Prospecting', value: '18%', h: 68, color: '#2A9B88', delay: '2.82s' },
   { label: 'Lookalike', value: '14%', h: 53, color: '#58BFAC', delay: '2.94s' },
   { label: 'Conversiones', value: '9%', h: 34, color: '#92DECD', delay: '3.06s' },

@@ -4,6 +4,13 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { safeNextPath } from '@/lib/safe-next';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
+const EMAIL_OTP_TYPES = new Set<string>(['signup', 'invite', 'magiclink', 'recovery', 'email_change', 'email']);
+
+/** Valida `type` contra los valores conocidos de `EmailOtpType`: ante la duda, se rechaza. */
+function parseEmailOtpType(value: string | null): EmailOtpType | null {
+  return value && EMAIL_OTP_TYPES.has(value) ? (value as EmailOtpType) : null;
+}
+
 /**
  * Punto de aterrizaje de los enlaces de correo: confirmación de cuenta y recuperación
  * de acceso.
@@ -20,7 +27,7 @@ export async function GET(request: NextRequest) {
 
   const code = searchParams.get('code');
   const tokenHash = searchParams.get('token_hash');
-  const type = searchParams.get('type') as EmailOtpType | null;
+  const type = parseEmailOtpType(searchParams.get('type'));
 
   const next = safeNextPath(searchParams.get('next'));
 
