@@ -7,6 +7,7 @@ import {
   AuthCard,
   AuthField,
   AuthForm,
+  AuthLink,
   AuthSplit,
   Notice,
   SignupAside,
@@ -22,6 +23,7 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [registered, setRegistered] = useState(false);
   const [sent, setSent] = useState(false);
   const [pending, setPending] = useState(false);
 
@@ -30,6 +32,7 @@ export default function SignupPage() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setRegistered(false);
 
     if (password.length < 8) {
       setError('La contraseña debe tener al menos 8 caracteres.');
@@ -39,7 +42,7 @@ export default function SignupPage() {
     setPending(true);
     try {
       const supabase = createSupabaseBrowserClient();
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -47,6 +50,15 @@ export default function SignupPage() {
         },
       });
 
+      // Avisar que el correo ya tiene cuenta revela qué correos están registrados: es un
+      // riesgo aceptado por el usuario (H-E1-73, SECURITY.md §12). Supabase lo señala de
+      // dos formas: con la confirmación por correo activa no da error, pero devuelve un
+      // usuario sin identidades y no envía nada; sin confirmación, responde
+      // user_already_exists.
+      if (signUpError?.code === 'user_already_exists' || data.user?.identities?.length === 0) {
+        setRegistered(true);
+        return;
+      }
       if (signUpError) {
         setError(signUpError.message);
         return;
@@ -111,6 +123,12 @@ export default function SignupPage() {
             )}
           </AuthField>
 
+          {registered ? (
+            <Notice tone="danger">
+              Ese correo ya tiene una cuenta. <AuthLink href="/login">Iniciá sesión</AuthLink> o{' '}
+              <AuthLink href="/forgot-password">recuperá tu contraseña</AuthLink>.
+            </Notice>
+          ) : null}
           {error ? <Notice tone="danger">{error}</Notice> : null}
 
           <SubmitButton pending={pending} pendingLabel="Creando cuenta…">

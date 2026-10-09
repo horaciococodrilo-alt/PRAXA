@@ -310,6 +310,10 @@ Cubierto por `05_delete_carveout.test.sql`.
 - **Las funciones `SECURITY DEFINER` son propiedad de un rol con `bypassrls`.** Cambiar su
   dueño queda fuera de la ruta (CA-14).
 - **Sin limitación de intentos de inicio de sesión** propia, más allá de la de Supabase Auth.
+- **El registro revela si un correo ya tiene cuenta.** Crear cuenta con un correo registrado
+  muestra un aviso en vez de la respuesta neutra de Supabase, así que cualquiera puede comprobar
+  si un correo es usuario de PRAXA. Lo aceptó el usuario por claridad (`H-E1-73`). Recuperar la
+  contraseña e iniciar sesión siguen respondiendo igual exista o no la cuenta.
 - **Sin registro de auditoría** de accesos ni de cambios, más allá de las versiones de
   contexto, las marcas de tiempo y los registros por consulta del chat.
 - **Retención del host del modelo** (sección 8) y **copias de seguridad** (sección 9).
