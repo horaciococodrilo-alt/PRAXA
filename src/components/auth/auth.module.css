@@ -419,6 +419,11 @@
   .cardBody {
     margin-top: 26px;
   }
+
+  /* Menos de 16px hace que el iPhone haga zoom al enfocar el campo. */
+  .input {
+    font-size: 16px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
