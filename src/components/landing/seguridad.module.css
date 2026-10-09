@@ -1,0 +1,67 @@
+.section {
+  box-sizing: border-box;
+  background: var(--lp-section-alt);
+  border-top: 1px solid var(--lp-section-border);
+  padding: 88px 32px;
+}
+
+.container {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 42px;
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 64ch;
+}
+
+.title {
+  margin: 0;
+  font-size: 38px;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.028em;
+  text-wrap: balance;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: 18px;
+}
+
+.punto {
+  box-sizing: border-box;
+  background: var(--lp-card);
+  border: 1px solid var(--lp-border);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.punto img {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: block;
+}
+
+.punto h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.punto p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--lp-ink-muted);
+}
