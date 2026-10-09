@@ -39,12 +39,18 @@ Después de M28.2a, en este orden: M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a.
 - **M16d — App Review y Business Verification:** depende de trámites del usuario ante Meta.
   Hasta su cierre, solo pueden conectarse cuentas de personas con rol en la app (`H-E1-01`).
 - M03 completa, el resto de M05.1, M05.2 y las fuentes Tiendanube y GA4: pospuestas.
+- **MF_FRONTEND — Frontend público (landing y pantallas de acceso):** cerrada el 2026-10-09 por
+  decisión del usuario, sin gate de la ruta, e integrada en `mf/M28.2a`. Desde esa integración
+  el proxy se ejecuta (`src/proxy.ts`). Evidencia en
+  [MF_FRONTEND/ficha.md](FASES/FASE1/MF_FRONTEND/ficha.md).
 
 ## Decisiones pendientes del usuario
 
 - Visibilidad del repositorio y reescritura del historial (`H-E1-04`).
 - Referencias por número de línea a `SECURITY.md` en la ficha de M03a, el plan y la spec
   (`H-E1-40`).
+- Pendientes de MF_FRONTEND: contraste en modo claro (`H-E1-76`), texto del CTA móvil
+  (`H-E1-78`) y prevención en `.gitignore` de `H-E1-81`.
 
 ## Regla de actualización
 

@@ -31,6 +31,8 @@ para lo previsto.
 src/
   app/                      rutas (landing, auth, onboarding, aplicación protegida)
   components/               UI compartida
+    landing/                landing pública: secciones, tokens claro/oscuro y tema
+    auth/                   pantallas de acceso: tarjeta, campos y mensajes de Auth
   lib/
     env.ts                  configuración pública, validada de forma perezosa
     supabase/               clientes de servidor y de navegador (clave publishable)
@@ -141,6 +143,11 @@ Navegador ──► proxy.ts (refresca sesión, redirige) ──► página / Se
           ──► cliente Supabase con clave publishable + JWT ──► Data API (PostgREST)
           ──► PostgreSQL: GRANT + RLS ──► filas de la empresa del usuario
 ```
+
+La superficie pública (existe) queda antes de este camino: la landing (`/`) y las pantallas
+de acceso (`src/app/(auth)`) comparten la raíz `LandingRoot` (tokens, tipografías y tema). Las
+pantallas de acceso llaman a Supabase Auth desde el navegador con la clave publishable y no
+leen datos de ninguna empresa; el destino posterior al login lo valida `safeNextPath`.
 
 Lo usan el onboarding, el contexto, las páginas de la aplicación y, previsto, la lectura de
 conexiones y cobertura y las herramientas del chat. La base conoce al usuario por el JWT.
