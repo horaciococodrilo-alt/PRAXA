@@ -286,7 +286,7 @@ reportes).
 src/app/          rutas (landing, auth, onboarding, aplicación protegida)
 src/modules/      identity · company · tenant · onboarding · reporting/contract · integrations/contract
 src/lib/          configuración y clientes de Supabase
-proxy.ts          refresco de sesión y redirección (no es la autorización final)
+src/proxy.ts      refresco de sesión y redirección (no es la autorización final)
 scripts/          preparación de entorno, verificación de destino, migración, pgTAP
 supabase/         migraciones SQL versionadas y pruebas pgTAP
 tests/            pruebas unitarias y de aplicación

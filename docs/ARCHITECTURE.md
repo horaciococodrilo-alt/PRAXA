@@ -41,7 +41,8 @@ src/
     onboarding/             contexto declarado: esquemas, persistencia, acciones
     reporting/contract/     contrato versionado del reporte (sin generación)
     integrations/contract/  contratos K02–K04: intento OAuth, conexión, credencial
-proxy.ts                    refresco de sesión y redirección (NO autorización)
+  proxy.ts                  refresco de sesión y redirección (NO autorización); Next.js
+                            solo lo carga al mismo nivel que app/
 supabase/
   migrations/               migraciones SQL versionadas
   tests/                    pruebas pgTAP de políticas, privilegios y ciclo de vida

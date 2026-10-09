@@ -42,10 +42,9 @@ async function collectFiles(dir: string): Promise<string[]> {
 
 describe('la aplicación no usa credenciales privilegiadas', () => {
   it('ningún archivo de src/ ni el proxy menciona una clave de servicio', async () => {
-    const files = [
-      ...(await collectFiles(join(projectRoot, 'src'))),
-      join(projectRoot, 'proxy.ts'),
-    ];
+    const files = await collectFiles(join(projectRoot, 'src'));
+    // El proxy vive en src/ (H-E1-75): si se moviera, dejaría de revisarse sin aviso.
+    expect(files).toContain(join(projectRoot, 'src', 'proxy.ts'));
 
     const offenders: string[] = [];
 
