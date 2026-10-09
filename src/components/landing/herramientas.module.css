@@ -1,0 +1,174 @@
+.section {
+  box-sizing: border-box;
+  background: var(--lp-section-alt);
+  border-top: 1px solid var(--lp-section-border);
+  border-bottom: 1px solid var(--lp-section-border);
+  padding: 36px 0 24px;
+  overflow: hidden;
+}
+
+.aviso {
+  margin: 0 16px 20px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lp-ink-subtle);
+}
+
+.mascara {
+  padding-bottom: 16px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  gap: 0;
+  animation: marquee 34s linear infinite;
+}
+
+.grupo {
+  display: flex;
+  align-items: center;
+  gap: 44px;
+  padding-right: 44px;
+}
+
+.activa,
+.proxima {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.activa {
+  gap: 11px;
+}
+
+.activa img,
+.proxima img {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  display: block;
+}
+
+.activa > span {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--lp-ink);
+}
+
+.separador {
+  width: 1px;
+  height: 28px;
+  background: var(--lp-border);
+}
+
+.proximas {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.proximasLista {
+  display: flex;
+  align-items: center;
+  gap: 44px;
+}
+
+.proxima {
+  gap: 10px;
+}
+
+.proxima .logoMedio {
+  width: 48px;
+}
+
+.proxima .logoAncho {
+  width: 60px;
+}
+
+.proxima > span {
+  font-size: 16.5px;
+  font-weight: 600;
+  color: var(--lp-ink-faint);
+}
+
+/* "Próximamente" debajo del grupo gris, con una línea a cada lado. */
+.etiqueta {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--lp-ink-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.etiqueta > span {
+  flex: 1 1 0;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.35;
+}
+
+@media (max-width: 767.98px) {
+  .section {
+    background: var(--lp-section);
+    border-top: 0;
+    padding: 28px 0 16px;
+  }
+
+  .mascara {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  }
+
+  .marquee {
+    animation-duration: 28s;
+  }
+
+  .grupo,
+  .proximasLista {
+    gap: 34px;
+  }
+
+  .grupo {
+    padding-right: 34px;
+  }
+
+  .activa,
+  .proxima {
+    gap: 9px;
+  }
+
+  .activa > span {
+    font-size: 15.5px;
+    letter-spacing: normal;
+  }
+
+  .proxima > span {
+    font-size: 14.5px;
+  }
+}
