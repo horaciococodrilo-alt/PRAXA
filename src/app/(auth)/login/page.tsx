@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 
 import s from '@/components/auth/auth.module.css';
+import { authErrorMessage } from '@/components/auth/errors';
 import { MailIcon } from '@/components/auth/icons';
 import {
   AltAction,
@@ -20,6 +21,7 @@ import {
 import { PasswordInput } from '@/components/auth/password-input';
 import { ConfigurationMissing } from '@/components/configuration-missing';
 import { isSupabaseConfigured } from '@/lib/env';
+import { safeNextPath } from '@/lib/safe-next';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 function LoginForm() {
@@ -44,16 +46,22 @@ function LoginForm() {
 
       if (signInError) {
         setError(
-          signInError.message === 'Email not confirmed'
-            ? 'Todavía no confirmaste tu correo. Abrí el enlace que te enviamos.'
-            : 'No pudimos iniciar sesión. Revisá el correo y la contraseña.',
+          authErrorMessage(
+            {
+              // Versiones viejas de Supabase no mandan el código de "correo sin confirmar".
+              code:
+                signInError.code ??
+                (signInError.message === 'Email not confirmed' ? 'email_not_confirmed' : undefined),
+              status: signInError.status,
+            },
+            'No pudimos iniciar sesión. Revisá el correo y la contraseña.',
+          ),
         );
         return;
       }
 
       // El servidor tiene que volver a leer la sesión desde las cookies.
-      const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/app';
-      router.replace(safeNext);
+      router.replace(safeNextPath(next));
       router.refresh();
     } finally {
       setPending(false);
