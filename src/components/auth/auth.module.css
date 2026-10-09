@@ -285,25 +285,12 @@
   flex-direction: column;
 }
 
-.asideCard {
-  box-sizing: border-box;
-  background: var(--lp-card);
-  border: 1px solid var(--lp-border);
-  border-radius: 20px;
-  padding: 48px 44px;
-  box-shadow: 0 24px 60px rgba(var(--lp-shadow), calc(0.08 * var(--lp-shadow-k)));
-}
-
 .headline {
   margin: 0;
   font-size: 38px;
   line-height: 1.22;
   font-weight: 800;
   letter-spacing: -0.028em;
-}
-
-.asideCard .headline {
-  font-size: 32px;
 }
 
 .acento {

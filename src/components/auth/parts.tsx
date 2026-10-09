@@ -162,7 +162,7 @@ const PASOS = [
 
 export function SignupAside() {
   return (
-    <div className={cn(s.aside, s.asideCard)}>
+    <div className={s.aside}>
       <p className={s.headline}>
         Unificá tus datos.
         <br />
