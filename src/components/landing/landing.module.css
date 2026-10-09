@@ -86,6 +86,9 @@
   /* Sombras: en oscuro son negras y 2,4 veces más densas. */
   --lp-shadow: 10, 26, 24;
   --lp-shadow-k: 1;
+  /* Excepción de la referencia: la capa lejana del diagnóstico no sigue el factor. */
+  --lp-shadow-far: rgba(10, 26, 24, 0.1);
+  --lp-steps-line: #a9e7da;
 
   --lp-sans: var(--lp-font-manrope), 'Segoe UI', system-ui, sans-serif;
   --lp-mono: var(--lp-font-jetbrains), ui-monospace, monospace;
@@ -154,6 +157,8 @@
 
   --lp-shadow: 0, 0, 0;
   --lp-shadow-k: 2.4;
+  --lp-shadow-far: rgba(0, 0, 0, 0.3);
+  --lp-steps-line: #1f6357;
 }
 
 /*
