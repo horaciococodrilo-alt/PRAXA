@@ -14,6 +14,7 @@ import {
   SubmitButton,
   TextInput,
 } from '@/components/auth/parts';
+import { authErrorMessage, passwordProblem } from '@/components/auth/errors';
 import { PasswordInput } from '@/components/auth/password-input';
 import { ConfigurationMissing } from '@/components/configuration-missing';
 import { getSiteUrl, isSupabaseConfigured } from '@/lib/env';
@@ -34,8 +35,9 @@ export default function SignupPage() {
     setError(null);
     setRegistered(false);
 
-    if (password.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres.');
+    const problem = passwordProblem(password);
+    if (problem) {
+      setError(problem);
       return;
     }
 
@@ -60,7 +62,7 @@ export default function SignupPage() {
         return;
       }
       if (signUpError) {
-        setError(signUpError.message);
+        setError(authErrorMessage(signUpError, 'No pudimos crear la cuenta. Intentá de nuevo en unos minutos.'));
         return;
       }
       setSent(true);

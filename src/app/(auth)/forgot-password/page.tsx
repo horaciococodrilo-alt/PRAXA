@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { authErrorMessage } from '@/components/auth/errors';
 import { MailIcon } from '@/components/auth/icons';
 import {
   AltAction,
@@ -36,7 +37,9 @@ export default function ForgotPasswordPage() {
       });
 
       if (resetError) {
-        setError(resetError.message);
+        setError(
+          authErrorMessage(resetError, 'No pudimos enviar el enlace. Intentá de nuevo en unos minutos.'),
+        );
         return;
       }
       setSent(true);

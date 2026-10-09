@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { authErrorMessage, passwordProblem } from '@/components/auth/errors';
 import { AuthCard, AuthField, AuthForm, Notice, SubmitButton } from '@/components/auth/parts';
 import { PasswordInput } from '@/components/auth/password-input';
 import { ConfigurationMissing } from '@/components/configuration-missing';
@@ -27,8 +28,9 @@ export default function ResetPasswordPage() {
     event.preventDefault();
     setError(null);
 
-    if (password.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres.');
+    const problem = passwordProblem(password);
+    if (problem) {
+      setError(problem);
       return;
     }
     if (password !== confirmation) {
@@ -43,7 +45,10 @@ export default function ResetPasswordPage() {
 
       if (updateError) {
         setError(
-          'No pudimos actualizar la contraseña. Puede que el enlace haya expirado; pedí uno nuevo.',
+          authErrorMessage(
+            updateError,
+            'No pudimos actualizar la contraseña. Puede que el enlace haya expirado; pedí uno nuevo.',
+          ),
         );
         return;
       }
