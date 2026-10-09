@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 
 import { Anuncios } from '@/components/landing/anuncios';
+import { Chat } from '@/components/landing/chat';
 import { Hero } from '@/components/landing/hero';
 import shared from '@/components/landing/landing.module.css';
+import { Herramientas } from '@/components/landing/herramientas';
 import { Nav } from '@/components/landing/nav';
 import { LandingRoot } from '@/components/landing/theme';
 
@@ -19,6 +21,8 @@ export default function LandingPage() {
       <main className={shared.main}>
         <Hero />
         <Anuncios />
+        <Herramientas />
+        <Chat />
       </main>
     </LandingRoot>
   );
