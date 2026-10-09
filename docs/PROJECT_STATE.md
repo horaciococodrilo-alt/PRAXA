@@ -21,7 +21,11 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 
 ## En curso
 
-**M28.2a — Entorno del piloto.** Habilitada por `G-CRYPTO`. Sin empezar.
+**M28.2a — Entorno del piloto.** Habilitada por `G-CRYPTO`. `EN CURSO` desde 2026-10-03,
+rama `mf/M28.2a`. Evidencia en
+[sesiones/M28.2a.md](FASES/FASE1/meta_first/sesiones/M28.2a.md).
+`G-ENTORNO` pendiente: callbacks de correo intermitentes (`H-E1-72`) y ruta de producto por
+redefinir antes de continuar (`H-E1-71`).
 
 Hallazgos asignados a M06.3a (cerrada): `H-M04.1-02`, `H-E1-09`, `H-E1-10`, `H-E1-17`, `H-E1-37`,
 `H-E1-43` a `H-E1-70` y la comprobación de acceso real del rol de `H-E1-36`. Detalle en

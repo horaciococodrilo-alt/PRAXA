@@ -1,10 +1,10 @@
 # M28.2a — Plan de implementación
 
-**Estado:** APROBADA
+**Estado:** APROBADO
 
 Estados posibles: `BORRADOR` → `APROBADO`. Solo el usuario pasa un plan a `APROBADO`, y solo después de una auditoría APROBABLE.
 
-**Spec base:** `docs/FASES/FASE1/M28.2a/spec.md`, en BORRADOR tras la enmienda documental P-03, con hash de contenido sin línea de estado `acda93738f93352154ef899cd72d561f9dc09604`. Ver la fórmula en `docs/_templates/mf-spec.md`. La versión anterior, con hash `7517041448d9579977406bf7c8cd6d39a954e922`, fue aprobada por el usuario y auditada como APROBABLE en `revisiones/spec-audit-2.md`; esa auditoría no cubre la enmienda nueva. La spec enmendada requiere otra auditoría APROBABLE y aprobación visible antes de auditar o aprobar este plan.
+**Spec base:** `docs/FASES/FASE1/M28.2a/spec.md`, APROBADA por el usuario con la enmienda documental P-03 incorporada, con hash de contenido sin línea de estado `acda93738f93352154ef899cd72d561f9dc09604`. Ver la fórmula en `docs/_templates/mf-spec.md`. Esa enmienda fue auditada como APROBABLE en `revisiones/spec-audit-4.md`, con el mismo hash. La versión anterior, con hash `7517041448d9579977406bf7c8cd6d39a954e922`, había sido aprobada por el usuario y auditada como APROBABLE en `revisiones/spec-audit-2.md`; esa auditoría no cubre la enmienda P-03.
 
 **Base inspeccionada:** `a24963a8374df4c83b9d6774b1f1d1eae59bcee8`, rama `mf/M28.2a`. Al corregir este plan, `revisiones/plan-audit-4.md` ya existía sin seguimiento y se preserva. Las menciones internas antiguas a BORRADOR no sustituyen la aprobación explícita del usuario.
 
@@ -29,7 +29,7 @@ Abreviaturas utilizadas en los pasos: **E** = entorno; **S** = sesión; **P** = 
 | `docs/PROJECT_STATE.md` — P | Modificado únicamente ante cambio de estado, bloqueo o gate | 0, 11; bloqueos | Contrato documental de AGENTS |
 | `docs/HALLAZGOS.md` — H | Modificado al verificar H-E1-08 o registrar un hallazgo real | 7–11; fallos | II.7.7; AGENTS, protocolo 9 |
 
-**P-03 — corrección documental preparada, pendiente de aprobación.** La spec enmendada asigna el índice de capturas a `docs/FASES/FASE1/meta_first/entorno.md#capturas-redactadas`; cada caso de la sesión enlaza allí su evidencia. Las capturas redactadas se conservan fuera del repositorio, en ubicaciones accesibles y verificables para la revisión. Esto mantiene la tabla de archivos dentro de II.7 y de los archivos de seguimiento, sin editar el plan durante la implementación. Si se necesitan anexos versionados adicionales, se detiene el paso y se solicita autorización en la ruta. La spec debe pasar auditoría y aprobación antes de que este plan pueda auditarse o ejecutarse.
+**P-03 — resuelto en la spec aprobada.** La spec enmendada (APROBADA, auditada APROBABLE en `revisiones/spec-audit-4.md`) asigna el índice de capturas a `docs/FASES/FASE1/meta_first/entorno.md#capturas-redactadas`; cada caso de la sesión enlaza allí su evidencia. Las capturas redactadas se conservan fuera del repositorio, en ubicaciones accesibles y verificables para la revisión. Esto mantiene la tabla de archivos dentro de II.7 y de los archivos de seguimiento, sin editar el plan durante la implementación. Si se necesitan anexos versionados adicionales, se detiene el paso y se solicita autorización en la ruta.
 
 No hay cambios de APIs, tipos, interfaces, código, configuración versionada ni dependencias. SECURITY y ARCHITECTURE son fuentes de consulta.
 
