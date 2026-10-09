@@ -1,8 +1,8 @@
 import { type EmailOtpType } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { safeNextPath } from '@/lib/safe-next';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 /**
  * Punto de aterrizaje de los enlaces de correo: confirmación de cuenta y recuperación
@@ -12,8 +12,8 @@ import { safeNextPath } from '@/lib/safe-next';
  *   - `code`                → intercambio PKCE por sesión.
  *   - `token_hash` + `type` → verificación de OTP por enlace.
  *
- * `next` se valida como ruta interna: un `next` absoluto convertiría esto en un redirect
- * abierto hacia un dominio de terceros.
+ * `next` se valida como ruta interna (`safeNextPath`): un `next` externo convertiría esto
+ * en un redirect abierto hacia un dominio de terceros.
  */
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
@@ -22,8 +22,7 @@ export async function GET(request: NextRequest) {
   const tokenHash = searchParams.get('token_hash');
   const type = searchParams.get('type') as EmailOtpType | null;
 
-  const requestedNext = searchParams.get('next');
-  const next = safeNextPath(requestedNext);
+  const next = safeNextPath(searchParams.get('next'));
 
   const failure = (reason: string) =>
     NextResponse.redirect(`${origin}/verify-email?error=${encodeURIComponent(reason)}`);

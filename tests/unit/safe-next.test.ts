@@ -27,3 +27,18 @@ describe('ruta posterior a la autenticación', () => {
     expect(safeNextPath(value)).toBe('/app');
   });
 });
+
+// Variantes encontradas en el QA del frontend (MF_FRONTEND, H-E1-74): la barra invertida
+// después de la primera, que el navegador convierte en `//`.
+describe('ruta posterior a la autenticación: casos del QA del frontend', () => {
+  it.each(['/app/integraciones', '/reset-password', '/onboarding'])('acepta la ruta interna %s', (value) => {
+    expect(safeNextPath(value)).toBe(value);
+  });
+
+  it.each(['', 'app', ' /app', 'http:/evil.example', '/\\\\evil.example', '/\\/evil.example', '/\n/evil.example'])(
+    'rechaza %j',
+    (value) => {
+      expect(safeNextPath(value)).toBe('/app');
+    },
+  );
+});

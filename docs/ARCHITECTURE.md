@@ -44,7 +44,8 @@ src/
     integrations/crypto/    llavero y cifrado autenticado de credenciales
     integrations/db/        cliente PostgreSQL acotado a worker_api
     integrations/repository/ preparación, lectura y recifrado de credenciales
-proxy.ts                    refresco de sesión y redirección (NO autorización)
+  proxy.ts                  refresco de sesión y redirección (NO autorización); Next.js
+                            solo lo carga al mismo nivel que app/
 supabase/
   migrations/               migraciones SQL versionadas
   tests/                    pruebas pgTAP de políticas, privilegios y ciclo de vida

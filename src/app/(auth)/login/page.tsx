@@ -1,11 +1,25 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 
+import s from '@/components/auth/auth.module.css';
+import { authErrorMessage } from '@/components/auth/errors';
+import { MailIcon } from '@/components/auth/icons';
+import {
+  AltAction,
+  AuthCard,
+  AuthField,
+  AuthForm,
+  AuthLink,
+  AuthSplit,
+  LoginAside,
+  Notice,
+  SubmitButton,
+  TextInput,
+} from '@/components/auth/parts';
+import { PasswordInput } from '@/components/auth/password-input';
 import { ConfigurationMissing } from '@/components/configuration-missing';
-import { Button, Callout, Card, Field, Input } from '@/components/ui';
 import { isSupabaseConfigured } from '@/lib/env';
 import { safeNextPath } from '@/lib/safe-next';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -32,9 +46,16 @@ function LoginForm() {
 
       if (signInError) {
         setError(
-          signInError.message === 'Email not confirmed'
-            ? 'Todavía no confirmaste tu correo. Abrí el enlace que te enviamos.'
-            : 'No pudimos iniciar sesión. Revisá el correo y la contraseña.',
+          authErrorMessage(
+            {
+              // Versiones viejas de Supabase no mandan el código de "correo sin confirmar".
+              code:
+                signInError.code ??
+                (signInError.message === 'Email not confirmed' ? 'email_not_confirmed' : undefined),
+              status: signInError.status,
+            },
+            'No pudimos iniciar sesión. Revisá el correo y la contraseña.',
+          ),
         );
         return;
       }
@@ -48,59 +69,59 @@ function LoginForm() {
   }
 
   return (
-    <Card>
-      <h1 className="text-xl font-semibold tracking-tight">Iniciar sesión</h1>
+    <AuthSplit aside={<LoginAside />}>
+      <AuthCard
+        title="Iniciá sesión"
+        subtitle="Bienvenido de vuelta a Praxa"
+        footer={<AltAction text="¿No tenés una cuenta?" href="/signup" action="Creá tu cuenta" />}
+      >
+        <AuthForm onSubmit={handleSubmit}>
+          {notice === 'password-updated' ? (
+            <Notice>Tu contraseña se actualizó. Ya podés ingresar.</Notice>
+          ) : null}
 
-      {notice === 'password-updated' ? (
-        <div className="mt-4">
-          <Callout>Tu contraseña se actualizó. Ya podés ingresar.</Callout>
-        </div>
-      ) : null}
+          <AuthField label="Email">
+            {(field) => (
+              <TextInput
+                {...field}
+                icon={<MailIcon />}
+                type="email"
+                name="email"
+                autoComplete="email"
+                placeholder="tu@email.com"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            )}
+          </AuthField>
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        <Field label="Correo electrónico" required>
-          <Input
-            type="email"
-            name="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-        </Field>
+          <AuthField label="Contraseña">
+            {(field) => (
+              <PasswordInput
+                {...field}
+                name="password"
+                autoComplete="current-password"
+                placeholder="••••••••"
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            )}
+          </AuthField>
 
-        <Field label="Contraseña" required>
-          <Input
-            type="password"
-            name="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </Field>
+          <div className={s.derecha}>
+            <AuthLink href="/forgot-password">¿Olvidaste tu contraseña?</AuthLink>
+          </div>
 
-        {error ? <Callout tone="danger">{error}</Callout> : null}
+          {error ? <Notice tone="danger">{error}</Notice> : null}
 
-        <Button type="submit" className="w-full" disabled={pending}>
-          {pending ? 'Ingresando…' : 'Ingresar'}
-        </Button>
-      </form>
-
-      <div className="mt-6 space-y-2 text-sm text-muted">
-        <p>
-          <Link href="/forgot-password" className="font-medium text-accent hover:underline">
-            Olvidé mi contraseña
-          </Link>
-        </p>
-        <p>
-          ¿No tenés cuenta?{' '}
-          <Link href="/signup" className="font-medium text-accent hover:underline">
-            Crear cuenta
-          </Link>
-        </p>
-      </div>
-    </Card>
+          <SubmitButton pending={pending} pendingLabel="Ingresando…">
+            Iniciar sesión
+          </SubmitButton>
+        </AuthForm>
+      </AuthCard>
+    </AuthSplit>
   );
 }
 

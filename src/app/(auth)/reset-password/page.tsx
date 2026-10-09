@@ -3,8 +3,10 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { authErrorMessage, passwordProblem } from '@/components/auth/errors';
+import { AuthCard, AuthField, AuthForm, Notice, SubmitButton } from '@/components/auth/parts';
+import { PasswordInput } from '@/components/auth/password-input';
 import { ConfigurationMissing } from '@/components/configuration-missing';
-import { Button, Callout, Card, Field, Input } from '@/components/ui';
 import { isSupabaseConfigured } from '@/lib/env';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
@@ -26,8 +28,9 @@ export default function ResetPasswordPage() {
     event.preventDefault();
     setError(null);
 
-    if (password.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres.');
+    const problem = passwordProblem(password);
+    if (problem) {
+      setError(problem);
       return;
     }
     if (password !== confirmation) {
@@ -42,7 +45,10 @@ export default function ResetPasswordPage() {
 
       if (updateError) {
         setError(
-          'No pudimos actualizar la contraseña. Puede que el enlace haya expirado; pedí uno nuevo.',
+          authErrorMessage(
+            updateError,
+            'No pudimos actualizar la contraseña. Puede que el enlace haya expirado; pedí uno nuevo.',
+          ),
         );
         return;
       }
@@ -56,37 +62,41 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <Card>
-      <h1 className="text-xl font-semibold tracking-tight">Elegir contraseña nueva</h1>
+    <AuthCard narrow title="Elegí una contraseña nueva" subtitle="Vas a usarla para iniciar sesión.">
+      <AuthForm onSubmit={handleSubmit}>
+        <AuthField label="Contraseña nueva" hint="Mínimo 8 caracteres.">
+          {(field) => (
+            <PasswordInput
+              {...field}
+              autoComplete="new-password"
+              placeholder="••••••••"
+              required
+              minLength={8}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          )}
+        </AuthField>
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        <Field label="Contraseña nueva" required hint="Mínimo 8 caracteres.">
-          <Input
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </Field>
+        <AuthField label="Repetí la contraseña">
+          {(field) => (
+            <PasswordInput
+              {...field}
+              autoComplete="new-password"
+              placeholder="••••••••"
+              required
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.target.value)}
+            />
+          )}
+        </AuthField>
 
-        <Field label="Repetir contraseña" required>
-          <Input
-            type="password"
-            autoComplete="new-password"
-            required
-            value={confirmation}
-            onChange={(event) => setConfirmation(event.target.value)}
-          />
-        </Field>
+        {error ? <Notice tone="danger">{error}</Notice> : null}
 
-        {error ? <Callout tone="danger">{error}</Callout> : null}
-
-        <Button type="submit" className="w-full" disabled={pending}>
-          {pending ? 'Guardando…' : 'Guardar contraseña'}
-        </Button>
-      </form>
-    </Card>
+        <SubmitButton pending={pending} pendingLabel="Guardando…">
+          Guardar contraseña
+        </SubmitButton>
+      </AuthForm>
+    </AuthCard>
   );
 }
