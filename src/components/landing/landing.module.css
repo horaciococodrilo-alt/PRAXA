@@ -1,0 +1,460 @@
+/*
+ * Landing pública: tokens, utilidades compartidas y animaciones de entrada.
+ *
+ * Valores tomados de docs/landing-referencia/index.html (variantes .v-ld/.v-lm/.v-dd/.v-dm).
+ * Corte escritorio/móvil: 768 px. Los tokens se nombran por rol, no por color: en la
+ * referencia un mismo color claro pasa a valores oscuros distintos según dónde se usa.
+ */
+
+.root {
+  /* Superficies */
+  --lp-page: #fafcfb;
+  --lp-section: #ffffff;
+  --lp-section-alt: #f2f6f5;
+  --lp-section-steps: #fafcfb;
+  --lp-card: #ffffff;
+  --lp-chip: #f2f6f5;
+  --lp-chrome: #fafcfb;
+  --lp-header-bg: rgba(250, 252, 251, 0.92);
+
+  /* Texto */
+  --lp-ink: #0a1a18;
+  --lp-ink-2: #27403c;
+  --lp-ink-muted: #4e6b66;
+  --lp-ink-subtle: #5e7a75;
+  --lp-ink-faint: #8ca39e;
+  --lp-accent-ink: #0e6b5c;
+  --lp-warn: #9a4f17;
+  --lp-danger: #a8352b;
+
+  /* Bordes y líneas */
+  --lp-border: #d4e2df;
+  --lp-border-strong: #bccfcb;
+  --lp-border-dashed: #cbd9d6;
+  --lp-divider: #e4edeb;
+  --lp-section-border: #e4edeb;
+  --lp-line: #0a1a18;
+
+  /* Acentos */
+  --lp-mint: #3ecfb8;
+  --lp-mint-ink: #052e28;
+  --lp-accent-soft: #e4f8f3;
+  --lp-bubble-border: #a9e7da;
+  --lp-qa-border: #cdede5;
+  --lp-warn-bg: #fdeddf;
+  --lp-warn-border: #edbf93;
+  --lp-ghost-hover: #eef5f3;
+
+  /* Botones y piezas puntuales */
+  --lp-btn-ink-bg: #0a1a18;
+  --lp-btn-ink-fg: #ffffff;
+  --lp-ad-frame: #0a1a18;
+  --lp-ad-pill: #ffffff;
+
+  /* Fondos con degradé */
+  --lp-hero-bg: linear-gradient(
+    180deg,
+    #12302b 0%,
+    #12312c 4.5%,
+    #12322d 9.1%,
+    #12342e 13.6%,
+    #123730 18.2%,
+    #113b34 22.7%,
+    #11433a 27.3%,
+    #104c42 31.8%,
+    #0f594d 36.4%,
+    #0e6b5c 40.9%,
+    #147b6c 45.5%,
+    #1c8b7b 50%,
+    #289c8b 54.5%,
+    #39ad9b 59.1%,
+    #4dbdab 63.6%,
+    #61ccba 68.2%,
+    #78dac9 72.7%,
+    #92e5d7 77.3%,
+    #b0f0e6 81.8%,
+    #d0f9f3 86.4%,
+    #eefefc 90.9%,
+    #ffffff 95.5%,
+    #ffffff 100%
+  );
+  --lp-cta-glow: #cff2ea;
+  --lp-cta-glow-0: rgba(207, 242, 234, 0);
+  --lp-cta-top: #f1fbf8;
+  --lp-cta-bottom: #fafcfb;
+
+  /* Sombras: en oscuro son negras y 2,4 veces más densas. */
+  --lp-shadow: 10, 26, 24;
+  --lp-shadow-k: 1;
+
+  --lp-sans: var(--lp-font-manrope), 'Segoe UI', system-ui, sans-serif;
+  --lp-mono: var(--lp-font-jetbrains), ui-monospace, monospace;
+
+  min-height: 100vh;
+  background: var(--lp-page);
+  color: var(--lp-ink);
+  font-family: var(--lp-sans);
+  /* La referencia no fija interlineado global: se usa el del navegador. */
+  line-height: normal;
+}
+
+.root[data-theme='dark'] {
+  --lp-page: #0a1714;
+  --lp-section: #0a1714;
+  --lp-section-alt: #0d1e1b;
+  --lp-section-steps: #0b1a17;
+  --lp-card: #0f231f;
+  --lp-chip: #16302b;
+  --lp-chrome: #122824;
+  --lp-header-bg: rgba(10, 23, 20, 0.92);
+
+  --lp-ink: #eaf5f2;
+  --lp-ink-2: #c9dad6;
+  --lp-ink-muted: #a6bdb8;
+  --lp-ink-subtle: #8ca8a2;
+  --lp-ink-faint: #6f8c86;
+  --lp-accent-ink: #3ecfb8;
+  --lp-warn: #f2a863;
+  --lp-danger: #ff8f85;
+
+  --lp-border: #25443e;
+  --lp-border-strong: #3a5c55;
+  --lp-border-dashed: #35564f;
+  --lp-divider: #1d3833;
+  --lp-section-border: #1a302b;
+  --lp-line: #7fa9a0;
+
+  --lp-accent-soft: #133832;
+  --lp-bubble-border: #1f6357;
+  --lp-qa-border: #1f4a41;
+  --lp-warn-bg: #33261a;
+  --lp-warn-border: #7a4e22;
+  --lp-ghost-hover: #1b332e;
+
+  --lp-btn-ink-bg: #eaf5f2;
+  --lp-btn-ink-fg: #0a1a18;
+  --lp-ad-frame: #0f231f;
+  --lp-ad-pill: #0f231f;
+
+  --lp-hero-bg: linear-gradient(
+    180deg,
+    #12302b 0%,
+    #12342f 8%,
+    #0f3f37 22%,
+    #0e4a40 36%,
+    #0d4137 50%,
+    #0c3029 66%,
+    #0b211d 82%,
+    #0a1714 100%
+  );
+  --lp-cta-glow: #123b34;
+  --lp-cta-glow-0: rgba(18, 59, 52, 0);
+  --lp-cta-top: #0c1f1b;
+  --lp-cta-bottom: #122824;
+
+  --lp-shadow: 0, 0, 0;
+  --lp-shadow-k: 2.4;
+}
+
+/*
+ * La referencia usa el modelo de caja del navegador (content-box) salvo donde declara
+ * border-box; el preflight de Tailwind lo cambia para todo. Especificidad cero para que
+ * cualquier clase de sección que declare border-box le gane.
+ */
+:where(.root) *,
+:where(.root) *::before,
+:where(.root) *::after {
+  box-sizing: content-box;
+}
+
+/* Fondo y esquema de color fuera del contenido (rebote del scroll, barras). */
+:global(html):has(.root) {
+  color-scheme: light;
+}
+:global(html):has(.root[data-theme='dark']) {
+  color-scheme: dark;
+}
+:global(body):has(.root) {
+  background: #fafcfb;
+}
+:global(body):has(.root[data-theme='dark']) {
+  background: #0a1714;
+}
+
+/* Contenido principal: en móvil cambia el orden de algunas secciones. */
+.main {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Utilidades de visibilidad ===== */
+
+.root[data-theme='dark'] .soloClaro,
+.root:not([data-theme='dark']) .soloOscuro {
+  display: none !important;
+}
+
+@media (max-width: 767.98px) {
+  .soloEsc {
+    display: none !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .soloMov {
+    display: none !important;
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ===== Animaciones de entrada ===== */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--lp-rise, 18px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes left {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes flow {
+  from {
+    stroke-dashoffset: 420;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes mark {
+  from {
+    background-size: 0% 100%;
+  }
+  to {
+    background-size: 100% 100%;
+  }
+}
+@keyframes cable {
+  0% {
+    stroke-dashoffset: 16;
+  }
+  50% {
+    stroke-dashoffset: -100;
+  }
+  100% {
+    stroke-dashoffset: -100;
+  }
+}
+
+.rise {
+  animation: rise 0.62s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.draw {
+  animation: draw 0.9s cubic-bezier(0.65, 0, 0.35, 1) both;
+  transform-origin: left center;
+}
+.flow {
+  stroke-dasharray: 420;
+  animation: flow 1.1s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+.grow {
+  animation: grow 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  transform-origin: bottom center;
+}
+.cable {
+  stroke-dasharray: 16 100;
+  stroke-dashoffset: 16;
+  animation: cable 4.4s linear infinite;
+}
+
+@media (min-width: 768px) {
+  .left {
+    animation: left 0.68s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+  .pop {
+    animation: pop 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+  /* Resaltado del hero: se dibuja de izquierda a derecha después de la entrada. */
+  .mark {
+    background-image: linear-gradient(transparent 48%, rgba(62, 207, 184, 0.55) 48%);
+    background-repeat: no-repeat;
+    animation: mark 0.6s cubic-bezier(0.65, 0, 0.35, 1) 1.6s both;
+  }
+  .cable2 {
+    animation-delay: 1.1s;
+  }
+  .cable3 {
+    animation-delay: 2.2s;
+  }
+  .cable4 {
+    animation-delay: 3.3s;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .root {
+    --lp-rise: 14px;
+  }
+  .rise {
+    animation-duration: 0.56s;
+  }
+  .cable2 {
+    animation-delay: 1.45s;
+  }
+  .cable3 {
+    animation-delay: 2.9s;
+  }
+}
+
+/* Los retardos van después de las animaciones para ganarles en la cascada. */
+.d1 {
+  animation-delay: 0.08s;
+}
+.d2 {
+  animation-delay: 0.16s;
+}
+.d3 {
+  animation-delay: 0.26s;
+}
+.d4 {
+  animation-delay: 0.36s;
+}
+.d5 {
+  animation-delay: 0.46s;
+}
+.d6 {
+  animation-delay: 0.6s;
+}
+.d7 {
+  animation-delay: 0.8s;
+}
+.d8 {
+  animation-delay: 1.15s;
+}
+
+/* ===== Interacción (solo escritorio, como en la referencia) ===== */
+
+@media (min-width: 768px) {
+  .card {
+    transition:
+      transform 0.22s ease,
+      box-shadow 0.22s ease,
+      border-color 0.22s ease;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(var(--lp-shadow), calc(0.09 * var(--lp-shadow-k)));
+    border-color: var(--lp-border-strong);
+  }
+  .btn {
+    transition:
+      transform 0.16s ease,
+      box-shadow 0.16s ease;
+  }
+  .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(62, 207, 184, 0.45);
+  }
+  .ghost {
+    transition:
+      background-color 0.16s ease,
+      border-color 0.16s ease;
+  }
+  .ghost:hover {
+    background-color: var(--lp-ghost-hover);
+    border-color: var(--lp-border-strong);
+  }
+}
+
+/* ===== Movimiento reducido ===== */
+
+@media (prefers-reduced-motion: reduce) {
+  .root *,
+  .root *::before,
+  .root *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .root .cable {
+    animation: none !important;
+    stroke-dashoffset: 16 !important;
+  }
+}
+
+/* ===== Piezas compartidas ===== */
+
+/* Antetítulo numerado de las secciones móviles ("1 Decisiones inteligentes"). */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.eyebrowNum {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--lp-mint);
+  color: var(--lp-mint-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--lp-mono);
+  font-size: 13px;
+}
+.eyebrowLabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lp-accent-ink);
+}
