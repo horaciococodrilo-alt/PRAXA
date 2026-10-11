@@ -125,14 +125,9 @@ Ninguna de la ruta. Sale de `mf/M28.2a` y hereda de ahí MF_FRONTEND (pantallas 
 
 ## Intervención requerida del usuario
 
-- Aplicar `0013` y `0014` al piloto (en el proyecto de pruebas ya están y `test:policies`
-  pasa). Sin `0013`, Configuración guarda solo el nombre y lo avisa; sin `0014`, subir una foto
-  da error.
-- Probar con una cuenta y una casilla reales: cambiar nombre, subir, reemplazar y eliminar la
-  foto, cambiar la contraseña por correo, y crear cuenta → confirmar → Mi perfil.
-- Agregar `https://app.praxa.site/auth/callback?next=%2Fapp%2Fperfil` a las URLs de redirección
-  de Auth del piloto. Sin ella, la confirmación del registro cae en la Site URL (enmienda del plan
-  de M28.2a).
+Hecha el 2026-10-11, según informó el usuario (sesión §23): `0013` y `0014` aplicadas al piloto,
+URL de redirección agregada, push de `mf/M28.2a` y pruebas con una cuenta y una casilla reales.
+Queda borrar a mano la carpeta `C:\Users\Simon\dev\PRAXA-app-qa`.
 
 ## Hallazgos
 
