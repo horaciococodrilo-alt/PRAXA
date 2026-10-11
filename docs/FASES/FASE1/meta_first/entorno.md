@@ -6,7 +6,7 @@ contraseñas, identificadores de cuenta/proyecto completos ni valores de variabl
 
 ## Estado del gate
 
-`G-ENTORNO`: **expediente completo, pendiente de la aprobación visible del usuario** (paso 11).
+`G-ENTORNO`: **aprobado** (aprobado por el usuario el 2026-10-11, sin capturas; paso 11).
 Todos los pasos y casos tienen resultado. Los manuales se acreditan por declaración del usuario
 caso por caso (2026-10-04 y 2026-10-11), sin capturas registradas: es la limitación principal
 del expediente. `H-E1-71` está resuelto. `H-E1-72` (callbacks intermitentes) quedó resuelto por
@@ -39,7 +39,7 @@ DNS gestionado por el usuario en GoDaddy, sobre el dominio `praxa.site`.
 | 8d | `/app/integraciones` sin sesión, sin empresa y con empresa | Usuario | `PASA` (2026-10-04, con empresa sintética; 2026-10-11, con la app de MF_APP) |
 | 9 | Esta documentación y enlaces a evidencia | Asistente | `PASA` |
 | 10 | `npm run verify` y revisión de diff | Asistente | `PASA`: exit 0, 21 archivos y 343 pruebas, build; ver sesión |
-| 11 | Aprobación visible de `G-ENTORNO` | Usuario | `PENDIENTE` |
+| 11 | Aprobación visible de `G-ENTORNO` | Usuario | `PASA` (aprobado por el usuario el 2026-10-11, sin capturas) |
 
 ## Inventario de variables (II.7, paso 2)
 

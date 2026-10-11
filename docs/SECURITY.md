@@ -342,7 +342,9 @@ Cubierto por `05_delete_carveout.test.sql`.
 - **Retención del host del modelo** (sección 8) y **copias de seguridad** (sección 9).
 - **La foto se verifica por su cabecera, no se regenera.** Storage confía en el tipo declarado.
   Por eso, al registrar la foto, el servidor comprueba que los primeros bytes sean de un JPG o
-  un PNG; si no lo son, no la registra y la borra (vigente). Un archivo que empiece como imagen
-  y tenga otro contenido detrás pasaría, pero solo lo ve quien lo subió y nada lo ejecuta. Los
+  un PNG; si no lo son, no la registra y la borra (vigente). La verificación es solo al
+  registrar: la política de actualización del bucket deja que el usuario sobrescriba su propia
+  foto después, y un archivo que empiece como imagen con otro contenido detrás también pasaría.
+  En los dos casos solo lo ve quien lo subió y nada lo ejecuta. Los
   metadatos de la foto (EXIF, por ejemplo la ubicación) no se borran. Hay que regenerar la
   imagen en el servidor si algún día otros usuarios ven fotos ajenas.
