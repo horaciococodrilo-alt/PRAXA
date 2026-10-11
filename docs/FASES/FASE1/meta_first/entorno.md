@@ -9,8 +9,9 @@ contraseñas, identificadores de cuenta/proyecto completos ni valores de variabl
 `G-ENTORNO`: **expediente completo, pendiente de la aprobación visible del usuario** (paso 11).
 Todos los pasos y casos tienen resultado. Los manuales se acreditan por declaración del usuario
 caso por caso (2026-10-04 y 2026-10-11), sin capturas registradas: es la limitación principal
-del expediente. `H-E1-71` está resuelto. `H-E1-72` (callbacks intermitentes) sigue abierto, sin
-reproducirse en las pruebas del 2026-10-11.
+del expediente. `H-E1-71` está resuelto. `H-E1-72` (callbacks intermitentes) quedó resuelto por
+observación del usuario, que confirmó que el error no volvió a ocurrir; la causa no se diagnosticó.
+El usuario aceptó que la rama incluya MF_FRONTEND y MF_APP.
 
 ## Dominios elegidos (D-M28.2a-02)
 
@@ -105,7 +106,7 @@ criptográfica del llavero (`PRAXA_CREDENTIAL_KEYS`/`_CURRENT`) ni conectividad 
 | T-02 | C-02 | `PASA` | Inventario de arriba, por nombre, declarado por el usuario el 2026-10-11; límite de verificación por presencia registrado |
 | T-03 | C-02, C-03 | `PASA` | Historial hasta `0014` y contraseña del rol, declarado por el usuario el 2026-10-11; `0013`/`0014` probadas antes en el proyecto de pruebas |
 | T-04 | C-04 | `PASA` | `worker_api` y `private` no expuestos, declarado por el usuario el 2026-10-11; sin captura |
-| T-05 | C-05 | `PASA` | Enlaces de confirmación y recuperación aterrizan en el destino correcto (usuario, 2026-10-11). `H-E1-72` abierto, sin reproducir |
+| T-05 | C-05 | `PASA` | Enlaces de confirmación y recuperación aterrizan en el destino correcto (usuario, 2026-10-11). `H-E1-72` resuelto por observación del usuario |
 | T-06 | C-06, C-07 | `PASA` | SMTP con SPF y DKIM; login rechazado antes de confirmar; confirmación y login nuevo (declarado por el usuario el 2026-10-11) |
 | T-07 | C-08 | `PASA` | Registro cerrado y alta nueva rechazada (usuario, 2026-10-04); cerrado de nuevo, declarado por el usuario el 2026-10-11 |
 | T-08 | C-09 | `PASA` | Recuperación completa; contraseña anterior rechazada (declarado por el usuario el 2026-10-11) |
@@ -125,5 +126,5 @@ conservan fuera del repositorio.
 
 - `H-E1-08`: verificado (confirmación recibida en casilla externa con SMTP propio).
 - `H-E1-71`: resuelto el 2026-10-11 con MF_APP y la confirmación del usuario.
-- `H-E1-72`: algunos enlaces de Auth terminaron en `link-missing-params` (2026-10-04). Sin
-  reproducir en las pruebas del 2026-10-11; sigue abierto hasta acumular más uso sin fallas.
+- `H-E1-72`: algunos enlaces de Auth terminaron en `link-missing-params` (2026-10-04). Resuelto
+  por observación del usuario (2026-10-11): no volvió a ocurrir. Causa no diagnosticada.

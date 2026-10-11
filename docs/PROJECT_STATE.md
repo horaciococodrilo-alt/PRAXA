@@ -25,7 +25,7 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 rama `mf/M28.2a`. Evidencia en
 [sesiones/M28.2a.md](FASES/FASE1/meta_first/sesiones/M28.2a.md).
 `G-ENTORNO`: expediente completo (2026-10-11), pendiente de la aprobación visible del
-usuario. `H-E1-72` sigue abierto, sin reproducirse en las pruebas del 2026-10-11.
+usuario. `H-E1-72` resuelto por observación del usuario.
 
 Hallazgos asignados a M06.3a (cerrada): `H-M04.1-02`, `H-E1-09`, `H-E1-10`, `H-E1-17`, `H-E1-37`,
 `H-E1-43` a `H-E1-70` y la comprobación de acceso real del rol de `H-E1-36`. Detalle en
