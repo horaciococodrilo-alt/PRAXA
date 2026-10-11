@@ -531,3 +531,22 @@ Por pedido del usuario (D-MF_APP-23), sobre `mf/M28.2a`:
 
 **Verificación:** `npm run verify` exit 0 (21 archivos, 343 pruebas: salen las del módulo de
 contexto borrado y entran las de la foto; build compilado).
+
+## 23. Piloto: migraciones, publicación y prueba real (2026-10-11)
+
+Informado por el usuario, sin salidas de comandos (no hay evidencia propia de esta sesión
+salvo el estado de Git):
+
+- `0013` y `0014` aplicadas al piloto (`db:check`, `db:preview`, `db:push`).
+- `https://app.praxa.site/auth/callback?next=%2Fapp%2Fperfil` agregada a las URLs de
+  redirección de Auth del piloto.
+- **Push de `mf/M28.2a`.** El asistente no tuvo permiso para hacerlo y lo hizo el usuario.
+  Antes se comprobó que los 14 commits no llevaban archivos de entorno ni secretos. Después,
+  `git status -sb` muestra `mf/M28.2a` igual a `origin/mf/M28.2a`.
+- Antes del push, `app.praxa.site` seguía mostrando el onboarding viejo, porque publicaba
+  `f4dc8ce`. Después, el usuario probó en `app.praxa.site` con una cuenta y una casilla reales
+  y reportó que "todo" funcionó. No detalló cada paso.
+
+**Sobre `H-E1-72`:** en esta prueba no apareció el error del enlace incompleto. Como el problema
+era intermitente, una prueba buena no lo cierra (sesión de M28.2a, 2026-10-04). Se registra
+como "sin reproducir".
