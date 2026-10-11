@@ -4,6 +4,20 @@
 
 Estados posibles: `BORRADOR` → `APROBADO`. Solo el usuario pasa un plan a `APROBADO`, y solo después de una auditoría APROBABLE.
 
+> **Enmienda por MF_APP (2026-10-11, decisión del usuario; ver la sección I.5 del plan de la
+> ruta).** El onboarding ya no existe. Donde este plan o la spec dicen "onboarding", vale lo
+> siguiente:
+>
+> - **Paso 8d:** la empresa sintética se crea desde Configuración (`/app/configuracion`, Guardar
+>   cambios). Sin empresa, `/app` ya no redirige: muestra la app con el punto rojo en
+>   Configuración, e Integraciones se ve igual. El resultado positivo sigue siendo Integraciones
+>   autenticada sobre HTTPS, sin 404/500.
+> - **URLs autorizadas de Supabase:** el registro ahora usa
+>   `https://app.praxa.site/auth/callback?next=%2Fapp%2Fperfil` y hay que agregarla a la lista.
+>   `…?next=%2Fonboarding` puede quedar mientras haya correos viejos: `/onboarding` redirige a Mi
+>   perfil.
+> - **Numeración:** MF_APP consumió `0013` y `0014`; el siguiente número libre es `0015`.
+
 **Spec base:** `docs/FASES/FASE1/M28.2a/spec.md`, APROBADA por el usuario con la enmienda documental P-03 incorporada, con hash de contenido sin línea de estado `acda93738f93352154ef899cd72d561f9dc09604`. Ver la fórmula en `docs/_templates/mf-spec.md`. Esa enmienda fue auditada como APROBABLE en `revisiones/spec-audit-4.md`, con el mismo hash. La versión anterior, con hash `7517041448d9579977406bf7c8cd6d39a954e922`, había sido aprobada por el usuario y auditada como APROBABLE en `revisiones/spec-audit-2.md`; esa auditoría no cubre la enmienda P-03.
 
 **Base inspeccionada:** `a24963a8374df4c83b9d6774b1f1d1eae59bcee8`, rama `mf/M28.2a`. Al corregir este plan, `revisiones/plan-audit-4.md` ya existía sin seguimiento y se preserva. Las menciones internas antiguas a BORRADOR no sustituyen la aprobación explícita del usuario.

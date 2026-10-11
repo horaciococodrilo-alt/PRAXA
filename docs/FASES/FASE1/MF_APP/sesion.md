@@ -443,3 +443,45 @@ Todas las pruebas pgTAP pasaron.
 
 Con esto queda resuelto R-01 de `implementation-review-1`. **Pendiente del usuario:** aplicar
 `0013` y `0014` al piloto.
+
+## 20. Corrección de la ruta y de `implementation-review-2` (2026-10-11)
+
+`implementation-review-2` ([informe](revisiones/implementation-review-2.md)) dio BLOQUEADO
+solo por la ruta sin corregir (ítems 1 y 8). El código pasó: `verify`, `test:policies`
+482/482, `test:app` y tres roturas detectadas. Pidió además R-01 y R-02. El usuario pidió
+actualizar los documentos con información vieja y corregir los hallazgos.
+
+**Corrección de la ruta** (decisión del usuario, D-MF_APP-08 y esta sesión):
+
+| Documento | Cambio |
+|---|---|
+| `meta_first/plan.md` | Sección nueva I.5. Migración de M16c `0013` → `0015` (pgTAP `11_meta_insights` → `13_meta_insights`). Migración de M25a.1 `0014` → `0016` (pgTAP `12_chat_queries` → `14_chat_queries`). `purge_connection` la reemplazan `0015` y `0016`. La excepción de II.7 y el paso 10 de M16.2 crean la empresa en Configuración, no en `/onboarding` |
+| `M28.2a/plan.md` | Enmienda al principio: paso 8d desde Configuración, URL autorizada nueva `…/auth/callback?next=%2Fapp%2Fperfil` y siguiente número libre `0015`. La spec APROBADA no se editó, para no invalidar el hash que cita el plan; la enmienda y la sección I.5 de la ruta (primera en la jerarquía) mandan sobre su texto |
+| `ARCHITECTURE.md` | Árbol: rutas sin onboarding, `components/app/` y `modules/app-data/`. Módulos: `onboarding` sin pantalla, `app-data` nuevo, y `identity` y `company` con perfil y foto. Camino interactivo: destino Mi perfil, `/app` sin empresa obligatoria, sesión verificada en cada página y subida directa de la foto a Storage. Concurrencia: "Contexto declarado" |
+| `SECURITY.md` | Activo nuevo (foto, nombre y apellido). Frontera 8, navegador → Storage: RLS por carpeta, bucket privado, URLs firmadas y metadatos de Auth que nunca deciden acceso. Borrado de la foto en la sección 9. Riesgo abierto del tipo declarado y EXIF en la sección 12. Fuente pgTAP `12_profile_photos` |
+
+`spec.md` de la ruta no menciona `0013`, `0014` ni `/onboarding` (su "onboarding público" es el
+registro abierto a cualquier dueño, otro concepto): no cambia.
+
+**Hallazgos de la revisión 2:**
+
+| ID | Corrección |
+|---|---|
+| R-01 | `signup-page.test.tsx` comprueba los argumentos de `signUp`: `emailRedirectTo` = `…/auth/callback?next=%2Fapp%2Fperfil`. La ficha marca `email-flows` como omitida (opcional). |
+| R-02 | `app-data.test.ts` prueba `configuracionPendiente`: sin empresa, sin rubro, sin país y sin moneda → pendiente; completa → no. |
+
+**Roturas comprobadas** en el árbol de trabajo y revertidas con `git checkout`:
+
+- Volver el registro a `/onboarding` hace fallar la prueba nueva de `signup-page`.
+- Reducir `configuracionPendiente` a `!empresa` hace fallar los tres casos parciales.
+
+**Verificación:** `npm run verify` exit 0 (22 archivos, 352 pruebas, build compilado).
+
+**Hallazgo operativo:** el plan de M28.2a autorizaba en Supabase solo
+`…/auth/callback?next=%2Fonboarding`. Desde MF_APP el registro pide `next=%2Fapp%2Fperfil`: si
+esa URL no está en la lista del panel, la confirmación cae en la Site URL. Queda como
+intervención del usuario (ficha y `PROJECT_STATE.md`).
+
+**Sigue abierto en `H-E1-93`:** no hay pantalla para el contexto declarado (objetivos,
+problemas y restricciones) que usa el contrato del reporte. `src/modules/onboarding/` y sus
+tablas siguen existiendo sin uso desde la interfaz.

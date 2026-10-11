@@ -60,9 +60,9 @@ Después de M28.2a, en este orden: M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a.
 - Pendientes de MF_FRONTEND: contraste en modo claro (`H-E1-76`), texto del CTA móvil
   (`H-E1-78`), prevención en `.gitignore` de `H-E1-81` y el texto de la landing sobre
   disponibilidad de Meta Ads (`H-E1-82`).
-- Corrección de la ruta pedida por MF_APP antes de cerrar `G-ENTORNO`: onboarding eliminado
-  (`H-E1-93`) y numeración de migraciones con `0013` y `0014` tomadas (`H-E1-94`, `H-E1-96`).
-  También: aplicar `0013` y `0014` al piloto y decidir la verificación del contenido de la foto.
+- Pendientes de MF_APP: aplicar `0013` y `0014` al piloto, sumar a las URLs de redirección de
+  Auth del piloto el destino nuevo del registro (enmienda del plan de M28.2a) y decidir la
+  verificación del contenido de la foto. La ruta ya está corregida (plan `meta_first`, I.5).
 
 ## Regla de actualización
 

@@ -101,15 +101,16 @@ Detalle completo, comandos y conteos: [sesion.md](sesion.md).
 | `tests/unit/app-data.test.ts` (`reports`, firma de la foto, integraciones desconectadas, redirección de `/onboarding`) | PASS |
 | `tests/component/app-paginas-sesion.test.tsx` (cada página verifica la sesión con su ruta) | PASS |
 | `tests/unit/safe-next.test.ts` y `tests/unit/proxy-session-cookies.test.ts` (destino por defecto) | PASS |
-| `tests/app/email-flows.test.ts` (destino del enlace de registro) | PASS |
+| `tests/component/signup-page.test.tsx` (el enlace de confirmación lleva a `/auth/callback?next=%2Fapp%2Fperfil`) | PASS |
+| `tests/app/email-flows.test.ts` | OMITIDA: es opcional y solo corre con `SUPABASE_TEST_EMAIL_FLOWS=true`. No ejercita la pantalla de registro |
 | pgTAP `11_company_profile` (9/9) y `12_profile_photos` (12/12), con `0013` y `0014` aplicadas al proyecto de pruebas | PASS (`test:policies` 482/482, sesión §19) |
 | Flujos con correos reales (cambio de contraseña, registro) y foto contra Storage real | PENDIENTE: requiere cuenta y casilla del usuario y `0013`/`0014` aplicadas |
 
 ## Condición para avanzar
 
 No aplica a la ruta. Para integrarla en `mf/M28.2a`: `/implementation-review` APROBABLE,
-`/qa-review` (`test:policies` ya está en verde). Cerrar `G-ENTORNO` de M28.2a exige además la
-corrección de la ruta pedida por `H-E1-93`, `H-E1-94` y `H-E1-96`.
+`/qa-review` (`test:policies` ya está en verde). La corrección de la ruta pedida por `H-E1-93`,
+`H-E1-94` y `H-E1-96` ya está hecha (plan `meta_first`, I.5; sesión §20).
 
 ## Dependencias
 
@@ -119,15 +120,16 @@ Ninguna de la ruta. Sale de `mf/M28.2a` y hereda de ahí MF_FRONTEND (pantallas 
 
 ## Intervención requerida del usuario
 
-- Aplicar `0013` y `0014` al piloto (en el proyecto de pruebas ya están y `test:policies` pasa). Sin `0013`,
-  Configuración guarda solo el nombre y lo avisa; sin `0014`,
-  subir una foto da error.
+- Aplicar `0013` y `0014` al piloto (en el proyecto de pruebas ya están y `test:policies`
+  pasa). Sin `0013`, Configuración guarda solo el nombre y lo avisa; sin `0014`, subir una foto
+  da error.
 - Probar con una cuenta y una casilla reales: cambiar nombre, subir, reemplazar y eliminar la
   foto, cambiar la contraseña por correo, y crear cuenta → confirmar → Mi perfil.
 - Decidir si se agrega la verificación del contenido real de la foto en el servidor (opción 1
   de la sección 9 de la sesión).
-- Decidir la corrección de la ruta para `H-E1-93`, `H-E1-94` y `H-E1-96`, que incluye
-  actualizar `SECURITY.md` y `ARCHITECTURE.md`.
+- Agregar `https://app.praxa.site/auth/callback?next=%2Fapp%2Fperfil` a las URLs de redirección
+  de Auth del piloto. Sin ella, la confirmación del registro cae en la Site URL (enmienda del plan
+  de M28.2a).
 
 ## Hallazgos
 

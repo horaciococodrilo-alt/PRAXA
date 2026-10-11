@@ -288,7 +288,7 @@ Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA
 |---|---|
 | **ID** | `M16c` — ≤8 h |
 | **Objetivo** | Obtener gasto e impresiones diarios con snapshots inmutables, cobertura explícita y publicación atómica. |
-| **Implementación requerida** | Migración `0013`: ejecuciones con arrendamiento y token de posesión, snapshots, días de snapshot y la tabla de cobertura `meta_daily_coverage` (CA-43), con captura parcial persistida (CA-43b). Funciones de `worker_api` para iniciar, publicar y fallar una ejecución, solo desde la ejecución vigente (CA-59). Precisión de punta a punta (CA-44b). Paginación, límites y reintentos. Botón de sincronización manual. |
+| **Implementación requerida** | Migración `0015`: ejecuciones con arrendamiento y token de posesión, snapshots, días de snapshot y la tabla de cobertura `meta_daily_coverage` (CA-43), con captura parcial persistida (CA-43b). Funciones de `worker_api` para iniciar, publicar y fallar una ejecución, solo desde la ejecución vigente (CA-59). Precisión de punta a punta (CA-44b). Paginación, límites y reintentos. Botón de sincronización manual. |
 | **Procedimiento del asistente** | Pruebas primero con Meta simulada. Fijar Q-04 con mediciones reales y registrarlo en la spec. |
 | **Evidencia de cierre** | Pruebas en verde y una sincronización real redactada. |
 | **Criterio de aceptación** | CA-41 a CA-47b, CA-44b y CA-56 a CA-60. |
@@ -303,7 +303,7 @@ Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA
 |---|---|
 | **ID** | `M25a.1` — ≤8 h |
 | **Objetivo** | Tener todo lo determinístico del chat antes de conectar el modelo. |
-| **Implementación requerida** | Migración `0014` con el registro por consulta (DEC-10, DEC-11, DEC-13). Redacción (CA-66). Herramientas cerradas con cálculo en SQL y valores como texto (CA-44b, CA-48, CA-49). Límites del chat (CA-70). Registro y voto por `worker_api` (CA-38c). |
+| **Implementación requerida** | Migración `0016` con el registro por consulta (DEC-10, DEC-11, DEC-13). Redacción (CA-66). Herramientas cerradas con cálculo en SQL y valores como texto (CA-44b, CA-48, CA-49). Límites del chat (CA-70). Registro y voto por `worker_api` (CA-38c). |
 | **Procedimiento del asistente** | Pruebas primero. |
 | **Evidencia de cierre** | Pruebas en verde. |
 | **Criterio de aceptación** | CA-48, CA-49, CA-61 a CA-66, CA-69 y CA-70. |
@@ -351,6 +351,21 @@ Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA
 | **Implementación requerida** | Business Verification, Advanced Access para `ads_read` y para `public_profile`. |
 | **Condición para avanzar** | No bloquea ninguna microfase de la ruta. |
 | **Intervención requerida del usuario** | Todo: trámites, verificación del negocio y del dominio, y App Review. |
+
+## I.5 Corrección por MF_APP: onboarding y numeración de migraciones
+
+Decisión del usuario del 2026-10-11, al cerrar la microfase MF_APP, que está fuera de la ruta
+([ficha](../MF_APP/ficha.md)). Corrige la ruta sin cambiar su alcance ni sus criterios:
+
+- **Onboarding.** La pantalla `/onboarding` ya no existe (`H-E1-93`). Después de crear cuenta,
+  confirmar el correo o iniciar sesión se entra a Mi perfil (`/app/perfil`), y la empresa se
+  crea y se completa en Configuración (`/app/configuracion`). `/onboarding` redirige a Mi
+  perfil. Las fichas que nombraban el onboarding (M28.2a y M16.2, paso 10) usan Configuración.
+- **Numeración.** MF_APP tomó `0013_company_profile.sql` y `0014_profile_photos.sql`, con
+  sus pgTAP `11_company_profile` y `12_profile_photos` (`H-E1-94`, `H-E1-96`). Las migraciones
+  previstas de la ruta corren dos números: la de Insights de M16c pasa a `0015` (pgTAP `13`) y
+  la del registro del chat de M25a.1 pasa a `0016` (pgTAP `14`). Lo mismo vale para
+  `purge_connection`: la reemplazan `0015` y `0016`.
 
 ---
 
@@ -461,7 +476,7 @@ Las columnas de las tablas nuevas tienen que coincidir con los contratos K02 a K
 | `replace_credential` | Reautorización (CA-37c): solo si la generación actual es la esperada por el intento `reauth`; incrementa `credential_generation` |
 | `mark_needs_reauth` | Transición con la clase de error |
 | `begin_disconnect` | Pasa a `disconnected`, incrementa la generación y fija `purge_requested_at`. Primer paso de CA-38. Idempotente |
-| `purge_connection` | Idempotente. Borra la credencial y los datos de la conexión y, al final, la fila de la conexión. Paso 3 de CA-38. Las migraciones `0013` y `0014` la reemplazan con `create or replace` para sumar sus tablas |
+| `purge_connection` | Idempotente. Borra la credencial y los datos de la conexión y, al final, la fila de la conexión. Paso 3 de CA-38. Las migraciones `0015` y `0016` la reemplazan con `create or replace` para sumar sus tablas |
 | `list_pending_purges` | Conexiones de la empresa que hay que purgar: pendientes vencidas y `disconnected` con la purga sin terminar. La usa la purga perezosa y reanudable |
 | `count_credentials_by_key_version` y `rewrap_credential` | Rotación de claves (CA-25) |
 
@@ -548,7 +563,7 @@ Casi todo es intervención del usuario. El asistente guía, verifica y documenta
 
 **Aclaraciones aprobadas por el usuario en el grill de M28.2a (2026-10-03).** El calendario del paso 2 concreta la carga escalonada de variables; no adelanta las intervenciones de Meta ni DeepInfra. Las decisiones de dominio y correo se registran en [M28.2a, Decisiones de la microfase](../M28.2a/spec.md#decisiones-de-la-microfase): el proveedor se elige en el paso 6. Si la entregabilidad externa falla por la extensión del dominio, registrar el hallazgo antes de `M16.1`; no dar por cumplido el envío externo. Si cambia la marca, migrar el dominio antes del alta del dueño en `M16.2`.
 
-**Excepción acotada para el recorrido manual.** Por decisión expresa del usuario, se permite en `app` exclusivamente el recorrido manual del usuario exigido por esta ficha: una casilla externa al equipo de Supabase y una empresa sintética creada mediante el onboarding, para verificar Auth y `/app/integraciones`. Esta excepción aclara para M28.2a la prohibición general de pruebas contra producción; no autoriza ninguna suite automatizada ni fixture contra `app`. La cuenta y la empresa se conservan, se documentan sin datos personales y se eliminan con CA-67 al cierre del piloto. No se adelanta el alta del dueño ni la entrada de datos reales de Meta.
+**Excepción acotada para el recorrido manual.** Por decisión expresa del usuario, se permite en `app` exclusivamente el recorrido manual del usuario exigido por esta ficha: una casilla externa al equipo de Supabase y una empresa sintética creada desde Configuración (`/app/configuracion`), para verificar Auth y `/app/integraciones`. Esta excepción aclara para M28.2a la prohibición general de pruebas contra producción; no autoriza ninguna suite automatizada ni fixture contra `app`. La cuenta y la empresa se conservan, se documentan sin datos personales y se eliminan con CA-67 al cierre del piloto. No se adelanta el alta del dueño ni la entrada de datos reales de Meta.
 
 **Trampa conocida.** Sin SMTP propio, Supabase Auth solo envía emails a las direcciones del equipo de la organización y como máximo dos por hora. Una prueba de registro con tu propia dirección de equipo **pasa y no prueba nada**. Por eso el paso 7 exige una dirección de afuera.
 
@@ -611,7 +626,7 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 | 7 | Transiciones por clase de error: autenticación, permiso, acceso al activo (solo con evidencia de H-04), límite, temporal, transporte, desconocido y error propio | `src/modules/integrations/meta/errors.ts` | CA-39 |
 | 8 | UI de estado, reconexión y desconexión | `src/app/(app)/app/integraciones/` | — |
 | 9 | Pruebas de ciclo de vida: transiciones inválidas, pendiente vencida, reautorización con generación vieja, desconexión cortada después de `begin_disconnect` y reanudada | `tests/unit/meta-lifecycle.test.ts`, `tests/app/meta-lifecycle.test.ts` | CA-35 a CA-39 |
-| 10 | **Alta del dueño** (T10): el usuario abre el registro público, el dueño se registra, confirma el email y crea su empresa en `/onboarding`, y el usuario cierra el registro. La demo reutiliza este usuario | — | Registro rechazado después del cierre |
+| 10 | **Alta del dueño** (T10): el usuario abre el registro público, el dueño se registra, confirma el email, entra a Mi perfil y crea su empresa en Configuración (`/app/configuracion`), y el usuario cierra el registro. La demo reutiliza este usuario | — | Registro rechazado después del cierre |
 | 11 | **VR-01:** el dueño autoriza, confirma la cuenta y el probe devuelve una respuesta real | — | Evidencia: cantidad de filas y campos presentes, sin montos ni identificador completo. H-01, H-02 y H-03 resueltas. Medir páginas, llamadas y duración para Q-04 |
 | 12 | Si la sesión termina antes de confirmar, la pendiente vence a los 30 minutos y se purga en la próxima visita. No se deja una credencial real pendiente a propósito entre sesiones | — | — |
 
@@ -631,10 +646,10 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 
 | Paso | Acción | Archivos | Verificación |
 |---:|---|---|---|
-| 1 | Migración `0013`, con `revoke all` y `force row level security` en cada tabla y todo en cascada:<br>• `meta_sync_runs`: identificador, token de posesión, arrendamiento vencible y estado; una ejecución vigente por conexión.<br>• `meta_insight_snapshots`: parámetros sin credenciales, `fetched_at`, páginas, completitud y clase de error.<br>• `meta_snapshot_days`: `date`, `spend numeric`, `impressions bigint`.<br>• `meta_daily_coverage`: una fila por conexión y día cubierto, con presencia, valores (nulos si `sin_fila_reportada`), `snapshot_id`, `fetched_at` y `captured_before_day_end`.<br>Solo la cobertura es legible por `authenticated` | `supabase/migrations/0013_meta_insights.sql` | CA-41 a CA-44 y CA-68 |
+| 1 | Migración `0015`, con `revoke all` y `force row level security` en cada tabla y todo en cascada:<br>• `meta_sync_runs`: identificador, token de posesión, arrendamiento vencible y estado; una ejecución vigente por conexión.<br>• `meta_insight_snapshots`: parámetros sin credenciales, `fetched_at`, páginas, completitud y clase de error.<br>• `meta_snapshot_days`: `date`, `spend numeric`, `impressions bigint`.<br>• `meta_daily_coverage`: una fila por conexión y día cubierto, con presencia, valores (nulos si `sin_fila_reportada`), `snapshot_id`, `fetched_at` y `captured_before_day_end`.<br>Solo la cobertura es legible por `authenticated` | `supabase/migrations/0015_meta_insights.sql` | CA-41 a CA-44 y CA-68 |
 | 2 | Funciones de `worker_api`:<br>• `start_sync_run`: rechaza si hay una ejecución vigente y desplaza a una vencida.<br>• `publish_snapshot`: en una transacción inserta el snapshot y los días y reemplaza la cobertura de cada día cubierto, solo si la ejecución es la vigente (identificador y token de posesión, arrendamiento sin vencer), la conexión sigue `active` y la generación no cambió.<br>• `fail_sync_run`: exige la misma posesión.<br>`create or replace` de `purge_connection` para sumar las tablas nuevas | misma migración | CA-43, CA-45, CA-58, CA-59 y CA-38c |
 | 3 | Función de lectura de cobertura, `SECURITY INVOKER` sobre `meta_daily_coverage`: por día, presencia, estado temporal (`abierto` o `cerrado`, calculado en la zona de la cuenta), captura parcial, procedencia y frescura. Gasto e impresiones salen como texto | misma migración | CA-43b, CA-44b y CA-46 |
-| 4 | pgTAP de aislamiento, privilegios y publicación: ejecución desplazada rechazada, publicación después de una desconexión rechazada, snapshot nuevo sin fila donde el anterior tenía valor. Extender `10_demo_closure` con las tablas nuevas | `supabase/tests/11_meta_insights.test.sql`, `10_demo_closure.test.sql` | CA-19, CA-43, CA-59 y CA-67 |
+| 4 | pgTAP de aislamiento, privilegios y publicación: ejecución desplazada rechazada, publicación después de una desconexión rechazada, snapshot nuevo sin fila donde el anterior tenía valor. Extender `10_demo_closure` con las tablas nuevas | `supabase/tests/13_meta_insights.test.sql`, `10_demo_closure.test.sql` | CA-19, CA-43, CA-59 y CA-67 |
 | 5 | Lectura de Insights: nivel `account`, `time_increment=1`, `spend` e `impressions`, `time_range` en fechas de la zona de la cuenta. Paginación por cursor `after` hasta agotar la respuesta o chocar un límite. Relectura de 28 días | `src/modules/integrations/meta/insights.ts` | CA-41, CA-42, CA-47b y CA-56 |
 | 6 | Reintentos solo para la clase temporal, con tope y espera, dentro del presupuesto. Un límite de Meta termina la ejecución como incompleta | mismo archivo | CA-57 |
 | 7 | Server Action de sincronización y UI: botón, estado de la ejecución, cobertura por día y la limitación declarada de que no hay recolección automática | `src/modules/integrations/actions.ts`, `src/app/(app)/app/integraciones/` | D2 declarada |
@@ -642,7 +657,7 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 | 9 | Pruebas con Meta simulada: paginación completa; fallo en la página intermedia; día sin fila; resincronización sin duplicados y con valores actualizados; ejecución A vencida, B inicia y publica, A termina y es rechazada; desconexión durante la ejecución; captura del mediodía vista al día siguiente sin resincronizar; zona horaria con cambio de horario | `tests/unit/meta-insights.test.ts`, `tests/app/meta-sync.test.ts` | CA-41 a CA-47b y CA-56 a CA-60 |
 | 10 | Precisión de punta a punta: un gasto que `number` no representa exactamente viaja SQL → API → TypeScript sin cambiar | `tests/app/meta-precision.test.ts` | CA-44b |
 
-**Cierre:** `npm run verify`, `npm run test:policies`, `npm run test:app`, `db:push` de `0013` al proyecto `app` ejecutado por el usuario, y una sincronización real redactada.
+**Cierre:** `npm run verify`, `npm run test:policies`, `npm run test:app`, `db:push` de `0015` al proyecto `app` ejecutado por el usuario, y una sincronización real redactada.
 
 **Trampa conocida.** Un día sin fila no es un día con gasto cero. `sin_fila_reportada` significa que la extracción completa no trajo fila para ese día, y nada más. Tratarlo como cero requiere fundamentar antes la semántica del endpoint (CA-43).
 
@@ -660,8 +675,8 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 
 | Paso | Acción | Archivos | Verificación |
 |---:|---|---|---|
-| 1 | Migración `0014`: `chat_query_records` con `company_id` (cascada), `connection_id` nulo si no hay conexión, `question_redacted` (hasta 500 caracteres), `tool_names text[]`, `outcome`, `reason`, `latency_ms`, `requested_model_id`, `reported_model_id` (nulo si el proveedor no respondió), `feedback` (nulo, `useful` o `not_useful`) y `created_at`. `revoke all`, `force row level security` y ningún grant para `authenticated`. Funciones `worker_api.record_query`, que cumple CA-38c, y `worker_api.set_feedback`, que verifica que el registro sea de la empresa. `create or replace` de `purge_connection` para borrar los registros al desconectar (DEC-09) | `supabase/migrations/0014_chat_queries.sql` | CA-38c, CA-62, CA-64, CA-65 y CA-69 |
-| 2 | pgTAP de privilegios y aislamiento del registro. Extender `10_demo_closure` | `supabase/tests/12_chat_queries.test.sql` | CA-64 y CA-67 |
+| 1 | Migración `0016`: `chat_query_records` con `company_id` (cascada), `connection_id` nulo si no hay conexión, `question_redacted` (hasta 500 caracteres), `tool_names text[]`, `outcome`, `reason`, `latency_ms`, `requested_model_id`, `reported_model_id` (nulo si el proveedor no respondió), `feedback` (nulo, `useful` o `not_useful`) y `created_at`. `revoke all`, `force row level security` y ningún grant para `authenticated`. Funciones `worker_api.record_query`, que cumple CA-38c, y `worker_api.set_feedback`, que verifica que el registro sea de la empresa. `create or replace` de `purge_connection` para borrar los registros al desconectar (DEC-09) | `supabase/migrations/0016_chat_queries.sql` | CA-38c, CA-62, CA-64, CA-65 y CA-69 |
+| 2 | pgTAP de privilegios y aislamiento del registro. Extender `10_demo_closure` | `supabase/tests/14_chat_queries.test.sql` | CA-64 y CA-67 |
 | 3 | Pruebas de redacción: cada patrón, montos con separador de miles que no se redactan, tarjetas que no pasan Luhn y quedan tal cual, idempotencia y longitud máxima | `tests/unit/chat-redaction.test.ts` | CA-66 |
 | 4 | Función única de redacción: email, teléfono internacional, CUIT/CUIL con guiones, tarjeta con Luhn, CBU/CVU de 22 dígitos, URL, cadena con forma de secreto, `act_` truncado | `src/modules/chat/redaction.ts` | CA-66 |
 | 5 | Catálogo cerrado con Zod: `coverage(period)`, `daily_series(metric, period)`, `total(metric, period)` y `connection_status()`, con `metric` en `spend` o `impressions`. Sin SQL, tablas ni `company_id` como argumentos | `src/modules/chat/tools/schema.ts` | CA-48 y CA-49 |
@@ -669,7 +684,7 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 | 7 | Tipos de resultado apoyados en `periodSchema` y el patrón `knownOr` de reporting. **No** se usa `calculatedMetricEvidenceSchema` tal cual, porque su `value` es `number` y el gasto exige decimal exacto | `src/modules/chat/tools/results.ts` | Reutilización declarada en la spec |
 | 8 | Pruebas de herramientas: período con días sin cobertura, totales parciales, captura parcial, días de distintas extracciones con rango de `fetched_at`, empresa ajena, período mayor al máximo llamado directo por la API, registro que llega después de una desconexión | `tests/unit/chat-tools.test.ts`, `tests/app/chat-tools.test.ts` | CA-38c, CA-51, CA-51b, CA-54 y CA-70 |
 
-**Cierre:** `npm run verify`, `npm run test:policies`, `npm run test:app` y `db:push` de `0014` al proyecto `app` ejecutado por el usuario.
+**Cierre:** `npm run verify`, `npm run test:policies`, `npm run test:app` y `db:push` de `0016` al proyecto `app` ejecutado por el usuario.
 
 **Trampa conocida.** El texto de la pregunta nunca va a `console.log`. Los logs de ejecución de Vercel lo guardarían fuera del alcance de DEC-09 (CA-63).
 
