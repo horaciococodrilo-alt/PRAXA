@@ -381,3 +381,36 @@ Siguen pendientes, fuera del alcance de la microfase:
 - **R-01:** `npm run test:policies`, que corre el usuario.
 - **Corrección de la ruta:** `H-E1-93`, `H-E1-94` y `H-E1-96`, que incluye `SECURITY.md` y
   `ARCHITECTURE.md`. La decide el usuario.
+
+## 18. Primera corrida de `test:policies` y ensayo de `0013` y `0014` (2026-10-11)
+
+El usuario corrió `npm run test:policies` contra el proyecto de pruebas (`<ref de pruebas>`) y
+compartió la salida. Resultado: 13 archivos, 14 ejecuciones, 473 aserciones y 2 problemas.
+
+- `01` a `10` (incluida la repetición de `09`): todo OK. Lo anterior a MF_APP no se rompió.
+- `11_company_profile`: error SQL `column "industry" does not exist`.
+- `12_profile_photos`: 5 de 12. Fallan la configuración del bucket (`NULL` en las tres columnas),
+  la subida propia (`42501`, RLS) y las aserciones que dependen de ella.
+
+**Diagnóstico:** el runner no aplica migraciones, solo prueba lo que ya tiene el proyecto. Las
+dos fallas son las esperables con `0013` y `0014` sin aplicar: no existe la columna, no existe
+el bucket `avatars` y, sin sus políticas, RLS rechaza la subida. No es un defecto de las
+migraciones ni de las pruebas.
+
+**Ensayo con rollback:** antes de aplicarlas se ensayó con el procedimiento de M06.1a-M06.2a.
+El arnés temporal es `<scratchpad>/ensayo-0013-0014.mjs`, con el mismo guard de destino que
+`run-pgtap.mjs` (solo el proyecto de pruebas desechable). En cada ensayo hace `BEGIN`, aplica la
+migración tal cual está en el repo, corre la prueba sin su `begin`/`rollback` y termina con
+`ROLLBACK`. No quedó nada persistente.
+
+| Ensayo | Resultado |
+|---|---|
+| `0013` + `11_company_profile` | 9/9 OK |
+| `0013` + `0014` + `12_profile_photos` | 12/12 OK, incluidos UPDATE y DELETE entre usuarios (R-06) |
+
+El DELETE de la aserción 8 no abortó el archivo: la variable `storage.allow_delete_query` (o la
+ausencia del trigger en esta versión de Storage) dejó probar la política.
+
+**Pendiente del usuario:** `npm run db:check:test` → `npm run db:push:test` → `npm run
+test:policies`, y registrar la salida sin la cadena de conexión. Recién después, aplicar al
+piloto.
