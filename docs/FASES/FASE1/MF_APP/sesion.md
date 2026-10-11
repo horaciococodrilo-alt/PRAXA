@@ -485,3 +485,21 @@ intervención del usuario (ficha y `PROJECT_STATE.md`).
 **Sigue abierto en `H-E1-93`:** no hay pantalla para el contexto declarado (objetivos,
 problemas y restricciones) que usa el contrato del reporte. `src/modules/onboarding/` y sus
 tablas siguen existiendo sin uso desde la interfaz.
+
+## 21. Cierre e integración (2026-10-11)
+
+El usuario decidió no correr otra `/implementation-review` ni `/qa-review` y cerrar MF_APP
+(D-MF_APP-22). Cierre:
+
+- La ficha pasa a `PASS` y `PROJECT_STATE.md` la registra como cerrada fuera de la ruta,
+  igual que MF_FRONTEND.
+- **Integración:** `mf/M28.2a` era ancestro de `mf/MF_APP`, así que avanzó por avance rápido
+  hasta el commit de este cierre. No hubo commit de merge ni cambios en el árbol de trabajo.
+  Sin push: `origin/mf/M28.2a` sigue en `f4dc8ce`.
+- **Copia de trabajo `PRAXA-app-qa`:** se cerró su `next dev` del puerto 3100 (el servidor del
+  usuario en el puerto 3000 no se tocó) y se quitó de la lista de worktrees de Git. La carpeta
+  `C:\Users\Simon\dev\PRAXA-app-qa` no se pudo borrar (un archivo bloqueado y sin permiso
+  para forzarlo): la borra el usuario a mano. No tiene nada que no esté commiteado.
+
+Pendientes del usuario: los de la ficha (piloto, URL de redirección, pruebas con cuenta real
+y decisiones abiertas).

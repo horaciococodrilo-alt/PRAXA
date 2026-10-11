@@ -47,9 +47,8 @@ Después de M28.2a, en este orden: M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a.
   decisión del usuario, sin gate de la ruta, e integrada en `mf/M28.2a`. Desde esa integración
   el proxy se ejecuta (`src/proxy.ts`). Evidencia en
   [MF_FRONTEND/ficha.md](FASES/FASE1/MF_FRONTEND/ficha.md).
-- **MF_APP — App web (pantallas de `/app`):** `VERIFICADO — PENDIENTE DE APROBACIÓN` desde el
-  2026-10-11, rama `mf/MF_APP` (desde `mf/M28.2a`), sin integrar. Pendientes:
-  `/implementation-review` y `/qa-review` (`0013` y `0014` ya pasan pgTAP en el proyecto de pruebas). Evidencia
+- **MF_APP — App web (pantallas de `/app`):** cerrada el 2026-10-11 por decisión del usuario,
+  sin gate de la ruta ni `/implementation-review` aprobada, e integrada en `mf/M28.2a`. Evidencia
   en [MF_APP/ficha.md](FASES/FASE1/MF_APP/ficha.md).
 
 ## Decisiones pendientes del usuario

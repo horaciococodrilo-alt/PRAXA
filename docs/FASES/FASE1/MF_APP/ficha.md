@@ -2,8 +2,11 @@
 
 ## Estado
 
-`VERIFICADO — PENDIENTE DE APROBACIÓN` desde el 2026-10-11. Rama `mf/MF_APP` (antes
-`feat/app`), creada desde `mf/M28.2a` en `f4dc8ce`. Sin push.
+`PASS` — cerrada el 2026-10-11 por decisión del usuario, sin `/implementation-review`
+APROBABLE ni `/qa-review`. `implementation-review-2` dio BLOQUEADO solo por la ruta sin
+corregir, y esa corrección se hizo después (sesión §20). El código pasó `verify`,
+`test:policies` y las roturas. Rama `mf/MF_APP` (antes `feat/app`), creada desde `mf/M28.2a`
+en `f4dc8ce` e integrada en `mf/M28.2a` por avance rápido. Sin push.
 
 Trabajo **fuera de la ruta `meta_first`**: no figura en la Parte I del plan, no tiene gate de
 la ruta y no habilita ni bloquea microfases. Lo pidió el usuario directamente, igual que
@@ -85,6 +88,7 @@ skills `/implementation-review` y `/qa-review` usan el merge-base por defecto: r
 | D-MF_APP-19 | Los hallazgos del QA de las pantallas de acceso no se registran. |
 | D-MF_APP-20 | Aplicar las correcciones verificadas de `/code-review` (`H-E1-97` a `H-E1-105`). |
 | D-MF_APP-21 | Documentar este trabajo como microfase propia, fuera de MF_FRONTEND. |
+| D-MF_APP-22 | Cerrar MF_APP sin otra revisión de implementación ni QA, integrarla en `mf/M28.2a` y borrar la copia de trabajo. |
 
 ## Evidencia
 
