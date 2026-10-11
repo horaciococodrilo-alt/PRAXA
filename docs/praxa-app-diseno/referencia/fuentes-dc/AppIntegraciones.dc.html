@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Integraciones — PRAXA</title>
+<script src="support.js-no-incluido"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body { margin: 0; background: #060E0D; }
+a { color: #3ECFB8; }
+a:hover { color: #7DF0DE; }
+.ap { --ap-bg: #060E0D; --ap-nav: #060E0D; --ap-surface: #0C1817; --ap-surface-2: #0C1817; --ap-tile: #0F211E; --ap-tile-ic: #12302B;
+  --ap-line: #1C3330; --ap-line-soft: #1C3330; --ap-text: #E6F1EF; --ap-text-2: #C7D8D5; --ap-muted: #9FB5B1; --ap-accent: #3ECFB8; --ap-accent-ink: #04100E;
+  position: relative; display: flex; min-height: 100vh; color: var(--ap-text); font-family: Manrope, 'Segoe UI', system-ui, sans-serif; }
+.ap-side { flex: 0 0 212px; box-sizing: border-box; display: flex; flex-direction: column; gap: 28px; padding: 26px 14px 22px; background: var(--ap-nav); border-right: 1px solid #152927; }
+.ap-logo { display: block; padding: 2px 10px; }
+.ap-logo img { display: block; height: 26px; width: auto; }
+.ap-navlist { display: flex; flex-direction: column; gap: 6px; }
+.ap-nav { box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #C7D8D5; text-decoration: none; font-size: 13.5px; font-weight: 500; border: 1px solid transparent; }
+.ap-nav svg { flex: 0 0 auto; }
+a.ap-nav:hover { background: rgba(62, 207, 184, 0.08); color: #E6F1EF; }
+.ap-nav-on { color: #E6F1EF !important; font-weight: 700; background: #12302B; border-color: rgba(62, 207, 184, 0.28); }
+.ap-nav-on { padding-left: 8px; gap: 8px; }
+.ap-nic { flex: 0 0 auto; width: 28px; height: 28px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: rgba(62, 207, 184, 0.16); border: 1px solid rgba(62, 207, 184, 0.45); color: #3ECFB8; }
+.ap-nav-off { cursor: default; }
+.ap-foot { margin-top: auto; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #1C3330; padding-top: 14px; }
+.ap-user { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px 0 12px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: #E6F1EF; text-decoration: none; }
+a.ap-user:hover { background: rgba(62, 207, 184, 0.08); color: #E6F1EF; }
+a.ap-round { text-decoration: none; }
+a.ap-round:hover { border-color: #27574F; color: #E6F1EF; }
+.ap-user .ap-av { width: 30px; height: 30px; font-size: 11px; }
+.ap-user svg:last-child { margin-left: auto; color: #9FB5B1; }
+.ap-av { box-sizing: border-box; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #3ECFB8; color: var(--ap-accent-ink); font-weight: 800; letter-spacing: 0.01em; }
+.ap-main { flex: 1 1 auto; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; padding: 22px 40px 40px; }
+.ap-top { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.ap-chip { display: inline-flex; align-items: center; gap: 9px; height: 36px; box-sizing: border-box; padding: 0 18px; border-radius: 999px; background: #0C1817; border: 1px solid #1C3330; font-size: 12.5px; font-weight: 600; color: #E6F1EF; }
+.ap-dot { width: 8px; height: 8px; border-radius: 999px; background: #3ECFB8; display: inline-block; }
+.ap-round { box-sizing: border-box; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #0C1817; border: 1px solid #1C3330; color: #E6F1EF; font-size: 12px; font-weight: 700; }
+.ap-card { box-sizing: border-box; background: var(--ap-surface-2); border: 1px solid #1C3330; border-radius: 14px; }
+.ap-h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+.ap-sub { margin: 0; font-size: 13.5px; color: var(--ap-text-2); line-height: 1.5; }
+a:focus-visible, button:focus-visible { outline: 2px solid #7DF0DE; outline-offset: 2px; }
+
+.ig-head { display: flex; flex-direction: column; gap: 6px; }
+.ig-ban { position: relative; overflow: hidden; margin-top: 16px; min-height: 110px; box-sizing: border-box; padding: 0 30px 0 40px; display: flex; align-items: center; gap: 44px; border-radius: 14px; border: 1px solid #27423E; background: linear-gradient(100deg, #0A1413 0%, #0F211E 55%, #12302B 100%); }
+.ig-ban::after { content: ""; position: absolute; right: -90px; bottom: -150px; width: 330px; height: 300px; border-radius: 50%; background: radial-gradient(circle at 60% 40%, rgba(62, 207, 184, 0.22), rgba(46, 167, 148, 0.12) 55%, transparent 72%); border: 1px solid rgba(62, 207, 184, 0.18); pointer-events: none; }
+.ig-robot { position: relative; z-index: 1; flex: 0 0 auto; display: block; width: 44px; height: 44px; object-fit: contain; margin-left: 2px; }
+.ig-bt { position: relative; z-index: 1; flex: 1 1 auto; min-width: 0; }
+.ig-bt h2 { margin: 0; font-size: 19px; font-weight: 700; color: #E6F1EF; letter-spacing: -0.01em; }
+.ig-bt p { margin: 8px 0 0; max-width: 470px; font-size: 12.5px; line-height: 1.65; color: #C7D8D5; }
+.ig-guide { position: relative; z-index: 1; all: unset; box-sizing: border-box; cursor: pointer; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 22px; border-radius: 8px; border: 1px solid #2EA794; background: rgba(10, 20, 19, 0.55); color: #3ECFB8; font-size: 11.5px; font-weight: 800; }
+.ig-guide:hover { background: rgba(62, 207, 184, 0.10); }
+.ig-sec { margin-top: 22px; }
+.ig-sec h2 { margin: 0; font-size: 19px; font-weight: 700; color: #E6F1EF; letter-spacing: -0.01em; }
+.ig-sec p { margin: 6px 0 0; font-size: 12.5px; color: #C7D8D5; }
+.ig-cards { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; }
+.ig-card { flex: 0 0 254px; box-sizing: border-box; padding: 14px 15px 8px; border-radius: 12px; background: linear-gradient(180deg, #0C1817 0%, #0A1413 100%); border: 1px solid #1C3330; display: flex; flex-direction: column; }
+.ig-top { display: flex; align-items: flex-start; gap: 12px; }
+.ig-lg { flex: 0 0 auto; width: 46px; height: 46px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; background: #0F211E; border: 1px solid #1C3330; }
+.ig-lg img { display: block; width: 30px; height: 30px; object-fit: contain; }
+.ig-lg-w { background: #fff; border-color: #E6F1EF; border-radius: 999px; }
+.ig-nm { flex: 1 1 auto; min-width: 0; padding-top: 3px; }
+.ig-nm h3 { margin: 0; font-size: 13px; font-weight: 700; color: #E6F1EF; }
+.ig-nm p { margin: 5px 0 0; font-size: 10.5px; line-height: 1.4; color: #C7D8D5; }
+.ig-kb { all: unset; box-sizing: border-box; cursor: pointer; flex: 0 0 auto; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; color: #E6F1EF; margin-right: -4px; }
+.ig-kb:hover { background: rgba(62, 207, 184, 0.10); }
+.ig-state { margin-top: 12px; display: inline-flex; align-items: center; gap: 8px; font-size: 10.5px; color: #C7D8D5; }
+.ig-state .ap-dot { width: 9px; height: 9px; }
+.ig-state-off .ap-dot { background: #7E9995; }
+.ig-act { all: unset; box-sizing: border-box; cursor: pointer; margin-top: 7px; display: flex; align-items: center; justify-content: center; gap: 12px; height: 27px; border-radius: 7px; border: 1px solid #27574F; background: rgba(10, 20, 19, 0.5); color: #3ECFB8; font-size: 10.5px; font-weight: 800; text-decoration: none; }
+a.ig-act:hover, button.ig-act:hover { background: rgba(62, 207, 184, 0.10); color: #7DF0DE; }
+.ig-kb:focus-visible, .ig-act:focus-visible, .ig-guide:focus-visible { outline: 2px solid #7DF0DE; outline-offset: 2px; }
+@media (max-width: 900px) { .ig-ban { flex-wrap: wrap; padding: 22px; gap: 18px; } }
+
+/* Componentes del sistema: botones, campos, badges, nav */
+.ap-navlist { gap: 4px; }
+.ap-nav { min-height: 44px; padding: 0 12px; gap: 12px; border-radius: 10px; border: 0; font-size: 14px; font-weight: 500; color: #9FB5B1; }
+.ap-foot .ap-nav { color: #9FB5B1 !important; }
+a.ap-nav:hover { background: #0F211E; color: #E6F1EF; }
+.ap-nav-on { padding-left: 12px; gap: 12px; background: #12302B; color: #E6F1EF !important; font-weight: 600; border: 0; }
+.ap-nic { width: auto; height: auto; background: none; border: 0; border-radius: 0; color: inherit; }
+.ap-nav-on .ap-nic svg { width: 18px; height: 18px; }
+.ap-chip { height: auto; padding: 6px 13px; gap: 7px; background: #09120F; border: 1px solid #1C3330; font-size: 13px; font-weight: 600; color: #E6F1EF; }
+.ap-dot { width: 7px; height: 7px; }
+.in-eb { color: #7E9995; font-weight: 600; letter-spacing: 0.08em; }
+.in-btn { min-height: 46px; padding: 0 20px; border: 1px solid #152927; border-radius: 10px; background: transparent; color: #5F7874; font-size: 14px; font-weight: 600; opacity: 1; cursor: not-allowed; }
+.cf-save, .pf-save { height: auto; min-height: 46px; min-width: 0; padding: 0 22px; border-radius: 10px; background: #3ECFB8; color: #04100E; font-size: 14.5px; font-weight: 700; }
+.cf-save:hover, .pf-save:hover { background: #55D9C4; }
+.ig-guide { height: auto; min-height: 46px; padding: 0 20px; gap: 9px; border: 1px solid #27423E; border-radius: 10px; background: transparent; color: #E6F1EF; font-size: 14px; font-weight: 600; }
+.ig-guide:hover { background: #0F211E; }
+.ig-act { height: 36px; border: 1px solid #27423E; border-radius: 9px; background: transparent; color: #C7D8D5; font-size: 13px; font-weight: 600; }
+a.ig-act:hover, button.ig-act:hover { background: #0F211E; color: #E6F1EF; }
+.ig-card { padding-bottom: 12px; }
+.pf-btn, .pf-btn-2 { height: auto; min-height: 36px; padding: 0 13px; border: 1px solid #27423E; border-radius: 9px; background: transparent; color: #C7D8D5; font-size: 13px; font-weight: 600; }
+.pf-btn:hover { background: #0F211E; }
+.pf-grid { align-items: stretch; }
+.ch-send { width: 44px; height: 44px; border-radius: 10px; background: #3ECFB8; color: #04100E; }
+.ch-send svg { stroke-width: 2.2; }
+.ch-sug { border: 1px solid #27423E; border-radius: 10px; background: transparent; color: #C7D8D5; }
+.ch-sug:hover { background: #0F211E; border-color: #27574F; }
+.ch-box { border: 1px solid #27423E; border-radius: 14px; background: #0A1413; }
+.ch-box:focus-within { border-color: #3ECFB8; }
+.uc-date { height: 46px; border-radius: 10px; border: 1px solid #27423E; background: #0A1413; font-size: 13.5px; font-weight: 600; }
+.uc-kv { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; font-size: 22px; }
+.uc-tv { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; font-size: 17px; }
+.cf-in, .cf-sel, .pf-in { height: auto; min-height: 46px; padding: 0 14px; border-radius: 10px; border: 1px solid #27423E; background: #0A1413; color: #E6F1EF; font-size: 14.5px; }
+.cf-sel { padding-right: 40px; }
+.cf-in:focus, .cf-sel:focus, .pf-in:focus { border-color: #3ECFB8; }
+.pf-f label { margin-bottom: 7px; font-size: 13px; font-weight: 600; color: #C7D8D5; }
+.cf-opt { height: auto; min-height: 60px; border: 1px solid #1C3330; border-radius: 12px; background: #0A1413; }
+.cf-opt[aria-pressed="true"] { border: 1px solid #3ECFB8; background: #0F211E; }
+.ig-state, .in-st { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; background: #3ECFB8; color: #04100E; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.ig-state .ap-dot, .in-st .ap-dot { display: none; }
+.ig-state-off, .in-st-off { background: transparent; border: 1px solid #1C3330; padding: 2px 9px; color: #9FB5B1; font-weight: 600; }
+.ig-state { margin-top: 12px; }
+/* tema claro: componentes de la landing */
+.ap-l .ap-nav, .ap-l .ap-foot .ap-nav { color: #27403C !important; }
+.ap-l a.ap-nav:hover { background: #F2F6F5; color: #0A1A18 !important; }
+.ap-l .ap-nav-on { background: #E4F8F3; color: #0E6B5C !important; font-weight: 700; border: 0; border-radius: 9px; }
+.ap-l .ap-chip { background: #FFFFFF; border: 1px solid #D4E2DF; color: #0A1A18; }
+</style>
+</helmet>
+
+<div class="ap" style="background: radial-gradient(520px 320px at 74% 0%, rgba(62,207,184,0.10), transparent 72%), radial-gradient(640px 420px at 0% 100%, rgba(62,207,184,0.09), transparent 70%), radial-gradient(520px 420px at 100% 100%, rgba(62,207,184,0.10), transparent 70%), #060E0D">
+  <nav class="ap-side" aria-label="Navegación principal">
+    <a class="ap-logo" href="AppInicio.dc.html" aria-label="Praxa, inicio"><img src="../../assets/logo-praxa-blanco.png" alt="Praxa"></a>
+    <div class="ap-navlist">
+      <a href="AppInicio.dc.html" class="ap-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg><span>Inicio</span></a>
+      <a href="AppChat.dc.html" class="ap-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01" stroke-width="2.4"/></svg><span>Chat</span></a>
+      <a href="AppDiagnostico.dc.html" class="ap-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 20v-7M12 20V5M18 20v-10" stroke-width="2.6"/></svg><span>Diagnóstico</span></a>
+      <a href="AppUsoCostosCero.dc.html" class="ap-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><ellipse cx="12" cy="5.5" rx="7.5" ry="3"/><path d="M4.5 5.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/><path d="M4.5 11.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/></svg><span>Uso y costos</span></a>
+      <a href="AppIntegraciones.dc.html" aria-current="page" class="ap-nav ap-nav-on"><span class="ap-nic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9.5 14.5 14.5 9.5"/><path d="M12.5 6.5 14 5a4 4 0 0 1 5.7 5.7l-1.5 1.5"/><path d="M11.5 17.5 10 19a4 4 0 0 1-5.7-5.7L5.8 11.8"/></svg></span><span>Integraciones</span></a>
+    </div>
+    <div class="ap-foot">
+      <a class="ap-nav" href="AppConfiguracion.dc.html" style="color:#C7D8D5"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.5a2 2 0 0 1-1 1.7l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7V20a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.5a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span>Configuración</span></a>
+      <a class="ap-user" href="AppPerfil.dc.html" aria-label="Mi perfil, Gonzalo"><span class="ap-av" aria-hidden="true">GM</span><span>Gonzalo</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></a>
+    </div>
+  </nav>
+  <main class="ap-main" style="padding: 20px 34px 40px 20px">
+    <div class="ig-head">
+      <h1 class="ap-h1">Integraciones</h1>
+      <p class="ap-sub">Conectá tus canales y sistemas para que Praxa analice tu operación en tiempo real.</p>
+    </div>
+
+    <section class="ig-ban" aria-label="Guía de integraciones">
+      <img class="ig-robot" src="../../assets/robot-praxa.png" alt="" width="44" height="44">
+      <div class="ig-bt">
+        <h2>Conectá tus herramientas</h2>
+        <p>Integrá tus canales de venta, sistemas y herramientas de marketing para tener una visión completa de tu negocio y detectar oportunidades automáticamente.</p>
+      </div>
+      <button type="button" class="ig-guide"><span>Ver guía de integraciones</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></button>
+    </section>
+
+    <section class="ig-sec" aria-labelledby="ig-m">
+      <h2 id="ig-m">Marketing y analítica</h2>
+      <p>Conectá tus herramientas de marketing y analítica para medir el rendimiento.</p>
+      <div class="ig-cards">
+        <article class="ig-card">
+          <div class="ig-top"><span class="ig-lg"><img src="../../assets/logo-meta-ads.png" alt="" width="30" height="30"></span><div class="ig-nm"><h3>Meta Ads</h3><p>Campañas, métricas<br>y rendimiento.</p></div><button type="button" class="ig-kb" aria-label="Más opciones de Meta Ads"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="5.5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="18.5" r="1.6" fill="currentColor"/></svg></button></div>
+          <span class="ig-state"><span class="ap-dot" aria-hidden="true"></span>Conectado</span>
+          <a class="ig-act" href="AppConfiguracion.dc.html"><span>Configurar</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>
+        </article>
+        <article class="ig-card">
+          <div class="ig-top"><span class="ig-lg"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true" focusable="false"><rect x="14.6" y="2.5" width="7.2" height="21" rx="3.6" fill="#F9AB00"/><rect x="7.8" y="10.2" width="7.2" height="13.3" rx="3.6" fill="#E37400"/><circle cx="4.7" cy="20.2" r="3.3" fill="#E37400"/></svg></span><div class="ig-nm"><h3>Google Analytics</h3><p>Tráfico, conversiones<br>y comportamiento.</p></div><button type="button" class="ig-kb" aria-label="Más opciones de Google Analytics"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="5.5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="18.5" r="1.6" fill="currentColor"/></svg></button></div>
+          <span class="ig-state"><span class="ap-dot" aria-hidden="true"></span>Conectado</span>
+          <a class="ig-act" href="AppConfiguracion.dc.html"><span>Configurar</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></a>
+        </article>
+        <article class="ig-card">
+          <div class="ig-top"><span class="ig-lg ig-lg-w"><svg width="30" height="30" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg></span><div class="ig-nm"><h3>Google Ads</h3><p>Campañas, palabras clave<br>y métricas.</p></div><button type="button" class="ig-kb" aria-label="Más opciones de Google Ads"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="5.5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="18.5" r="1.6" fill="currentColor"/></svg></button></div>
+          <span class="ig-state ig-state-off"><span class="ap-dot" aria-hidden="true"></span>No conectado</span>
+          <button type="button" class="ig-act"><span>Conectar</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 12h15M13.5 6l6 6-6 6"/></svg></button>
+        </article>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1320,"height":780}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

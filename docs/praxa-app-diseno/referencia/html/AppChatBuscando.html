@@ -1,0 +1,212 @@
+<!doctype html><html lang="es"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Chat · Buscando en internet — PRAXA</title>
+<style>x-dc{display:none!important}</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" data-dc-tpl="1"><style data-dc-tpl="2">
+body { margin: 0; background: #060E0D; }
+a { color: #3ECFB8; }
+a:hover { color: #7DF0DE; }
+.ap { --ap-bg: #060E0D; --ap-nav: #060E0D; --ap-surface: #0C1817; --ap-surface-2: #0C1817; --ap-tile: #0F211E; --ap-tile-ic: #12302B;
+  --ap-line: #1C3330; --ap-line-soft: #1C3330; --ap-text: #E6F1EF; --ap-text-2: #C7D8D5; --ap-muted: #9FB5B1; --ap-accent: #3ECFB8; --ap-accent-ink: #04100E;
+  position: relative; display: flex; min-height: 100vh; color: var(--ap-text); font-family: Manrope, 'Segoe UI', system-ui, sans-serif; }
+.ap-side { flex: 0 0 212px; box-sizing: border-box; display: flex; flex-direction: column; gap: 28px; padding: 26px 14px 22px; background: var(--ap-nav); border-right: 1px solid #152927; }
+.ap-logo { display: block; padding: 2px 10px; }
+.ap-logo img { display: block; height: 26px; width: auto; }
+.ap-navlist { display: flex; flex-direction: column; gap: 6px; }
+.ap-nav { box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #C7D8D5; text-decoration: none; font-size: 13.5px; font-weight: 500; border: 1px solid transparent; }
+.ap-nav svg { flex: 0 0 auto; }
+a.ap-nav:hover { background: rgba(62, 207, 184, 0.08); color: #E6F1EF; }
+.ap-nav-on { color: #E6F1EF !important; font-weight: 700; background: #12302B; border-color: rgba(62, 207, 184, 0.28); }
+.ap-nav-on { padding-left: 8px; gap: 8px; }
+.ap-nic { flex: 0 0 auto; width: 28px; height: 28px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: rgba(62, 207, 184, 0.16); border: 1px solid rgba(62, 207, 184, 0.45); color: #3ECFB8; }
+.ap-nav-off { cursor: default; }
+.ap-foot { margin-top: auto; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #1C3330; padding-top: 14px; }
+.ap-user { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px 0 12px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: #E6F1EF; text-decoration: none; }
+a.ap-user:hover { background: rgba(62, 207, 184, 0.08); color: #E6F1EF; }
+a.ap-round { text-decoration: none; }
+a.ap-round:hover { border-color: #27574F; color: #E6F1EF; }
+.ap-user .ap-av { width: 30px; height: 30px; font-size: 11px; }
+.ap-user svg:last-child { margin-left: auto; color: #9FB5B1; }
+.ap-av { box-sizing: border-box; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #3ECFB8; color: var(--ap-accent-ink); font-weight: 800; letter-spacing: 0.01em; }
+.ap-main { flex: 1 1 auto; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; padding: 22px 40px 40px; }
+.ap-top { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.ap-chip { display: inline-flex; align-items: center; gap: 9px; height: 36px; box-sizing: border-box; padding: 0 18px; border-radius: 999px; background: #0C1817; border: 1px solid #1C3330; font-size: 12.5px; font-weight: 600; color: #E6F1EF; }
+.ap-dot { width: 8px; height: 8px; border-radius: 999px; background: #3ECFB8; display: inline-block; }
+.ap-round { box-sizing: border-box; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #0C1817; border: 1px solid #1C3330; color: #E6F1EF; font-size: 12px; font-weight: 700; }
+.ap-card { box-sizing: border-box; background: var(--ap-surface-2); border: 1px solid #1C3330; border-radius: 14px; }
+.ap-h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+.ap-sub { margin: 0; font-size: 13.5px; color: var(--ap-text-2); line-height: 1.5; }
+a:focus-visible, button:focus-visible { outline: 2px solid #7DF0DE; outline-offset: 2px; }
+
+.ch-wrap { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; padding-top: 6px; }
+.ch-mark { display: block; width: 62px; height: auto; margin-top: 4px; }
+.ch-h1 { margin: 22px 0 0; text-align: center; font-size: 30px; line-height: 1.22; font-weight: 800; letter-spacing: -0.02em; color: #E6F1EF; }
+.ch-h1 em { font-style: normal; color: var(--ap-accent); }
+.ch-lead { margin: 16px 0 0; max-width: 34ch; text-align: center; font-size: 14px; line-height: 1.6; color: #C7D8D5; text-wrap: balance; }
+.ch-src { display: inline-flex; align-items: center; gap: 10px; height: 42px; box-sizing: border-box; margin-top: 22px; padding: 0 24px; border-radius: 999px; background: #0A1413; border: 1px solid #1C3330; font-size: 13px; font-weight: 700; color: #E6F1EF; }
+.ch-src img { display: block; width: 24px; height: 24px; object-fit: contain; }
+.ch-log { width: 100%; max-width: 740px; margin-top: 22px; display: flex; flex-direction: column; gap: 22px; }
+.ch-user { align-self: flex-end; display: flex; align-items: center; gap: 12px; }
+.ch-bub { display: flex; align-items: baseline; gap: 22px; box-sizing: border-box; padding: 12px 18px; border-radius: 14px; background: #12302B; border: 1px solid #1C3330; font-size: 14px; color: #E6F1EF; }
+.ch-bub time { font-size: 11px; color: #9FB5B1; }
+.ch-user .ap-av { width: 38px; height: 38px; font-size: 12px; }
+.ch-think { display: flex; align-items: center; gap: 12px; padding-left: 64px; font-size: 13.5px; color: #C7D8D5; }
+.ch-think img { display: block; width: 26px; height: 26px; object-fit: contain; }
+.ch-pulse { width: 15px; height: 15px; border-radius: 999px; background: radial-gradient(circle at 50% 50%, #7DF0DE 0%, #3ECFB8 55%, #2EA794 100%); box-shadow: 0 0 10px 2px rgba(62, 207, 184, 0.55); }
+@media (prefers-reduced-motion: no-preference) { .ch-pulse { animation: ch-p 1.6s ease-in-out infinite; } }
+@keyframes ch-p { 0%, 100% { box-shadow: 0 0 8px 1px rgba(62, 207, 184, 0.40); } 50% { box-shadow: 0 0 14px 4px rgba(62, 207, 184, 0.70); } }
+.ch-box { width: 100%; max-width: 740px; box-sizing: border-box; margin-top: 26px; padding: 18px 18px 14px; min-height: 104px; border-radius: 15px; background: #0A1413; border: 1px solid #1C3330; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; }
+.ch-ph { font-size: 13.5px; color: #9FB5B1; }
+.ch-ctl { display: flex; align-items: center; gap: 8px; }
+.ch-ib { all: unset; box-sizing: border-box; cursor: pointer; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #0F211E; color: #E6F1EF; }
+.ch-send { all: unset; box-sizing: border-box; cursor: pointer; margin-left: auto; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; background: #3ECFB8; color: #04100E; }
+.ch-ib:focus-visible, .ch-send:focus-visible, .ch-sug:focus-visible { outline: 2px solid #7DF0DE; outline-offset: 2px; }
+.ch-sugs { width: 100%; max-width: 900px; margin-top: 22px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.ch-sug { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 54px; padding: 0 14px; border-radius: 18px; background: #0C1817; border: 1px solid #1C3330; font-size: 11px; line-height: 1.35; color: #C7D8D5; }
+.ch-sug svg { flex: 0 0 auto; color: #3ECFB8; }
+.ch-sug:hover { border-color: #27574F; background: #0F211E; }
+@media (max-width: 1100px) { .ch-sugs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Componentes del sistema: botones, campos, badges, nav */
+.ap-navlist { gap: 4px; }
+.ap-nav { min-height: 44px; padding: 0 12px; gap: 12px; border-radius: 10px; border: 0; font-size: 14px; font-weight: 500; color: #9FB5B1; }
+.ap-foot .ap-nav { color: #9FB5B1 !important; }
+a.ap-nav:hover { background: #0F211E; color: #E6F1EF; }
+.ap-nav-on { padding-left: 12px; gap: 12px; background: #12302B; color: #E6F1EF !important; font-weight: 600; border: 0; }
+.ap-nic { width: auto; height: auto; background: none; border: 0; border-radius: 0; color: inherit; }
+.ap-nav-on .ap-nic svg { width: 18px; height: 18px; }
+.ap-chip { height: auto; padding: 6px 13px; gap: 7px; background: #09120F; border: 1px solid #1C3330; font-size: 13px; font-weight: 600; color: #E6F1EF; }
+.ap-dot { width: 7px; height: 7px; }
+.in-eb { color: #7E9995; font-weight: 600; letter-spacing: 0.08em; }
+.in-btn { min-height: 46px; padding: 0 20px; border: 1px solid #152927; border-radius: 10px; background: transparent; color: #5F7874; font-size: 14px; font-weight: 600; opacity: 1; cursor: not-allowed; }
+.cf-save, .pf-save { height: auto; min-height: 46px; min-width: 0; padding: 0 22px; border-radius: 10px; background: #3ECFB8; color: #04100E; font-size: 14.5px; font-weight: 700; }
+.cf-save:hover, .pf-save:hover { background: #55D9C4; }
+.ig-guide { height: auto; min-height: 46px; padding: 0 20px; gap: 9px; border: 1px solid #27423E; border-radius: 10px; background: transparent; color: #E6F1EF; font-size: 14px; font-weight: 600; }
+.ig-guide:hover { background: #0F211E; }
+.ig-act { height: 36px; border: 1px solid #27423E; border-radius: 9px; background: transparent; color: #C7D8D5; font-size: 13px; font-weight: 600; }
+a.ig-act:hover, button.ig-act:hover { background: #0F211E; color: #E6F1EF; }
+.ig-card { padding-bottom: 12px; }
+.pf-btn, .pf-btn-2 { height: auto; min-height: 36px; padding: 0 13px; border: 1px solid #27423E; border-radius: 9px; background: transparent; color: #C7D8D5; font-size: 13px; font-weight: 600; }
+.pf-btn:hover { background: #0F211E; }
+.pf-grid { align-items: stretch; }
+.ch-send { width: 44px; height: 44px; border-radius: 10px; background: #3ECFB8; color: #04100E; }
+.ch-send svg { stroke-width: 2.2; }
+.ch-sug { border: 1px solid #27423E; border-radius: 10px; background: transparent; color: #C7D8D5; }
+.ch-sug:hover { background: #0F211E; border-color: #27574F; }
+.ch-box { border: 1px solid #27423E; border-radius: 14px; background: #0A1413; }
+.ch-box:focus-within { border-color: #3ECFB8; }
+.uc-date { height: 46px; border-radius: 10px; border: 1px solid #27423E; background: #0A1413; font-size: 13.5px; font-weight: 600; }
+.uc-kv { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; font-size: 22px; }
+.uc-tv { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; font-size: 17px; }
+.cf-in, .cf-sel, .pf-in { height: auto; min-height: 46px; padding: 0 14px; border-radius: 10px; border: 1px solid #27423E; background: #0A1413; color: #E6F1EF; font-size: 14.5px; }
+.cf-sel { padding-right: 40px; }
+.cf-in:focus, .cf-sel:focus, .pf-in:focus { border-color: #3ECFB8; }
+.pf-f label { margin-bottom: 7px; font-size: 13px; font-weight: 600; color: #C7D8D5; }
+.cf-opt { height: auto; min-height: 60px; border: 1px solid #1C3330; border-radius: 12px; background: #0A1413; }
+.cf-opt[aria-pressed="true"] { border: 1px solid #3ECFB8; background: #0F211E; }
+.ig-state, .in-st { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; background: #3ECFB8; color: #04100E; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.ig-state .ap-dot, .in-st .ap-dot { display: none; }
+.ig-state-off, .in-st-off { background: transparent; border: 1px solid #1C3330; padding: 2px 9px; color: #9FB5B1; font-weight: 600; }
+.ig-state { margin-top: 12px; }
+/* tema claro: componentes de la landing */
+.ap-l .ap-nav, .ap-l .ap-foot .ap-nav { color: #27403C !important; }
+.ap-l a.ap-nav:hover { background: #F2F6F5; color: #0A1A18 !important; }
+.ap-l .ap-nav-on { background: #E4F8F3; color: #0E6B5C !important; font-weight: 700; border: 0; border-radius: 9px; }
+.ap-l .ap-chip { background: #FFFFFF; border: 1px solid #D4E2DF; color: #0A1A18; }
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="AppChatBuscando"><div data-dc-tpl="3" class="ap" style="background: radial-gradient(640px 460px at 8% 100%, rgba(62, 207, 184, 0.12), transparent 70%), radial-gradient(560px 300px at 72% 0%, rgba(62, 207, 184, 0.09), transparent 72%), rgb(6, 14, 13);">
+  <nav data-dc-tpl="4" class="ap-side" aria-label="Navegación principal">
+    <a data-dc-tpl="5" class="ap-logo" href="AppInicio.html" aria-label="Praxa, inicio"><img data-dc-tpl="6" src="../../assets/logo-praxa-blanco.png" alt="Praxa"></a>
+    <div data-dc-tpl="7" class="ap-navlist">
+      <a data-dc-tpl="8" href="AppInicio.html" class="ap-nav"><svg data-dc-tpl="9" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="10" d="M3 10.5 12 3l9 7.5"></path><path data-dc-tpl="11" d="M5.5 9.5V20h13V9.5"></path></svg><span data-dc-tpl="12">Inicio</span></a>
+      <a data-dc-tpl="13" href="AppChat.html" aria-current="page" class="ap-nav ap-nav-on"><span data-dc-tpl="14" class="ap-nic"><svg data-dc-tpl="15" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="16" d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"></path><path data-dc-tpl="17" d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01" stroke-width="2.4"></path></svg></span><span data-dc-tpl="18">Chat</span></a>
+      <a data-dc-tpl="19" href="AppDiagnostico.html" class="ap-nav"><svg data-dc-tpl="20" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="21" d="M6 20v-7M12 20V5M18 20v-10" stroke-width="2.6"></path></svg><span data-dc-tpl="22">Diagnóstico</span></a>
+      <a data-dc-tpl="23" href="AppUsoCostosCero.html" class="ap-nav"><svg data-dc-tpl="24" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><ellipse data-dc-tpl="25" cx="12" cy="5.5" rx="7.5" ry="3"></ellipse><path data-dc-tpl="26" d="M4.5 5.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"></path><path data-dc-tpl="27" d="M4.5 11.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"></path></svg><span data-dc-tpl="28">Uso y costos</span></a>
+      <a data-dc-tpl="29" href="AppIntegraciones.html" class="ap-nav"><svg data-dc-tpl="30" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="31" d="M9.5 14.5 14.5 9.5"></path><path data-dc-tpl="32" d="M12.5 6.5 14 5a4 4 0 0 1 5.7 5.7l-1.5 1.5"></path><path data-dc-tpl="33" d="M11.5 17.5 10 19a4 4 0 0 1-5.7-5.7L5.8 11.8"></path></svg><span data-dc-tpl="34">Integraciones</span></a>
+    </div>
+    <div data-dc-tpl="35" class="ap-foot">
+      <a data-dc-tpl="36" class="ap-nav" href="AppConfiguracion.html" style="color: rgb(199, 216, 213);"><svg data-dc-tpl="37" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="38" d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.5a2 2 0 0 1-1 1.7l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7V20a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.5a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2z"></path><circle data-dc-tpl="39" cx="12" cy="12" r="3"></circle></svg><span data-dc-tpl="40">Configuración</span></a>
+      <a data-dc-tpl="41" class="ap-user" href="AppPerfil.html" aria-label="Mi perfil, Gonzalo"><span data-dc-tpl="42" class="ap-av" aria-hidden="true">GM</span><span data-dc-tpl="43">Gonzalo</span><svg data-dc-tpl="44" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="45" d="m9 6 6 6-6 6"></path></svg></a>
+    </div>
+  </nav>
+  <main data-dc-tpl="46" class="ap-main">
+    <header data-dc-tpl="47" class="ap-top">
+      <span data-dc-tpl="48" class="ap-chip"><span data-dc-tpl="49" class="ap-dot" aria-hidden="true"></span>Meta Ads conectado</span>
+      <a data-dc-tpl="50" class="ap-round" href="AppPerfil.html" aria-label="Mi perfil">GM</a>
+    </header>
+    <div data-dc-tpl="51" class="ch-wrap">
+      <svg data-dc-tpl="52" class="ch-mark" viewBox="0 0 203 140" fill="none" aria-hidden="true" focusable="false"><g data-dc-tpl="53" stroke="#E6F1EF" stroke-width="19" fill="none"><path data-dc-tpl="54" d="M0 70H150"></path><path data-dc-tpl="55" d="M0 9.5h15c44 0 54 60.5 93 60.5"></path><path data-dc-tpl="56" d="M0 130.5h15c44 0 54-60.5 93-60.5"></path></g><circle data-dc-tpl="57" cx="176.5" cy="70" r="26.5" fill="#3ECFB8"></circle></svg>
+      <h1 data-dc-tpl="58" class="ch-h1">Tu marketing, en<br data-dc-tpl="59"><em data-dc-tpl="60">una sola conversación.</em></h1>
+      <p data-dc-tpl="61" class="ch-lead">Preguntá, analizá y tomá decisiones con los datos de tus campañas de Meta Ads.</p>
+      <span data-dc-tpl="62" class="ch-src"><img data-dc-tpl="63" src="../../assets/logo-meta-ads.png" alt="" width="24" height="24">Meta Ads<span data-dc-tpl="64" class="ap-dot" aria-hidden="true"></span></span>
+
+      <div data-dc-tpl="65" class="ch-log" role="log" aria-label="Conversación">
+        <div data-dc-tpl="66" class="ch-user"><div data-dc-tpl="67" class="ch-bub"><span data-dc-tpl="68">¿Qué campañas están rindiendo mejor?</span><time data-dc-tpl="69" datetime="14:23">14:23</time></div><span data-dc-tpl="70" class="ap-av" aria-hidden="true">GM</span></div>
+        <div data-dc-tpl="71" class="ch-think" role="status"><img data-dc-tpl="72" src="../../assets/robot-praxa.png" alt="" width="26" height="26"><span data-dc-tpl="73" class="ch-pulse" aria-hidden="true"></span><span data-dc-tpl="74">Buscando en internet...</span></div>
+      </div>
+
+      <div data-dc-tpl="75" class="ch-box">
+        <div data-dc-tpl="76" class="ch-ph">Escribí tu pregunta acá...</div>
+        <div data-dc-tpl="77" class="ch-ctl">
+          <button data-dc-tpl="78" type="button" class="ch-ib" aria-label="Adjuntar"><svg data-dc-tpl="79" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="80" d="M12 5v14M5 12h14"></path></svg></button>
+          <button data-dc-tpl="81" type="button" class="ch-ib" aria-label="Buscar en internet"><svg data-dc-tpl="82" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle data-dc-tpl="83" cx="12" cy="12" r="9"></circle><path data-dc-tpl="84" d="M3 12h18M12 3c2.6 2.7 3.9 5.7 3.9 9s-1.3 6.3-3.9 9c-2.6-2.7-3.9-5.7-3.9-9S9.4 5.7 12 3z"></path></svg></button>
+          <button data-dc-tpl="85" type="button" class="ch-send" aria-label="Enviar"><svg data-dc-tpl="86" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="87" d="M5 12h13"></path><path data-dc-tpl="88" d="m12 5 7 7-7 7"></path></svg></button>
+        </div>
+      </div>
+
+      <div data-dc-tpl="89" class="ch-sugs" role="group" aria-label="Preguntas sugeridas">
+        <button data-dc-tpl="90" type="button" class="ch-sug"><span data-dc-tpl="91">¿Qué campañas están rindiendo mejor?</span><svg data-dc-tpl="92" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="93" d="M7 17 17 7M9 7h8v8"></path></svg></button><button data-dc-tpl="94" type="button" class="ch-sug"><span data-dc-tpl="95">¿Por qué bajó el ROAS esta semana?</span><svg data-dc-tpl="96" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="97" d="M7 17 17 7M9 7h8v8"></path></svg></button><button data-dc-tpl="98" type="button" class="ch-sug"><span data-dc-tpl="99">¿Qué anuncios generan más ventas?</span><svg data-dc-tpl="100" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="101" d="M7 17 17 7M9 7h8v8"></path></svg></button><button data-dc-tpl="102" type="button" class="ch-sug"><span data-dc-tpl="103">¿Cómo viene el rendimiento vs. el mes pasado?</span><svg data-dc-tpl="104" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="105" d="M7 17 17 7M9 7h8v8"></path></svg></button>
+      </div>
+    </div>
+  </main></div></div></div>
+
+
+
+
+</body></html>

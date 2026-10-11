@@ -1,0 +1,262 @@
+<!doctype html><html lang="es"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Uso y costos — PRAXA</title>
+<style>x-dc{display:none!important}</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" data-dc-tpl="1"><style data-dc-tpl="2">
+body { margin: 0; background: #060E0D; }
+a { color: #3ECFB8; }
+a:hover { color: #7DF0DE; }
+.ap { --ap-bg: #060E0D; --ap-nav: #060E0D; --ap-surface: #0C1817; --ap-surface-2: #0C1817; --ap-tile: #0F211E; --ap-tile-ic: #12302B;
+  --ap-line: #1C3330; --ap-line-soft: #1C3330; --ap-text: #E6F1EF; --ap-text-2: #C7D8D5; --ap-muted: #9FB5B1; --ap-accent: #3ECFB8; --ap-accent-ink: #04100E;
+  position: relative; display: flex; min-height: 100vh; color: var(--ap-text); font-family: Manrope, 'Segoe UI', system-ui, sans-serif; }
+.ap-side { flex: 0 0 212px; box-sizing: border-box; display: flex; flex-direction: column; gap: 28px; padding: 26px 14px 22px; background: var(--ap-nav); border-right: 1px solid #152927; }
+.ap-logo { display: block; padding: 2px 10px; }
+.ap-logo img { display: block; height: 26px; width: auto; }
+.ap-navlist { display: flex; flex-direction: column; gap: 6px; }
+.ap-nav { box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #C7D8D5; text-decoration: none; font-size: 13.5px; font-weight: 500; border: 1px solid transparent; }
+.ap-nav svg { flex: 0 0 auto; }
+a.ap-nav:hover { background: rgba(62, 207, 184, 0.08); color: #E6F1EF; }
+.ap-nav-on { color: #E6F1EF !important; font-weight: 700; background: #12302B; border-color: rgba(62, 207, 184, 0.28); }
+.ap-nav-on { padding-left: 8px; gap: 8px; }
+.ap-nic { flex: 0 0 auto; width: 28px; height: 28px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: rgba(62, 207, 184, 0.16); border: 1px solid rgba(62, 207, 184, 0.45); color: #3ECFB8; }
+.ap-nav-off { cursor: default; }
+.ap-foot { margin-top: auto; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #1C3330; padding-top: 14px; }
+.ap-user { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px 0 12px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: #E6F1EF; text-decoration: none; }
+a.ap-user:hover { background: rgba(62, 207, 184, 0.08); color: #E6F1EF; }
+a.ap-round { text-decoration: none; }
+a.ap-round:hover { border-color: #27574F; color: #E6F1EF; }
+.ap-user .ap-av { width: 30px; height: 30px; font-size: 11px; }
+.ap-user svg:last-child { margin-left: auto; color: #9FB5B1; }
+.ap-av { box-sizing: border-box; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #3ECFB8; color: var(--ap-accent-ink); font-weight: 800; letter-spacing: 0.01em; }
+.ap-main { flex: 1 1 auto; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; padding: 22px 40px 40px; }
+.ap-top { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.ap-chip { display: inline-flex; align-items: center; gap: 9px; height: 36px; box-sizing: border-box; padding: 0 18px; border-radius: 999px; background: #0C1817; border: 1px solid #1C3330; font-size: 12.5px; font-weight: 600; color: #E6F1EF; }
+.ap-dot { width: 8px; height: 8px; border-radius: 999px; background: #3ECFB8; display: inline-block; }
+.ap-round { box-sizing: border-box; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #0C1817; border: 1px solid #1C3330; color: #E6F1EF; font-size: 12px; font-weight: 700; }
+.ap-card { box-sizing: border-box; background: var(--ap-surface-2); border: 1px solid #1C3330; border-radius: 14px; }
+.ap-h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+.ap-sub { margin: 0; font-size: 13.5px; color: var(--ap-text-2); line-height: 1.5; }
+a:focus-visible, button:focus-visible { outline: 2px solid #7DF0DE; outline-offset: 2px; }
+
+.uc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-top: 8px; }
+.uc-date { box-sizing: border-box; display: inline-flex; align-items: center; gap: 10px; height: 42px; padding: 0 16px; border-radius: 11px; background: #0C1817; border: 1px solid #1C3330; color: #E6F1EF; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.uc-date svg:last-child { color: #9FB5B1; }
+.uc-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 26px; }
+.uc-kpi { display: flex; align-items: flex-start; gap: 14px; padding: 20px 18px; min-height: 108px; }
+.uc-ic { flex: 0 0 auto; width: 42px; height: 42px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: 11px; background: var(--ap-tile-ic); color: #3ECFB8; }
+.uc-kb { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.uc-kl { font-size: 13px; color: #C7D8D5; font-weight: 500; }
+.uc-kv { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; color: #E6F1EF; line-height: 1.2; }
+.uc-kd { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
+.uc-chg { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: #3ECFB8; }
+.uc-vs { font-size: 11.5px; color: #9FB5B1; }
+.uc-kc { margin-top: 4px; font-size: 11.5px; line-height: 1.4; color: #9FB5B1; }
+.uc-row { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 24px; margin-top: 36px; }
+.uc-panel { padding: 20px 22px 18px; display: flex; flex-direction: column; }
+.uc-ph { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.uc-pt { margin: 0; font-size: 15px; font-weight: 700; color: #E6F1EF; }
+.uc-ps { margin: 4px 0 0; font-size: 12px; color: #9FB5B1; }
+.uc-seg { display: inline-flex; padding: 3px; border-radius: 999px; background: #09120F; border: 1px solid #1C3330; }
+.uc-seg button { all: unset; box-sizing: border-box; cursor: pointer; padding: 0 16px; height: 28px; display: inline-flex; align-items: center; border-radius: 999px; font-size: 11.5px; font-weight: 600; color: #C7D8D5; }
+.uc-seg button[aria-pressed="true"] { background: #2EA794; color: #04100E; font-weight: 700; }
+.uc-seg button:focus-visible { outline: 2px solid #7DF0DE; outline-offset: 1px; }
+.uc-chart { position: relative; margin: 26px 0 0 52px; height: 138px; }
+.uc-chart i { position: absolute; left: 0; right: 0; height: 1px; background: #1C3330; }
+.uc-yl span { position: absolute; right: calc(100% + 10px); transform: translateY(50%); font-size: 10.5px; color: #C7D8D5; white-space: nowrap; line-height: 1; }
+.uc-bars { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 2px; }
+.uc-bar { display: block; flex: 0 0 auto; width: 10.5px; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, #3ECFB8 0%, #2EA794 55%, #1E7A6C 100%); }
+.uc-xl { position: relative; height: 16px; margin: 12px 0 0 52px; }
+.uc-xl span { position: absolute; top: 0; transform: translateX(-50%); font-size: 10.5px; color: #C7D8D5; white-space: nowrap; }
+.uc-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; flex: 1 1 auto; }
+.uc-tile { box-sizing: border-box; background: var(--ap-tile); border: 1px solid #1C3330; border-radius: 12px; padding: 12px 10px 10px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; }
+.uc-trow { display: flex; align-items: center; gap: 9px; padding-left: 2px; }
+.uc-tic { flex: 0 0 auto; width: 30px; height: 30px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; background: var(--ap-tile-ic); color: #3ECFB8; }
+.uc-tic-bad { background: #1A100F; color: #FFA49C; }
+.uc-tv { font-size: 18px; font-weight: 700; color: #E6F1EF; line-height: 1.2; }
+.uc-tl { font-size: 11px; color: #C7D8D5; margin-top: 2px; white-space: nowrap; }
+.uc-tc { text-align: center; font-size: 10px; color: #9FB5B1; white-space: nowrap; }
+@media (max-width: 1180px) { .uc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .uc-row { grid-template-columns: minmax(0, 1fr); } }
+
+/* Componentes del sistema: botones, campos, badges, nav */
+.ap-navlist { gap: 4px; }
+.ap-nav { min-height: 44px; padding: 0 12px; gap: 12px; border-radius: 10px; border: 0; font-size: 14px; font-weight: 500; color: #9FB5B1; }
+.ap-foot .ap-nav { color: #9FB5B1 !important; }
+a.ap-nav:hover { background: #0F211E; color: #E6F1EF; }
+.ap-nav-on { padding-left: 12px; gap: 12px; background: #12302B; color: #E6F1EF !important; font-weight: 600; border: 0; }
+.ap-nic { width: auto; height: auto; background: none; border: 0; border-radius: 0; color: inherit; }
+.ap-nav-on .ap-nic svg { width: 18px; height: 18px; }
+.ap-chip { height: auto; padding: 6px 13px; gap: 7px; background: #09120F; border: 1px solid #1C3330; font-size: 13px; font-weight: 600; color: #E6F1EF; }
+.ap-dot { width: 7px; height: 7px; }
+.in-eb { color: #7E9995; font-weight: 600; letter-spacing: 0.08em; }
+.in-btn { min-height: 46px; padding: 0 20px; border: 1px solid #152927; border-radius: 10px; background: transparent; color: #5F7874; font-size: 14px; font-weight: 600; opacity: 1; cursor: not-allowed; }
+.cf-save, .pf-save { height: auto; min-height: 46px; min-width: 0; padding: 0 22px; border-radius: 10px; background: #3ECFB8; color: #04100E; font-size: 14.5px; font-weight: 700; }
+.cf-save:hover, .pf-save:hover { background: #55D9C4; }
+.ig-guide { height: auto; min-height: 46px; padding: 0 20px; gap: 9px; border: 1px solid #27423E; border-radius: 10px; background: transparent; color: #E6F1EF; font-size: 14px; font-weight: 600; }
+.ig-guide:hover { background: #0F211E; }
+.ig-act { height: 36px; border: 1px solid #27423E; border-radius: 9px; background: transparent; color: #C7D8D5; font-size: 13px; font-weight: 600; }
+a.ig-act:hover, button.ig-act:hover { background: #0F211E; color: #E6F1EF; }
+.ig-card { padding-bottom: 12px; }
+.pf-btn, .pf-btn-2 { height: auto; min-height: 36px; padding: 0 13px; border: 1px solid #27423E; border-radius: 9px; background: transparent; color: #C7D8D5; font-size: 13px; font-weight: 600; }
+.pf-btn:hover { background: #0F211E; }
+.pf-grid { align-items: stretch; }
+.ch-send { width: 44px; height: 44px; border-radius: 10px; background: #3ECFB8; color: #04100E; }
+.ch-send svg { stroke-width: 2.2; }
+.ch-sug { border: 1px solid #27423E; border-radius: 10px; background: transparent; color: #C7D8D5; }
+.ch-sug:hover { background: #0F211E; border-color: #27574F; }
+.ch-box { border: 1px solid #27423E; border-radius: 14px; background: #0A1413; }
+.ch-box:focus-within { border-color: #3ECFB8; }
+.uc-date { height: 46px; border-radius: 10px; border: 1px solid #27423E; background: #0A1413; font-size: 13.5px; font-weight: 600; }
+.uc-kv { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; font-size: 22px; }
+.uc-tv { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; font-size: 17px; }
+.cf-in, .cf-sel, .pf-in { height: auto; min-height: 46px; padding: 0 14px; border-radius: 10px; border: 1px solid #27423E; background: #0A1413; color: #E6F1EF; font-size: 14.5px; }
+.cf-sel { padding-right: 40px; }
+.cf-in:focus, .cf-sel:focus, .pf-in:focus { border-color: #3ECFB8; }
+.pf-f label { margin-bottom: 7px; font-size: 13px; font-weight: 600; color: #C7D8D5; }
+.cf-opt { height: auto; min-height: 60px; border: 1px solid #1C3330; border-radius: 12px; background: #0A1413; }
+.cf-opt[aria-pressed="true"] { border: 1px solid #3ECFB8; background: #0F211E; }
+.ig-state, .in-st { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; background: #3ECFB8; color: #04100E; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.ig-state .ap-dot, .in-st .ap-dot { display: none; }
+.ig-state-off, .in-st-off { background: transparent; border: 1px solid #1C3330; padding: 2px 9px; color: #9FB5B1; font-weight: 600; }
+.ig-state { margin-top: 12px; }
+/* tema claro: componentes de la landing */
+.ap-l .ap-nav, .ap-l .ap-foot .ap-nav { color: #27403C !important; }
+.ap-l a.ap-nav:hover { background: #F2F6F5; color: #0A1A18 !important; }
+.ap-l .ap-nav-on { background: #E4F8F3; color: #0E6B5C !important; font-weight: 700; border: 0; border-radius: 9px; }
+.ap-l .ap-chip { background: #FFFFFF; border: 1px solid #D4E2DF; color: #0A1A18; }
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="AppUsoCostos"><div data-dc-tpl="3" class="ap" style="background: radial-gradient(560px 300px at 78% 0%, rgba(62, 207, 184, 0.1), transparent 72%), radial-gradient(620px 420px at 100% 100%, rgba(62, 207, 184, 0.12), transparent 70%), radial-gradient(420px 380px at 100% 38%, rgba(62, 207, 184, 0.07), transparent 70%), rgb(6, 14, 13);">
+  <nav data-dc-tpl="4" class="ap-side" aria-label="Navegación principal">
+    <a data-dc-tpl="5" class="ap-logo" href="AppInicio.html" aria-label="Praxa, inicio"><img data-dc-tpl="6" src="../../assets/logo-praxa-blanco.png" alt="Praxa"></a>
+    <div data-dc-tpl="7" class="ap-navlist">
+      <a data-dc-tpl="8" href="AppInicio.html" class="ap-nav"><svg data-dc-tpl="9" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="10" d="M3 10.5 12 3l9 7.5"></path><path data-dc-tpl="11" d="M5.5 9.5V20h13V9.5"></path></svg><span data-dc-tpl="12">Inicio</span></a>
+      <a data-dc-tpl="13" href="AppChat.html" class="ap-nav"><svg data-dc-tpl="14" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="15" d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"></path><path data-dc-tpl="16" d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01" stroke-width="2.4"></path></svg><span data-dc-tpl="17">Chat</span></a>
+      <a data-dc-tpl="18" href="AppDiagnostico.html" class="ap-nav"><svg data-dc-tpl="19" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="20" d="M6 20v-7M12 20V5M18 20v-10" stroke-width="2.6"></path></svg><span data-dc-tpl="21">Diagnóstico</span></a>
+      <a data-dc-tpl="22" href="AppUsoCostosCero.html" aria-current="page" class="ap-nav ap-nav-on"><span data-dc-tpl="23" class="ap-nic"><svg data-dc-tpl="24" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><ellipse data-dc-tpl="25" cx="12" cy="5.5" rx="7.5" ry="3"></ellipse><path data-dc-tpl="26" d="M4.5 5.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"></path><path data-dc-tpl="27" d="M4.5 11.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"></path></svg></span><span data-dc-tpl="28">Uso y costos</span></a>
+      <a data-dc-tpl="29" href="AppIntegraciones.html" class="ap-nav"><svg data-dc-tpl="30" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="31" d="M9.5 14.5 14.5 9.5"></path><path data-dc-tpl="32" d="M12.5 6.5 14 5a4 4 0 0 1 5.7 5.7l-1.5 1.5"></path><path data-dc-tpl="33" d="M11.5 17.5 10 19a4 4 0 0 1-5.7-5.7L5.8 11.8"></path></svg><span data-dc-tpl="34">Integraciones</span></a>
+    </div>
+    <div data-dc-tpl="35" class="ap-foot">
+      <a data-dc-tpl="36" class="ap-nav" href="AppConfiguracion.html" style="color: rgb(199, 216, 213);"><svg data-dc-tpl="37" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="38" d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.5a2 2 0 0 1-1 1.7l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7V20a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.5a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2z"></path><circle data-dc-tpl="39" cx="12" cy="12" r="3"></circle></svg><span data-dc-tpl="40">Configuración</span></a>
+      <a data-dc-tpl="41" class="ap-user" href="AppPerfil.html" aria-label="Mi perfil, Gonzalo"><span data-dc-tpl="42" class="ap-av" aria-hidden="true">GM</span><span data-dc-tpl="43">Gonzalo</span><svg data-dc-tpl="44" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="45" d="m9 6 6 6-6 6"></path></svg></a>
+    </div>
+  </nav>
+  <main data-dc-tpl="46" class="ap-main">
+    <header data-dc-tpl="47" class="ap-top">
+      <span data-dc-tpl="48" class="ap-chip"><span data-dc-tpl="49" class="ap-dot" aria-hidden="true"></span>Meta Ads conectado</span>
+      <a data-dc-tpl="50" class="ap-round" href="AppPerfil.html" aria-label="Mi perfil">GM</a>
+    </header>
+    <div data-dc-tpl="51" class="uc-top">
+      <div data-dc-tpl="52" style="display: flex; flex-direction: column; gap: 7px;">
+        <h1 data-dc-tpl="53" class="ap-h1">Uso y costos</h1>
+        <p data-dc-tpl="54" class="ap-sub">Seguimiento del uso de la IA, costos y rendimiento de Praxa.</p>
+      </div>
+      <button data-dc-tpl="55" type="button" class="uc-date" aria-haspopup="listbox"><svg data-dc-tpl="56" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect data-dc-tpl="57" x="3.5" y="5" width="17" height="15" rx="2.5"></rect><path data-dc-tpl="58" d="M3.5 10h17M8 3v4M16 3v4"></path></svg><span data-dc-tpl="59">Últimos 30 días</span><svg data-dc-tpl="60" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="61" d="m6 9 6 6 6-6"></path></svg></button>
+    </div>
+
+    <section data-dc-tpl="62" class="uc-kpis" aria-label="Resumen del período">
+      <article data-dc-tpl="63" class="ap-card uc-kpi" style="background: var(--ap-surface); border-color: rgb(28, 51, 48);">
+        <span data-dc-tpl="64" class="uc-ic"><svg data-dc-tpl="65" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><ellipse data-dc-tpl="66" cx="12" cy="5.5" rx="7.5" ry="3"></ellipse><path data-dc-tpl="67" d="M4.5 5.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"></path><path data-dc-tpl="68" d="M4.5 11.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"></path></svg></span>
+        <div data-dc-tpl="69" class="uc-kb"><div data-dc-tpl="70" class="uc-kl">Costo total este mes</div><div data-dc-tpl="71" class="uc-kv">US$ 18,42</div><div data-dc-tpl="72" class="uc-kd"><span data-dc-tpl="73" class="uc-chg"><svg data-dc-tpl="74" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="75" d="M7 7l10 10M17 9v8H9"></path></svg>-12%</span><span data-dc-tpl="76" class="uc-vs">vs. mes anterior</span></div></div>
+      </article>
+      <article data-dc-tpl="77" class="ap-card uc-kpi" style="background: var(--ap-surface); border-color: rgb(28, 51, 48);">
+        <span data-dc-tpl="78" class="uc-ic"><svg data-dc-tpl="79" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="80" d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"></path><path data-dc-tpl="81" d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01" stroke-width="2.4"></path></svg></span>
+        <div data-dc-tpl="82" class="uc-kb"><div data-dc-tpl="83" class="uc-kl">Consultas totales</div><div data-dc-tpl="84" class="uc-kv">1.284</div><div data-dc-tpl="85" class="uc-kd"><span data-dc-tpl="86" class="uc-chg"><svg data-dc-tpl="87" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="88" d="M7 17 17 7M9 7h8v8"></path></svg>+18%</span><span data-dc-tpl="89" class="uc-vs">vs. mes anterior</span></div></div>
+      </article>
+      <article data-dc-tpl="90" class="ap-card uc-kpi" style="background: var(--ap-surface); border-color: rgb(28, 51, 48);">
+        <span data-dc-tpl="91" class="uc-ic"><svg data-dc-tpl="92" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="93" d="M13 3 5 13.5h6L10 21l8-10.5h-6z"></path></svg></span>
+        <div data-dc-tpl="94" class="uc-kb"><div data-dc-tpl="95" class="uc-kl">Latencia promedio</div><div data-dc-tpl="96" class="uc-kv">2,4 s</div><div data-dc-tpl="97" class="uc-kc">Tiempo promedio que tarda<br data-dc-tpl="98">Praxa en responder.</div></div>
+      </article>
+      <article data-dc-tpl="99" class="ap-card uc-kpi" style="background: var(--ap-surface); border-color: rgb(28, 51, 48);">
+        <span data-dc-tpl="100" class="uc-ic"><svg data-dc-tpl="101" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect data-dc-tpl="102" x="4" y="4" width="16" height="16" rx="2.5"></rect><path data-dc-tpl="103" d="M8 9h8M8 12.5h8M8 16h5"></path></svg></span>
+        <div data-dc-tpl="104" class="uc-kb"><div data-dc-tpl="105" class="uc-kl">Costo promedio</div><div data-dc-tpl="106" class="uc-kv">US$ 0,014</div><div data-dc-tpl="107" class="uc-kc">Por consulta</div></div>
+      </article>
+    </section>
+
+    <div data-dc-tpl="108" class="uc-row">
+      <section data-dc-tpl="109" class="ap-card uc-panel" aria-labelledby="uc-c">
+        <div data-dc-tpl="110" class="uc-ph">
+          <div data-dc-tpl="111"><h2 data-dc-tpl="112" class="uc-pt" id="uc-c">Costo por día</h2><p data-dc-tpl="113" class="uc-ps">Evolución del gasto en IA.</p></div>
+          <div data-dc-tpl="114" class="uc-seg" role="group" aria-label="Rango del gráfico"><button data-dc-tpl="115" type="button" aria-pressed="false">7 días</button><button data-dc-tpl="116" type="button" aria-pressed="true">30 días</button><button data-dc-tpl="117" type="button" aria-pressed="false">3 meses</button></div>
+        </div>
+        <div data-dc-tpl="118" class="uc-chart" role="img" aria-label="Costo diario en dólares durante los últimos 30 días; el pico es de US$ 1,43 el 25 de agosto">
+          <i data-dc-tpl="119" style="bottom: 0%;"></i><i data-dc-tpl="120" style="bottom: 25%;"></i><i data-dc-tpl="121" style="bottom: 50%;"></i><i data-dc-tpl="122" style="bottom: 75%;"></i><i data-dc-tpl="123" style="bottom: 100%;"></i>
+          <div data-dc-tpl="124" class="uc-yl" aria-hidden="true"><span data-dc-tpl="125" style="bottom: 0%;">US$ 0</span><span data-dc-tpl="126" style="bottom: 25%;">US$ 0,5</span><span data-dc-tpl="127" style="bottom: 50%;">US$ 1,0</span><span data-dc-tpl="128" style="bottom: 75%;">US$ 1,5</span><span data-dc-tpl="129" style="bottom: 100%;">US$ 2,0</span></div>
+          <div data-dc-tpl="130" class="uc-bars" aria-hidden="true"><span data-dc-tpl="131" class="uc-bar" style="height: 18%;"></span><span data-dc-tpl="132" class="uc-bar" style="height: 16%;"></span><span data-dc-tpl="133" class="uc-bar" style="height: 22.5%;"></span><span data-dc-tpl="134" class="uc-bar" style="height: 23%;"></span><span data-dc-tpl="135" class="uc-bar" style="height: 27.5%;"></span><span data-dc-tpl="136" class="uc-bar" style="height: 33.5%;"></span><span data-dc-tpl="137" class="uc-bar" style="height: 30.5%;"></span><span data-dc-tpl="138" class="uc-bar" style="height: 21%;"></span><span data-dc-tpl="139" class="uc-bar" style="height: 18%;"></span><span data-dc-tpl="140" class="uc-bar" style="height: 15.5%;"></span><span data-dc-tpl="141" class="uc-bar" style="height: 23.5%;"></span><span data-dc-tpl="142" class="uc-bar" style="height: 17%;"></span><span data-dc-tpl="143" class="uc-bar" style="height: 22.5%;"></span><span data-dc-tpl="144" class="uc-bar" style="height: 30.5%;"></span><span data-dc-tpl="145" class="uc-bar" style="height: 34.5%;"></span><span data-dc-tpl="146" class="uc-bar" style="height: 29%;"></span><span data-dc-tpl="147" class="uc-bar" style="height: 47.5%;"></span><span data-dc-tpl="148" class="uc-bar" style="height: 31.5%;"></span><span data-dc-tpl="149" class="uc-bar" style="height: 22.5%;"></span><span data-dc-tpl="150" class="uc-bar" style="height: 35.5%;"></span><span data-dc-tpl="151" class="uc-bar" style="height: 22.5%;"></span><span data-dc-tpl="152" class="uc-bar" style="height: 36%;"></span><span data-dc-tpl="153" class="uc-bar" style="height: 30.5%;"></span><span data-dc-tpl="154" class="uc-bar" style="height: 53.5%;"></span><span data-dc-tpl="155" class="uc-bar" style="height: 71.5%;"></span><span data-dc-tpl="156" class="uc-bar" style="height: 27.5%;"></span><span data-dc-tpl="157" class="uc-bar" style="height: 35.5%;"></span><span data-dc-tpl="158" class="uc-bar" style="height: 35.5%;"></span><span data-dc-tpl="159" class="uc-bar" style="height: 41%;"></span><span data-dc-tpl="160" class="uc-bar" style="height: 27.5%;"></span><span data-dc-tpl="161" class="uc-bar" style="height: 19%;"></span></div>
+        </div>
+        <div data-dc-tpl="162" class="uc-xl" aria-hidden="true"><span data-dc-tpl="163" style="left: 1.61%;">1 ago</span><span data-dc-tpl="164" style="left: 11.29%;">4 ago</span><span data-dc-tpl="165" style="left: 20.97%;">7 ago</span><span data-dc-tpl="166" style="left: 30.65%;">10 ago</span><span data-dc-tpl="167" style="left: 40.32%;">13 ago</span><span data-dc-tpl="168" style="left: 50%;">16 ago</span><span data-dc-tpl="169" style="left: 59.68%;">19 ago</span><span data-dc-tpl="170" style="left: 69.35%;">22 ago</span><span data-dc-tpl="171" style="left: 79.03%;">25 ago</span><span data-dc-tpl="172" style="left: 88.71%;">28 ago</span><span data-dc-tpl="173" style="left: 98.39%;">31 ago</span></div>
+      </section>
+
+      <section data-dc-tpl="174" class="ap-card uc-panel" aria-labelledby="uc-r">
+        <h2 data-dc-tpl="175" class="uc-pt" id="uc-r">Rendimiento de la IA</h2>
+        <p data-dc-tpl="176" class="uc-ps">Métricas generales del sistema.</p>
+        <div data-dc-tpl="177" class="uc-tiles">
+          <div data-dc-tpl="178" class="uc-tile">
+          <div data-dc-tpl="179" class="uc-trow"><span data-dc-tpl="180" class="uc-tic"><svg data-dc-tpl="181" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="182" d="M13 3 5 13.5h6L10 21l8-10.5h-6z"></path></svg></span><div data-dc-tpl="183"><div data-dc-tpl="184" class="uc-tv">2,4 s</div><div data-dc-tpl="185" class="uc-tl">Latencia promedio</div></div></div>
+          <div data-dc-tpl="186" class="uc-tc">Tiempo promedio de respuesta.</div>
+        </div>
+          <div data-dc-tpl="187" class="uc-tile">
+          <div data-dc-tpl="188" class="uc-trow"><span data-dc-tpl="189" class="uc-tic"><svg data-dc-tpl="190" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle data-dc-tpl="191" cx="12" cy="12" r="8"></circle><path data-dc-tpl="192" d="M12 7.5V12l3 2"></path></svg></span><div data-dc-tpl="193"><div data-dc-tpl="194" class="uc-tv">4,8 s</div><div data-dc-tpl="195" class="uc-tl">P95 de latencia</div></div></div>
+          <div data-dc-tpl="196" class="uc-tc">El 95% responde antes.</div>
+        </div>
+          <div data-dc-tpl="197" class="uc-tile">
+          <div data-dc-tpl="198" class="uc-trow"><span data-dc-tpl="199" class="uc-tic"><svg data-dc-tpl="200" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="201" d="M5.5 12.5 10 17l8.5-9.5"></path></svg></span><div data-dc-tpl="202"><div data-dc-tpl="203" class="uc-tv">99,7%</div><div data-dc-tpl="204" class="uc-tl">Consultas procesadas</div></div></div>
+          <div data-dc-tpl="205" class="uc-tc">Resueltas correctamente.</div>
+        </div>
+          <div data-dc-tpl="206" class="uc-tile">
+          <div data-dc-tpl="207" class="uc-trow"><span data-dc-tpl="208" class="uc-tic uc-tic-bad"><svg data-dc-tpl="209" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="210" d="M12 4 21 19H3z"></path><path data-dc-tpl="211" d="M12 10v4M12 16.8h.01"></path></svg></span><div data-dc-tpl="212"><div data-dc-tpl="213" class="uc-tv">0,3%</div><div data-dc-tpl="214" class="uc-tl">Errores</div></div></div>
+          <div data-dc-tpl="215" class="uc-tc">No pudieron procesarse.</div>
+        </div>
+        </div>
+      </section>
+    </div>
+  </main></div></div></div>
+
+
+
+
+</body></html>

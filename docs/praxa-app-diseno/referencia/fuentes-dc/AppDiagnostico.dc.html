@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Diagnóstico — PRAXA</title>
+<script src="support.js-no-incluido"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body { margin: 0; background: #060E0D; }
+a { color: #3ECFB8; }
+a:hover { color: #7DF0DE; }
+.ap { --ap-bg: #060E0D; --ap-nav: #060E0D; --ap-surface: #0C1817; --ap-surface-2: #0C1817; --ap-tile: #0F211E; --ap-tile-ic: #12302B;
+  --ap-line: #1C3330; --ap-line-soft: #1C3330; --ap-text: #E6F1EF; --ap-text-2: #C7D8D5; --ap-muted: #9FB5B1; --ap-accent: #3ECFB8; --ap-accent-ink: #04100E;
+  position: relative; display: flex; min-height: 100vh; color: var(--ap-text); font-family: Manrope, 'Segoe UI', system-ui, sans-serif; }
+.ap-side { flex: 0 0 212px; box-sizing: border-box; display: flex; flex-direction: column; gap: 28px; padding: 26px 14px 22px; background: var(--ap-nav); border-right: 1px solid #152927; }
+.ap-logo { display: block; padding: 2px 10px; }
+.ap-logo img { display: block; height: 26px; width: auto; }
+.ap-navlist { display: flex; flex-direction: column; gap: 6px; }
+.ap-nav { box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #C7D8D5; text-decoration: none; font-size: 13.5px; font-weight: 500; border: 1px solid transparent; }
+.ap-nav svg { flex: 0 0 auto; }
+a.ap-nav:hover { background: rgba(62, 207, 184, 0.08); color: #E6F1EF; }
+.ap-nav-on { color: #E6F1EF !important; font-weight: 700; background: #12302B; border-color: rgba(62, 207, 184, 0.28); }
+.ap-nav-on { padding-left: 8px; gap: 8px; }
+.ap-nic { flex: 0 0 auto; width: 28px; height: 28px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: rgba(62, 207, 184, 0.16); border: 1px solid rgba(62, 207, 184, 0.45); color: #3ECFB8; }
+.ap-nav-off { cursor: default; }
+.ap-foot { margin-top: auto; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #1C3330; padding-top: 14px; }
+.ap-user { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px 0 12px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: #E6F1EF; text-decoration: none; }
+a.ap-user:hover { background: rgba(62, 207, 184, 0.08); color: #E6F1EF; }
+a.ap-round { text-decoration: none; }
+a.ap-round:hover { border-color: #27574F; color: #E6F1EF; }
+.ap-user .ap-av { width: 30px; height: 30px; font-size: 11px; }
+.ap-user svg:last-child { margin-left: auto; color: #9FB5B1; }
+.ap-av { box-sizing: border-box; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #3ECFB8; color: var(--ap-accent-ink); font-weight: 800; letter-spacing: 0.01em; }
+.ap-main { flex: 1 1 auto; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; padding: 22px 40px 40px; }
+.ap-top { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.ap-chip { display: inline-flex; align-items: center; gap: 9px; height: 36px; box-sizing: border-box; padding: 0 18px; border-radius: 999px; background: #0C1817; border: 1px solid #1C3330; font-size: 12.5px; font-weight: 600; color: #E6F1EF; }
+.ap-dot { width: 8px; height: 8px; border-radius: 999px; background: #3ECFB8; display: inline-block; }
+.ap-round { box-sizing: border-box; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #0C1817; border: 1px solid #1C3330; color: #E6F1EF; font-size: 12px; font-weight: 700; }
+.ap-card { box-sizing: border-box; background: var(--ap-surface-2); border: 1px solid #1C3330; border-radius: 14px; }
+.ap-h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+.ap-sub { margin: 0; font-size: 13.5px; color: var(--ap-text-2); line-height: 1.5; }
+a:focus-visible, button:focus-visible { outline: 2px solid #7DF0DE; outline-offset: 2px; }
+
+.ap { --dg-card: #0C1817; --dg-card-b: #1C3330; --dg-tile: #0F211E; --dg-tile-b: #1C3330; --dg-ic: #3ECFB8; --dg-item: #09120F; --dg-item-b: #1C3330; --dg-t: #E6F1EF; --dg-t2: #C7D8D5; --dg-t3: #9FB5B1; --dg-hl: #3ECFB8; --dg-div: #1C3330; --dg-sep: #27574F; }
+.ap-l { --dg-card: #FFFFFF; --dg-card-b: #D4E2DF; --dg-tile: #E4F8F3; --dg-tile-b: #A9E7DA; --dg-ic: #0E6B5C; --dg-item: #FAFCFB; --dg-item-b: #D4E2DF; --dg-t: #0A1A18; --dg-t2: #3E5A55; --dg-t3: #4E6B66; --dg-hl: #0E6B5C; --dg-div: #D4E2DF; --dg-sep: #A9E7DA; color: #0A1A18; }
+.ap-l .ap-side { background: #FFFFFF; border-right-color: #D4E2DF; }
+.ap-l .ap-nav, .ap-l .ap-foot .ap-nav { color: #27403C !important; }
+.ap-l a.ap-nav:hover { background: #E4F8F3; color: #0A1A18 !important; }
+.ap-l .ap-nav-on { color: #0A1A18 !important; background: #E4F8F3; border-color: #A9E7DA; }
+.ap-l .ap-nic { background: #FFFFFF; border-color: #A9E7DA; color: #0E6B5C; }
+.ap-l .ap-foot { border-top-color: #E4EDEB; }
+.ap-l .ap-user { color: #0A1A18; }
+.ap-l .ap-user svg:last-child { color: #5E7A75; }
+.ap-l a.ap-user:hover { background: #E4F8F3; color: #0A1A18; }
+.ap-l .ap-chip { background: #FFFFFF; border-color: #D4E2DF; color: #0A1A18; }
+.ap-l .ap-round { background: #FFFFFF; border-color: #D4E2DF; color: #27403C; }
+.ap-l a.ap-round:hover { border-color: #A9E7DA; color: #0A1A18; }
+.ap-l .ap-dot { background: #17B79A; }
+.ap-l .ap-sub { color: #4E6B66; }
+.ap-l a:focus-visible, .ap-l button:focus-visible { outline-color: #0E6B5C; }
+.dg-head { margin-top: 8px; display: flex; flex-direction: column; gap: 7px; }
+.dg-card { box-sizing: border-box; background: var(--dg-card); border: 1px solid var(--dg-card-b); border-radius: 14px; }
+.dg-hero { margin-top: 24px; display: grid; grid-template-columns: minmax(0, 1.35fr) 1px minmax(0, 1fr); gap: 28px; padding: 20px 24px 22px 20px; }
+.dg-tile { flex: 0 0 auto; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; background: var(--dg-tile); border: 1px solid var(--dg-tile-b); color: var(--dg-ic); }
+.dg-tile-lg { width: 60px; height: 60px; border-radius: 14px; }
+.dg-tile-md { width: 48px; height: 48px; border-radius: 12px; }
+.dg-tile-sm { width: 44px; height: 44px; border-radius: 10px; }
+.dg-lh { display: flex; align-items: center; gap: 16px; }
+.dg-h { margin: 0; font-size: 20px; line-height: 1.3; font-weight: 700; letter-spacing: -0.015em; color: var(--dg-t); }
+.dg-h em { font-style: normal; color: var(--dg-hl); }
+.dg-p { margin: 22px 0 0; max-width: 62ch; font-size: 13px; line-height: 1.85; color: var(--dg-t2); text-wrap: pretty; }
+.dg-p + .dg-p { margin-top: 22px; }
+.dg-vr { background: var(--dg-div); width: 1px; }
+.dg-oh { display: flex; align-items: center; gap: 10px; color: var(--dg-ic); }
+.dg-oh h2 { margin: 0; font-size: 14px; font-weight: 700; color: var(--dg-t); }
+.dg-ol { margin: 14px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.dg-ol li { display: flex; align-items: stretch; gap: 10px; }
+.dg-oi { all: unset; box-sizing: border-box; cursor: pointer; flex: 1 1 auto; min-width: 0; min-height: 56px; padding: 0 14px 0 14px; display: flex; align-items: center; gap: 10px; border-radius: 10px; background: var(--dg-item); border: 1px solid var(--dg-item-b); }
+.dg-oi:hover { border-color: var(--dg-sep); }
+.dg-oi > span { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dg-oi strong { font-size: 12.5px; font-weight: 700; color: var(--dg-t); }
+.dg-oi small { font-size: 10.5px; line-height: 1.35; color: var(--dg-t3); }
+.dg-oi svg { flex: 0 0 auto; color: var(--dg-t); }
+.dg-full { margin-top: 16px; padding: 18px 22px 26px 20px; }
+.dg-fh { all: unset; box-sizing: border-box; cursor: pointer; width: 100%; display: flex; align-items: center; gap: 18px; }
+.dg-fh h2 { margin: 0; display: flex; align-items: center; gap: 12px; font-size: 19px; font-weight: 700; color: var(--dg-t); letter-spacing: -0.01em; }
+.dg-fh h2 svg { color: var(--dg-t); transition: transform 0.15s; }
+.dg-fh[aria-expanded="false"] h2 svg { transform: rotate(-90deg); }
+.dg-fh p { margin: 5px 0 0; font-size: 12px; color: var(--dg-t3); }
+.dg-fh:focus-visible { outline: 2px solid #7DF0DE; outline-offset: 4px; border-radius: 8px; }
+.ap-l .dg-fh:focus-visible { outline-color: #0E6B5C; }
+.dg-sep { height: 1px; margin: 18px 0 0; background: var(--dg-sep); }
+.dg-doc { padding: 24px 0 0 76px; max-width: 840px; }
+.dg-doc h3 { margin: 0; font-size: 19px; line-height: 1.3; font-weight: 700; color: var(--dg-t); letter-spacing: -0.01em; }
+.dg-doc h4 { margin: 24px 0 0; font-size: 13.5px; font-weight: 700; color: var(--dg-t); }
+.dg-doc p { margin: 6px 0 0; font-size: 11.5px; line-height: 1.65; color: var(--dg-t2); }
+.dg-doc ol { margin: 6px 0 0; padding: 0 0 0 40px; font-size: 11.5px; line-height: 1.75; color: var(--dg-t2); }
+@media (max-width: 1100px) { .dg-hero { grid-template-columns: minmax(0, 1fr); } .dg-vr { width: auto; height: 1px; } .dg-doc { padding-left: 0; } }
+
+/* Componentes del sistema: botones, campos, badges, nav */
+.ap-navlist { gap: 4px; }
+.ap-nav { min-height: 44px; padding: 0 12px; gap: 12px; border-radius: 10px; border: 0; font-size: 14px; font-weight: 500; color: #9FB5B1; }
+.ap-foot .ap-nav { color: #9FB5B1 !important; }
+a.ap-nav:hover { background: #0F211E; color: #E6F1EF; }
+.ap-nav-on { padding-left: 12px; gap: 12px; background: #12302B; color: #E6F1EF !important; font-weight: 600; border: 0; }
+.ap-nic { width: auto; height: auto; background: none; border: 0; border-radius: 0; color: inherit; }
+.ap-nav-on .ap-nic svg { width: 18px; height: 18px; }
+.ap-chip { height: auto; padding: 6px 13px; gap: 7px; background: #09120F; border: 1px solid #1C3330; font-size: 13px; font-weight: 600; color: #E6F1EF; }
+.ap-dot { width: 7px; height: 7px; }
+.in-eb { color: #7E9995; font-weight: 600; letter-spacing: 0.08em; }
+.in-btn { min-height: 46px; padding: 0 20px; border: 1px solid #152927; border-radius: 10px; background: transparent; color: #5F7874; font-size: 14px; font-weight: 600; opacity: 1; cursor: not-allowed; }
+.cf-save, .pf-save { height: auto; min-height: 46px; min-width: 0; padding: 0 22px; border-radius: 10px; background: #3ECFB8; color: #04100E; font-size: 14.5px; font-weight: 700; }
+.cf-save:hover, .pf-save:hover { background: #55D9C4; }
+.ig-guide { height: auto; min-height: 46px; padding: 0 20px; gap: 9px; border: 1px solid #27423E; border-radius: 10px; background: transparent; color: #E6F1EF; font-size: 14px; font-weight: 600; }
+.ig-guide:hover { background: #0F211E; }
+.ig-act { height: 36px; border: 1px solid #27423E; border-radius: 9px; background: transparent; color: #C7D8D5; font-size: 13px; font-weight: 600; }
+a.ig-act:hover, button.ig-act:hover { background: #0F211E; color: #E6F1EF; }
+.ig-card { padding-bottom: 12px; }
+.pf-btn, .pf-btn-2 { height: auto; min-height: 36px; padding: 0 13px; border: 1px solid #27423E; border-radius: 9px; background: transparent; color: #C7D8D5; font-size: 13px; font-weight: 600; }
+.pf-btn:hover { background: #0F211E; }
+.pf-grid { align-items: stretch; }
+.ch-send { width: 44px; height: 44px; border-radius: 10px; background: #3ECFB8; color: #04100E; }
+.ch-send svg { stroke-width: 2.2; }
+.ch-sug { border: 1px solid #27423E; border-radius: 10px; background: transparent; color: #C7D8D5; }
+.ch-sug:hover { background: #0F211E; border-color: #27574F; }
+.ch-box { border: 1px solid #27423E; border-radius: 14px; background: #0A1413; }
+.ch-box:focus-within { border-color: #3ECFB8; }
+.uc-date { height: 46px; border-radius: 10px; border: 1px solid #27423E; background: #0A1413; font-size: 13.5px; font-weight: 600; }
+.uc-kv { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; font-size: 22px; }
+.uc-tv { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; font-size: 17px; }
+.cf-in, .cf-sel, .pf-in { height: auto; min-height: 46px; padding: 0 14px; border-radius: 10px; border: 1px solid #27423E; background: #0A1413; color: #E6F1EF; font-size: 14.5px; }
+.cf-sel { padding-right: 40px; }
+.cf-in:focus, .cf-sel:focus, .pf-in:focus { border-color: #3ECFB8; }
+.pf-f label { margin-bottom: 7px; font-size: 13px; font-weight: 600; color: #C7D8D5; }
+.cf-opt { height: auto; min-height: 60px; border: 1px solid #1C3330; border-radius: 12px; background: #0A1413; }
+.cf-opt[aria-pressed="true"] { border: 1px solid #3ECFB8; background: #0F211E; }
+.ig-state, .in-st { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; background: #3ECFB8; color: #04100E; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.ig-state .ap-dot, .in-st .ap-dot { display: none; }
+.ig-state-off, .in-st-off { background: transparent; border: 1px solid #1C3330; padding: 2px 9px; color: #9FB5B1; font-weight: 600; }
+.ig-state { margin-top: 12px; }
+/* tema claro: componentes de la landing */
+.ap-l .ap-nav, .ap-l .ap-foot .ap-nav { color: #27403C !important; }
+.ap-l a.ap-nav:hover { background: #F2F6F5; color: #0A1A18 !important; }
+.ap-l .ap-nav-on { background: #E4F8F3; color: #0E6B5C !important; font-weight: 700; border: 0; border-radius: 9px; }
+.ap-l .ap-chip { background: #FFFFFF; border: 1px solid #D4E2DF; color: #0A1A18; }
+</style>
+</helmet>
+
+<div class="ap" style="background: radial-gradient(520px 320px at 74% 0%, rgba(62,207,184,0.10), transparent 72%), radial-gradient(640px 420px at 0% 100%, rgba(62,207,184,0.09), transparent 70%), radial-gradient(520px 420px at 100% 100%, rgba(62,207,184,0.10), transparent 70%), #060E0D">
+  <nav class="ap-side" aria-label="Navegación principal">
+    <a class="ap-logo" href="AppInicio.dc.html" aria-label="Praxa, inicio"><img src="../../assets/logo-praxa-blanco.png" alt="Praxa"></a>
+    <div class="ap-navlist">
+      <a href="AppInicio.dc.html" class="ap-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg><span>Inicio</span></a>
+      <a href="AppChat.dc.html" class="ap-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01" stroke-width="2.4"/></svg><span>Chat</span></a>
+      <a href="AppDiagnostico.dc.html" aria-current="page" class="ap-nav ap-nav-on"><span class="ap-nic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 20v-7M12 20V5M18 20v-10" stroke-width="2.6"/></svg></span><span>Diagnóstico</span></a>
+      <a href="AppUsoCostosCero.dc.html" class="ap-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><ellipse cx="12" cy="5.5" rx="7.5" ry="3"/><path d="M4.5 5.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/><path d="M4.5 11.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/></svg><span>Uso y costos</span></a>
+      <a href="AppIntegraciones.dc.html" class="ap-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9.5 14.5 14.5 9.5"/><path d="M12.5 6.5 14 5a4 4 0 0 1 5.7 5.7l-1.5 1.5"/><path d="M11.5 17.5 10 19a4 4 0 0 1-5.7-5.7L5.8 11.8"/></svg><span>Integraciones</span></a>
+    </div>
+    <div class="ap-foot">
+      <a class="ap-nav" href="AppConfiguracion.dc.html" style="color:#C7D8D5"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.5a2 2 0 0 1-1 1.7l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7V20a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.5a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span>Configuración</span></a>
+      <a class="ap-user" href="AppPerfil.dc.html" aria-label="Mi perfil, Gonzalo"><span class="ap-av" aria-hidden="true">GM</span><span>Gonzalo</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></a>
+    </div>
+  </nav>
+  <main class="ap-main">
+    <header class="ap-top">
+      <span class="ap-chip"><span class="ap-dot" aria-hidden="true"></span>Meta Ads conectado</span>
+      <a class="ap-round" href="AppPerfil.dc.html" aria-label="Mi perfil">GM</a>
+    </header>
+    <div class="dg-head">
+      <h1 class="ap-h1">Diagnóstico</h1>
+      <p class="ap-sub">Un análisis claro de tu negocio, basado en tus datos de Meta Ads.</p>
+    </div>
+
+    <section class="dg-card dg-hero" aria-label="Resumen del diagnóstico">
+      <div>
+        <div class="dg-lh">
+          <span class="dg-tile dg-tile-lg"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M11 4.5c.7 4.6 2.6 6.5 7.2 7.2-4.6.7-6.5 2.6-7.2 7.2-.7-4.6-2.6-6.5-7.2-7.2C8.4 11 10.3 9.1 11 4.5z" fill="currentColor"/><path d="M19 3c.3 1.8 1 2.5 2.8 2.8-1.8.3-2.5 1-2.8 2.8-.3-1.8-1-2.5-2.8-2.8C18 5.5 18.7 4.8 19 3z" fill="currentColor" stroke-width="1"/><path d="M5.5 17.5c.25 1.5.8 2 2.3 2.3-1.5.25-2.05.8-2.3 2.3-.25-1.5-.8-2.05-2.3-2.3 1.5-.3 2.05-.8 2.3-2.3z" fill="currentColor" stroke-width="1" transform="translate(0 -1.5)"/></svg></span>
+          <h2 class="dg-h">Tu negocio muestra un crecimiento en ventas,<br><em>pero con una menor eficiencia publicitaria.</em></h2>
+        </div>
+        <p class="dg-p">Durante los últimos 30 días, las ventas aumentaron un 12%, mientras que la inversión en Meta Ads creció un 21%. Esto significa que estás generando más ventas, pero necesitás una inversión proporcionalmente mayor para conseguirlas.</p>
+        <p class="dg-p">La principal caída se concentra en las campañas de adquisición. En cambio, las campañas dirigidas a usuarios que ya interactuaron con tu marca mantienen un rendimiento más estable.</p>
+      </div>
+      <div class="dg-vr" aria-hidden="true"></div>
+      <aside aria-labelledby="dg-o">
+        <div class="dg-oh"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9.5 18h5M10.5 21h3M12 3a6 6 0 0 0-3.6 10.8c.6.5 1.1 1.2 1.1 2.2h5c0-1 .5-1.7 1.1-2.2A6 6 0 0 0 12 3z"/></svg><h2 id="dg-o">Oportunidades destacadas</h2></div>
+        <ul class="dg-ol">
+          <li><span class="dg-tile dg-tile-sm"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="8.5" r="3.2"/><path d="M3 19.5c.5-3.4 3-5.2 6-5.2s5.5 1.8 6 5.2"/><circle cx="17.2" cy="9.5" r="2.5"/><path d="M16.3 14.3c2.7 0 4.5 1.5 5 4.7"/></svg></span><button type="button" class="dg-oi"><span><strong>Optimizar campañas de adquisición</strong><small>Podés reducir el CPA en campañas de nuevos usuarios.</small></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button></li>
+          <li><span class="dg-tile dg-tile-sm"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3 20 7.5v9L12 21 4 16.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg></span><button type="button" class="dg-oi"><span><strong>Aumentar inversión en productos top</strong><small>Mayor conversión en estos productos.</small></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button></li>
+          <li><span class="dg-tile dg-tile-sm"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 20v-7M12 20V5M18 20v-10" stroke-width="3.2"/></svg></span><button type="button" class="dg-oi"><span><strong>Revisar segmentación geográfica</strong><small>Hay zonas con alto gasto y baja conversión.</small></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button></li>
+        </ul>
+      </aside>
+    </section>
+
+    <section class="dg-card dg-full" aria-label="Análisis completo">
+      <button type="button" class="dg-fh" aria-expanded="{{ open }}" aria-controls="dg-doc" onClick="{{ toggle }}">
+        <span class="dg-tile dg-tile-md"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5v4h4M9.8 12h5.4M9.8 15h5.4M9.8 18h3"/></svg></span>
+        <span>
+          <h2>Análisis completo del diagnóstico <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></h2>
+          <p>Explorá el análisis detallado, metodología y recomendaciones.</p>
+        </span>
+      </button>
+      <sc-if value="{{ open }}" hint-placeholder-val="{{ true }}">
+        <div class="dg-sep"></div>
+        <div class="dg-doc" id="dg-doc">
+          <h3>Diagnóstico del negocio en base a Meta Ads, GA4 y otros sistemas</h3>
+          <h4>Resumen ejecutivo</h4>
+          <p>El briefing adjunto te define un tema de investigación concreto: construir un diagnóstico del negocio en base a datos de sistemas como Meta Ads, GA4, Tiendanube y otras fuentes relevantes, para entender su rendimiento actual, identificar oportunidades y proponer recomendaciones accionables.</p>
+          <p>El análisis resultante combina la información de todos los sistemas para ver el negocio de forma integral, considerando marketing, ventas, tráfico, conversión, productos y entendiendo cómo se relacionan entre sí. Por lo tanto, no aplico el fallback de proponer temas alternativos.</p>
+          <p>El modelo de diagnóstico sugiere analizar el negocio en cuatro módulos principales:</p>
+          <ol>
+            <li>Adquisición: Meta Ads y tráfico (GA4) → visitas → costo por adquisición → calidad de tráfico;</li>
+            <li>Conversión y ventas: GA4 + Tiendanube → comportamiento en la web → compras → ingresos;</li>
+            <li>Productos: performance por categoría y producto → márgenes → rotación → oportunidades;</li>
+            <li>Clientes y comportamiento: repetición → retención → valor de cliente → segmentación.</li>
+          </ol>
+        </div>
+      </sc-if>
+    </section>
+  </main>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1320,"height":940}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { open: true };
+  }
+  renderVals() {
+    return { open: this.state.open, toggle: () => this.setState({ open: !this.state.open }) };
+  }
+}
+</script>
+</body>
+</html>

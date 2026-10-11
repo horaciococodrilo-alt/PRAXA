@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Uso y costos — PRAXA</title>
+<script src="support.js-no-incluido"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body { margin: 0; background: #060E0D; }
+a { color: #3ECFB8; }
+a:hover { color: #7DF0DE; }
+.ap { --ap-bg: #060E0D; --ap-nav: #060E0D; --ap-surface: #0C1817; --ap-surface-2: #0C1817; --ap-tile: #0F211E; --ap-tile-ic: #12302B;
+  --ap-line: #1C3330; --ap-line-soft: #1C3330; --ap-text: #E6F1EF; --ap-text-2: #C7D8D5; --ap-muted: #9FB5B1; --ap-accent: #3ECFB8; --ap-accent-ink: #04100E;
+  position: relative; display: flex; min-height: 100vh; color: var(--ap-text); font-family: Manrope, 'Segoe UI', system-ui, sans-serif; }
+.ap-side { flex: 0 0 212px; box-sizing: border-box; display: flex; flex-direction: column; gap: 28px; padding: 26px 14px 22px; background: var(--ap-nav); border-right: 1px solid #152927; }
+.ap-logo { display: block; padding: 2px 10px; }
+.ap-logo img { display: block; height: 26px; width: auto; }
+.ap-navlist { display: flex; flex-direction: column; gap: 6px; }
+.ap-nav { box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #C7D8D5; text-decoration: none; font-size: 13.5px; font-weight: 500; border: 1px solid transparent; }
+.ap-nav svg { flex: 0 0 auto; }
+a.ap-nav:hover { background: rgba(62, 207, 184, 0.08); color: #E6F1EF; }
+.ap-nav-on { color: #E6F1EF !important; font-weight: 700; background: #12302B; border-color: rgba(62, 207, 184, 0.28); }
+.ap-nav-on { padding-left: 8px; gap: 8px; }
+.ap-nic { flex: 0 0 auto; width: 28px; height: 28px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: rgba(62, 207, 184, 0.16); border: 1px solid rgba(62, 207, 184, 0.45); color: #3ECFB8; }
+.ap-nav-off { cursor: default; }
+.ap-foot { margin-top: auto; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #1C3330; padding-top: 14px; }
+.ap-user { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px 0 12px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: #E6F1EF; text-decoration: none; }
+a.ap-user:hover { background: rgba(62, 207, 184, 0.08); color: #E6F1EF; }
+a.ap-round { text-decoration: none; }
+a.ap-round:hover { border-color: #27574F; color: #E6F1EF; }
+.ap-user .ap-av { width: 30px; height: 30px; font-size: 11px; }
+.ap-user svg:last-child { margin-left: auto; color: #9FB5B1; }
+.ap-av { box-sizing: border-box; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #3ECFB8; color: var(--ap-accent-ink); font-weight: 800; letter-spacing: 0.01em; }
+.ap-main { flex: 1 1 auto; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; padding: 22px 40px 40px; }
+.ap-top { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.ap-chip { display: inline-flex; align-items: center; gap: 9px; height: 36px; box-sizing: border-box; padding: 0 18px; border-radius: 999px; background: #0C1817; border: 1px solid #1C3330; font-size: 12.5px; font-weight: 600; color: #E6F1EF; }
+.ap-dot { width: 8px; height: 8px; border-radius: 999px; background: #3ECFB8; display: inline-block; }
+.ap-round { box-sizing: border-box; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #0C1817; border: 1px solid #1C3330; color: #E6F1EF; font-size: 12px; font-weight: 700; }
+.ap-card { box-sizing: border-box; background: var(--ap-surface-2); border: 1px solid #1C3330; border-radius: 14px; }
+.ap-h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+.ap-sub { margin: 0; font-size: 13.5px; color: var(--ap-text-2); line-height: 1.5; }
+a:focus-visible, button:focus-visible { outline: 2px solid #7DF0DE; outline-offset: 2px; }
+
+.uc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-top: 8px; }
+.uc-date { box-sizing: border-box; display: inline-flex; align-items: center; gap: 10px; height: 42px; padding: 0 16px; border-radius: 11px; background: #0C1817; border: 1px solid #1C3330; color: #E6F1EF; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.uc-date svg:last-child { color: #9FB5B1; }
+.uc-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 26px; }
+.uc-kpi { display: flex; align-items: flex-start; gap: 14px; padding: 20px 18px; min-height: 108px; }
+.uc-ic { flex: 0 0 auto; width: 42px; height: 42px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: 11px; background: var(--ap-tile-ic); color: #3ECFB8; }
+.uc-kb { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.uc-kl { font-size: 13px; color: #C7D8D5; font-weight: 500; }
+.uc-kv { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; color: #E6F1EF; line-height: 1.2; }
+.uc-kd { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
+.uc-chg { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: #3ECFB8; }
+.uc-vs { font-size: 11.5px; color: #9FB5B1; }
+.uc-kc { margin-top: 4px; font-size: 11.5px; line-height: 1.4; color: #9FB5B1; }
+.uc-row { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 24px; margin-top: 36px; }
+.uc-panel { padding: 20px 22px 18px; display: flex; flex-direction: column; }
+.uc-ph { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.uc-pt { margin: 0; font-size: 15px; font-weight: 700; color: #E6F1EF; }
+.uc-ps { margin: 4px 0 0; font-size: 12px; color: #9FB5B1; }
+.uc-seg { display: inline-flex; padding: 3px; border-radius: 999px; background: #09120F; border: 1px solid #1C3330; }
+.uc-seg button { all: unset; box-sizing: border-box; cursor: pointer; padding: 0 16px; height: 28px; display: inline-flex; align-items: center; border-radius: 999px; font-size: 11.5px; font-weight: 600; color: #C7D8D5; }
+.uc-seg button[aria-pressed="true"] { background: #2EA794; color: #04100E; font-weight: 700; }
+.uc-seg button:focus-visible { outline: 2px solid #7DF0DE; outline-offset: 1px; }
+.uc-chart { position: relative; margin: 26px 0 0 52px; height: 138px; }
+.uc-chart i { position: absolute; left: 0; right: 0; height: 1px; background: #1C3330; }
+.uc-yl span { position: absolute; right: calc(100% + 10px); transform: translateY(50%); font-size: 10.5px; color: #C7D8D5; white-space: nowrap; line-height: 1; }
+.uc-bars { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 2px; }
+.uc-bar { display: block; flex: 0 0 auto; width: 10.5px; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, #3ECFB8 0%, #2EA794 55%, #1E7A6C 100%); }
+.uc-xl { position: relative; height: 16px; margin: 12px 0 0 52px; }
+.uc-xl span { position: absolute; top: 0; transform: translateX(-50%); font-size: 10.5px; color: #C7D8D5; white-space: nowrap; }
+.uc-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; flex: 1 1 auto; }
+.uc-tile { box-sizing: border-box; background: var(--ap-tile); border: 1px solid #1C3330; border-radius: 12px; padding: 12px 10px 10px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; }
+.uc-trow { display: flex; align-items: center; gap: 9px; padding-left: 2px; }
+.uc-tic { flex: 0 0 auto; width: 30px; height: 30px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; background: var(--ap-tile-ic); color: #3ECFB8; }
+.uc-tic-bad { background: #1A100F; color: #FFA49C; }
+.uc-tv { font-size: 18px; font-weight: 700; color: #E6F1EF; line-height: 1.2; }
+.uc-tl { font-size: 11px; color: #C7D8D5; margin-top: 2px; white-space: nowrap; }
+.uc-tc { text-align: center; font-size: 10px; color: #9FB5B1; white-space: nowrap; }
+@media (max-width: 1180px) { .uc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .uc-row { grid-template-columns: minmax(0, 1fr); } }
+
+/* Componentes del sistema: botones, campos, badges, nav */
+.ap-navlist { gap: 4px; }
+.ap-nav { min-height: 44px; padding: 0 12px; gap: 12px; border-radius: 10px; border: 0; font-size: 14px; font-weight: 500; color: #9FB5B1; }
+.ap-foot .ap-nav { color: #9FB5B1 !important; }
+a.ap-nav:hover { background: #0F211E; color: #E6F1EF; }
+.ap-nav-on { padding-left: 12px; gap: 12px; background: #12302B; color: #E6F1EF !important; font-weight: 600; border: 0; }
+.ap-nic { width: auto; height: auto; background: none; border: 0; border-radius: 0; color: inherit; }
+.ap-nav-on .ap-nic svg { width: 18px; height: 18px; }
+.ap-chip { height: auto; padding: 6px 13px; gap: 7px; background: #09120F; border: 1px solid #1C3330; font-size: 13px; font-weight: 600; color: #E6F1EF; }
+.ap-dot { width: 7px; height: 7px; }
+.in-eb { color: #7E9995; font-weight: 600; letter-spacing: 0.08em; }
+.in-btn { min-height: 46px; padding: 0 20px; border: 1px solid #152927; border-radius: 10px; background: transparent; color: #5F7874; font-size: 14px; font-weight: 600; opacity: 1; cursor: not-allowed; }
+.cf-save, .pf-save { height: auto; min-height: 46px; min-width: 0; padding: 0 22px; border-radius: 10px; background: #3ECFB8; color: #04100E; font-size: 14.5px; font-weight: 700; }
+.cf-save:hover, .pf-save:hover { background: #55D9C4; }
+.ig-guide { height: auto; min-height: 46px; padding: 0 20px; gap: 9px; border: 1px solid #27423E; border-radius: 10px; background: transparent; color: #E6F1EF; font-size: 14px; font-weight: 600; }
+.ig-guide:hover { background: #0F211E; }
+.ig-act { height: 36px; border: 1px solid #27423E; border-radius: 9px; background: transparent; color: #C7D8D5; font-size: 13px; font-weight: 600; }
+a.ig-act:hover, button.ig-act:hover { background: #0F211E; color: #E6F1EF; }
+.ig-card { padding-bottom: 12px; }
+.pf-btn, .pf-btn-2 { height: auto; min-height: 36px; padding: 0 13px; border: 1px solid #27423E; border-radius: 9px; background: transparent; color: #C7D8D5; font-size: 13px; font-weight: 600; }
+.pf-btn:hover { background: #0F211E; }
+.pf-grid { align-items: stretch; }
+.ch-send { width: 44px; height: 44px; border-radius: 10px; background: #3ECFB8; color: #04100E; }
+.ch-send svg { stroke-width: 2.2; }
+.ch-sug { border: 1px solid #27423E; border-radius: 10px; background: transparent; color: #C7D8D5; }
+.ch-sug:hover { background: #0F211E; border-color: #27574F; }
+.ch-box { border: 1px solid #27423E; border-radius: 14px; background: #0A1413; }
+.ch-box:focus-within { border-color: #3ECFB8; }
+.uc-date { height: 46px; border-radius: 10px; border: 1px solid #27423E; background: #0A1413; font-size: 13.5px; font-weight: 600; }
+.uc-kv { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; font-size: 22px; }
+.uc-tv { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; font-size: 17px; }
+.cf-in, .cf-sel, .pf-in { height: auto; min-height: 46px; padding: 0 14px; border-radius: 10px; border: 1px solid #27423E; background: #0A1413; color: #E6F1EF; font-size: 14.5px; }
+.cf-sel { padding-right: 40px; }
+.cf-in:focus, .cf-sel:focus, .pf-in:focus { border-color: #3ECFB8; }
+.pf-f label { margin-bottom: 7px; font-size: 13px; font-weight: 600; color: #C7D8D5; }
+.cf-opt { height: auto; min-height: 60px; border: 1px solid #1C3330; border-radius: 12px; background: #0A1413; }
+.cf-opt[aria-pressed="true"] { border: 1px solid #3ECFB8; background: #0F211E; }
+.ig-state, .in-st { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; background: #3ECFB8; color: #04100E; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.ig-state .ap-dot, .in-st .ap-dot { display: none; }
+.ig-state-off, .in-st-off { background: transparent; border: 1px solid #1C3330; padding: 2px 9px; color: #9FB5B1; font-weight: 600; }
+.ig-state { margin-top: 12px; }
+/* tema claro: componentes de la landing */
+.ap-l .ap-nav, .ap-l .ap-foot .ap-nav { color: #27403C !important; }
+.ap-l a.ap-nav:hover { background: #F2F6F5; color: #0A1A18 !important; }
+.ap-l .ap-nav-on { background: #E4F8F3; color: #0E6B5C !important; font-weight: 700; border: 0; border-radius: 9px; }
+.ap-l .ap-chip { background: #FFFFFF; border: 1px solid #D4E2DF; color: #0A1A18; }
+</style>
+</helmet>
+
+<div class="ap" style="background: radial-gradient(560px 300px at 78% 0%, rgba(62,207,184,0.10), transparent 72%), radial-gradient(620px 420px at 100% 100%, rgba(62,207,184,0.12), transparent 70%), radial-gradient(420px 380px at 100% 38%, rgba(62,207,184,0.07), transparent 70%), #060E0D">
+  <nav class="ap-side" aria-label="Navegación principal">
+    <a class="ap-logo" href="AppInicio.dc.html" aria-label="Praxa, inicio"><img src="../../assets/logo-praxa-blanco.png" alt="Praxa"></a>
+    <div class="ap-navlist">
+      <a href="AppInicio.dc.html" class="ap-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg><span>Inicio</span></a>
+      <a href="AppChat.dc.html" class="ap-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01" stroke-width="2.4"/></svg><span>Chat</span></a>
+      <a href="AppDiagnostico.dc.html" class="ap-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 20v-7M12 20V5M18 20v-10" stroke-width="2.6"/></svg><span>Diagnóstico</span></a>
+      <a href="AppUsoCostosCero.dc.html" aria-current="page" class="ap-nav ap-nav-on"><span class="ap-nic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><ellipse cx="12" cy="5.5" rx="7.5" ry="3"/><path d="M4.5 5.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/><path d="M4.5 11.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/></svg></span><span>Uso y costos</span></a>
+      <a href="AppIntegraciones.dc.html" class="ap-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9.5 14.5 14.5 9.5"/><path d="M12.5 6.5 14 5a4 4 0 0 1 5.7 5.7l-1.5 1.5"/><path d="M11.5 17.5 10 19a4 4 0 0 1-5.7-5.7L5.8 11.8"/></svg><span>Integraciones</span></a>
+    </div>
+    <div class="ap-foot">
+      <a class="ap-nav" href="AppConfiguracion.dc.html" style="color:#C7D8D5"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.5a2 2 0 0 1-1 1.7l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7V20a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.5a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span>Configuración</span></a>
+      <a class="ap-user" href="AppPerfil.dc.html" aria-label="Mi perfil, Gonzalo"><span class="ap-av" aria-hidden="true">GM</span><span>Gonzalo</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></a>
+    </div>
+  </nav>
+  <main class="ap-main">
+    <header class="ap-top">
+      <span class="ap-chip"><span class="ap-dot" aria-hidden="true"></span>Meta Ads conectado</span>
+      <a class="ap-round" href="AppPerfil.dc.html" aria-label="Mi perfil">GM</a>
+    </header>
+    <div class="uc-top">
+      <div style="display:flex; flex-direction:column; gap:7px">
+        <h1 class="ap-h1">Uso y costos</h1>
+        <p class="ap-sub">Seguimiento del uso de la IA, costos y rendimiento de Praxa.</p>
+      </div>
+      <button type="button" class="uc-date" aria-haspopup="listbox"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Últimos 30 días</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button>
+    </div>
+
+    <section class="uc-kpis" aria-label="Resumen del período">
+      <article class="ap-card uc-kpi" style="background: var(--ap-surface); border-color: #1C3330">
+        <span class="uc-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><ellipse cx="12" cy="5.5" rx="7.5" ry="3"/><path d="M4.5 5.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/><path d="M4.5 11.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/></svg></span>
+        <div class="uc-kb"><div class="uc-kl">Costo total este mes</div><div class="uc-kv">US$ 18,42</div><div class="uc-kd"><span class="uc-chg"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 7l10 10M17 9v8H9"/></svg>-12%</span><span class="uc-vs">vs. mes anterior</span></div></div>
+      </article>
+      <article class="ap-card uc-kpi" style="background: var(--ap-surface); border-color: #1C3330">
+        <span class="uc-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01" stroke-width="2.4"/></svg></span>
+        <div class="uc-kb"><div class="uc-kl">Consultas totales</div><div class="uc-kv">1.284</div><div class="uc-kd"><span class="uc-chg"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17 17 7M9 7h8v8"/></svg>+18%</span><span class="uc-vs">vs. mes anterior</span></div></div>
+      </article>
+      <article class="ap-card uc-kpi" style="background: var(--ap-surface); border-color: #1C3330">
+        <span class="uc-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/></svg></span>
+        <div class="uc-kb"><div class="uc-kl">Latencia promedio</div><div class="uc-kv">2,4 s</div><div class="uc-kc">Tiempo promedio que tarda<br>Praxa en responder.</div></div>
+      </article>
+      <article class="ap-card uc-kpi" style="background: var(--ap-surface); border-color: #1C3330">
+        <span class="uc-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8 9h8M8 12.5h8M8 16h5"/></svg></span>
+        <div class="uc-kb"><div class="uc-kl">Costo promedio</div><div class="uc-kv">US$ 0,014</div><div class="uc-kc">Por consulta</div></div>
+      </article>
+    </section>
+
+    <div class="uc-row">
+      <section class="ap-card uc-panel" aria-labelledby="uc-c">
+        <div class="uc-ph">
+          <div><h2 class="uc-pt" id="uc-c">Costo por día</h2><p class="uc-ps">Evolución del gasto en IA.</p></div>
+          <div class="uc-seg" role="group" aria-label="Rango del gráfico"><button type="button" aria-pressed="false">7 días</button><button type="button" aria-pressed="true">30 días</button><button type="button" aria-pressed="false">3 meses</button></div>
+        </div>
+        <div class="uc-chart" role="img" aria-label="Costo diario en dólares durante los últimos 30 días; el pico es de US$ 1,43 el 25 de agosto">
+          <i style="bottom: 0%"></i><i style="bottom: 25%"></i><i style="bottom: 50%"></i><i style="bottom: 75%"></i><i style="bottom: 100%"></i>
+          <div class="uc-yl" aria-hidden="true"><span style="bottom: 0%">US$ 0</span><span style="bottom: 25%">US$ 0,5</span><span style="bottom: 50%">US$ 1,0</span><span style="bottom: 75%">US$ 1,5</span><span style="bottom: 100%">US$ 2,0</span></div>
+          <div class="uc-bars" aria-hidden="true"><span class="uc-bar" style="height: 18.0%"></span><span class="uc-bar" style="height: 16.0%"></span><span class="uc-bar" style="height: 22.5%"></span><span class="uc-bar" style="height: 23.0%"></span><span class="uc-bar" style="height: 27.5%"></span><span class="uc-bar" style="height: 33.5%"></span><span class="uc-bar" style="height: 30.5%"></span><span class="uc-bar" style="height: 21.0%"></span><span class="uc-bar" style="height: 18.0%"></span><span class="uc-bar" style="height: 15.5%"></span><span class="uc-bar" style="height: 23.5%"></span><span class="uc-bar" style="height: 17.0%"></span><span class="uc-bar" style="height: 22.5%"></span><span class="uc-bar" style="height: 30.5%"></span><span class="uc-bar" style="height: 34.5%"></span><span class="uc-bar" style="height: 29.0%"></span><span class="uc-bar" style="height: 47.5%"></span><span class="uc-bar" style="height: 31.5%"></span><span class="uc-bar" style="height: 22.5%"></span><span class="uc-bar" style="height: 35.5%"></span><span class="uc-bar" style="height: 22.5%"></span><span class="uc-bar" style="height: 36.0%"></span><span class="uc-bar" style="height: 30.5%"></span><span class="uc-bar" style="height: 53.5%"></span><span class="uc-bar" style="height: 71.5%"></span><span class="uc-bar" style="height: 27.5%"></span><span class="uc-bar" style="height: 35.5%"></span><span class="uc-bar" style="height: 35.5%"></span><span class="uc-bar" style="height: 41.0%"></span><span class="uc-bar" style="height: 27.5%"></span><span class="uc-bar" style="height: 19.0%"></span></div>
+        </div>
+        <div class="uc-xl" aria-hidden="true"><span style="left: 1.61%">1 ago</span><span style="left: 11.29%">4 ago</span><span style="left: 20.97%">7 ago</span><span style="left: 30.65%">10 ago</span><span style="left: 40.32%">13 ago</span><span style="left: 50.00%">16 ago</span><span style="left: 59.68%">19 ago</span><span style="left: 69.35%">22 ago</span><span style="left: 79.03%">25 ago</span><span style="left: 88.71%">28 ago</span><span style="left: 98.39%">31 ago</span></div>
+      </section>
+
+      <section class="ap-card uc-panel" aria-labelledby="uc-r">
+        <h2 class="uc-pt" id="uc-r">Rendimiento de la IA</h2>
+        <p class="uc-ps">Métricas generales del sistema.</p>
+        <div class="uc-tiles">
+          <div class="uc-tile">
+          <div class="uc-trow"><span class="uc-tic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/></svg></span><div><div class="uc-tv">2,4 s</div><div class="uc-tl">Latencia promedio</div></div></div>
+          <div class="uc-tc">Tiempo promedio de respuesta.</div>
+        </div>
+          <div class="uc-tile">
+          <div class="uc-trow"><span class="uc-tic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8"/><path d="M12 7.5V12l3 2"/></svg></span><div><div class="uc-tv">4,8 s</div><div class="uc-tl">P95 de latencia</div></div></div>
+          <div class="uc-tc">El 95% responde antes.</div>
+        </div>
+          <div class="uc-tile">
+          <div class="uc-trow"><span class="uc-tic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5.5 12.5 10 17l8.5-9.5"/></svg></span><div><div class="uc-tv">99,7%</div><div class="uc-tl">Consultas procesadas</div></div></div>
+          <div class="uc-tc">Resueltas correctamente.</div>
+        </div>
+          <div class="uc-tile">
+          <div class="uc-trow"><span class="uc-tic uc-tic-bad"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 4 21 19H3z"/><path d="M12 10v4M12 16.8h.01"/></svg></span><div><div class="uc-tv">0,3%</div><div class="uc-tl">Errores</div></div></div>
+          <div class="uc-tc">No pudieron procesarse.</div>
+        </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1320,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

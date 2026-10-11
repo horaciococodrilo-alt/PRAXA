@@ -1,0 +1,240 @@
+<!doctype html><html lang="es"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style>
+<meta charset="utf-8">
+<title>Mi perfil — PRAXA</title>
+<style>x-dc{display:none!important}</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" data-dc-tpl="1"><style data-dc-tpl="2">
+body { margin: 0; background: #060E0D; }
+a { color: #3ECFB8; }
+a:hover { color: #7DF0DE; }
+.ap { --ap-bg: #060E0D; --ap-nav: #060E0D; --ap-surface: #0C1817; --ap-surface-2: #0C1817; --ap-tile: #0F211E; --ap-tile-ic: #12302B;
+  --ap-line: #1C3330; --ap-line-soft: #1C3330; --ap-text: #E6F1EF; --ap-text-2: #C7D8D5; --ap-muted: #9FB5B1; --ap-accent: #3ECFB8; --ap-accent-ink: #04100E;
+  position: relative; display: flex; min-height: 100vh; color: var(--ap-text); font-family: Manrope, 'Segoe UI', system-ui, sans-serif; }
+.ap-side { flex: 0 0 212px; box-sizing: border-box; display: flex; flex-direction: column; gap: 28px; padding: 26px 14px 22px; background: var(--ap-nav); border-right: 1px solid #152927; }
+.ap-logo { display: block; padding: 2px 10px; }
+.ap-logo img { display: block; height: 26px; width: auto; }
+.ap-navlist { display: flex; flex-direction: column; gap: 6px; }
+.ap-nav { box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #C7D8D5; text-decoration: none; font-size: 13.5px; font-weight: 500; border: 1px solid transparent; }
+.ap-nav svg { flex: 0 0 auto; }
+a.ap-nav:hover { background: rgba(62, 207, 184, 0.08); color: #E6F1EF; }
+.ap-nav-on { color: #E6F1EF !important; font-weight: 700; background: #12302B; border-color: rgba(62, 207, 184, 0.28); }
+.ap-nav-on { padding-left: 8px; gap: 8px; }
+.ap-nic { flex: 0 0 auto; width: 28px; height: 28px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: rgba(62, 207, 184, 0.16); border: 1px solid rgba(62, 207, 184, 0.45); color: #3ECFB8; }
+.ap-nav-off { cursor: default; }
+.ap-foot { margin-top: auto; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #1C3330; padding-top: 14px; }
+.ap-user { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px 0 12px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: #E6F1EF; text-decoration: none; }
+a.ap-user:hover { background: rgba(62, 207, 184, 0.08); color: #E6F1EF; }
+a.ap-round { text-decoration: none; }
+a.ap-round:hover { border-color: #27574F; color: #E6F1EF; }
+.ap-user .ap-av { width: 30px; height: 30px; font-size: 11px; }
+.ap-user svg:last-child { margin-left: auto; color: #9FB5B1; }
+.ap-av { box-sizing: border-box; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #3ECFB8; color: var(--ap-accent-ink); font-weight: 800; letter-spacing: 0.01em; }
+.ap-main { flex: 1 1 auto; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; padding: 22px 40px 40px; }
+.ap-top { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.ap-chip { display: inline-flex; align-items: center; gap: 9px; height: 36px; box-sizing: border-box; padding: 0 18px; border-radius: 999px; background: #0C1817; border: 1px solid #1C3330; font-size: 12.5px; font-weight: 600; color: #E6F1EF; }
+.ap-dot { width: 8px; height: 8px; border-radius: 999px; background: #3ECFB8; display: inline-block; }
+.ap-round { box-sizing: border-box; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #0C1817; border: 1px solid #1C3330; color: #E6F1EF; font-size: 12px; font-weight: 700; }
+.ap-card { box-sizing: border-box; background: var(--ap-surface-2); border: 1px solid #1C3330; border-radius: 14px; }
+.ap-h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+.ap-sub { margin: 0; font-size: 13.5px; color: var(--ap-text-2); line-height: 1.5; }
+a:focus-visible, button:focus-visible { outline: 2px solid #7DF0DE; outline-offset: 2px; }
+
+.pf-head { margin-top: 2px; display: flex; flex-direction: column; gap: 6px; }
+.pf-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; align-items: start; }
+.pf-card { box-sizing: border-box; border-radius: 14px; background: linear-gradient(180deg, #0C1817 0%, #0C1817 100%); border: 1px solid #1C3330; }
+.pf-top { grid-column: 1 / -1; display: flex; align-items: center; gap: 28px; padding: 0 28px; min-height: 124px; }
+.pf-av { flex: 0 0 auto; width: 88px; height: 88px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #3ECFB8; color: #04100E; font-size: 30px; font-weight: 800; }
+.pf-who { flex: 1 1 auto; min-width: 0; }
+.pf-who h2 { margin: 0; font-size: 19px; font-weight: 700; color: #E6F1EF; }
+.pf-who p { margin: 6px 0 0; font-size: 13px; color: #C7D8D5; }
+.pf-who small { display: block; margin-top: 14px; font-size: 12px; color: #9FB5B1; }
+.pf-save { all: unset; box-sizing: border-box; cursor: pointer; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; height: 47px; padding: 0 22px; border-radius: 10px; background: #3ECFB8; color: #04100E; font-size: 13px; font-weight: 800; }
+.pf-save:hover { background: #7DF0DE; }
+.pf-ch { display: flex; align-items: center; gap: 12px; padding: 14px 18px 10px; border-bottom: 1px solid #1C3330; margin: 0 0 0; }
+.pf-ch svg { flex: 0 0 auto; color: #E6F1EF; }
+.pf-ch h2 { margin: 0; font-size: 14px; font-weight: 700; color: #E6F1EF; }
+.pf-ch p { margin: 3px 0 0; font-size: 11.5px; color: #C7D8D5; }
+.pf-body { padding: 16px 18px 18px; }
+.pf-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; }
+.pf-f label { display: block; margin-bottom: 7px; font-size: 11.5px; font-weight: 800; color: #E6F1EF; }
+.pf-in { box-sizing: border-box; width: 100%; height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid #2EA794; background: #0A1413; color: #E6F1EF; font-family: inherit; font-size: 12px; }
+.pf-in:focus-visible { outline: 2px solid #7DF0DE; outline-offset: 1px; }
+.pf-info { min-height: 266px; }
+.pf-info .pf-body { padding-bottom: 60px; }
+.pf-pass { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 14px; width: 100%; min-height: 48px; padding: 0 4px 0 0; border-bottom: 1px solid #1C3330; color: #E6F1EF; }
+.pf-pass:hover { background: rgba(62, 207, 184, 0.05); }
+.pf-pass > svg:first-child { flex: 0 0 auto; color: #E6F1EF; }
+.pf-pass > span { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; }
+.pf-pass strong { font-size: 13px; font-weight: 600; }
+.pf-pass small { font-size: 11px; color: #C7D8D5; }
+.pf-pass > svg:last-child { flex: 0 0 auto; color: #9FB5B1; }
+.pf-photo { display: flex; align-items: center; gap: 26px; padding: 16px 18px 18px 26px; }
+.pf-photo .pf-av { width: 88px; height: 88px; }
+.pf-pb { display: flex; flex-direction: column; gap: 12px; }
+.pf-btns { display: flex; flex-wrap: wrap; gap: 10px; }
+.pf-btn { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 9px; height: 34px; padding: 0 16px; border-radius: 8px; border: 1px solid #2EA794; background: #0A1413; color: #3ECFB8; font-size: 11.5px; font-weight: 700; }
+.pf-btn-2 { border-color: #1C3330; color: #E6F1EF; background: #0C1817; }
+.pf-btn:hover { background: rgba(62, 207, 184, 0.10); }
+.pf-btn:focus-visible, .pf-save:focus-visible, .pf-pass:focus-visible { outline: 2px solid #7DF0DE; outline-offset: 2px; }
+.pf-hint { margin: 0; font-size: 11px; line-height: 1.55; color: #C7D8D5; }
+@media (max-width: 1000px) { .pf-grid { grid-template-columns: minmax(0, 1fr); } .pf-top { flex-wrap: wrap; padding: 20px 24px; } }
+
+/* Componentes del sistema: botones, campos, badges, nav */
+.ap-navlist { gap: 4px; }
+.ap-nav { min-height: 44px; padding: 0 12px; gap: 12px; border-radius: 10px; border: 0; font-size: 14px; font-weight: 500; color: #9FB5B1; }
+.ap-foot .ap-nav { color: #9FB5B1 !important; }
+a.ap-nav:hover { background: #0F211E; color: #E6F1EF; }
+.ap-nav-on { padding-left: 12px; gap: 12px; background: #12302B; color: #E6F1EF !important; font-weight: 600; border: 0; }
+.ap-nic { width: auto; height: auto; background: none; border: 0; border-radius: 0; color: inherit; }
+.ap-nav-on .ap-nic svg { width: 18px; height: 18px; }
+.ap-chip { height: auto; padding: 6px 13px; gap: 7px; background: #09120F; border: 1px solid #1C3330; font-size: 13px; font-weight: 600; color: #E6F1EF; }
+.ap-dot { width: 7px; height: 7px; }
+.in-eb { color: #7E9995; font-weight: 600; letter-spacing: 0.08em; }
+.in-btn { min-height: 46px; padding: 0 20px; border: 1px solid #152927; border-radius: 10px; background: transparent; color: #5F7874; font-size: 14px; font-weight: 600; opacity: 1; cursor: not-allowed; }
+.cf-save, .pf-save { height: auto; min-height: 46px; min-width: 0; padding: 0 22px; border-radius: 10px; background: #3ECFB8; color: #04100E; font-size: 14.5px; font-weight: 700; }
+.cf-save:hover, .pf-save:hover { background: #55D9C4; }
+.ig-guide { height: auto; min-height: 46px; padding: 0 20px; gap: 9px; border: 1px solid #27423E; border-radius: 10px; background: transparent; color: #E6F1EF; font-size: 14px; font-weight: 600; }
+.ig-guide:hover { background: #0F211E; }
+.ig-act { height: 36px; border: 1px solid #27423E; border-radius: 9px; background: transparent; color: #C7D8D5; font-size: 13px; font-weight: 600; }
+a.ig-act:hover, button.ig-act:hover { background: #0F211E; color: #E6F1EF; }
+.ig-card { padding-bottom: 12px; }
+.pf-btn, .pf-btn-2 { height: auto; min-height: 36px; padding: 0 13px; border: 1px solid #27423E; border-radius: 9px; background: transparent; color: #C7D8D5; font-size: 13px; font-weight: 600; }
+.pf-btn:hover { background: #0F211E; }
+.pf-grid { align-items: stretch; }
+.ch-send { width: 44px; height: 44px; border-radius: 10px; background: #3ECFB8; color: #04100E; }
+.ch-send svg { stroke-width: 2.2; }
+.ch-sug { border: 1px solid #27423E; border-radius: 10px; background: transparent; color: #C7D8D5; }
+.ch-sug:hover { background: #0F211E; border-color: #27574F; }
+.ch-box { border: 1px solid #27423E; border-radius: 14px; background: #0A1413; }
+.ch-box:focus-within { border-color: #3ECFB8; }
+.uc-date { height: 46px; border-radius: 10px; border: 1px solid #27423E; background: #0A1413; font-size: 13.5px; font-weight: 600; }
+.uc-kv { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; font-size: 22px; }
+.uc-tv { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; font-size: 17px; }
+.cf-in, .cf-sel, .pf-in { height: auto; min-height: 46px; padding: 0 14px; border-radius: 10px; border: 1px solid #27423E; background: #0A1413; color: #E6F1EF; font-size: 14.5px; }
+.cf-sel { padding-right: 40px; }
+.cf-in:focus, .cf-sel:focus, .pf-in:focus { border-color: #3ECFB8; }
+.pf-f label { margin-bottom: 7px; font-size: 13px; font-weight: 600; color: #C7D8D5; }
+.cf-opt { height: auto; min-height: 60px; border: 1px solid #1C3330; border-radius: 12px; background: #0A1413; }
+.cf-opt[aria-pressed="true"] { border: 1px solid #3ECFB8; background: #0F211E; }
+.ig-state, .in-st { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; background: #3ECFB8; color: #04100E; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.ig-state .ap-dot, .in-st .ap-dot { display: none; }
+.ig-state-off, .in-st-off { background: transparent; border: 1px solid #1C3330; padding: 2px 9px; color: #9FB5B1; font-weight: 600; }
+.ig-state { margin-top: 12px; }
+/* tema claro: componentes de la landing */
+.ap-l .ap-nav, .ap-l .ap-foot .ap-nav { color: #27403C !important; }
+.ap-l a.ap-nav:hover { background: #F2F6F5; color: #0A1A18 !important; }
+.ap-l .ap-nav-on { background: #E4F8F3; color: #0E6B5C !important; font-weight: 700; border: 0; border-radius: 9px; }
+.ap-l .ap-chip { background: #FFFFFF; border: 1px solid #D4E2DF; color: #0A1A18; }
+</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="AppPerfil"><div data-dc-tpl="3" class="ap" style="background: radial-gradient(520px 320px at 74% 0%, rgba(62, 207, 184, 0.1), transparent 72%), radial-gradient(640px 420px at 0% 100%, rgba(62, 207, 184, 0.09), transparent 70%), radial-gradient(520px 420px at 100% 100%, rgba(62, 207, 184, 0.1), transparent 70%), rgb(6, 14, 13);">
+  <nav data-dc-tpl="4" class="ap-side" aria-label="Navegación principal">
+    <a data-dc-tpl="5" class="ap-logo" href="AppInicio.html" aria-label="Praxa, inicio"><img data-dc-tpl="6" src="../../assets/logo-praxa-blanco.png" alt="Praxa"></a>
+    <div data-dc-tpl="7" class="ap-navlist">
+      <a data-dc-tpl="8" href="AppInicio.html" class="ap-nav"><svg data-dc-tpl="9" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="10" d="M3 10.5 12 3l9 7.5"></path><path data-dc-tpl="11" d="M5.5 9.5V20h13V9.5"></path></svg><span data-dc-tpl="12">Inicio</span></a>
+      <a data-dc-tpl="13" href="AppChat.html" class="ap-nav"><svg data-dc-tpl="14" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="15" d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"></path><path data-dc-tpl="16" d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01" stroke-width="2.4"></path></svg><span data-dc-tpl="17">Chat</span></a>
+      <a data-dc-tpl="18" href="AppDiagnostico.html" class="ap-nav"><svg data-dc-tpl="19" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="20" d="M6 20v-7M12 20V5M18 20v-10" stroke-width="2.6"></path></svg><span data-dc-tpl="21">Diagnóstico</span></a>
+      <a data-dc-tpl="22" href="AppUsoCostosCero.html" class="ap-nav"><svg data-dc-tpl="23" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><ellipse data-dc-tpl="24" cx="12" cy="5.5" rx="7.5" ry="3"></ellipse><path data-dc-tpl="25" d="M4.5 5.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"></path><path data-dc-tpl="26" d="M4.5 11.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"></path></svg><span data-dc-tpl="27">Uso y costos</span></a>
+      <a data-dc-tpl="28" href="AppIntegraciones.html" class="ap-nav"><svg data-dc-tpl="29" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="30" d="M9.5 14.5 14.5 9.5"></path><path data-dc-tpl="31" d="M12.5 6.5 14 5a4 4 0 0 1 5.7 5.7l-1.5 1.5"></path><path data-dc-tpl="32" d="M11.5 17.5 10 19a4 4 0 0 1-5.7-5.7L5.8 11.8"></path></svg><span data-dc-tpl="33">Integraciones</span></a>
+    </div>
+    <div data-dc-tpl="34" class="ap-foot">
+      <a data-dc-tpl="35" class="ap-nav" href="AppConfiguracion.html" style="color: rgb(199, 216, 213);"><svg data-dc-tpl="36" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="37" d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.5a2 2 0 0 1-1 1.7l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7V20a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.5a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2z"></path><circle data-dc-tpl="38" cx="12" cy="12" r="3"></circle></svg><span data-dc-tpl="39">Configuración</span></a>
+      <a data-dc-tpl="40" class="ap-user" href="AppPerfil.html" aria-current="page" aria-label="Mi perfil, Gonzalo"><span data-dc-tpl="41" class="ap-av" aria-hidden="true">GM</span><span data-dc-tpl="42">Gonzalo</span><svg data-dc-tpl="43" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="44" d="m9 6 6 6-6 6"></path></svg></a>
+    </div>
+  </nav>
+  <main data-dc-tpl="45" class="ap-main" style="padding: 22px 18px 24px;">
+    <header data-dc-tpl="46" class="ap-top">
+      <span data-dc-tpl="47" class="ap-chip"><span data-dc-tpl="48" class="ap-dot" aria-hidden="true"></span>Meta Ads conectado</span>
+      <a data-dc-tpl="49" class="ap-round" href="AppPerfil.html" aria-label="Mi perfil">GM</a>
+    </header>
+    <div data-dc-tpl="50" class="pf-head">
+      <h1 data-dc-tpl="51" class="ap-h1">Mi perfil</h1>
+      <p data-dc-tpl="52" class="ap-sub">Gestiona tu información personal, seguridad y preferencias.</p>
+    </div>
+
+    <div data-dc-tpl="53" class="pf-grid">
+      <section data-dc-tpl="54" class="pf-card pf-top" aria-label="Resumen del perfil">
+        <span data-dc-tpl="55" class="pf-av" aria-hidden="true"><span class="sc-interp">GM</span></span>
+        <div data-dc-tpl="56" class="pf-who"><h2 data-dc-tpl="57"><span class="sc-interp">Gonzalo Mayer</span></h2><p data-dc-tpl="58"><span class="sc-interp">gonzalo@praxa.com</span></p><small data-dc-tpl="59">Miembro desde ago. 2024</small></div>
+        <button data-dc-tpl="60" type="button" class="pf-save"><svg data-dc-tpl="61" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="62" d="M5.5 12.5 10 17l8.5-9.5"></path></svg>Guardar cambios</button>
+      </section>
+
+      <section data-dc-tpl="63" class="pf-card pf-info" aria-labelledby="pf-i">
+        <div data-dc-tpl="64" class="pf-ch"><svg data-dc-tpl="65" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle data-dc-tpl="66" cx="12" cy="8" r="4"></circle><path data-dc-tpl="67" d="M4.5 20c.8-4 3.6-6 7.5-6s6.7 2 7.5 6"></path></svg><div data-dc-tpl="68"><h2 data-dc-tpl="69"><span data-dc-tpl="70" id="pf-i">Información personal</span></h2><p data-dc-tpl="71">Tus datos básicos de cuenta.</p></div></div>
+        <div data-dc-tpl="72" class="pf-body">
+          <div data-dc-tpl="73" class="pf-fields">
+            <div data-dc-tpl="74" class="pf-f"><label data-dc-tpl="75" for="pf-n">Nombre</label><input data-dc-tpl="76" class="pf-in" id="pf-n" type="text" autocomplete="given-name" value="Gonzalo" style=""></div>
+            <div data-dc-tpl="77" class="pf-f"><label data-dc-tpl="78" for="pf-a">Apellido</label><input data-dc-tpl="79" class="pf-in" id="pf-a" type="text" autocomplete="family-name" value="Mayer" style=""></div>
+            <div data-dc-tpl="80" class="pf-f"><label data-dc-tpl="81" for="pf-e">Email</label><input data-dc-tpl="82" class="pf-in" id="pf-e" type="email" autocomplete="email" value="gonzalo@praxa.com" style=""></div>
+          </div>
+        </div>
+      </section>
+
+      <section data-dc-tpl="83" class="pf-card pf-info" aria-labelledby="pf-s">
+        <div data-dc-tpl="84" class="pf-ch"><svg data-dc-tpl="85" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect data-dc-tpl="86" x="5" y="10.5" width="14" height="10" rx="2.5"></rect><path data-dc-tpl="87" d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"></path><circle data-dc-tpl="88" cx="12" cy="15.5" r="1.2" fill="currentColor"></circle></svg><div data-dc-tpl="89"><h2 data-dc-tpl="90"><span data-dc-tpl="91" id="pf-s">Seguridad</span></h2><p data-dc-tpl="92">Protege tu cuenta y administra el acceso.</p></div></div>
+        <div data-dc-tpl="93" class="pf-body" style="padding-top: 0px; padding-bottom: 6px;">
+          <button data-dc-tpl="94" type="button" class="pf-pass" style="margin-top: 0px;"><svg data-dc-tpl="95" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect data-dc-tpl="96" x="4" y="4.5" width="16" height="12" rx="2"></rect><path data-dc-tpl="97" d="M12 16.5V20M8.5 20h7M8.5 9h7M8.5 12h4"></path></svg><span data-dc-tpl="98"><strong data-dc-tpl="99">Cambiar contraseña</strong><small data-dc-tpl="100">Actualizá tu contraseña regularmente.</small></span><svg data-dc-tpl="101" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="102" d="m9 6 6 6-6 6"></path></svg></button>
+        </div>
+      </section>
+
+      <section data-dc-tpl="103" class="pf-card" aria-labelledby="pf-f">
+        <div data-dc-tpl="104" class="pf-ch"><svg data-dc-tpl="105" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect data-dc-tpl="106" x="3.5" y="4.5" width="17" height="15" rx="2.5"></rect><circle data-dc-tpl="107" cx="9" cy="10" r="1.6"></circle><path data-dc-tpl="108" d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5"></path></svg><div data-dc-tpl="109"><h2 data-dc-tpl="110"><span data-dc-tpl="111" id="pf-f">Foto de perfil</span></h2><p data-dc-tpl="112">Personalizá tu avatar.</p></div></div>
+        <div data-dc-tpl="113" class="pf-photo">
+          <span data-dc-tpl="114" class="pf-av" aria-hidden="true"><span class="sc-interp">GM</span></span>
+          <div data-dc-tpl="115" class="pf-pb">
+            <div data-dc-tpl="116" class="pf-btns"><button data-dc-tpl="117" type="button" class="pf-btn"><svg data-dc-tpl="118" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="119" d="M12 16V4M7 9l5-5 5 5"></path><path data-dc-tpl="120" d="M4.5 15v3.5A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5V15"></path></svg>Subir nueva foto</button><button data-dc-tpl="121" type="button" class="pf-btn pf-btn-2"><svg data-dc-tpl="122" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path data-dc-tpl="123" d="M4.5 6.5h15M9.5 6.5V4.5h5v2M6.5 6.5l.8 13h9.4l.8-13M10 10.5v6M14 10.5v6"></path></svg>Eliminar foto</button></div>
+            <p data-dc-tpl="124" class="pf-hint">Formatos permitidos: JPG, PNG<br data-dc-tpl="125">Tamaño máximo: 5 MB</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main></div></div></div>
+
+
+
+
+</body></html>
