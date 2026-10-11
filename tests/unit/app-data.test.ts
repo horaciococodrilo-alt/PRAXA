@@ -24,7 +24,7 @@ vi.mock('@/lib/supabase/server', () => ({
   }),
 }));
 
-const { getDiagnostico, getIntegraciones, getUsuario } = await import('@/modules/app-data');
+const { configuracionPendiente, getDiagnostico, getIntegraciones, getUsuario } = await import('@/modules/app-data');
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -83,6 +83,23 @@ describe('getUsuario', () => {
       expect(usuario.fotoUrl).toBeNull();
     },
   );
+});
+
+describe('configuracionPendiente (punto rojo de Configuración)', () => {
+  const completa = { nombre: 'Mi Tienda', rubro: 'Otro', pais: 'Argentina', moneda: 'Pesos' };
+
+  it.each([
+    ['sin empresa', null],
+    ['sin rubro', { ...completa, rubro: null }],
+    ['sin país', { ...completa, pais: null }],
+    ['sin moneda', { ...completa, moneda: null }],
+  ])('queda pendiente %s', (_, empresa) => {
+    expect(configuracionPendiente(empresa)).toBe(true);
+  });
+
+  it('con la empresa completa no queda pendiente', () => {
+    expect(configuracionPendiente(completa)).toBe(false);
+  });
 });
 
 describe('getIntegraciones', () => {

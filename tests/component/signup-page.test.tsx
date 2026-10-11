@@ -38,6 +38,19 @@ describe('Crear cuenta', () => {
     expect(await screen.findByRole('heading', { name: 'Revisá tu correo' })).toBeInTheDocument();
   });
 
+  // El enlace de confirmación entra a Mi perfil (DESTINO_TRAS_ENTRAR), no a /onboarding: la
+  // redirección de /onboarding disimularía el error, así que se mira el pedido a Supabase.
+  it('el enlace de confirmación lleva a Mi perfil por /auth/callback', async () => {
+    signUp.mockResolvedValue({ data: { user: { identities: [{ id: 'x' }] } }, error: null });
+    await completar();
+    await screen.findByRole('heading', { name: 'Revisá tu correo' });
+    expect(signUp).toHaveBeenCalledWith({
+      email: 'persona@ejemplo.com',
+      password: 'una-clave-larga',
+      options: { emailRedirectTo: 'http://localhost:3000/auth/callback?next=%2Fapp%2Fperfil' },
+    });
+  });
+
   it('avisa que el correo ya tiene cuenta cuando Supabase devuelve un usuario sin identidades', async () => {
     signUp.mockResolvedValue({ data: { user: { identities: [] } }, error: null });
     await completar();
