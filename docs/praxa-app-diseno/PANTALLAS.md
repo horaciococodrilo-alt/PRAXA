@@ -50,7 +50,7 @@ Referencia visual de cada una: `referencia/capturas/<Nombre>.png`; HTML/CSS ya r
 ## Mi perfil
 - Cabecera con avatar de iniciales (se calculan del nombre/apellido en vivo), nombre completo, email, "Miembro desde ago. 2024" y "Guardar cambios".
 - Tarjetas: Información personal (Nombre, Apellido, Email), Seguridad (Cambiar contraseña), Foto de perfil (Subir nueva foto / Eliminar foto; JPG o PNG, máx. 5 MB).
-- Datos de ejemplo (Gonzalo Mayer, gonzalo@praxa.com) son placeholders.
+- Datos de ejemplo (Gonzalo Mayer, gonzalo@praxa.test) son placeholders.
 
 ## Estado del prototipo (qué es real y qué no)
 Real en la maqueta: navegación entre páginas, escritura/envío en Chat, selector de rango, links de "Configurar", edición de campos de Configuración y Perfil en memoria, colapsable del Diagnóstico. No existe backend, autenticación, persistencia ni integración real con Meta/GA/Google Ads.

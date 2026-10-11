@@ -98,7 +98,8 @@ Detalle completo, comandos y conteos: [sesion.md](sesion.md).
 | `tests/unit/company-actions.test.ts` (`guardarPerfilEmpresa`) | PASS |
 | `tests/unit/identity-actions.test.ts` (nombre y foto) | PASS |
 | `tests/unit/password-recovery.test.ts` (envío del enlace) | PASS |
-| `tests/unit/diagnostico-data.test.ts` (consulta de `reports`) | PASS |
+| `tests/unit/app-data.test.ts` (`reports`, firma de la foto, integraciones desconectadas, redirección de `/onboarding`) | PASS |
+| `tests/component/app-paginas-sesion.test.tsx` (cada página verifica la sesión con su ruta) | PASS |
 | `tests/unit/safe-next.test.ts` y `tests/unit/proxy-session-cookies.test.ts` (destino por defecto) | PASS |
 | `tests/app/email-flows.test.ts` (destino del enlace de registro) | PASS |
 | pgTAP `11_company_profile` y `12_profile_photos` | PENDIENTE: `npm run test:policies` necesita el proyecto de pruebas |

@@ -318,7 +318,7 @@ Rango a revisar: `f4dc8ce..HEAD` (ver la ficha).
 - `supabase/migrations/0014_profile_photos.sql`
 - `supabase/tests/11_company_profile.test.sql`
 - `supabase/tests/12_profile_photos.test.sql`
-- Pruebas: `tests/component/app-pantallas.test.tsx` y `tests/unit/{company-actions,identity-actions,password-recovery,diagnostico-data}.test.ts`
+- Pruebas: `tests/component/app-pantallas.test.tsx` y `tests/unit/{company-actions,identity-actions,password-recovery,app-data}.test.ts` y `tests/component/app-paginas-sesion.test.tsx`
 - `public/app/robot-praxa.png`
 - `docs/praxa-app-diseno/` (referencia del diseño; trae un correo de ejemplo del dominio
   `praxa.com`)
@@ -346,3 +346,38 @@ Rango a revisar: `f4dc8ce..HEAD` (ver la ficha).
 
 **No actualizados (decisión pendiente, `H-E1-96`):** `docs/SECURITY.md` y
 `docs/ARCHITECTURE.md`.
+
+## 17. Correcciones por `implementation-review-1` (2026-10-11)
+
+La revisión ([implementation-review-1.md](revisiones/implementation-review-1.md)) dio
+BLOQUEADO. Hubo tres motivos: no pudo ejecutar comandos, pgTAP sin correr (R-01) y la ruta
+sin corregir. Además pidió R-02 a R-10 dentro de la microfase. Corregido a pedido del usuario:
+
+| ID | Corrección |
+|---|---|
+| R-02 | `tests/component/app-paginas-sesion.test.tsx` descubre las páginas de `src/app/(app)/app/` y exige que cada una llame a `requireAppSession` con su ruta antes de leer datos. También exige que sean exactamente las siete. |
+| R-03 | `tests/unit/app-data.test.ts` (antes `diagnostico-data.test.ts`) prueba que `getUsuario` firma la foto de la carpeta propia y no firma una ruta ajena ni una que solo empiece parecido. |
+| R-04 | La misma prueba cubre que `getIntegraciones` devuelve Meta Ads, Google Analytics y Tiendanube desconectadas (y copias del mock), y que `next.config.ts` redirige `/onboarding` a `/app/perfil` de forma temporal. |
+| R-05 | Se quitaron de `perfil.tsx` las ramas `sinBackend` (inalcanzables: el layout no monta las pantallas sin Supabase) y el mock de `@/lib/env` que quedó sin uso en las pruebas de pantalla. |
+| R-06 | `12_profile_photos.test.sql` pasa de 9 a 12 aserciones. Prueba que otro usuario no puede modificar ni mover la foto de A y que A no puede moverla a otra carpeta (WITH CHECK de `avatars_update_own`). El DELETE de otro usuario ahora es una aserción (`results_eq` sobre las filas borradas) y no una sentencia suelta. Antes habilita `storage.allow_delete_query` en la transacción para que, si Storage trae el trigger que rechaza el DELETE directo, se pruebe la política y no aborte el archivo. **Sin ejecutar:** depende de R-01. |
+| R-07 | `H-E1-93` ahora enumera lo que dejó de ser cierto en `ARCHITECTURE.md` (l. 32, 43, 73 y 152) y lo que falta describir (`app-data`, `/app` sin empresa obligatoria y el destino Mi perfil). |
+| R-08 | `guardarFotoPerfil` y `eliminarFotoPerfil` solo borran la foto anterior si está en la carpeta del usuario (sale de metadatos que el usuario puede escribir). Dos pruebas nuevas en `identity-actions.test.ts`. |
+| R-09 | El correo de ejemplo de `docs/praxa-app-diseno` (texto de `PANTALLAS.md` y de dos HTML de `AppPerfil`) pasó al dominio reservado `praxa.test`. Las capturas PNG de referencia lo siguen mostrando dibujado: no se editaron imágenes. |
+| R-10 | `H-E1-97` a `H-E1-99` pasan a "Resuelto en MF_APP" con asignación MF_APP. |
+
+**Roturas comprobadas en el árbol de trabajo** y revertidas con `git checkout` (los dos
+archivos estaban sin cambios locales):
+
+- Quitar `requireAppSession` de Integraciones hace fallar `/app/integraciones verifica la sesión…`.
+- Quitar la guarda de carpeta de `getUsuario` hace fallar los dos casos `no firma una ruta fuera
+  de la carpeta propia`.
+
+**Verificación:** `npm run verify` dio exit 0, con lint y typecheck limpios, 22 archivos y 346
+pruebas en verde (`unit` y `component`) y `next build` compilado. `vitest run --project app`
+dio 6 archivos, con 37 pruebas en verde y 7 omitidas.
+
+Siguen pendientes, fuera del alcance de la microfase:
+
+- **R-01:** `npm run test:policies`, que corre el usuario.
+- **Corrección de la ruta:** `H-E1-93`, `H-E1-94` y `H-E1-96`, que incluye `SECURITY.md` y
+  `ARCHITECTURE.md`. La decide el usuario.
