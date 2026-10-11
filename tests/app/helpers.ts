@@ -147,10 +147,33 @@ export function trackUserId(userId: string | undefined | null): void {
   if (userId) createdUserIds.add(userId);
 }
 
+/** Enumera también subcarpetas y páginas: una foto sin referencia en Auth sigue siendo dato personal. */
+export async function fixtureAvatarPaths(userId: string): Promise<string[]> {
+  const storage = fixtureAdminClient().storage.from('avatars');
+  const paths: string[] = [];
+  const visit = async (folder: string): Promise<void> => {
+    let offset = 0;
+    while (true) {
+      const { data, error } = await storage.list(folder, { limit: 1000, offset });
+      if (error || !data) throw new Error('No se pudieron enumerar las fotos de prueba.');
+      for (const entry of data) {
+        const path = `${folder}/${entry.name}`;
+        if (entry.id === null) await visit(path);
+        else paths.push(path);
+      }
+      if (data.length < 1000) break;
+      offset += data.length;
+    }
+  };
+  await visit(userId);
+  return paths;
+}
+
 /**
  * Borra SOLO lo que creó esta corrida.
  *
- * Orden importante: primero las empresas y luego los usuarios, porque
+ * Orden importante: primero las empresas, después los avatars por Storage API y luego
+ * los usuarios, porque
  * `companies.owner_id` referencia `auth.users` con ON DELETE RESTRICT. El borrado de la
  * empresa arrastra en cascada su contexto, objetivos, sistemas y reportes.
  */
@@ -168,6 +191,18 @@ export async function cleanupRun(): Promise<void> {
       `No se pudieron borrar las empresas de la corrida ${RUN_ID}: ${companyError.message}. ` +
         'Revisá el proyecto de pruebas y borralas a mano.',
     );
+  }
+
+  const avatars = admin.storage.from('avatars');
+  for (const id of ids) {
+    const paths = await fixtureAvatarPaths(id);
+    for (let start = 0; start < paths.length; start += 1000) {
+      const { error } = await avatars.remove(paths.slice(start, start + 1000));
+      if (error) throw new Error('No se pudieron borrar las fotos de prueba; se conserva el usuario.');
+    }
+    if ((await fixtureAvatarPaths(id)).length > 0) {
+      throw new Error('Quedaron fotos de prueba; se conserva el usuario.');
+    }
   }
 
   const failed: string[] = [];

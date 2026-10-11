@@ -256,6 +256,11 @@ export function AppShell({
             </span>
             <IconChevronDerecha size={14} />
           </Link>
+          <form action="/auth/signout" method="post">
+            <button className={cn(s.nav, s.signout)} type="submit">
+              Cerrar sesión
+            </button>
+          </form>
         </div>
       </nav>
 

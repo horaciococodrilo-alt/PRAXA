@@ -21,6 +21,8 @@ import { DESTINO_TRAS_ENTRAR } from '@/lib/safe-next';
 
 const PROTECTED_PREFIXES = ['/app'];
 const AUTH_ONLY_PREFIXES = ['/login', '/signup'];
+const matchesRoute = (pathname: string, prefix: string) =>
+  pathname === prefix || pathname.startsWith(`${prefix}/`);
 
 function redirectWithSession(url: URL, sessionResponse: NextResponse) {
   const redirect = NextResponse.redirect(url);
@@ -68,14 +70,14 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  if (!isAuthenticated && PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {
+  if (!isAuthenticated && PROTECTED_PREFIXES.some((p) => matchesRoute(pathname, p))) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('next', pathname);
     return redirectWithSession(url, response);
   }
 
-  if (isAuthenticated && AUTH_ONLY_PREFIXES.some((p) => pathname.startsWith(p))) {
+  if (isAuthenticated && AUTH_ONLY_PREFIXES.some((p) => matchesRoute(pathname, p))) {
     const url = request.nextUrl.clone();
     url.pathname = DESTINO_TRAS_ENTRAR;
     url.search = '';

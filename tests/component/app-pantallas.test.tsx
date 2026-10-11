@@ -73,6 +73,9 @@ describe('AppShell', () => {
     for (const fuera of ['Ventas', 'Marketing', 'Productos']) {
       expect(within(nav).queryByRole('link', { name: fuera })).not.toBeInTheDocument();
     }
+    const salir = within(nav).getByRole('button', { name: 'Cerrar sesión' });
+    expect(salir.closest('form')).toHaveAttribute('action', '/auth/signout');
+    expect(salir.closest('form')).toHaveAttribute('method', 'post');
   });
 
   it('muestra el chip de la integración conectada', () => {
@@ -606,6 +609,20 @@ describe('Mi perfil', () => {
     render(<Perfil usuario={USUARIO} />);
     await user.click(screen.getByRole('button', { name: /Cambiar contraseña/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Enviamos demasiados correos');
+  });
+
+  it('tras un error de transporte, permite reintentar el pedido de enlace', async () => {
+    enviarEnlaceDeContrasena.mockResolvedValueOnce('No pudimos enviar el enlace. Intentá de nuevo en unos minutos.');
+    enviarEnlaceDeContrasena.mockResolvedValueOnce(null);
+    const user = userEvent.setup();
+    render(<Perfil usuario={USUARIO} />);
+
+    const boton = screen.getByRole('button', { name: /Cambiar contraseña/ });
+    await user.click(boton);
+    expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos enviar el enlace');
+    expect(boton).toBeEnabled();
+    await user.click(boton);
+    expect(await screen.findByText(/Te enviamos un correo a/)).toBeInTheDocument();
   });
 
   it('Guardar cambios manda nombre y apellido y muestra el resultado', async () => {

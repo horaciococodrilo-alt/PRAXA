@@ -186,6 +186,15 @@
   display: inline-flex;
 }
 
+.signout {
+  width: 100%;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 /* Aviso de datos pendientes (Configuración): punto rojo sobre el ícono. */
 .alertDot {
   position: absolute;

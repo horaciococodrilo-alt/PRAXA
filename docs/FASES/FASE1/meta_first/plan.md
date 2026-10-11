@@ -2,7 +2,8 @@
 
 **Versión:** 1.0 — 2026-09-24
 **Estado:** `APROBADO PARA EJECUCIÓN`. `M04a` está cerrada y `G-DOCS` fue aprobado por el usuario el 2026-09-24. El estado de cada microfase y la siguiente habilitada están en `docs/PROJECT_STATE.md`.
-**Base:** spec `meta_first` v1.0 (decisiones DEC-01 a DEC-21), revisión del repositorio en `main@247cae8`, la sesión de revisión en la que se tomaron esas decisiones y las correcciones T01 a T16 de la revisión externa. No quedan decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`.
+**Enmienda pendiente:** la precisión de M28.3a sobre `avatars` preparada en el PR #20 requiere auditoría y aprobación visible del usuario; el estado aprobado corresponde al plan anterior.
+**Base:** spec `meta_first` v1.0 (decisiones DEC-01 a DEC-21), revisión del repositorio en `main@247cae8`, la sesión de revisión en la que se tomaron esas decisiones y las correcciones T01 a T16 de la revisión externa. En la versión aprobada no quedaban decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`.
 
 Este documento reemplaza al `plan.md` anterior y contiene, además, el texto de la **Enmienda 1**. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario, y la Parte I de este documento es el roadmap vigente de la ruta: encabeza la jerarquía de fuentes de `AGENTS.md`. Tiene tres partes:
 
@@ -336,8 +337,8 @@ Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA
 | **Implementación requerida** | Guion de la demo. Recorrido completo del dueño con el usuario creado en `M16.2`. Evidencia redactada. Paso a Supabase Pro cuando el dueño use el piloto sin acompañamiento (DEC-08). Procedimiento de cierre del piloto con CA-67, que se ejecuta al finalizar el piloto. |
 | **Procedimiento del asistente** | Preparar el guion y la lista de verificación. Durante la demo, no tocar datos reales fuera de la aplicación. |
 | **Evidencia de cierre** | Lista de verificación de la demo, redactada. Al finalizar el piloto, lista de verificación de CA-67. |
-| **Criterio de aceptación** | El dueño completó el recorrido con su propio login. Al finalizar el piloto, y después de CA-67, no quedan filas de la empresa y el usuario está eliminado. |
-| **Pruebas** | La lista de verificación. |
+| **Criterio de aceptación** | El dueño completó el recorrido con su propio login. Al finalizar el piloto, y después de CA-67, no quedan filas de la empresa ni objetos en su carpeta de `avatars`, y el usuario está eliminado. |
+| **Pruebas** | La lista de verificación; `tests/app/closure-storage.test.ts` en el proyecto desechable para el borrado de fotos por Storage API. |
 | **Condición para avanzar** | `G-DEMO` al completar la demostración. |
 | **Dependencias / habilita** | `G-VR02` / — |
 | **Intervención requerida del usuario** | Coordinar con el dueño, ejecutar los pasos de CA-67 que requieren dashboard y quitar al dueño como tester. |
@@ -740,11 +741,12 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 |---:|---|---|
 | 1 | Dueño o usuario | Desconectar Meta desde la app: bloqueo, revocación y borrado de la credencial y de los datos |
 | 2 | Usuario | Borrar la empresa desde el SQL editor, con rol administrativo y sin sesión de usuario |
-| 3 | Usuario | Borrar el usuario de Supabase Auth |
-| 4 | Usuario | Quitar al dueño como tester en Meta y pedirle que quite la app de las apps conectadas de su negocio |
-| 5 | Asistente | Verificar que no quedan filas de la empresa. Declarar que las copias nocturnas de Pro pueden conservar datos hasta 7 días |
+| 3 | Usuario | Enumerar recursivamente y borrar por Storage API o dashboard todos los objetos de `avatars/<user_id>/`, también los huérfanos; confirmar carpeta vacía antes de seguir. Repetir para cada cuenta sintética conservada |
+| 4 | Usuario | Borrar el usuario de Supabase Auth |
+| 5 | Usuario | Quitar al dueño como tester en Meta y pedirle que quite la app de las apps conectadas de su negocio |
+| 6 | Asistente | Verificar que no quedan filas de la empresa ni objetos en la carpeta de `avatars`. Declarar que las copias nocturnas de Pro pueden conservar datos hasta 7 días |
 
-**Trampa conocida.** El orden no es opcional. `companies.owner_id` tiene `on delete restrict` y `company_context_versions.created_by` referencia a `auth.users` sin acción de borrado: borrar primero el usuario falla.
+**Trampa conocida.** El orden no es opcional. `companies.owner_id` tiene `on delete restrict` y `company_context_versions.created_by` referencia a `auth.users` sin acción de borrado: borrar primero el usuario falla. Borrar metadatos de `storage.objects` por SQL no borra los archivos físicos; si falla Storage, conservar el usuario y reintentar.
 
 ---
 

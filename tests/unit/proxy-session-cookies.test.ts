@@ -72,4 +72,13 @@ describe('proxy: cookies renovadas al redirigir', () => {
     expect(response.cookies.get('sb-test-auth-token')).toMatchObject({ value: '', maxAge: 0 });
     expect(response.headers.get('cache-control')).toBe('private, no-store');
   });
+
+  it.each(['/apple', '/application', '/login-help', '/signup-extra'])(
+    'no redirige la ruta ajena %s',
+    async (path) => {
+      auth.authenticated = path.startsWith('/login') || path.startsWith('/signup');
+      const response = await proxy(new NextRequest(`https://praxa.example${path}`));
+      expect(response.headers.get('location')).toBeNull();
+    },
+  );
 });

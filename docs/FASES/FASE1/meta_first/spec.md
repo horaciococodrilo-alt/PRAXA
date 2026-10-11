@@ -2,13 +2,15 @@
 
 ## Estado
 
+**Enmienda pendiente:** la ampliación de CA-67 para `avatars` preparada en el PR #20 requiere auditoría y aprobación visible del usuario. `APROBADA` corresponde a la versión anterior de este criterio.
+
 `v1.0 — APROBADA` — 2026-09-24 (aprobada por el usuario en `G-DOCS`, al cerrar `M04a`). Incorpora:
 
 - las decisiones DEC-01 a DEC-21;
 - las correcciones T01 a T16 de la revisión externa;
 - las correcciones técnicas de la revisión del repositorio.
 
-No quedan decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`. La Enmienda 1 fue aprobada formalmente en `G-DOCS` al cerrar `M04a`; el estado de cada microfase y la siguiente habilitada están en `docs/PROJECT_STATE.md`. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario: la Parte I de [plan.md](plan.md) es el roadmap vigente de la ruta y encabeza la jerarquía de fuentes de `AGENTS.md`.
+En la v1.0 no quedaban decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`. La Enmienda 1 fue aprobada formalmente en `G-DOCS` al cerrar `M04a`; el estado de cada microfase y la siguiente habilitada están en `docs/PROJECT_STATE.md`. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario: la Parte I de [plan.md](plan.md) es el roadmap vigente de la ruta y encabeza la jerarquía de fuentes de `AGENTS.md`.
 
 El roadmap de la ruta (Enmienda 1) y el plan de ejecución están en [plan.md](plan.md), versión 1.0.
 
@@ -297,12 +299,13 @@ Reglas para las funciones y el rol:
 - **CA-67** *(cierre del piloto, DEC-12 y DEC-20)* Se ejecuta al finalizar el piloto, no al terminar la demo. Procedimiento documentado, en este orden:
   1. Desconectar Meta desde la app (CA-38): bloquea las llamadas, intenta la revocación y borra la credencial y los datos de Meta.
   2. Borrar la empresa con un rol privilegiado desde el SQL editor. El borrado arrastra en cascada a miembros, contexto, reportes y todas las tablas de integración.
-  3. Borrar el usuario de Supabase Auth.
-  4. Quitar al dueño como tester de la app de Meta y pedirle que quite la app desde las apps conectadas de su negocio.
+  3. Antes de borrar cada usuario (dueño y cuentas sintéticas conservadas), enumerar recursivamente su carpeta `<user_id>/` en el bucket privado `avatars`, borrar **todos** los objetos mediante Storage API o el dashboard de Storage y volver a enumerarla hasta confirmar que está vacía. Incluye fotos anteriores sin referencia en Auth. Si falla la enumeración o el borrado, detener el cierre y conservar el usuario para reintentar. No borrar filas de `storage.objects` por SQL: eso deja el archivo físico huérfano.
+  4. Borrar el usuario de Supabase Auth.
+  5. Quitar al dueño como tester de la app de Meta y pedirle que quite la app desde las apps conectadas de su negocio.
 
   El orden no es opcional. Hoy no existe ningún flujo de baja de cuenta, y el esquema actual impide borrar primero el usuario: `companies.owner_id` tiene `on delete restrict` (`0001`) y `company_context_versions.created_by` referencia a `auth.users` sin acción de borrado (`0002`). Borrar el usuario desde el dashboard falla mientras exista su empresa.
 
-  Hipótesis a probar en el proyecto de pruebas: `reports` referencia versiones de contexto con `on delete restrict` (`0003`), y como ambas tablas se borran en cascada desde `companies`, el paso 2 podría fallar según el orden de las cascadas. La prueba corre el procedimiento completo sobre una empresa sintética con reporte, integración, observaciones y registros de consulta, y verifica que no quede ninguna fila de esa empresa ni el usuario.
+  Hipótesis a probar en el proyecto de pruebas: `reports` referencia versiones de contexto con `on delete restrict` (`0003`), y como ambas tablas se borran en cascada desde `companies`, el paso 2 podría fallar según el orden de las cascadas. pgTAP prueba el borrado de las filas de empresa y usuario; `tests/app/closure-storage.test.ts` prueba con Storage API, en el proyecto desechable, que también desaparecen una foto y un objeto huérfano en una subcarpeta antes de borrar el usuario. No se ejecuta esa prueba contra `app`.
 - **CA-68** Todas las tablas nuevas referencian `companies` (directamente o a través de la conexión) con `on delete cascade`, incluida `private.integration_credentials`.
 
 ## 11. Sincronización manual (M16c)
