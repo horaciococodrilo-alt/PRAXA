@@ -100,6 +100,26 @@ describe('foto de perfil', () => {
     expect(remove).not.toHaveBeenCalled();
   });
 
+  // `avatar_path` lo puede escribir el propio usuario: una ruta ajena nunca se borra.
+  it('al reemplazar, no borra una foto anterior fuera de la carpeta propia', async () => {
+    getUser.mockResolvedValue({
+      data: { user: { user_metadata: { avatar_path: '11111111-0000-4000-8000-000000000002/ajena.png' } } },
+    });
+    const r = await guardarFotoPerfil(`${ID}/nueva.png`);
+    expect(r.ok).toBe(true);
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it('al eliminar, quita la referencia pero no borra un archivo fuera de la carpeta propia', async () => {
+    getUser.mockResolvedValue({
+      data: { user: { user_metadata: { avatar_path: '11111111-0000-4000-8000-000000000002/ajena.png' } } },
+    });
+    const r = await eliminarFotoPerfil();
+    expect(r).toEqual({ ok: true, message: 'Foto eliminada.' });
+    expect(updateUser).toHaveBeenCalledWith({ data: { avatar_path: null } });
+    expect(remove).not.toHaveBeenCalled();
+  });
+
   it('eliminar quita la referencia antes de borrar el archivo', async () => {
     const r = await eliminarFotoPerfil();
     expect(r).toEqual({ ok: true, message: 'Foto eliminada.' });

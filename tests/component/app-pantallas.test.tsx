@@ -26,7 +26,6 @@ const enviarEnlaceDeContrasena = vi.fn();
 vi.mock('@/components/auth/recovery', () => ({
   enviarEnlaceDeContrasena: (...args: unknown[]) => enviarEnlaceDeContrasena(...args),
 }));
-vi.mock('@/lib/env', () => ({ isSupabaseConfigured: () => true, getSiteUrl: () => 'http://localhost:3000' }));
 const guardarFotoPerfil = vi.fn();
 const eliminarFotoPerfil = vi.fn();
 vi.mock('@/modules/identity/actions', () => ({

@@ -4,7 +4,6 @@ import { useRef, useState, useTransition, type ChangeEvent, type FormEvent } fro
 
 import { enviarEnlaceDeContrasena } from '@/components/auth/recovery';
 import { cn } from '@/components/ui';
-import { isSupabaseConfigured } from '@/lib/env';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { Usuario } from '@/modules/app-data/types';
 import {
@@ -62,7 +61,6 @@ export function Perfil({ usuario }: { usuario: Usuario }) {
   const [fotoEstado, setFotoEstado] = useState<NombreResult | null>(null);
   const [fotoPendiente, setFotoPendiente] = useState(false);
   const selector = useRef<HTMLInputElement>(null);
-  const sinBackend = !isSupabaseConfigured();
 
   const elegirFoto = async (e: ChangeEvent<HTMLInputElement>) => {
     const archivo = e.target.files?.[0];
@@ -74,12 +72,6 @@ export function Perfil({ usuario }: { usuario: Usuario }) {
       setFotoEstado({ ok: false, message: problema });
       return;
     }
-    if (sinBackend) {
-      setFoto(URL.createObjectURL(archivo));
-      setFotoEstado({ ok: true, message: 'Sin conexión con el servidor: la foto se ve acá pero no se guarda.' });
-      return;
-    }
-
     setFotoPendiente(true);
     setFotoEstado(null);
     try {
@@ -161,9 +153,7 @@ export function Perfil({ usuario }: { usuario: Usuario }) {
     setFotoPendiente(true);
     setFotoEstado(null);
     try {
-      const resultado = sinBackend
-        ? { ok: true as const, message: 'Sin conexión con el servidor: no se borró nada.' }
-        : await eliminarFotoPerfil();
+      const resultado = await eliminarFotoPerfil();
       if (resultado.ok || ('fotoQuitada' in resultado && resultado.fotoQuitada)) setFoto(null);
       setFotoEstado(resultado);
     } catch {
@@ -178,10 +168,6 @@ export function Perfil({ usuario }: { usuario: Usuario }) {
   };
 
   const cambiarContrasena = async () => {
-    if (sinBackend) {
-      setEnvio({ estado: 'error', mensaje: 'Sin conexión con el servidor: no se envió ningún correo.' });
-      return;
-    }
     setEnvio({ estado: 'enviando' });
     const problema = await enviarEnlaceDeContrasena(usuario.email);
     setEnvio(problema ? { estado: 'error', mensaje: problema } : { estado: 'enviado' });

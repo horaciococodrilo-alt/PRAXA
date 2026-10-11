@@ -81,7 +81,10 @@ export async function guardarFotoPerfil(ruta: unknown): Promise<NombreResult> {
     if (error) return { ok: false, message: 'No se pudo guardar la foto. Probá de nuevo.' };
 
     // La anterior ya no se usa: se borra (si falla, queda huérfana en la carpeta propia).
-    if (anterior && anterior !== ruta) await supabase.storage.from('avatars').remove([anterior]);
+    // Sale de los metadatos, que el usuario puede escribir: solo se borra si es de su carpeta.
+    if (anterior && anterior !== ruta && anterior.startsWith(`${usuario.id}/`)) {
+      await supabase.storage.from('avatars').remove([anterior]);
+    }
 
     revalidatePath('/app', 'layout');
     return { ok: true, message: 'Foto actualizada.' };
@@ -93,14 +96,15 @@ export async function guardarFotoPerfil(ruta: unknown): Promise<NombreResult> {
 /** Quita primero la referencia y luego borra el archivo: Auth nunca apunta a una foto borrada. */
 export async function eliminarFotoPerfil(): Promise<NombreResult> {
   try {
-    await requireUserForAction();
+    const usuario = await requireUserForAction();
     const anterior = await rutaFotoActual();
     const supabase = await createSupabaseServerClient();
 
     const { error } = await supabase.auth.updateUser({ data: { avatar_path: null } });
     if (error) return { ok: false, message: 'No se pudo eliminar la foto. Probá de nuevo.' };
 
-    if (anterior) {
+    // Igual que al reemplazarla: solo se borra un archivo de la carpeta propia.
+    if (anterior && anterior.startsWith(`${usuario.id}/`)) {
       try {
         const { error: borrado } = await supabase.storage.from('avatars').remove([anterior]);
         if (borrado) throw borrado;
