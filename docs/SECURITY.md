@@ -7,7 +7,7 @@ No es un inventario. Los detalles volátiles tienen su propia fuente y acá solo
 
 | Detalle | Fuente canónica |
 |---|---|
-| Grants exactos por tabla, función y rol | Encabezado y cuerpo de cada migración (`supabase/migrations/`) y su pgTAP (`03_privileges`, `09_integration_privileges`) |
+| Grants exactos por tabla, función y rol | Encabezado y cuerpo de cada migración (`supabase/migrations/`) y su pgTAP (`03_privileges`, `09_integration_privileges`; Storage en `12_profile_photos`) |
 | Criterios, plazos, TTL, estados y códigos de error | Spec de la ruta (`docs/FASES/FASE1/meta_first/spec.md`: CA, CB y DEC) y encabezado de `0012_integrations.sql` |
 | Qué microfase construye cada control | Plan de la ruta (`docs/FASES/FASE1/meta_first/plan.md`) |
 | Qué está cerrado hoy | `docs/PROJECT_STATE.md` |
@@ -31,6 +31,7 @@ nada hasta que exista.
 | Secretos de terceros (`META_APP_SECRET`, `DEEPINFRA_API_KEY`) y credenciales administrativas de Supabase | Suplantación de la app o acceso total a la base |
 | Integridad de las cifras mostradas al dueño | Una cifra falsa presentada como hecho es un daño aunque no haya filtración |
 | Identidad del dueño y su cuenta de Supabase Auth | Todo lo demás se autoriza a partir de ella |
+| Foto de perfil, nombre y apellido del usuario | Datos personales. La foto puede traer metadatos ocultos, como la ubicación donde se sacó |
 
 ## 2. Fronteras de confianza
 
@@ -50,6 +51,13 @@ nada hasta que exista.
    lo anterior. Están fuera del modelo de amenazas que la aplicación puede mitigar.
 7. **Entorno de pruebas → proyecto desechable.** Las pruebas destructivas nunca cruzan hacia
    el proyecto de la aplicación.
+8. **Navegador → Supabase Storage**, con el JWT del usuario y sin pasar por el servidor Next. Es
+   la subida de la foto de perfil (vigente). Storage aplica RLS por carpeta (cada usuario solo
+   lee, sube, modifica y borra en la carpeta con su id) y el tipo y el tamaño en el servidor. El
+   bucket es privado: la foto se muestra solo con URLs firmadas de vida corta. La ruta queda en
+   los metadatos de Auth, que el propio usuario puede escribir. Por eso el servidor solo firma
+   o borra una ruta de la carpeta del usuario, y esos metadatos (también nombre y apellido)
+   nunca deciden acceso: solo se muestran.
 
 `worker_api` es un nombre heredado: **la ruta `meta_first` no construye ningún worker en
 segundo plano** (spec, sección 2, y D2). El camino 3 lo recorre código `server-only` de Next,
@@ -275,6 +283,7 @@ Estado de cada pieza, sin repetir los plazos (la fuente es la spec):
 | Funciones de la base para desconexión y purga idempotente | Vigentes en `worker_api` |
 | Orquestación de la purga perezosa y revocación en Meta | Previstas |
 | Flujo de baja de cuenta desde la aplicación | No existe (`H-E1-06`). El cierre del piloto es un procedimiento administrativo con orden obligatorio (CA-67) |
+| Foto de perfil | Al reemplazarla o eliminarla se borra el archivo de Storage. Si ese borrado falla, el archivo puede quedar sin referencia en la carpeta del usuario. Con la baja de cuenta, igual que el resto (`H-E1-06`) |
 | Copias de seguridad del proveedor | Un dato borrado de la base activa puede seguir en las copias durante su plazo (CA-38b). Es un límite declarado, no se mitiga |
 
 "Borrado" en este documento significa borrado en la base activa.
@@ -324,6 +333,18 @@ Cubierto por `05_delete_carveout.test.sql`.
 - **Las funciones `SECURITY DEFINER` son propiedad de un rol con `bypassrls`.** Cambiar su
   dueño queda fuera de la ruta (CA-14).
 - **Sin limitación de intentos de inicio de sesión** propia, más allá de la de Supabase Auth.
+- **El registro revela si un correo ya tiene cuenta.** Crear cuenta con un correo registrado
+  muestra un aviso en vez de la respuesta neutra de Supabase, así que cualquiera puede comprobar
+  si un correo es usuario de PRAXA. Lo aceptó el usuario por claridad (`H-E1-73`). Recuperar la
+  contraseña e iniciar sesión siguen respondiendo igual exista o no la cuenta.
 - **Sin registro de auditoría** de accesos ni de cambios, más allá de las versiones de
   contexto, las marcas de tiempo y los registros por consulta del chat.
 - **Retención del host del modelo** (sección 8) y **copias de seguridad** (sección 9).
+- **La foto se verifica por su cabecera, no se regenera.** Storage confía en el tipo declarado.
+  Por eso, al registrar la foto, el servidor comprueba que los primeros bytes sean de un JPG o
+  un PNG; si no lo son, no la registra y la borra (vigente). La verificación es solo al
+  registrar: la política de actualización del bucket deja que el usuario sobrescriba su propia
+  foto después, y un archivo que empiece como imagen con otro contenido detrás también pasaría.
+  En los dos casos solo lo ve quien lo subió y nada lo ejecuta. Los
+  metadatos de la foto (EXIF, por ejemplo la ubicación) no se borran. Hay que regenerar la
+  imagen en el servidor si algún día otros usuarios ven fotos ajenas.

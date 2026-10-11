@@ -1,6 +1,5 @@
-import Link from 'next/link';
-
-import { Callout, Card } from '@/components/ui';
+import s from '@/components/auth/auth.module.css';
+import { AuthCard, AuthLink, Notice } from '@/components/auth/parts';
 
 const MESSAGES: Record<string, string> = {
   'link-invalid':
@@ -15,31 +14,18 @@ export default async function VerifyEmailPage({ searchParams }: PageProps<'/veri
   const message = raw ? (MESSAGES[raw] ?? MESSAGES['server-error']) : null;
 
   return (
-    <Card>
-      <h1 className="text-xl font-semibold tracking-tight">Verificación de correo</h1>
-
-      {message ? (
-        <div className="mt-4">
-          <Callout tone="danger">{message}</Callout>
+    <AuthCard
+      narrow
+      title="Verificá tu correo"
+      subtitle={message ? undefined : 'Abrí el enlace que te enviamos por correo para confirmar tu cuenta.'}
+      footer={
+        <div className={s.stack}>
+          <AuthLink href="/login">Iniciá sesión</AuthLink>
+          <AuthLink href="/signup">Creá una cuenta</AuthLink>
         </div>
-      ) : (
-        <p className="mt-3 text-sm text-muted">
-          Abrí el enlace que te enviamos por correo para confirmar tu cuenta.
-        </p>
-      )}
-
-      <div className="mt-6 space-y-2 text-sm text-muted">
-        <p>
-          <Link href="/login" className="font-medium text-accent hover:underline">
-            Iniciar sesión
-          </Link>
-        </p>
-        <p>
-          <Link href="/signup" className="font-medium text-accent hover:underline">
-            Crear una cuenta
-          </Link>
-        </p>
-      </div>
-    </Card>
+      }
+    >
+      {message ? <Notice tone="danger">{message}</Notice> : null}
+    </AuthCard>
   );
 }

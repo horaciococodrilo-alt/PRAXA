@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { safeNextPath } from '@/lib/safe-next';
+import { DESTINO_TRAS_ENTRAR, safeNextPath } from '@/lib/safe-next';
 
 describe('ruta posterior a la autenticación', () => {
   it('conserva rutas internas con consulta y fragmento', () => {
@@ -15,7 +15,7 @@ describe('ruta posterior a la autenticación', () => {
     '/app\\evil.example',
     'javascript:alert(1)',
   ])('rechaza un destino externo o ambiguo: %s', (value) => {
-    expect(safeNextPath(value)).toBe('/app');
+    expect(safeNextPath(value)).toBe(DESTINO_TRAS_ENTRAR);
   });
 
   it.each([
@@ -24,6 +24,27 @@ describe('ruta posterior a la autenticación', () => {
     '/%2e//evil.example',
     '/./%2e//evil.example/ruta?x=1',
   ])('H-E1-53 rechaza rutas que la normalización vuelve relativas al protocolo: %s', (value) => {
-    expect(safeNextPath(value)).toBe('/app');
+    expect(safeNextPath(value)).toBe(DESTINO_TRAS_ENTRAR);
   });
+});
+
+// Variantes encontradas en el QA del frontend (MF_FRONTEND, H-E1-74): la barra invertida
+// después de la primera, que el navegador convierte en `//`.
+describe('ruta posterior a la autenticación: casos del QA del frontend', () => {
+  it.each(['/app/integraciones', '/reset-password', '/onboarding'])('acepta la ruta interna %s', (value) => {
+    expect(safeNextPath(value)).toBe(value);
+  });
+
+  it.each(['', 'app', ' /app', 'http:/evil.example', '/\\\\evil.example', '/\\/evil.example', '/\n/evil.example'])(
+    'rechaza %j',
+    (value) => {
+      expect(safeNextPath(value)).toBe(DESTINO_TRAS_ENTRAR);
+    },
+  );
+});
+
+// Un único destino por defecto: login sin `next`, `next` inválido y enlaces de correo sin
+// `next` terminan en el mismo lugar.
+it('el destino por defecto es Mi perfil', () => {
+  expect(DESTINO_TRAS_ENTRAR).toBe('/app/perfil');
 });

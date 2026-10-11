@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Mi perfil — PRAXA</title>
+<script src="support.js-no-incluido"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body { margin: 0; background: #060E0D; }
+a { color: #3ECFB8; }
+a:hover { color: #7DF0DE; }
+.ap { --ap-bg: #060E0D; --ap-nav: #060E0D; --ap-surface: #0C1817; --ap-surface-2: #0C1817; --ap-tile: #0F211E; --ap-tile-ic: #12302B;
+  --ap-line: #1C3330; --ap-line-soft: #1C3330; --ap-text: #E6F1EF; --ap-text-2: #C7D8D5; --ap-muted: #9FB5B1; --ap-accent: #3ECFB8; --ap-accent-ink: #04100E;
+  position: relative; display: flex; min-height: 100vh; color: var(--ap-text); font-family: Manrope, 'Segoe UI', system-ui, sans-serif; }
+.ap-side { flex: 0 0 212px; box-sizing: border-box; display: flex; flex-direction: column; gap: 28px; padding: 26px 14px 22px; background: var(--ap-nav); border-right: 1px solid #152927; }
+.ap-logo { display: block; padding: 2px 10px; }
+.ap-logo img { display: block; height: 26px; width: auto; }
+.ap-navlist { display: flex; flex-direction: column; gap: 6px; }
+.ap-nav { box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #C7D8D5; text-decoration: none; font-size: 13.5px; font-weight: 500; border: 1px solid transparent; }
+.ap-nav svg { flex: 0 0 auto; }
+a.ap-nav:hover { background: rgba(62, 207, 184, 0.08); color: #E6F1EF; }
+.ap-nav-on { color: #E6F1EF !important; font-weight: 700; background: #12302B; border-color: rgba(62, 207, 184, 0.28); }
+.ap-nav-on { padding-left: 8px; gap: 8px; }
+.ap-nic { flex: 0 0 auto; width: 28px; height: 28px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: rgba(62, 207, 184, 0.16); border: 1px solid rgba(62, 207, 184, 0.45); color: #3ECFB8; }
+.ap-nav-off { cursor: default; }
+.ap-foot { margin-top: auto; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #1C3330; padding-top: 14px; }
+.ap-user { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px 0 12px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: #E6F1EF; text-decoration: none; }
+a.ap-user:hover { background: rgba(62, 207, 184, 0.08); color: #E6F1EF; }
+a.ap-round { text-decoration: none; }
+a.ap-round:hover { border-color: #27574F; color: #E6F1EF; }
+.ap-user .ap-av { width: 30px; height: 30px; font-size: 11px; }
+.ap-user svg:last-child { margin-left: auto; color: #9FB5B1; }
+.ap-av { box-sizing: border-box; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #3ECFB8; color: var(--ap-accent-ink); font-weight: 800; letter-spacing: 0.01em; }
+.ap-main { flex: 1 1 auto; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; padding: 22px 40px 40px; }
+.ap-top { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.ap-chip { display: inline-flex; align-items: center; gap: 9px; height: 36px; box-sizing: border-box; padding: 0 18px; border-radius: 999px; background: #0C1817; border: 1px solid #1C3330; font-size: 12.5px; font-weight: 600; color: #E6F1EF; }
+.ap-dot { width: 8px; height: 8px; border-radius: 999px; background: #3ECFB8; display: inline-block; }
+.ap-round { box-sizing: border-box; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #0C1817; border: 1px solid #1C3330; color: #E6F1EF; font-size: 12px; font-weight: 700; }
+.ap-card { box-sizing: border-box; background: var(--ap-surface-2); border: 1px solid #1C3330; border-radius: 14px; }
+.ap-h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+.ap-sub { margin: 0; font-size: 13.5px; color: var(--ap-text-2); line-height: 1.5; }
+a:focus-visible, button:focus-visible { outline: 2px solid #7DF0DE; outline-offset: 2px; }
+
+.pf-head { margin-top: 2px; display: flex; flex-direction: column; gap: 6px; }
+.pf-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; align-items: start; }
+.pf-card { box-sizing: border-box; border-radius: 14px; background: linear-gradient(180deg, #0C1817 0%, #0C1817 100%); border: 1px solid #1C3330; }
+.pf-top { grid-column: 1 / -1; display: flex; align-items: center; gap: 28px; padding: 0 28px; min-height: 124px; }
+.pf-av { flex: 0 0 auto; width: 88px; height: 88px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #3ECFB8; color: #04100E; font-size: 30px; font-weight: 800; }
+.pf-who { flex: 1 1 auto; min-width: 0; }
+.pf-who h2 { margin: 0; font-size: 19px; font-weight: 700; color: #E6F1EF; }
+.pf-who p { margin: 6px 0 0; font-size: 13px; color: #C7D8D5; }
+.pf-who small { display: block; margin-top: 14px; font-size: 12px; color: #9FB5B1; }
+.pf-save { all: unset; box-sizing: border-box; cursor: pointer; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; height: 47px; padding: 0 22px; border-radius: 10px; background: #3ECFB8; color: #04100E; font-size: 13px; font-weight: 800; }
+.pf-save:hover { background: #7DF0DE; }
+.pf-ch { display: flex; align-items: center; gap: 12px; padding: 14px 18px 10px; border-bottom: 1px solid #1C3330; margin: 0 0 0; }
+.pf-ch svg { flex: 0 0 auto; color: #E6F1EF; }
+.pf-ch h2 { margin: 0; font-size: 14px; font-weight: 700; color: #E6F1EF; }
+.pf-ch p { margin: 3px 0 0; font-size: 11.5px; color: #C7D8D5; }
+.pf-body { padding: 16px 18px 18px; }
+.pf-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; }
+.pf-f label { display: block; margin-bottom: 7px; font-size: 11.5px; font-weight: 800; color: #E6F1EF; }
+.pf-in { box-sizing: border-box; width: 100%; height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid #2EA794; background: #0A1413; color: #E6F1EF; font-family: inherit; font-size: 12px; }
+.pf-in:focus-visible { outline: 2px solid #7DF0DE; outline-offset: 1px; }
+.pf-info { min-height: 266px; }
+.pf-info .pf-body { padding-bottom: 60px; }
+.pf-pass { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 14px; width: 100%; min-height: 48px; padding: 0 4px 0 0; border-bottom: 1px solid #1C3330; color: #E6F1EF; }
+.pf-pass:hover { background: rgba(62, 207, 184, 0.05); }
+.pf-pass > svg:first-child { flex: 0 0 auto; color: #E6F1EF; }
+.pf-pass > span { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; }
+.pf-pass strong { font-size: 13px; font-weight: 600; }
+.pf-pass small { font-size: 11px; color: #C7D8D5; }
+.pf-pass > svg:last-child { flex: 0 0 auto; color: #9FB5B1; }
+.pf-photo { display: flex; align-items: center; gap: 26px; padding: 16px 18px 18px 26px; }
+.pf-photo .pf-av { width: 88px; height: 88px; }
+.pf-pb { display: flex; flex-direction: column; gap: 12px; }
+.pf-btns { display: flex; flex-wrap: wrap; gap: 10px; }
+.pf-btn { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 9px; height: 34px; padding: 0 16px; border-radius: 8px; border: 1px solid #2EA794; background: #0A1413; color: #3ECFB8; font-size: 11.5px; font-weight: 700; }
+.pf-btn-2 { border-color: #1C3330; color: #E6F1EF; background: #0C1817; }
+.pf-btn:hover { background: rgba(62, 207, 184, 0.10); }
+.pf-btn:focus-visible, .pf-save:focus-visible, .pf-pass:focus-visible { outline: 2px solid #7DF0DE; outline-offset: 2px; }
+.pf-hint { margin: 0; font-size: 11px; line-height: 1.55; color: #C7D8D5; }
+@media (max-width: 1000px) { .pf-grid { grid-template-columns: minmax(0, 1fr); } .pf-top { flex-wrap: wrap; padding: 20px 24px; } }
+
+/* Componentes del sistema: botones, campos, badges, nav */
+.ap-navlist { gap: 4px; }
+.ap-nav { min-height: 44px; padding: 0 12px; gap: 12px; border-radius: 10px; border: 0; font-size: 14px; font-weight: 500; color: #9FB5B1; }
+.ap-foot .ap-nav { color: #9FB5B1 !important; }
+a.ap-nav:hover { background: #0F211E; color: #E6F1EF; }
+.ap-nav-on { padding-left: 12px; gap: 12px; background: #12302B; color: #E6F1EF !important; font-weight: 600; border: 0; }
+.ap-nic { width: auto; height: auto; background: none; border: 0; border-radius: 0; color: inherit; }
+.ap-nav-on .ap-nic svg { width: 18px; height: 18px; }
+.ap-chip { height: auto; padding: 6px 13px; gap: 7px; background: #09120F; border: 1px solid #1C3330; font-size: 13px; font-weight: 600; color: #E6F1EF; }
+.ap-dot { width: 7px; height: 7px; }
+.in-eb { color: #7E9995; font-weight: 600; letter-spacing: 0.08em; }
+.in-btn { min-height: 46px; padding: 0 20px; border: 1px solid #152927; border-radius: 10px; background: transparent; color: #5F7874; font-size: 14px; font-weight: 600; opacity: 1; cursor: not-allowed; }
+.cf-save, .pf-save { height: auto; min-height: 46px; min-width: 0; padding: 0 22px; border-radius: 10px; background: #3ECFB8; color: #04100E; font-size: 14.5px; font-weight: 700; }
+.cf-save:hover, .pf-save:hover { background: #55D9C4; }
+.ig-guide { height: auto; min-height: 46px; padding: 0 20px; gap: 9px; border: 1px solid #27423E; border-radius: 10px; background: transparent; color: #E6F1EF; font-size: 14px; font-weight: 600; }
+.ig-guide:hover { background: #0F211E; }
+.ig-act { height: 36px; border: 1px solid #27423E; border-radius: 9px; background: transparent; color: #C7D8D5; font-size: 13px; font-weight: 600; }
+a.ig-act:hover, button.ig-act:hover { background: #0F211E; color: #E6F1EF; }
+.ig-card { padding-bottom: 12px; }
+.pf-btn, .pf-btn-2 { height: auto; min-height: 36px; padding: 0 13px; border: 1px solid #27423E; border-radius: 9px; background: transparent; color: #C7D8D5; font-size: 13px; font-weight: 600; }
+.pf-btn:hover { background: #0F211E; }
+.pf-grid { align-items: stretch; }
+.ch-send { width: 44px; height: 44px; border-radius: 10px; background: #3ECFB8; color: #04100E; }
+.ch-send svg { stroke-width: 2.2; }
+.ch-sug { border: 1px solid #27423E; border-radius: 10px; background: transparent; color: #C7D8D5; }
+.ch-sug:hover { background: #0F211E; border-color: #27574F; }
+.ch-box { border: 1px solid #27423E; border-radius: 14px; background: #0A1413; }
+.ch-box:focus-within { border-color: #3ECFB8; }
+.uc-date { height: 46px; border-radius: 10px; border: 1px solid #27423E; background: #0A1413; font-size: 13.5px; font-weight: 600; }
+.uc-kv { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; font-size: 22px; }
+.uc-tv { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500; font-size: 17px; }
+.cf-in, .cf-sel, .pf-in { height: auto; min-height: 46px; padding: 0 14px; border-radius: 10px; border: 1px solid #27423E; background: #0A1413; color: #E6F1EF; font-size: 14.5px; }
+.cf-sel { padding-right: 40px; }
+.cf-in:focus, .cf-sel:focus, .pf-in:focus { border-color: #3ECFB8; }
+.pf-f label { margin-bottom: 7px; font-size: 13px; font-weight: 600; color: #C7D8D5; }
+.cf-opt { height: auto; min-height: 60px; border: 1px solid #1C3330; border-radius: 12px; background: #0A1413; }
+.cf-opt[aria-pressed="true"] { border: 1px solid #3ECFB8; background: #0F211E; }
+.ig-state, .in-st { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; background: #3ECFB8; color: #04100E; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.ig-state .ap-dot, .in-st .ap-dot { display: none; }
+.ig-state-off, .in-st-off { background: transparent; border: 1px solid #1C3330; padding: 2px 9px; color: #9FB5B1; font-weight: 600; }
+.ig-state { margin-top: 12px; }
+/* tema claro: componentes de la landing */
+.ap-l .ap-nav, .ap-l .ap-foot .ap-nav { color: #27403C !important; }
+.ap-l a.ap-nav:hover { background: #F2F6F5; color: #0A1A18 !important; }
+.ap-l .ap-nav-on { background: #E4F8F3; color: #0E6B5C !important; font-weight: 700; border: 0; border-radius: 9px; }
+.ap-l .ap-chip { background: #FFFFFF; border: 1px solid #D4E2DF; color: #0A1A18; }
+</style>
+</helmet>
+
+<div class="ap" style="background: radial-gradient(520px 320px at 74% 0%, rgba(62,207,184,0.10), transparent 72%), radial-gradient(640px 420px at 0% 100%, rgba(62,207,184,0.09), transparent 70%), radial-gradient(520px 420px at 100% 100%, rgba(62,207,184,0.10), transparent 70%), #060E0D">
+  <nav class="ap-side" aria-label="Navegación principal">
+    <a class="ap-logo" href="AppInicio.dc.html" aria-label="Praxa, inicio"><img src="../../assets/logo-praxa-blanco.png" alt="Praxa"></a>
+    <div class="ap-navlist">
+      <a href="AppInicio.dc.html" class="ap-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg><span>Inicio</span></a>
+      <a href="AppChat.dc.html" class="ap-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01" stroke-width="2.4"/></svg><span>Chat</span></a>
+      <a href="AppDiagnostico.dc.html" class="ap-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 20v-7M12 20V5M18 20v-10" stroke-width="2.6"/></svg><span>Diagnóstico</span></a>
+      <a href="AppUsoCostosCero.dc.html" class="ap-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><ellipse cx="12" cy="5.5" rx="7.5" ry="3"/><path d="M4.5 5.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/><path d="M4.5 11.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/></svg><span>Uso y costos</span></a>
+      <a href="AppIntegraciones.dc.html" class="ap-nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9.5 14.5 14.5 9.5"/><path d="M12.5 6.5 14 5a4 4 0 0 1 5.7 5.7l-1.5 1.5"/><path d="M11.5 17.5 10 19a4 4 0 0 1-5.7-5.7L5.8 11.8"/></svg><span>Integraciones</span></a>
+    </div>
+    <div class="ap-foot">
+      <a class="ap-nav" href="AppConfiguracion.dc.html" style="color:#C7D8D5"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.5a2 2 0 0 1-1 1.7l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7V20a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.5a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span>Configuración</span></a>
+      <a class="ap-user" href="AppPerfil.dc.html" aria-current="page" aria-label="Mi perfil, Gonzalo"><span class="ap-av" aria-hidden="true">GM</span><span>Gonzalo</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></a>
+    </div>
+  </nav>
+  <main class="ap-main" style="padding: 22px 18px 24px 18px">
+    <header class="ap-top">
+      <span class="ap-chip"><span class="ap-dot" aria-hidden="true"></span>Meta Ads conectado</span>
+      <a class="ap-round" href="AppPerfil.dc.html" aria-label="Mi perfil">GM</a>
+    </header>
+    <div class="pf-head">
+      <h1 class="ap-h1">Mi perfil</h1>
+      <p class="ap-sub">Gestiona tu información personal, seguridad y preferencias.</p>
+    </div>
+
+    <div class="pf-grid">
+      <section class="pf-card pf-top" aria-label="Resumen del perfil">
+        <span class="pf-av" aria-hidden="true">{{ iniciales }}</span>
+        <div class="pf-who"><h2>{{ nombreCompleto }}</h2><p>{{ email }}</p><small>Miembro desde ago. 2024</small></div>
+        <button type="button" class="pf-save"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5.5 12.5 10 17l8.5-9.5"/></svg>Guardar cambios</button>
+      </section>
+
+      <section class="pf-card pf-info" aria-labelledby="pf-i">
+        <div class="pf-ch"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4"/><path d="M4.5 20c.8-4 3.6-6 7.5-6s6.7 2 7.5 6"/></svg><div><h2><span id="pf-i">Información personal</span></h2><p>Tus datos básicos de cuenta.</p></div></div>
+        <div class="pf-body">
+          <div class="pf-fields">
+            <div class="pf-f"><label for="pf-n">Nombre</label><input class="pf-in" id="pf-n" type="text" autocomplete="given-name" value="{{ nombre }}" onChange="{{ setNombre }}"></div>
+            <div class="pf-f"><label for="pf-a">Apellido</label><input class="pf-in" id="pf-a" type="text" autocomplete="family-name" value="{{ apellido }}" onChange="{{ setApellido }}"></div>
+            <div class="pf-f"><label for="pf-e">Email</label><input class="pf-in" id="pf-e" type="email" autocomplete="email" value="{{ email }}" onChange="{{ setEmail }}"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="pf-card pf-info" aria-labelledby="pf-s">
+        <div class="pf-ch"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/><circle cx="12" cy="15.5" r="1.2" fill="currentColor"/></svg><div><h2><span id="pf-s">Seguridad</span></h2><p>Protege tu cuenta y administra el acceso.</p></div></div>
+        <div class="pf-body" style="padding-top: 0; padding-bottom: 6px">
+          <button type="button" class="pf-pass" style="margin-top: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="4.5" width="16" height="12" rx="2"/><path d="M12 16.5V20M8.5 20h7M8.5 9h7M8.5 12h4"/></svg><span><strong>Cambiar contraseña</strong><small>Actualizá tu contraseña regularmente.</small></span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button>
+        </div>
+      </section>
+
+      <section class="pf-card" aria-labelledby="pf-f">
+        <div class="pf-ch"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5"/></svg><div><h2><span id="pf-f">Foto de perfil</span></h2><p>Personalizá tu avatar.</p></div></div>
+        <div class="pf-photo">
+          <span class="pf-av" aria-hidden="true">{{ iniciales }}</span>
+          <div class="pf-pb">
+            <div class="pf-btns"><button type="button" class="pf-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4.5 15v3.5A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5V15"/></svg>Subir nueva foto</button><button type="button" class="pf-btn pf-btn-2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 6.5h15M9.5 6.5V4.5h5v2M6.5 6.5l.8 13h9.4l.8-13M10 10.5v6M14 10.5v6"/></svg>Eliminar foto</button></div>
+            <p class="pf-hint">Formatos permitidos: JPG, PNG<br>Tamaño máximo: 5 MB</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1320,"height":780}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { nombre: 'Gonzalo', apellido: 'Mayer', email: 'gonzalo@praxa.test' };
+  }
+  renderVals() {
+    const s = this.state;
+    const on = (k) => (e) => this.setState({ [k]: e.target.value });
+    const ini = ((s.nombre || '').trim().charAt(0) + (s.apellido || '').trim().charAt(0)).toUpperCase();
+    return {
+      nombre: s.nombre, apellido: s.apellido, email: s.email,
+      setNombre: on('nombre'), setApellido: on('apellido'), setEmail: on('email'),
+      nombreCompleto: ((s.nombre || '').trim() + ' ' + (s.apellido || '').trim()).trim(),
+      iniciales: ini || 'GM',
+    };
+  }
+}
+</script>
+</body>
+</html>

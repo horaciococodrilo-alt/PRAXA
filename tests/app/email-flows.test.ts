@@ -48,7 +48,7 @@ describe.skipIf(!canRun)('flujos de correo (proyecto remoto)', () => {
     const { data, error } = await anonClient().auth.signUp({
       email,
       password: 'praxa-test-password-123',
-      options: { emailRedirectTo: 'http://localhost:3000/auth/callback?next=%2Fonboarding' },
+      options: { emailRedirectTo: 'http://localhost:3000/auth/callback?next=%2Fapp%2Fperfil' },
     });
 
     if (error && isRateLimit(error.message)) {

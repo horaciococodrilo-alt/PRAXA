@@ -49,7 +49,8 @@ function filesWhere(matches: (content: string) => boolean): string[] {
 }
 
 beforeAll(async () => {
-  const files = [...(await collectFiles(join(projectRoot, 'src'))), join(projectRoot, 'proxy.ts')];
+  // El proxy vive en src/ (H-E1-75), así que lo cubre la misma recorrida.
+  const files = await collectFiles(join(projectRoot, 'src'));
   sources = new Map(await Promise.all(files.map(async (file) => [
     relative(projectRoot, file).replaceAll('\\', '/'), await readFile(file, 'utf8'),
   ] as const)));
@@ -74,6 +75,10 @@ describe('la aplicación no usa credenciales privilegiadas', () => {
       'La aplicación debe operar solo con la clave publishable y bajo RLS. ' +
         'Una credencial privilegiada en el bundle anula el aislamiento entre empresas.',
     ).toEqual([]);
+  });
+
+  it('el proxy se revisa: está en src/ (H-E1-75)', () => {
+    expect(sources.has('src/proxy.ts')).toBe(true);
   });
 
   it('.env.example no contiene valores, solo nombres de variables', async () => {

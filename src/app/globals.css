@@ -67,3 +67,11 @@ body {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* Cambio de tema de la app (src/components/app/tema.tsx): fundido cruzado lento en lugar
+   del salto instantáneo. Va acá porque CSS Modules descarta los selectores solo globales. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 1200ms;
+  animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1);
+}

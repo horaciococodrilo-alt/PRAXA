@@ -1,0 +1,108 @@
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-sizing: border-box;
+  background: var(--lp-header-bg);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--lp-divider);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--lp-ink);
+}
+
+.brandLogo {
+  flex: 0 0 auto;
+  width: 79.8px;
+  height: 21px;
+  display: block;
+}
+
+.iconButton {
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--lp-border);
+  border-radius: 10px;
+  background: var(--lp-card);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  stroke: var(--lp-line);
+}
+
+/* Menú abierto: la tarjeta que en la referencia figura como anotación al pie. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+}
+
+.panel {
+  position: fixed;
+  top: 12px;
+  left: 16px;
+  right: 16px;
+  z-index: 30;
+  box-sizing: border-box;
+  background: var(--lp-card);
+  border: 1px solid var(--lp-border);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 16px 38px rgba(var(--lp-shadow), calc(0.1 * var(--lp-shadow-k)));
+}
+
+.panelTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--lp-divider);
+}
+
+.panelLogo {
+  flex: 0 0 auto;
+  width: 76px;
+  height: 20px;
+  display: block;
+}
+
+.primary,
+.secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  text-decoration: none;
+}
+
+.primary {
+  min-height: 52px;
+  background: var(--lp-mint);
+  color: var(--lp-mint-ink);
+  font-size: 15.5px;
+  font-weight: 700;
+}
+
+.secondary {
+  min-height: 50px;
+  border: 1px solid var(--lp-border);
+  color: var(--lp-ink);
+  font-size: 15px;
+  font-weight: 600;
+}

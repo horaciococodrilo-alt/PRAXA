@@ -1,11 +1,13 @@
-import Link from 'next/link';
-import { redirect } from 'next/navigation';
-
-import { AppNav } from '@/components/app-nav';
+import { iniciales, nombreCorto } from '@/components/app/format';
+import { AppShell } from '@/components/app/shell';
 import { ConfigurationMissing } from '@/components/configuration-missing';
-import { Button } from '@/components/ui';
 import { isSupabaseConfigured } from '@/lib/env';
-import { getCurrentCompany } from '@/modules/company/service';
+import {
+  configuracionPendiente,
+  getEmpresa,
+  getIntegraciones,
+  getUsuario,
+} from '@/modules/app-data';
 import { requireUser } from '@/modules/identity/session';
 
 // Todo lo que cuelga de /app depende de la sesión y de la empresa del usuario.
@@ -28,40 +30,25 @@ export default async function AppLayout({ children }: LayoutProps<'/app'>) {
       </main>
     );
   }
+  await requireUser('/app');
 
-  const user = await requireUser('/app');
-  const company = await getCurrentCompany();
+  const [usuario, empresa, integraciones] = await Promise.all([
+    getUsuario(),
+    getEmpresa(),
+    getIntegraciones(),
+  ]);
 
-  // Sin empresa todavía no hay aplicación que mostrar: el onboarding la crea.
-  if (!company) redirect('/onboarding');
-
+  // Sin empresa la app se muestra igual: se crea al guardar Configuración, que mientras
+  // tanto lleva el punto rojo de datos pendientes.
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="border-b border-border bg-surface">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-          <div className="flex items-baseline gap-3">
-            <Link href="/app" className="text-lg font-semibold tracking-tight">
-              PRAXA
-            </Link>
-            <span className="text-sm text-muted">{company.name}</span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="hidden text-sm text-muted sm:inline">{user.email}</span>
-            <form action="/auth/signout" method="post">
-              <Button type="submit" variant="secondary" className="px-3 py-1.5 text-xs">
-                Cerrar sesión
-              </Button>
-            </form>
-          </div>
-        </div>
-
-        <div className="mx-auto max-w-6xl px-6">
-          <AppNav />
-        </div>
-      </header>
-
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">{children}</main>
-    </div>
+    <AppShell
+      nombre={nombreCorto(usuario.nombre, usuario.email)}
+      iniciales={iniciales(usuario.nombre, usuario.apellido, usuario.email)}
+      foto={usuario.fotoUrl}
+      conectada={integraciones.find((i) => i.conectada)?.nombre ?? null}
+      configPendiente={configuracionPendiente(empresa)}
+    >
+      {children}
+    </AppShell>
   );
 }

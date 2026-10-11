@@ -29,22 +29,26 @@ para lo previsto.
 
 ```
 src/
-  app/                      rutas (landing, auth, onboarding, aplicación protegida)
+  app/                      rutas (landing, auth y la aplicación protegida `/app`)
   components/               UI compartida
+    landing/                landing pública: secciones, tokens claro/oscuro y tema
+    auth/                   pantallas de acceso: tarjeta, campos y mensajes de Auth
+    app/                    aplicación `/app`: shell, componentes del diseño, tema y pantallas
   lib/
     env.ts                  configuración pública, validada de forma perezosa
     supabase/               clientes de servidor y de navegador (clave publishable)
   modules/
     identity/               identidad verificada del usuario (getClaims)
-    company/                empresa, pertenencia y alta idempotente
+    company/                empresa, pertenencia, alta idempotente y perfil (rubro, país, moneda)
     tenant/                 K01 TenantContext: actor + empresa, solo en el servidor
-    onboarding/             contexto declarado: esquemas, persistencia, acciones
+    app-data/               datos de las pantallas de `/app`: contrato, lecturas reales y mock
     reporting/contract/     contrato versionado del reporte (sin generación)
     integrations/contract/  contratos K02–K04: intento OAuth, conexión, credencial
     integrations/crypto/    llavero y cifrado autenticado de credenciales
     integrations/db/        cliente PostgreSQL acotado a worker_api
     integrations/repository/ preparación, lectura y recifrado de credenciales
-proxy.ts                    refresco de sesión y redirección (NO autorización)
+  proxy.ts                  refresco de sesión y redirección (NO autorización); Next.js
+                            solo lo carga al mismo nivel que app/
 supabase/
   migrations/               migraciones SQL versionadas
   tests/                    pruebas pgTAP de políticas, privilegios y ciclo de vida
@@ -64,10 +68,11 @@ Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 
 | Módulo | Responsabilidad | Estado |
 |---|---|---|
-| `identity` | Usuario verificado con `getClaims()`; nunca `getSession()` | Existe |
-| `company` | Empresa del usuario y membresía, resueltas bajo RLS | Existe |
+| `identity` | Usuario verificado con `getClaims()`; nunca `getSession()`. Nombre, apellido y foto de perfil del usuario (metadatos de Auth y Storage), solo para mostrar | Existe |
+| `company` | Empresa del usuario y membresía, resueltas bajo RLS. Alta y perfil desde Configuración | Existe |
 | `tenant` | Construye K01 (`user_id`, `company_id`, `role`, `request_id`) dentro del servidor. Es la única entrada de actor y empresa al camino privilegiado | Existe; todavía sin consumidores en `src/` |
-| `onboarding` | Contexto declarado, versionado e inmutable una vez activo | Existe |
+| Contexto declarado | Objetivos, problemas y sistemas de la empresa, versionados e inmutables una vez activos | Existe solo en la base (tablas y funciones). Sin código ni pantalla que lo cargue: se quitaron con el onboarding |
+| `app-data` | Única fuente de datos de las pantallas de `/app`. Lee lo real bajo RLS (usuario, empresa, existencia de un diagnóstico) y devuelve mock en cero para lo que no tiene backend (integraciones, uso de la IA) | Existe |
 | `reporting/contract` | Esquema del reporte y su evidencia tipada por procedencia | Existe; sin generación |
 | `integrations/contract` | Contratos Zod de intento OAuth, conexión (registro interno y DTO público separados) y credencial cifrada | Existe |
 | `integrations/crypto` | Llavero versionado y cifrado AES-256-GCM con AAD de empresa, conexión y proveedor; material descifrado en envoltorio redactado | Existe |
@@ -141,8 +146,28 @@ Navegador ──► proxy.ts (refresca sesión, redirige) ──► página / Se
           ──► PostgreSQL: GRANT + RLS ──► filas de la empresa del usuario
 ```
 
-Lo usan el onboarding, el contexto, las páginas de la aplicación y, previsto, la lectura de
-conexiones y cobertura y las herramientas del chat. La base conoce al usuario por el JWT.
+La superficie pública (existe) queda antes de este camino: la landing (`/`) y las pantallas
+de acceso (`src/app/(auth)`) comparten la raíz `LandingRoot` (tokens, tipografías y tema). Las
+pantallas de acceso llaman a Supabase Auth desde el navegador con la clave publishable y no
+leen datos de ninguna empresa; el destino posterior al login lo valida `safeNextPath`.
+
+Después de crear cuenta, confirmar el correo o iniciar sesión, el destino por defecto es Mi
+perfil (`/app/perfil`). `/app` exige sesión pero no una empresa: sin empresa, la aplicación se
+muestra con un aviso en Configuración, que es donde se crea la empresa (alta idempotente) y se
+completa su perfil. Cada página de `/app` verifica la sesión por su cuenta, porque se renderiza
+en paralelo con el layout.
+
+La **foto de perfil** es, junto con las llamadas de Auth, el único dato que el navegador
+escribe directo en Supabase sin pasar por el servidor Next: la sube a Storage con el JWT del
+usuario, a un bucket privado y a una carpeta con su id. Storage aplica las políticas de
+carpeta, el tipo y el tamaño. Después, una Server Action valida la ruta (formato y carpeta
+propia), comprueba por sus primeros bytes que el archivo sea de verdad un JPG o un PNG y
+guarda la ruta en los metadatos de Auth. Las pantallas la muestran con URLs firmadas de
+vida corta.
+
+Este camino lo usan las páginas de `/app` (a través de `app-data`), sus Server Actions y,
+previsto, la lectura de conexiones y cobertura y las herramientas del chat. La base conoce al
+usuario por el JWT.
 
 ### B. Camino privilegiado de integraciones (base existe; cliente previsto)
 
@@ -199,7 +224,7 @@ No hay una regla única de bloqueo para todo el sistema. La única invariante gl
 **una transacción que toma el cerrojo consultivo de empresa (`private.lock_company`) lo toma
 antes que cualquier bloqueo de fila.** Así no hay ciclos entre las vías que usan ambos.
 
-**Contexto y onboarding.**
+**Contexto declarado.**
 
 - Toda escritura de objetivos, sistemas y activación pasa por funciones que toman el
   cerrojo de empresa antes de tocar filas y releen el estado. Un trigger no puede hacerlo:
@@ -275,7 +300,7 @@ numérico de `calculated_metric`: el gasto exige decimal exacto (CA-44b).
 
 | Versión | Cambia cuando… | Vive en |
 |---|---|---|
-| `CONTEXT_SCHEMA_VERSION` | cambia lo que le preguntamos al usuario | `src/modules/onboarding/schema.ts` |
+| Versión del esquema de contexto | cambia lo que le preguntamos al usuario | Columna `context_schema_version` de cada versión de contexto; sin constante en el código mientras no haya pantalla que lo cargue |
 | `REPORT_SCHEMA_VERSION` | cambia la forma del documento | `src/modules/reporting/contract/versions.ts` |
 | `METHODOLOGY_VERSION` | cambian las etapas o los criterios | `src/modules/reporting/contract/versions.ts` |
 

@@ -1,12 +1,20 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 
+import { MailIcon } from '@/components/auth/icons';
+import {
+  AltAction,
+  AuthCard,
+  AuthField,
+  AuthForm,
+  Notice,
+  SubmitButton,
+  TextInput,
+} from '@/components/auth/parts';
+import { enviarEnlaceDeContrasena } from '@/components/auth/recovery';
 import { ConfigurationMissing } from '@/components/configuration-missing';
-import { Button, Callout, Card, Field, Input } from '@/components/ui';
-import { getSiteUrl, isSupabaseConfigured } from '@/lib/env';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/env';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -22,13 +30,9 @@ export default function ForgotPasswordPage() {
     setPending(true);
 
     try {
-      const supabase = createSupabaseBrowserClient();
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent('/reset-password')}`,
-      });
-
-      if (resetError) {
-        setError(resetError.message);
+      const problema = await enviarEnlaceDeContrasena(email);
+      if (problema) {
+        setError(problema);
         return;
       }
       setSent(true);
@@ -39,52 +43,50 @@ export default function ForgotPasswordPage() {
 
   if (sent) {
     return (
-      <Card>
-        <h1 className="text-xl font-semibold tracking-tight">Revisá tu correo</h1>
-        <p className="mt-3 text-sm text-muted">
-          Si <strong className="text-foreground">{email}</strong> corresponde a una cuenta,
-          enviamos un enlace para elegir una contraseña nueva.
-        </p>
-        <p className="mt-4 text-sm text-muted">
-          <Link href="/login" className="font-medium text-accent hover:underline">
-            Volver a iniciar sesión
-          </Link>
-        </p>
-      </Card>
+      <AuthCard
+        narrow
+        title="Revisá tu correo"
+        subtitle={
+          <>
+            Si <strong>{email}</strong> corresponde a una cuenta, enviamos un enlace para elegir una
+            contraseña nueva.
+          </>
+        }
+        footer={<AltAction text="¿Ya la cambiaste?" href="/login" action="Iniciá sesión" />}
+      />
     );
   }
 
   return (
-    <Card>
-      <h1 className="text-xl font-semibold tracking-tight">Recuperar acceso</h1>
-      <p className="mt-2 text-sm text-muted">
-        Te enviamos un enlace para elegir una contraseña nueva.
-      </p>
+    <AuthCard
+      narrow
+      title="Recuperá tu acceso"
+      subtitle="Te enviamos un enlace para elegir una contraseña nueva."
+      footer={<AltAction text="¿La recordaste?" href="/login" action="Iniciá sesión" />}
+    >
+      <AuthForm onSubmit={handleSubmit}>
+        <AuthField label="Email">
+          {(field) => (
+            <TextInput
+              {...field}
+              icon={<MailIcon />}
+              type="email"
+              name="email"
+              autoComplete="email"
+              placeholder="tu@email.com"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          )}
+        </AuthField>
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        <Field label="Correo electrónico" required>
-          <Input
-            type="email"
-            name="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-        </Field>
+        {error ? <Notice tone="danger">{error}</Notice> : null}
 
-        {error ? <Callout tone="danger">{error}</Callout> : null}
-
-        <Button type="submit" className="w-full" disabled={pending}>
-          {pending ? 'Enviando…' : 'Enviar enlace'}
-        </Button>
-      </form>
-
-      <p className="mt-6 text-sm text-muted">
-        <Link href="/login" className="font-medium text-accent hover:underline">
-          Volver
-        </Link>
-      </p>
-    </Card>
+        <SubmitButton pending={pending} pendingLabel="Enviando…">
+          Enviar enlace
+        </SubmitButton>
+      </AuthForm>
+    </AuthCard>
   );
 }

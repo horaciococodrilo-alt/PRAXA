@@ -1,0 +1,78 @@
+/* BarChart — "Costo por día" de Uso y costos. */
+
+.chart {
+  position: relative;
+  margin: 26px 0 0 52px;
+  height: 138px;
+}
+
+.grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+
+.yl {
+  position: absolute;
+  right: calc(100% + 10px);
+  transform: translateY(50%);
+  font-size: 10.5px;
+  color: var(--text-strong-muted);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.bars {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.slot {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.bar {
+  display: block;
+  width: min(10.5px, 70%);
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-busy) 55%, #1e7a6c 100%);
+}
+
+/* Día sin costo: una línea fina, no una barra. */
+.cero {
+  height: 2px;
+  border-radius: 2px;
+  opacity: 0.55;
+}
+
+.xl {
+  position: relative;
+  height: 16px;
+  margin: 12px 0 0 52px;
+}
+
+.xl span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 10.5px;
+  color: var(--text-strong-muted);
+  white-space: nowrap;
+}
+
+/* En móvil no entran todas las fechas: se muestra una de cada dos. */
+@media (max-width: 767px) {
+  .xl span:nth-child(even) {
+    display: none;
+  }
+}

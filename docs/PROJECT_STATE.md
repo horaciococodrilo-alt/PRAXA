@@ -18,16 +18,18 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 | M05.1.2 a M05.1.4 — K02 a K04 | `G-K02-K04` | 2026-09-26 | [sesiones/M05.1.2-M05.1.4.md](FASES/FASE1/meta_first/sesiones/M05.1.2-M05.1.4.md) |
 | M06.1a y M06.2a — Migración `0012`, aislamiento y privilegios | `G-DB-META` | 2026-09-28 (PR #12) | [sesiones/M06.1a-M06.2a.md](FASES/FASE1/meta_first/sesiones/M06.1a-M06.2a.md) |
 | M06.3a — Cifrado, cliente acotado y documentación de la excepción | `G-CRYPTO` | 2026-10-02 (decisión del usuario; sin `/implementation-review` ni `/qa-review` con veredicto final sobre el HEAD cerrado — detalle en la sesión) | [sesiones/M06.3a.md](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
+| M28.2a — Entorno del piloto | `G-ENTORNO` | 2026-10-11 (pasos manuales acreditados por declaración del usuario, sin capturas; detalle en la sesión) | [sesiones/M28.2a.md](FASES/FASE1/meta_first/sesiones/M28.2a.md) |
 
-## En curso
+## Siguiente habilitada
 
-**M28.2a — Entorno del piloto.** Habilitada por `G-CRYPTO`. Sin empezar.
+**M16.1 — OAuth con Meta.** Habilitada por `G-ENTORNO` (2026-10-11). Sin empezar: arranca
+cuando el usuario la pida.
 
 Hallazgos asignados a M06.3a (cerrada): `H-M04.1-02`, `H-E1-09`, `H-E1-10`, `H-E1-17`, `H-E1-37`,
 `H-E1-43` a `H-E1-70` y la comprobación de acceso real del rol de `H-E1-36`. Detalle en
 [HALLAZGOS.md](HALLAZGOS.md).
 
-Después de M28.2a, en este orden: M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a.
+Después de M16.1, en este orden: M16.2, M16c, M25a.1, M25a.2 y M28.3a.
 
 ## En paralelo
 
@@ -39,12 +41,22 @@ Después de M28.2a, en este orden: M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a.
 - **M16d — App Review y Business Verification:** depende de trámites del usuario ante Meta.
   Hasta su cierre, solo pueden conectarse cuentas de personas con rol en la app (`H-E1-01`).
 - M03 completa, el resto de M05.1, M05.2 y las fuentes Tiendanube y GA4: pospuestas.
+- **MF_FRONTEND — Frontend público (landing y pantallas de acceso):** cerrada el 2026-10-09 por
+  decisión del usuario, sin gate de la ruta, e integrada en `mf/M28.2a`. Desde esa integración
+  el proxy se ejecuta (`src/proxy.ts`). Evidencia en
+  [MF_FRONTEND/ficha.md](FASES/FASE1/MF_FRONTEND/ficha.md).
+- **MF_APP — App web (pantallas de `/app`):** cerrada el 2026-10-11 por decisión del usuario,
+  sin gate de la ruta ni `/implementation-review` aprobada, e integrada en `mf/M28.2a`. Evidencia
+  en [MF_APP/ficha.md](FASES/FASE1/MF_APP/ficha.md).
 
 ## Decisiones pendientes del usuario
 
 - Visibilidad del repositorio y reescritura del historial (`H-E1-04`).
 - Referencias por número de línea a `SECURITY.md` en la ficha de M03a, el plan y la spec
   (`H-E1-40`).
+- Pendientes de MF_FRONTEND: contraste en modo claro (`H-E1-76`), texto del CTA móvil
+  (`H-E1-78`), prevención en `.gitignore` de `H-E1-81` y el texto de la landing sobre
+  disponibilidad de Meta Ads (`H-E1-82`).
 
 ## Regla de actualización
 

@@ -1,0 +1,45 @@
+/* PRAXA — tokens de la app. Fuente: tablero "Tokens" del diseño. */
+:root, [data-theme="dark"] {
+  --bg: #060E0D;
+  --surface-sunken: #09120F;
+  --field: #0A1413;
+  --surface: #0C1817;
+  --surface-raised: #0F211E;
+  --surface-accent: #12302B;
+
+  --text: #E6F1EF;
+  --text-strong-muted: #C7D8D5;
+  --text-muted: #9FB5B1;
+  --text-faint: #7E9995;
+  --text-disabled: #5F7874;
+
+  --line-soft: #152927;
+  --line: #1C3330;
+  --line-strong: #27423E;
+
+  --accent: #3ECFB8;
+  --accent-busy: #2EA794;
+  --accent-ink: #04100E;       /* texto sobre botón primario */
+  --state-ok-border: #27574F;
+  --warn: #F2B134;
+  --danger-text: #FFA49C;
+}
+[data-theme="light"] {
+  --bg: #FAFCFB;
+  --bg-alt: #F2F6F5;
+  --surface: #FFFFFF;
+  --surface-accent: #E4F8F3;
+
+  --line: #D4E2DF;
+  --line-soft: #E4EDEB;
+  --line-accent: #A9E7DA;
+
+  --text: #0A1A18;
+  --text-muted: #4E6B66;
+  --text-faint: #5E7A75;
+  --accent-text: #0E6B5C;
+  --hero-glow-a: #CFF2EA;
+  --hero-glow-b: #F1FBF8;
+}
+/* Tipografía: Manrope 400/500/600/700/800 (UI) + JetBrains Mono 400/500 (números de KPI y datos). */
+:root { --font-ui: Manrope, 'Segoe UI', system-ui, sans-serif; --font-mono: 'JetBrains Mono', ui-monospace, monospace; }

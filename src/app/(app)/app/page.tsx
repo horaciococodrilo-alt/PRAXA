@@ -1,120 +1,102 @@
-import { ButtonLink, Callout, Card, StatusPill } from '@/components/ui';
-import { getActiveContext, getDraft } from '@/modules/onboarding/repository';
-import { requireUser } from '@/modules/identity/session';
+import Link from 'next/link';
+
+import { cantidad, segundos, usd } from '@/components/app/format';
+import { IconBase, IconEdificio } from '@/components/app/icons';
+import s from '@/components/app/inicio.module.css';
+import { IntegracionLogo } from '@/components/app/integracion-logo';
+import { Badge, Button, Card, PageHeader, TileIcon } from '@/components/app/ui';
+import { getEmpresa, getIntegraciones, getUso, requireAppSession } from '@/modules/app-data';
 
 export const metadata = { title: 'Inicio' };
 
-export default async function AppHomePage() {
-  await requireUser('/app');
+function Dato({ valor }: { valor: string | null }) {
+  return valor ? <dd>{valor}</dd> : <dd className={s.pendiente}>Sin definir</dd>;
+}
 
-  const [active, draft] = await Promise.all([getActiveContext(), getDraft()]);
-
-  const objectiveCount = active?.objectives.length ?? 0;
-  const systemCount = active?.systems.length ?? 0;
+export default async function InicioPage() {
+  await requireAppSession('/app');
+  const [empresa, integraciones, uso] = await Promise.all([getEmpresa(), getIntegraciones(), getUso()]);
+  const { resumen } = uso;
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Inicio</h1>
-        <p className="mt-2 text-sm text-muted">
-          Estado de tu espacio y qué falta para llegar al primer diagnóstico.
-        </p>
-      </div>
+    <>
+      <PageHeader title="Inicio" subtitle="El estado de tu cuenta y qué conviene hacer ahora." />
 
-      {!active ? (
-        <Callout tone="warning" title="Todavía no confirmaste tu contexto">
-          <p>
-            El análisis parte de lo que declarás: objetivos, problemas y restricciones. Sin un
-            contexto confirmado no hay nada sobre lo que analizar.
-          </p>
-          <p>
-            <ButtonLink href="/onboarding" className="mt-2">
-              {draft ? 'Retomar el onboarding' : 'Completar el onboarding'}
-            </ButtonLink>
-          </p>
-        </Callout>
-      ) : null}
-
-      <section className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <h2 className="text-sm font-medium text-muted">Contexto</h2>
-          <p className="mt-2 text-2xl font-semibold">
-            {active ? `v${active.version.version}` : '—'}
-          </p>
-          <p className="mt-1 text-xs text-muted">
-            {active ? (
-              <StatusPill tone="active">Vigente</StatusPill>
+      <section className={s.grid} aria-label="Estado de la cuenta">
+        <Card as="article" className={s.card}>
+          <h2 className={s.eyebrow}>Empresa</h2>
+          <div className={s.id}>
+            <TileIcon>
+              <IconEdificio size={20} />
+            </TileIcon>
+            {empresa ? (
+              <span className={s.big}>{empresa.nombre}</span>
             ) : (
-              <StatusPill>Sin confirmar</StatusPill>
+              <Link className={s.big} href="/app/configuracion">
+                Completá tu empresa
+              </Link>
             )}
-            {draft ? (
-              <span className="ml-2">
-                <StatusPill tone="draft">Borrador en curso</StatusPill>
-              </span>
-            ) : null}
-          </p>
+          </div>
+          <dl className={s.dl}>
+            <dt>Rubro</dt>
+            <Dato valor={empresa?.rubro ?? null} />
+            <dt>País</dt>
+            <Dato valor={empresa?.pais ?? null} />
+            <dt>Moneda</dt>
+            <Dato valor={empresa?.moneda ?? null} />
+          </dl>
         </Card>
 
-        <Card>
-          <h2 className="text-sm font-medium text-muted">Objetivos declarados</h2>
-          <p className="mt-2 text-2xl font-semibold">
-            {active ? objectiveCount : '—'}
-          </p>
-          <p className="mt-1 text-xs text-muted">
-            {active && !active.version.has_defined_objective
-              ? 'Declaraste que todavía no tenés un objetivo definido.'
-              : 'Orientan qué se analiza y con qué prioridad.'}
-          </p>
+        <Card as="article" className={s.card}>
+          <h2 className={s.eyebrow}>Integraciones</h2>
+          <ul className={s.list}>
+            {integraciones.map((i) => (
+              <li key={i.id}>
+                <span className={s.logo}>
+                  <IntegracionLogo id={i.id} size={20} />
+                </span>
+                {i.nombre}
+                <Badge on={i.conectada} className={s.estado}>
+                  {i.conectada ? 'Conectado' : 'No conectado'}
+                </Badge>
+              </li>
+            ))}
+          </ul>
         </Card>
 
-        <Card>
-          <h2 className="text-sm font-medium text-muted">Sistemas declarados</h2>
-          <p className="mt-2 text-2xl font-semibold">{active ? systemCount : '—'}</p>
-          <p className="mt-1 text-xs text-muted">
-            Declarados en el onboarding. Ninguno está conectado todavía.
-          </p>
+        <Card as="article" className={s.card}>
+          <h2 className={s.eyebrow}>Uso de la IA</h2>
+          <div className={s.id}>
+            <TileIcon>
+              <IconBase size={20} />
+            </TileIcon>
+            <span className={s.big}>{usd(resumen.costoMesUsd)}</span>
+          </div>
+          <dl className={s.dl}>
+            <dt>Consultas</dt>
+            <dd>{cantidad(resumen.consultas)}</dd>
+            <dt>Latencia promedio</dt>
+            <dd>{segundos(resumen.latenciaPromedioS)}</dd>
+            <dt>Costo por consulta</dt>
+            <dd>{usd(resumen.costoPorConsultaUsd)}</dd>
+          </dl>
         </Card>
       </section>
 
-      <section>
-        <h2 className="text-lg font-semibold tracking-tight">Qué sigue</h2>
-        <ol className="mt-4 space-y-3">
-          <li>
-            <Card className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="font-medium">Objetivos y contexto</p>
-                <p className="text-sm text-muted">
-                  {active
-                    ? 'Confirmado. Podés editarlo cuando cambie tu situación.'
-                    : 'Pendiente de confirmar.'}
-                </p>
-              </div>
-              <ButtonLink
-                href={active ? '/app/contexto' : '/onboarding'}
-                variant={active ? 'secondary' : 'primary'}
-              >
-                {active ? 'Ver contexto' : 'Completar'}
-              </ButtonLink>
-            </Card>
-          </li>
-          <li>
-            <Card>
-              <p className="font-medium">Conectar sistemas</p>
-              <p className="text-sm text-muted">
-                No implementado todavía. Es el próximo incremento del producto.
-              </p>
-            </Card>
-          </li>
-          <li>
-            <Card>
-              <p className="font-medium">Diagnóstico y plan</p>
-              <p className="text-sm text-muted">
-                No implementado todavía. Requiere primero datos extraídos y métricas calculadas.
-              </p>
-            </Card>
-          </li>
-        </ol>
-      </section>
-    </div>
+      <Card className={s.next} aria-label="Próximo paso">
+        <div>
+          <span className={s.eyebrow}>Próximo paso</span>
+          <h2>Sincronizá tus datos</h2>
+          <p>
+            Traé la información de tus integraciones para que Praxa pueda responder con datos al
+            día.
+          </p>
+        </div>
+        {/* Todavía no hay nada que sincronizar: deshabilitado hasta que exista el backend. */}
+        <Button disabled title="Todavía no disponible">
+          Sincronizar
+        </Button>
+      </Card>
+    </>
   );
 }

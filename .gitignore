@@ -58,3 +58,6 @@ next-env.d.ts
 # Claude Code: archivos personales
 .claude/settings.local.json
 CLAUDE.local.md
+
+# Registros de la herramienta de navegador (playwright-cli)
+.playwright-cli/

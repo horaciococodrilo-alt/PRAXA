@@ -2,13 +2,15 @@
 
 ## Estado
 
+**Enmienda pendiente:** la ampliación de CA-67 para `avatars` preparada en el PR #20 requiere auditoría y aprobación visible del usuario. `APROBADA` corresponde a la versión anterior de este criterio.
+
 `v1.0 — APROBADA` — 2026-09-24 (aprobada por el usuario en `G-DOCS`, al cerrar `M04a`). Incorpora:
 
 - las decisiones DEC-01 a DEC-21;
 - las correcciones T01 a T16 de la revisión externa;
 - las correcciones técnicas de la revisión del repositorio.
 
-No quedan decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`. La Enmienda 1 fue aprobada formalmente en `G-DOCS` al cerrar `M04a`; el estado de cada microfase y la siguiente habilitada están en `docs/PROJECT_STATE.md`. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario: la Parte I de [plan.md](plan.md) es el roadmap vigente de la ruta y encabeza la jerarquía de fuentes de `AGENTS.md`.
+En la v1.0 no quedaban decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`. La Enmienda 1 fue aprobada formalmente en `G-DOCS` al cerrar `M04a`; el estado de cada microfase y la siguiente habilitada están en `docs/PROJECT_STATE.md`. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario: la Parte I de [plan.md](plan.md) es el roadmap vigente de la ruta y encabeza la jerarquía de fuentes de `AGENTS.md`.
 
 El roadmap de la ruta (Enmienda 1) y el plan de ejecución están en [plan.md](plan.md), versión 1.0.
 
@@ -55,7 +57,7 @@ Un usuario (el dueño), una empresa y una cuenta publicitaria conectada. El due�
 | DEC-15 | Acceso al modelo: pesos abiertos de V4.1 Flash en un host que no entrena con los datos y no los guarda en disco. Se acepta, y se declara, la excepción documentada de registros para depuración y seguridad. Se acepta un identificador de modelo fijo sin despliegue inmutable (P01). No se usa la API propia de DeepSeek. Se revisa antes de escalar | Cerrada |
 | DEC-16 | Host: DeepInfra, modelo `deepseek-ai/DeepSeek-V4.1-Flash`. Fireworks queda como alternativa si VR-02 falla, usando chat completions y nunca la Responses API | Cerrada |
 | DEC-17 | Una conexión en `pending_selection` vence a los 30 minutos. La purga sigue la secuencia de CA-38: bloqueo, intento de revocación en Meta y destrucción de la credencial (CA-37b) | Cerrada |
-| DEC-18 | Registro del dueño con SMTP propio, sobre el dominio del piloto verificado con SPF y DKIM. El registro público queda abierto solo mientras el dueño se registra y después se cierra desde el dashboard. No requiere cambios de código | Cerrada |
+| DEC-18 | Registro del dueño con SMTP propio, sobre el dominio del piloto verificado con SPF y DKIM. El registro público queda abierto solo mientras el dueño se registra en `M16.2` y después se cierra desde el dashboard. Excepción acotada aprobada por el usuario en el grill de `M28.2a` (2026-10-03): abrirlo durante el registro manual de la cuenta de prueba con casilla externa al equipo de Supabase y cerrarlo inmediatamente después de la comprobación; la recuperación se prueba con registro cerrado. La empresa sintética se crea por onboarding. Cuenta y empresa se conservan, se documentan sin datos personales y se eliminan con CA-67 al cierre del piloto, conforme a [II.7 del plan](plan.md#ii7-m282a--entorno-del-piloto). No autoriza suites ni fixtures contra `app`, ni adelanta el alta del dueño. No requiere cambios de código | Cerrada; excepción ya aprobada incorporada al corregir A-01 de la auditoría de M28.2a |
 | DEC-19 | Las respuestas del chat pueden incluir cifras en lenguaje natural. Cada afirmación numérica se vincula a un resultado de herramienta del turno actual y el servidor la verifica antes de mostrarla (CA-50). Reemplaza la prohibición de dígitos | Cerrada |
 | DEC-20 | `M28.3a` se cierra al completar la demostración. CA-67 se ejecuta al finalizar el piloto, no al terminar la demo | Cerrada |
 | DEC-21 | Los umbrales propuestos para VR-02 se adoptan como criterios iniciales de aprobación | Cerrada |
@@ -297,12 +299,13 @@ Reglas para las funciones y el rol:
 - **CA-67** *(cierre del piloto, DEC-12 y DEC-20)* Se ejecuta al finalizar el piloto, no al terminar la demo. Procedimiento documentado, en este orden:
   1. Desconectar Meta desde la app (CA-38): bloquea las llamadas, intenta la revocación y borra la credencial y los datos de Meta.
   2. Borrar la empresa con un rol privilegiado desde el SQL editor. El borrado arrastra en cascada a miembros, contexto, reportes y todas las tablas de integración.
-  3. Borrar el usuario de Supabase Auth.
-  4. Quitar al dueño como tester de la app de Meta y pedirle que quite la app desde las apps conectadas de su negocio.
+  3. Antes de borrar cada usuario (dueño y cuentas sintéticas conservadas), enumerar recursivamente su carpeta `<user_id>/` en el bucket privado `avatars`, borrar **todos** los objetos mediante Storage API o el dashboard de Storage y volver a enumerarla hasta confirmar que está vacía. Incluye fotos anteriores sin referencia en Auth. Si falla la enumeración o el borrado, detener el cierre y conservar el usuario para reintentar. No borrar filas de `storage.objects` por SQL: eso deja el archivo físico huérfano.
+  4. Borrar el usuario de Supabase Auth.
+  5. Quitar al dueño como tester de la app de Meta y pedirle que quite la app desde las apps conectadas de su negocio.
 
   El orden no es opcional. Hoy no existe ningún flujo de baja de cuenta, y el esquema actual impide borrar primero el usuario: `companies.owner_id` tiene `on delete restrict` (`0001`) y `company_context_versions.created_by` referencia a `auth.users` sin acción de borrado (`0002`). Borrar el usuario desde el dashboard falla mientras exista su empresa.
 
-  Hipótesis a probar en el proyecto de pruebas: `reports` referencia versiones de contexto con `on delete restrict` (`0003`), y como ambas tablas se borran en cascada desde `companies`, el paso 2 podría fallar según el orden de las cascadas. La prueba corre el procedimiento completo sobre una empresa sintética con reporte, integración, observaciones y registros de consulta, y verifica que no quede ninguna fila de esa empresa ni el usuario.
+  Hipótesis a probar en el proyecto de pruebas: `reports` referencia versiones de contexto con `on delete restrict` (`0003`), y como ambas tablas se borran en cascada desde `companies`, el paso 2 podría fallar según el orden de las cascadas. pgTAP prueba el borrado de las filas de empresa y usuario; `tests/app/closure-storage.test.ts` prueba con Storage API, en el proyecto desechable, que también desaparecen una foto y un objeto huérfano en una subcarpeta antes de borrar el usuario. No se ejecuta esa prueba contra `app`.
 - **CA-68** Todas las tablas nuevas referencian `companies` (directamente o a través de la conexión) con `on delete cascade`, incluida `private.integration_credentials`.
 
 ## 11. Sincronización manual (M16c)
@@ -506,7 +509,7 @@ Ningún secreto se pega en el chat ni se guarda en el repositorio.
 | Meta | Agregar al dueño como tester y confirmar que tiene control total de su portfolio (P-04) | Antes de VR-01 |
 | Supabase | Fijar la contraseña del rol de C fuera del repositorio. Verificar que `worker_api` no esté expuesto por la Data API | Al aplicar la migración |
 | Supabase Auth | Cargar `site_url` y las URLs de redirección con el dominio del piloto. Configurar el SMTP propio (DEC-18) | Antes de VR-01 |
-| Supabase Auth | Probar la recuperación de contraseña completa con el registro público cerrado | En `M28.2a` |
+| Supabase Auth | Realizar el registro manual de prueba bajo la excepción de DEC-18, cerrar el registro público y probar la recuperación de contraseña completa con el registro cerrado | En `M28.2a` |
 | Supabase Auth y dueño | Abrir el registro público; el dueño se registra y crea su empresa; cerrar el registro (DEC-18). La demo reutiliza ese usuario | Antes de VR-01, en `M16.2` |
 | Supabase | Pasar a Pro cuando el dueño use el piloto sin acompañamiento (DEC-08) | Después de VR-01 |
 | Dominio | Registrar SPF y DKIM del proveedor de email | Antes de VR-01 |
@@ -536,7 +539,7 @@ Criterios transversales:
 - **CB-01** `verify` y las suites del corte pasan.
 - **CB-02** Ningún diff contiene secretos, tokens, montos reales ni identificadores completos de cuentas.
 - **CB-03** Ninguna migración existente se modifica.
-- **CB-04** Ninguna prueba se ejecuta contra producción.
+- **CB-04** Ninguna prueba se ejecuta contra producción, salvo el recorrido manual acotado de `M28.2a` aprobado por el usuario y descrito en DEC-18 e II.7 del plan. Ninguna suite automatizada ni fixture se ejecuta contra `app`.
 - **CB-05** La evidencia registra comandos y resultados reales, redactados.
 - **CB-06** Un gate obligatorio no se aprueba si una prueba requerida se omitió por falta de configuración. Una prueba omitida cuenta como no ejecutada.
 
