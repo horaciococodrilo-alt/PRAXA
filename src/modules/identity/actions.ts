@@ -53,6 +53,17 @@ export async function guardarNombreUsuario(input: unknown): Promise<NombreResult
 // `<uuid del usuario>/<nombre generado>.jpg|png`: el nombre lo arma la pantalla al subir.
 const RUTA_FOTO = /^[0-9a-f-]{36}\/[A-Za-z0-9_-]{1,64}\.(jpg|png)$/;
 
+// Primeros bytes de un JPG y de un PNG. Storage confía en el tipo que declara quien sube; esto
+// mira el contenido. Vale cualquiera de las dos: un PNG guardado como `.jpg` sigue siendo una
+// imagen, y lo que se quiere descartar es lo que no lo es.
+const FIRMAS = [
+  [0xff, 0xd8, 0xff],
+  [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+];
+
+const esImagen = (cabecera: Uint8Array) =>
+  FIRMAS.some((firma) => firma.every((byte, i) => cabecera[i] === byte));
+
 async function rutaFotoActual(): Promise<string | null> {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase.auth.getUser();
@@ -66,7 +77,9 @@ async function rutaFotoActual(): Promise<string | null> {
  * políticas de Storage ya lo exigen al subir, y acá se vuelve a comprobar.
  *
  * El archivo no pasa por acá: va directo del navegador a Storage, que aplica los límites
- * (JPG o PNG, hasta 5 MB). Una Server Action no admite cuerpos de ese tamaño.
+ * (JPG o PNG, hasta 5 MB). Una Server Action no admite cuerpos de ese tamaño. Como Storage
+ * solo mira el tipo declarado, acá se leen los primeros bytes del archivo subido y, si no son
+ * de una imagen JPG o PNG, no se registra y se borra.
  */
 export async function guardarFotoPerfil(ruta: unknown): Promise<NombreResult> {
   try {
@@ -75,15 +88,26 @@ export async function guardarFotoPerfil(ruta: unknown): Promise<NombreResult> {
       return { ok: false, message: 'No se pudo guardar la foto.' };
     }
 
-    const anterior = await rutaFotoActual();
     const supabase = await createSupabaseServerClient();
+    const fotos = supabase.storage.from('avatars');
+
+    // Antes de registrarla se comprueba que el contenido sea de verdad una imagen.
+    const { data: archivo, error: descarga } = await fotos.download(ruta);
+    if (descarga || !archivo) return { ok: false, message: 'No se pudo guardar la foto. Probá de nuevo.' };
+    if (!esImagen(new Uint8Array(await archivo.slice(0, 8).arrayBuffer()))) {
+      // No se registra y se borra la subida: quedaría como un archivo sin uso.
+      await fotos.remove([ruta]);
+      return { ok: false, message: 'El archivo no es una foto JPG o PNG válida.' };
+    }
+
+    const anterior = await rutaFotoActual();
     const { error } = await supabase.auth.updateUser({ data: { avatar_path: ruta } });
     if (error) return { ok: false, message: 'No se pudo guardar la foto. Probá de nuevo.' };
 
     // La anterior ya no se usa: se borra (si falla, queda huérfana en la carpeta propia).
     // Sale de los metadatos, que el usuario puede escribir: solo se borra si es de su carpeta.
     if (anterior && anterior !== ruta && anterior.startsWith(`${usuario.id}/`)) {
-      await supabase.storage.from('avatars').remove([anterior]);
+      await fotos.remove([anterior]);
     }
 
     revalidatePath('/app', 'layout');

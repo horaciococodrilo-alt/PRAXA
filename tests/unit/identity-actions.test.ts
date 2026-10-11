@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const updateUser = vi.fn();
 const getUser = vi.fn();
 const remove = vi.fn();
+const download = vi.fn();
 const requireUserForAction = vi.fn();
 const revalidatePath = vi.fn();
 
@@ -17,7 +18,7 @@ vi.mock('@/modules/identity/session', () => ({ requireUserForAction: () => requi
 vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: async () => ({
     auth: { updateUser: (v: unknown) => updateUser(v), getUser: () => getUser() },
-    storage: { from: () => ({ remove: (v: unknown) => remove(v) }) },
+    storage: { from: () => ({ remove: (v: unknown) => remove(v), download: (v: unknown) => download(v) }) },
   }),
 }));
 
@@ -70,6 +71,9 @@ describe('guardarNombreUsuario', () => {
 
 describe('foto de perfil', () => {
   const ID = '00000000-0000-4000-8000-000000000001';
+  const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0x0d];
+  const JPG = [0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46];
+  const archivo = (bytes: number[]) => new Blob([new Uint8Array(bytes)]);
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -77,6 +81,7 @@ describe('foto de perfil', () => {
     updateUser.mockResolvedValue({ error: null });
     getUser.mockResolvedValue({ data: { user: { user_metadata: { avatar_path: `${ID}/vieja.jpg` } } } });
     remove.mockResolvedValue({ error: null });
+    download.mockResolvedValue({ data: archivo(PNG), error: null });
   });
 
   it('registra la foto nueva y borra la anterior', async () => {
@@ -95,6 +100,35 @@ describe('foto de perfil', () => {
     42,
   ])('rechaza una ruta fuera de la carpeta propia o inválida: %j', async (ruta) => {
     const r = await guardarFotoPerfil(ruta);
+    expect(r.ok).toBe(false);
+    expect(updateUser).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  // Storage confía en el tipo declarado: el servidor mira los primeros bytes del archivo.
+  it('acepta un JPG por su contenido', async () => {
+    download.mockResolvedValue({ data: archivo(JPG), error: null });
+    const r = await guardarFotoPerfil(`${ID}/nueva.jpg`);
+    expect(r.ok).toBe(true);
+    expect(download).toHaveBeenCalledWith(`${ID}/nueva.jpg`);
+  });
+
+  it.each([
+    ['texto', Array.from(new TextEncoder().encode('<script>alert(1)</script>'))],
+    ['un ejecutable', [0x4d, 0x5a, 0x90, 0, 3, 0, 0, 0]],
+    ['un archivo vacío', []],
+    ['un GIF', Array.from(new TextEncoder().encode('GIF89a..'))],
+  ])('rechaza %s declarado como foto, sin registrarlo, y borra la subida', async (_, bytes) => {
+    download.mockResolvedValue({ data: archivo(bytes), error: null });
+    const r = await guardarFotoPerfil(`${ID}/nueva.png`);
+    expect(r).toEqual({ ok: false, message: 'El archivo no es una foto JPG o PNG válida.' });
+    expect(updateUser).not.toHaveBeenCalled();
+    expect(remove).toHaveBeenCalledWith([`${ID}/nueva.png`]);
+  });
+
+  it('si no puede leer el archivo, no lo registra ni lo borra', async () => {
+    download.mockResolvedValue({ data: null, error: { message: 'not found' } });
+    const r = await guardarFotoPerfil(`${ID}/nueva.png`);
     expect(r.ok).toBe(false);
     expect(updateUser).not.toHaveBeenCalled();
     expect(remove).not.toHaveBeenCalled();
