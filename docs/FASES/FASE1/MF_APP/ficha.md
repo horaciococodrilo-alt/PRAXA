@@ -89,6 +89,7 @@ skills `/implementation-review` y `/qa-review` usan el merge-base por defecto: r
 | D-MF_APP-20 | Aplicar las correcciones verificadas de `/code-review` (`H-E1-97` a `H-E1-105`). |
 | D-MF_APP-21 | Documentar este trabajo como microfase propia, fuera de MF_FRONTEND. |
 | D-MF_APP-22 | Cerrar MF_APP sin otra revisión de implementación ni QA, integrarla en `mf/M28.2a` y borrar la copia de trabajo. |
+| D-MF_APP-23 | Después del cierre: verificar en el servidor el contenido de la foto (opción 1 de la sesión §9) y borrar el código del contexto declarado (`src/modules/onboarding/`). |
 
 ## Evidencia
 
@@ -129,8 +130,6 @@ Ninguna de la ruta. Sale de `mf/M28.2a` y hereda de ahí MF_FRONTEND (pantallas 
   da error.
 - Probar con una cuenta y una casilla reales: cambiar nombre, subir, reemplazar y eliminar la
   foto, cambiar la contraseña por correo, y crear cuenta → confirmar → Mi perfil.
-- Decidir si se agrega la verificación del contenido real de la foto en el servidor (opción 1
-  de la sección 9 de la sesión).
 - Agregar `https://app.praxa.site/auth/callback?next=%2Fapp%2Fperfil` a las URLs de redirección
   de Auth del piloto. Sin ella, la confirmación del registro cae en la Site URL (enmienda del plan
   de M28.2a).

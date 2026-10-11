@@ -41,7 +41,6 @@ src/
     identity/               identidad verificada del usuario (getClaims)
     company/                empresa, pertenencia, alta idempotente y perfil (rubro, país, moneda)
     tenant/                 K01 TenantContext: actor + empresa, solo en el servidor
-    onboarding/             contexto declarado: esquemas y persistencia (sin pantalla)
     app-data/               datos de las pantallas de `/app`: contrato, lecturas reales y mock
     reporting/contract/     contrato versionado del reporte (sin generación)
     integrations/contract/  contratos K02–K04: intento OAuth, conexión, credencial
@@ -72,7 +71,7 @@ Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 | `identity` | Usuario verificado con `getClaims()`; nunca `getSession()`. Nombre, apellido y foto de perfil del usuario (metadatos de Auth y Storage), solo para mostrar | Existe |
 | `company` | Empresa del usuario y membresía, resueltas bajo RLS. Alta y perfil desde Configuración | Existe |
 | `tenant` | Construye K01 (`user_id`, `company_id`, `role`, `request_id`) dentro del servidor. Es la única entrada de actor y empresa al camino privilegiado | Existe; todavía sin consumidores en `src/` |
-| `onboarding` | Contexto declarado, versionado e inmutable una vez activo | Existe; sin pantalla ni consumidores en la interfaz (la pantalla de onboarding se eliminó) |
+| Contexto declarado | Objetivos, problemas y sistemas de la empresa, versionados e inmutables una vez activos | Existe solo en la base (tablas y funciones). Sin código ni pantalla que lo cargue: se quitaron con el onboarding |
 | `app-data` | Única fuente de datos de las pantallas de `/app`. Lee lo real bajo RLS (usuario, empresa, existencia de un diagnóstico) y devuelve mock en cero para lo que no tiene backend (integraciones, uso de la IA) | Existe |
 | `reporting/contract` | Esquema del reporte y su evidencia tipada por procedencia | Existe; sin generación |
 | `integrations/contract` | Contratos Zod de intento OAuth, conexión (registro interno y DTO público separados) y credencial cifrada | Existe |
@@ -162,7 +161,8 @@ La **foto de perfil** es, junto con las llamadas de Auth, el único dato que el 
 escribe directo en Supabase sin pasar por el servidor Next: la sube a Storage con el JWT del
 usuario, a un bucket privado y a una carpeta con su id. Storage aplica las políticas de
 carpeta, el tipo y el tamaño. Después, una Server Action valida la ruta (formato y carpeta
-propia) y la guarda en los metadatos de Auth. Las pantallas la muestran con URLs firmadas de
+propia), comprueba por sus primeros bytes que el archivo sea de verdad un JPG o un PNG y
+guarda la ruta en los metadatos de Auth. Las pantallas la muestran con URLs firmadas de
 vida corta.
 
 Este camino lo usan las páginas de `/app` (a través de `app-data`), sus Server Actions y,
@@ -300,7 +300,7 @@ numérico de `calculated_metric`: el gasto exige decimal exacto (CA-44b).
 
 | Versión | Cambia cuando… | Vive en |
 |---|---|---|
-| `CONTEXT_SCHEMA_VERSION` | cambia lo que le preguntamos al usuario | `src/modules/onboarding/schema.ts` |
+| Versión del esquema de contexto | cambia lo que le preguntamos al usuario | Columna `context_schema_version` de cada versión de contexto; sin constante en el código mientras no haya pantalla que lo cargue |
 | `REPORT_SCHEMA_VERSION` | cambia la forma del documento | `src/modules/reporting/contract/versions.ts` |
 | `METHODOLOGY_VERSION` | cambian las etapas o los criterios | `src/modules/reporting/contract/versions.ts` |
 

@@ -503,3 +503,31 @@ El usuario decidió no correr otra `/implementation-review` ni `/qa-review` y ce
 
 Pendientes del usuario: los de la ficha (piloto, URL de redirección, pruebas con cuenta real
 y decisiones abiertas).
+
+## 22. Después del cierre: contenido de la foto y código del contexto (2026-10-11)
+
+Por pedido del usuario (D-MF_APP-23), sobre `mf/M28.2a`:
+
+- **Contenido de la foto** (opción 1 de §9). `guardarFotoPerfil` descarga el archivo recién
+  subido y mira sus primeros bytes. Si no empiezan como un JPG (`FF D8 FF`) o un PNG
+  (`89 50 4E 47 0D 0A 1A 0A`), no lo registra, lo borra de Storage y responde "El archivo no
+  es una foto JPG o PNG válida.". Si no puede leerlo, no lo registra ni lo borra, y la pantalla
+  reconcilia como ante cualquier error. Acepta cualquiera de las dos firmas aunque no
+  coincida con la extensión, para no rechazar un PNG legítimo guardado como `.jpg`. No agrega
+  dependencias. Pruebas nuevas: JPG aceptado; texto, ejecutable, archivo vacío y GIF
+  rechazados (con borrado de la subida); lectura fallida. Rotura comprobada: con la
+  verificación anulada fallan los 4 casos de rechazo.
+- **Código del contexto declarado.** Se borraron `src/modules/onboarding/schema.ts`,
+  `src/modules/onboarding/repository.ts` y `tests/unit/onboarding-schema.test.ts`: ningún
+  archivo los usaba desde que se quitó el onboarding. `reporting/contract/versions.ts` ya no
+  remite a ese módulo. Las tablas y funciones del contexto siguen en la base (quitarlas exige
+  una migración nueva), con sus pgTAP y `tests/app/onboarding.test.ts`, que prueba la base y
+  no el módulo.
+- **Documentos:**
+  - `SECURITY.md`: el riesgo del tipo declarado pasa a "verificado por cabecera, sin regenerar".
+  - `ARCHITECTURE.md`: sin el módulo; el contexto existe solo en la base; la foto se verifica.
+  - `H-E1-93` y `H-E1-96` actualizados.
+  - `PROJECT_STATE.md`: sin la decisión pendiente.
+
+**Verificación:** `npm run verify` exit 0 (21 archivos, 343 pruebas: salen las del módulo de
+contexto borrado y entran las de la foto; build compilado).

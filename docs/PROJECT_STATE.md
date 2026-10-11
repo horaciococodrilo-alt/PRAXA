@@ -60,8 +60,8 @@ Después de M28.2a, en este orden: M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a.
   (`H-E1-78`), prevención en `.gitignore` de `H-E1-81` y el texto de la landing sobre
   disponibilidad de Meta Ads (`H-E1-82`).
 - Pendientes de MF_APP: aplicar `0013` y `0014` al piloto, sumar a las URLs de redirección de
-  Auth del piloto el destino nuevo del registro (enmienda del plan de M28.2a) y decidir la
-  verificación del contenido de la foto. La ruta ya está corregida (plan `meta_first`, I.5).
+  Auth del piloto el destino nuevo del registro (enmienda del plan de M28.2a) y probar los
+  flujos con una cuenta real. La ruta ya está corregida (plan `meta_first`, I.5).
 
 ## Regla de actualización
 

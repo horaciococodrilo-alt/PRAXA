@@ -340,7 +340,9 @@ Cubierto por `05_delete_carveout.test.sql`.
 - **Sin registro de auditoría** de accesos ni de cambios, más allá de las versiones de
   contexto, las marcas de tiempo y los registros por consulta del chat.
 - **Retención del host del modelo** (sección 8) y **copias de seguridad** (sección 9).
-- **Storage confía en el tipo de archivo declarado** al subir la foto, no en su contenido. Quien
-  se saltee la pantalla puede guardar otro contenido declarado como imagen, aunque solo lo ve él
-  mismo y nada lo ejecuta. Los metadatos de la foto (EXIF) tampoco se borran. Riesgo abierto:
-  verificar el contenido en el servidor está pendiente de decisión del usuario (`H-E1-96`).
+- **La foto se verifica por su cabecera, no se regenera.** Storage confía en el tipo declarado.
+  Por eso, al registrar la foto, el servidor comprueba que los primeros bytes sean de un JPG o
+  un PNG; si no lo son, no la registra y la borra (vigente). Un archivo que empiece como imagen
+  y tenga otro contenido detrás pasaría, pero solo lo ve quien lo subió y nada lo ejecuta. Los
+  metadatos de la foto (EXIF, por ejemplo la ubicación) no se borran. Hay que regenerar la
+  imagen en el servidor si algún día otros usuarios ven fotos ajenas.
