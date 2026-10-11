@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { readSupabaseEnv } from '@/lib/env';
+import { DESTINO_TRAS_ENTRAR } from '@/lib/safe-next';
 
 /**
  * Proxy de Next.js 16 (antes `middleware.ts`).
@@ -18,7 +19,7 @@ import { readSupabaseEnv } from '@/lib/env';
  * con `getClaims()` y la pertenencia a la empresa por su cuenta. Ver docs/SECURITY.md.
  */
 
-const PROTECTED_PREFIXES = ['/app', '/onboarding'];
+const PROTECTED_PREFIXES = ['/app'];
 const AUTH_ONLY_PREFIXES = ['/login', '/signup'];
 
 function redirectWithSession(url: URL, sessionResponse: NextResponse) {
@@ -76,7 +77,7 @@ export async function proxy(request: NextRequest) {
 
   if (isAuthenticated && AUTH_ONLY_PREFIXES.some((p) => pathname.startsWith(p))) {
     const url = request.nextUrl.clone();
-    url.pathname = '/app';
+    url.pathname = DESTINO_TRAS_ENTRAR;
     url.search = '';
     return redirectWithSession(url, response);
   }

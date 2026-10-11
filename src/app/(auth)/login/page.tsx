@@ -61,6 +61,8 @@ function LoginForm() {
       }
 
       // El servidor tiene que volver a leer la sesión desde las cookies.
+      // Sin destino pedido (o con uno inválido), se entra a Mi perfil (de ahí, Configuración
+      // para completar la empresa).
       router.replace(safeNextPath(next));
       router.refresh();
     } finally {

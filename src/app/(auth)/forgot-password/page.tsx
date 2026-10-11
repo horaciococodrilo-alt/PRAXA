@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 
-import { authErrorMessage } from '@/components/auth/errors';
 import { MailIcon } from '@/components/auth/icons';
 import {
   AltAction,
@@ -13,9 +12,9 @@ import {
   SubmitButton,
   TextInput,
 } from '@/components/auth/parts';
+import { enviarEnlaceDeContrasena } from '@/components/auth/recovery';
 import { ConfigurationMissing } from '@/components/configuration-missing';
-import { getSiteUrl, isSupabaseConfigured } from '@/lib/env';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/env';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -31,15 +30,9 @@ export default function ForgotPasswordPage() {
     setPending(true);
 
     try {
-      const supabase = createSupabaseBrowserClient();
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent('/reset-password')}`,
-      });
-
-      if (resetError) {
-        setError(
-          authErrorMessage(resetError, 'No pudimos enviar el enlace. Intentá de nuevo en unos minutos.'),
-        );
+      const problema = await enviarEnlaceDeContrasena(email);
+      if (problema) {
+        setError(problema);
         return;
       }
       setSent(true);

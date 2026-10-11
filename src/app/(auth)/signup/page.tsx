@@ -18,6 +18,7 @@ import { MIN_PASSWORD_LENGTH, authErrorMessage, passwordProblem } from '@/compon
 import { PasswordInput } from '@/components/auth/password-input';
 import { ConfigurationMissing } from '@/components/configuration-missing';
 import { getSiteUrl, isSupabaseConfigured } from '@/lib/env';
+import { DESTINO_TRAS_ENTRAR } from '@/lib/safe-next';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export default function SignupPage() {
@@ -48,7 +49,7 @@ export default function SignupPage() {
         email,
         password,
         options: {
-          emailRedirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent('/onboarding')}`,
+          emailRedirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(DESTINO_TRAS_ENTRAR)}`,
         },
       });
 

@@ -52,7 +52,7 @@ describe('proxy: cookies renovadas al redirigir', () => {
   it('las entrega al navegador cuando una sesión renovada sale de /login', async () => {
     const response = await proxy(new NextRequest('https://praxa.example/login'));
 
-    expect(response.headers.get('location')).toBe('https://praxa.example/app');
+    expect(response.headers.get('location')).toBe('https://praxa.example/app/perfil');
     expect(response.cookies.get('sb-test-auth-token')).toMatchObject({
       value: 'renewed',
       httpOnly: true,
