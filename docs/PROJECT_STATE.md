@@ -47,6 +47,10 @@ Después de M28.2a, en este orden: M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a.
   decisión del usuario, sin gate de la ruta, e integrada en `mf/M28.2a`. Desde esa integración
   el proxy se ejecuta (`src/proxy.ts`). Evidencia en
   [MF_FRONTEND/ficha.md](FASES/FASE1/MF_FRONTEND/ficha.md).
+- **MF_APP — App web (pantallas de `/app`):** `VERIFICADO — PENDIENTE DE APROBACIÓN` desde el
+  2026-10-11, rama `mf/MF_APP` (desde `mf/M28.2a`), sin integrar. Pendientes:
+  `/implementation-review`, `/qa-review` y `npm run test:policies` para `0013` y `0014`. Evidencia
+  en [MF_APP/ficha.md](FASES/FASE1/MF_APP/ficha.md).
 
 ## Decisiones pendientes del usuario
 
@@ -56,6 +60,9 @@ Después de M28.2a, en este orden: M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a.
 - Pendientes de MF_FRONTEND: contraste en modo claro (`H-E1-76`), texto del CTA móvil
   (`H-E1-78`), prevención en `.gitignore` de `H-E1-81` y el texto de la landing sobre
   disponibilidad de Meta Ads (`H-E1-82`).
+- Corrección de la ruta pedida por MF_APP antes de cerrar `G-ENTORNO`: onboarding eliminado
+  (`H-E1-93`) y numeración de migraciones con `0013` y `0014` tomadas (`H-E1-94`, `H-E1-96`).
+  También: aplicar `0013` y `0014` al piloto y decidir la verificación del contenido de la foto.
 
 ## Regla de actualización
 
