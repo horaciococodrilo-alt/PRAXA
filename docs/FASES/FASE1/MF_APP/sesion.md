@@ -414,3 +414,32 @@ ausencia del trigger en esta versión de Storage) dejó probar la política.
 **Pendiente del usuario:** `npm run db:check:test` → `npm run db:push:test` → `npm run
 test:policies`, y registrar la salida sin la cadena de conexión. Recién después, aplicar al
 piloto.
+
+## 19. `0013` y `0014` en el proyecto de pruebas: `test:policies` en verde (2026-10-11)
+
+El usuario aplicó `0013` y `0014` al proyecto de pruebas (`db:check:test` y `db:push:test`) y
+avisó que todo salió bien. No compartió la salida de esos comandos. El asistente volvió a
+correr `npm run test:policies` para dejar evidencia propia (sin la cadena de conexión):
+
+```
+Ejecutando 13 archivo(s) pgTAP contra el proyecto de pruebas <ref de pruebas>.
+OK     01_tenant_isolation.test.sql  (34/34 aserciones)
+OK     02_context_lifecycle.test.sql  (21/21 aserciones)
+OK     03_privileges.test.sql  (35/35 aserciones)
+OK     04_company_creation.test.sql  (12/12 aserciones)
+OK     05_delete_carveout.test.sql  (9/9 aserciones)
+OK     06_activation_integrity.test.sql  (18/18 aserciones)
+OK     07_context_revision.test.sql  (16/16 aserciones)
+OK     08_integration_isolation.test.sql  (26/26 aserciones)
+OK     09_integration_privileges.test.sql  (57/57 aserciones)
+OK     09_integration_privileges.test.sql (normalización con membresías sintéticas)  (57/57 aserciones)
+OK     09b_integration_lifecycle.test.sql  (155/155 aserciones)
+OK     10_demo_closure.test.sql  (21/21 aserciones)
+OK     11_company_profile.test.sql  (9/9 aserciones)
+OK     12_profile_photos.test.sql  (12/12 aserciones)
+13 archivo(s), 14 ejecución(es), 482 aserción(es), 0 problema(s).
+Todas las pruebas pgTAP pasaron.
+```
+
+Con esto queda resuelto R-01 de `implementation-review-1`. **Pendiente del usuario:** aplicar
+`0013` y `0014` al piloto.

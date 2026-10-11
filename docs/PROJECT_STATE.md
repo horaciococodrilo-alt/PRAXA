@@ -49,7 +49,7 @@ Después de M28.2a, en este orden: M16.1, M16.2, M16c, M25a.1, M25a.2 y M28.3a.
   [MF_FRONTEND/ficha.md](FASES/FASE1/MF_FRONTEND/ficha.md).
 - **MF_APP — App web (pantallas de `/app`):** `VERIFICADO — PENDIENTE DE APROBACIÓN` desde el
   2026-10-11, rama `mf/MF_APP` (desde `mf/M28.2a`), sin integrar. Pendientes:
-  `/implementation-review`, `/qa-review` y `npm run test:policies` para `0013` y `0014`. Evidencia
+  `/implementation-review` y `/qa-review` (`0013` y `0014` ya pasan pgTAP en el proyecto de pruebas). Evidencia
   en [MF_APP/ficha.md](FASES/FASE1/MF_APP/ficha.md).
 
 ## Decisiones pendientes del usuario
