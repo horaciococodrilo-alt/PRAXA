@@ -11,11 +11,12 @@ const ACTIVAS = [
 ];
 
 // Integraciones "Próximamente": en gris a propósito. Ancho de cada logo según la referencia.
+// `soloLogo`: el logo ya incluye el nombre, así que no se repite el texto al lado.
 const PROXIMAS = [
   { logo: 'logo-mercado-libre-gris', w: 357, h: 249, name: 'Mercado Libre', alt: 'Mercado Libre', size: s.logoCuadrado },
   { logo: 'logo-woocommerce-gris', w: 291, h: 172, name: 'WooCommerce', alt: 'WooCommerce', size: s.logoMedio },
-  { logo: 'logo-tango-gris', w: 241, h: 138, name: 'Tango Gestión', alt: 'Tango Gestion', size: s.logoAncho },
-  { logo: 'logo-odoo-gris', w: 620, h: 199, name: 'Odoo', alt: 'Odoo', size: s.logoMedio },
+  { logo: 'logo-tango-gris', w: 241, h: 138, name: 'Tango Gestión', alt: 'Tango Gestion', size: s.logoAncho, soloLogo: true },
+  { logo: 'logo-odoo-gris', w: 620, h: 199, name: 'Odoo', alt: 'Odoo', size: s.logoMedio, soloLogo: true },
   { logo: 'logo-shopify-gris', w: 154, h: 176, name: 'Shopify', alt: 'Shopify', size: s.logoMedio },
 ];
 
@@ -45,7 +46,7 @@ function Grupo({ duplicado = false }: { duplicado?: boolean }) {
                 alt={`Logo de ${t.alt}`}
                 className={t.size}
               />
-              <span>{t.name}</span>
+              {!t.soloLogo && <span>{t.name}</span>}
             </span>
           ))}
         </div>
