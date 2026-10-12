@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 224 224">
+  <title>PRAXA</title>
+  <rect width="224" height="224" rx="42" fill="#060e0d" />
+  <g transform="translate(12 42)" fill="none">
+    <g stroke="#e6f1ef" stroke-width="19">
+      <path d="M0 70H150" />
+      <path d="M0 9.5h15c44 0 54 60.5 93 60.5" />
+      <path d="M0 130.5h15c44 0 54-60.5 93-60.5" />
+    </g>
+    <circle cx="176.5" cy="70" r="26.5" fill="#3ecfb8" />
+  </g>
+</svg>
