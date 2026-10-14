@@ -3,6 +3,7 @@
 **Versión:** 1.0 — 2026-09-24
 **Estado:** `APROBADO PARA EJECUCIÓN`. `M04a` está cerrada y `G-DOCS` fue aprobado por el usuario el 2026-09-24. El estado de cada microfase y la siguiente habilitada están en `docs/PROJECT_STATE.md`.
 **Enmienda pendiente:** la precisión de M28.3a sobre `avatars` preparada en el PR #20 requiere auditoría y aprobación visible del usuario; el estado aprobado corresponde al plan anterior.
+**Enmienda M16.1 (preparada el 2026-10-12), aprobada por el usuario el 2026-10-14:** ficha de `M16.1`, sección II.9, nota de II.10 (paso 6) y filas de `M16.1` en III.2 y III.3, preparadas a partir de las decisiones D-M16.1-01 a D-M16.1-11 del usuario ([spec de M16.1](../M16.1/spec.md), "Decisiones de la microfase"). Auditada junto con esa spec (`spec-audit-4` y `plan-audit-3`, APROBABLE). El usuario la aprobó en el chat al iniciar `M16.1` y pidió expresamente que el asistente lo registrara aquí. El texto enmendado es el vigente.
 **Base:** spec `meta_first` v1.0 (decisiones DEC-01 a DEC-21), revisión del repositorio en `main@247cae8`, la sesión de revisión en la que se tomaron esas decisiones y las correcciones T01 a T16 de la revisión externa. En la versión aprobada no quedaban decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`.
 
 Este documento reemplaza al `plan.md` anterior y contiene, además, el texto de la **Enmienda 1**. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario, y la Parte I de este documento es el roadmap vigente de la ruta: encabeza la jerarquía de fuentes de `AGENTS.md`. Tiene tres partes:
@@ -259,14 +260,14 @@ Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA
 |---|---|
 | **ID** | `M16.1` — ≤8 h |
 | **Objetivo** | Implementar la autorización del dueño y el guardado cifrado de un token de system user válido, probado contra Meta simulada. |
-| **Implementación requerida** | Constante de versión v26.0. Cliente HTTP con redacción y clasificación de errores, incluidas transporte y desconocido (CA-39). Rutas `iniciar` y `callback` con propósito `initial` o `reauth` (CA-28 a CA-34, CA-29b y CA-30 corregida). Creación de la conexión en `pending_selection` con la credencial cifrada. |
+| **Implementación requerida** | Constante de versión v26.0. Cliente HTTP con redacción y clasificación de errores, incluidas transporte y desconocido (CA-39). Rutas `iniciar` y `callback` con propósito `initial` o `reauth` (CA-28 a CA-34, CA-29b y CA-30 corregida). Creación de la conexión en `pending_selection` con la credencial cifrada. Aviso del resultado del callback en `/app/integraciones` (CA-29, CA-34). Actualización de `SECURITY.md`, `ARCHITECTURE.md`, `.env.example`, el comentario de `src/lib/env.ts` (`H-E1-42`) y el inventario de variables de `entorno.md`. |
 | **Procedimiento del asistente** | Pruebas con Meta simulada. **Sin autorización real**: esa ocurre en `M16.2` (T10). |
 | **Evidencia de cierre** | Pruebas en verde. |
-| **Criterio de aceptación** | CA-28 a CA-34, con CA-29b. |
-| **Pruebas** | Unitarias y `test:app`. |
+| **Criterio de aceptación** | CA-28 a CA-34, con CA-29b dividida así: en `M16.1`, `initial` crea la conexión pendiente, y `reauth` consume el intento y valida la conexión y la generación esperadas **sin canjear el código ni reemplazar la credencial**; el canje y el reemplazo de `reauth` (CA-37c) se completan en `M16.2`. |
+| **Pruebas** | Unitarias, de componente y `test:app`. |
 | **Condición para avanzar** | `G-OAUTH`. |
 | **Dependencias / habilita** | `G-ENTORNO`, P-01 a P-03 / `M16.2` |
-| **Intervención requerida del usuario** | P-01 a P-03 en Meta. |
+| **Intervención requerida del usuario** | P-01 a P-03 en Meta. Ninguna autorización real en el entorno del piloto antes de `M16.2` y `G-ACTA-META`. |
 
 ### M16.2 — Selección de cuenta, ciclo de vida, alta del dueño y VR-01
 
@@ -597,8 +598,12 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 | 4 | Callback: construye K01 y consume el intento en forma atómica, pasando el hash del nonce de la cookie para que se valide dentro de la sentencia. Maneja la cancelación del dueño | `src/app/api/integraciones/meta/callback/route.ts` | CA-29, CA-33 y CA-34 |
 | 5 | Canje del código en el servidor con `META_APP_SECRET`, sin persistirlo ni registrarlo. Redirección inmediata a una URL limpia, con `Referrer-Policy: no-referrer` | `src/modules/integrations/meta/oauth.ts` | CA-30 corregida |
 | 6 | `debug_token`: exige validez, app emisora igual a `META_APP_ID` y `ads_read`. Guarda la expiración real, o ausente. `/me?fields=id,client_business_id` | `src/modules/integrations/meta/tokens.ts` | CA-31 y CA-32 |
-| 7 | Según el propósito: `initial` crea la conexión en `pending_selection` con la credencial cifrada; `reauth` queda preparada para `replace_credential`, que se completa en `M16.2` | Repositorio de conexiones | CA-29b y CA-35 |
-| 8 | Pruebas con Meta simulada: `state` ausente, desconocido, vencido, consumido, de otro actor o de otra empresa; cookie ausente o con otro nonce; código repetido; cancelación; `debug_token` sin `ads_read`; `initial` con conexión viva existente; URL final sin `code` ni `state` | `tests/unit/meta-oauth.test.ts`, `tests/app/meta-oauth.test.ts` | CA-28 a CA-34 |
+| 7 | Según el propósito: `initial` crea la conexión en `pending_selection` con la credencial cifrada, y el servidor garantiza que antes consumió el intento en la misma petición (`H-E1-24`); `reauth` consume el intento y valida la conexión y la generación esperadas, sin canjear el código ni llamar a `replace_credential`, que se completan en `M16.2` (paso 5 de II.10) | Repositorio de conexiones | CA-29b y CA-35 |
+| 8 | Pruebas con Meta simulada: `state` ausente, desconocido, vencido, consumido, de otro actor o de otra empresa; cookie ausente o con otro nonce; código repetido; cancelación; `debug_token` sin `ads_read`; `initial` con conexión viva existente; `reauth` con generación vieja; URL final sin `code` ni `state` | `tests/unit/meta-oauth.test.ts`, `tests/app/meta-oauth.test.ts` | CA-28 a CA-34 |
+| 9 | Aviso del resultado del callback en `/app/integraciones`, a partir de `?meta=<resultado>` de una lista cerrada. No habilita "Conectar" ni cambia el resto de la pantalla | `src/app/(app)/app/integraciones/page.tsx`, `tests/component/integraciones-meta-aviso.test.tsx` | CA-29 y CA-34 |
+| 10 | Documentación y configuración: rutas, canje, inspección y cliente HTTP pasan de previstos a vigentes; INV-06 deja de ser absoluta respecto de los logs del hosting, que se declaran como límite; las cuatro `META_*` sin valores en `.env.example`; comentario de `env.ts` (`H-E1-42`); la fila de Meta de `entorno.md` deja de figurar como diferida | `docs/SECURITY.md`, `docs/ARCHITECTURE.md`, `.env.example`, `src/lib/env.ts`, `docs/FASES/FASE1/meta_first/entorno.md` | Revisión; contrato documental de `AGENTS.md` |
+
+**Ajuste de la Enmienda M16.1 (decisiones del usuario del 2026-10-12; texto aprobado el 2026-10-14):** pasos 7 a 10, a partir de D-M16.1-01 a D-M16.1-11 de la spec de M16.1. Agrega la pantalla que CA-29 y CA-34 ya exigían y los documentos que la microfase vuelve desactualizados, precisa la división de CA-29b con `M16.2`, acota CA-26 y CA-30 a lo que produce PRAXA con el límite de los logs del hosting, precisa CB-06 (`H-E1-23`) y deja la forma de revocar sujeta a `H-E1-114` (II.10, paso 6). No agrega migraciones ni cambia el orden de la ruta.
 
 **Cierre:** `npm run verify` y `npm run test:app`.
 
@@ -609,6 +614,10 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 **Tercera trampa.** El callback es un Route Handler, no una Server Action, y el proxy puede no cubrirlo. La identidad y la empresa se verifican dentro del handler construyendo K01, como el resto del código.
 
 **Cuarta trampa.** Si la app es de tipo Business y se abre el diálogo clásico con `scope`, Meta puede responder "Feature unavailable". Con Facebook Login for Business se usa `config_id`.
+
+**Quinta trampa.** Los logs de la plataforma de hosting pueden registrar la consulta de cada petición entrante, incluida la del callback. La aplicación no lo puede evitar: el código no se registra en los logs propios y el límite se declara en `SECURITY.md`.
+
+**Sexta trampa.** Las variables `META_*` ya están en producción, así que un despliegue deja el flujo alcanzable antes de `M16.2`. "Conectar" sigue deshabilitado, `iniciar` solo acepta `POST` desde el propio origen y nadie autoriza en el piloto hasta `M16.2` y `G-ACTA-META`.
 
 ---
 
@@ -623,7 +632,7 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 | 3 | Probe: una consulta de Insights contra la cuenta elegida antes de `confirm_connection`, que además verifica el vencimiento en la base | `src/modules/integrations/meta/probe.ts` | CA-37 |
 | 4 | Purga perezosa y reanudable: al iniciar un intento, al abrir integraciones o al repetir una desconexión, recorre `list_pending_purges` y aplica bloqueo → revocación (si queda credencial) → `purge_connection` | `src/modules/integrations/lifecycle.ts` | CA-37b y CA-38 |
 | 5 | Reautorización: el callback `reauth` llama a `replace_credential` con la generación esperada, solo si la cuenta conectada sigue entre las delegadas | mismo archivo | CA-37c |
-| 6 | Desconexión: `begin_disconnect` → `GET oauth/revoke` (H-03) → `purge_connection`. La UI indica cómo quitar la app desde las apps conectadas del negocio | `src/modules/integrations/actions.ts`, `src/modules/integrations/meta/revoke.ts` | CA-38 |
+| 6 | Desconexión: `begin_disconnect` → revocación de la credencial en Meta (H-03) → `purge_connection`. La UI indica cómo quitar la app desde las apps conectadas del negocio. **Nota de la Enmienda M16.1:** la forma de revocar no queda fijada acá. Se decide y se verifica en `M16.2`, antes de la primera autorización real, sin poner el token ni el secreto de la app en la URL de salida (`H-E1-114`; D-M16.1-08 de la spec de `M16.1`). La documentación de Meta describe la revocación con una consulta `GET`: no es una instrucción ejecutable para esta ruta mientras ponga el token en la URL | `src/modules/integrations/actions.ts`, `src/modules/integrations/meta/revoke.ts` | CA-38 |
 | 7 | Transiciones por clase de error: autenticación, permiso, acceso al activo (solo con evidencia de H-04), límite, temporal, transporte, desconocido y error propio | `src/modules/integrations/meta/errors.ts` | CA-39 |
 | 8 | UI de estado, reconexión y desconexión | `src/app/(app)/app/integraciones/` | — |
 | 9 | Pruebas de ciclo de vida: transiciones inválidas, pendiente vencida, reautorización con generación vieja, desconexión cortada después de `begin_disconnect` y reanudada | `tests/unit/meta-lifecycle.test.ts`, `tests/app/meta-lifecycle.test.ts` | CA-35 a CA-39 |
@@ -791,6 +800,7 @@ El detalle y los criterios de aceptación están en la spec v1.0.
 | `M06.1a-M06.2a` | Ejecutar npm run db:push:test cuando la microfase lo pida |
 | `M06.3a` | Fijar la contraseña del rol `praxa_integrations` en el proyecto de pruebas, fuera del repositorio, y cargar `PRAXA_INTEGRATIONS_TEST_DB_URL` en `.env.local`. Generar las claves del llavero (32 bytes en base64, por ejemplo con `openssl rand -base64 32`) y cargarlas en `.env.local` |
 | Antes de `M16.1` | En Meta: asociar la app a tu business portfolio (P-03), crear la configuración de Login for Business de tipo system user con `ads_read` y cuentas publicitarias (P-01), y registrar la URI de redirección con el dominio del piloto (P-02) |
+| `M16.1` | No completar ninguna autorización real en el entorno del piloto hasta `M16.2` y `G-ACTA-META`, aunque las variables `META_*` ya estén cargadas |
 | `M28.2a` | Proyecto de Vercel con dominio fijo; variables nuevas y existentes (incluida `NEXT_PUBLIC_SITE_URL`); contraseña del rol en el proyecto `app`; verificar que `worker_api` no esté expuesto; configurar `site_url` y redirecciones de Auth; configurar el SMTP propio con SPF y DKIM; registro de prueba con una dirección externa; cerrar el registro; probar la recuperación de contraseña con el registro cerrado |
 | Antes de VR-01, en `M16.2` | Agregar al dueño como tester y confirmar que aceptó y que tiene control total de su portfolio (P-04) |
 | `M16.2` | Abrir el registro, acompañar el alta del dueño y su empresa, cerrar el registro. Coordinar la autorización y la confirmación de la cuenta |
@@ -814,7 +824,7 @@ Ninguna clave se pega en el chat.
 | `M06.3a` | `db:check:test`, `test:app`; la suite del cliente real es obligatoria y falla ante configuración inválida |
 | `M28.2a` | `npm run verify`; checklist manual y registro con una dirección externa |
 | `M03a` | — (documento; revisión cruzada con la spec) |
-| `M16.1` | `test:app`. Sin autorización real |
+| `M16.1` | `test:app`. Sin autorización real. Ninguna prueba de `tests/app/meta-oauth.test.ts` ni suite positiva exigida por el gate puede omitirse por falta de configuración (CB-06 precisado en la Enmienda M16.1). Las pruebas opt-in ajenas pueden figurar como omitidas, con su archivo y su motivo en la evidencia |
 | `M16.2` | `test:policies`, `test:app`; alta del dueño y VR-01 |
 | `M16c` | `test:policies`, `test:app`; una sincronización real |
 | `M25a.1` | `test:policies`, `test:app` |
