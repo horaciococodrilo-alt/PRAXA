@@ -53,13 +53,14 @@ Por nombre y estado únicamente; nunca por valor. Estado declarado por el usuari
 | Credenciales del conector | `PRAXA_CREDENTIAL_KEYS` | Vercel, solo servidor; llavero nuevo distinto del de pruebas | `configurada por el usuario` |
 | Credenciales del conector | `PRAXA_CREDENTIAL_KEY_CURRENT` | Vercel, solo servidor | `configurada por el usuario` |
 | Credenciales del conector | `PRAXA_INTEGRATIONS_DB_URL` | Vercel, solo servidor; rol `praxa_integrations.<ref>`, pooler 6543 | `configurada por el usuario` |
-| Meta (diferida, no exigida para este gate) | `META_APP_ID`, `META_APP_SECRET`, `META_REDIRECT_URI`, `META_CONFIG_ID` | Antes de `M16.1` | `diferida` |
+| Meta | `META_APP_ID`, `META_APP_SECRET` (como Secret), `META_REDIRECT_URI`, `META_CONFIG_ID` | Vercel Production, solo servidor | `configurada por el usuario` (declarado el 2026-10-12, al expandir `M16.1`) |
 | Modelo (diferida, no exigida para este gate) | `DEEPINFRA_API_KEY` | En `M25a.2` | `diferida` |
 | Excluidas (nunca en Vercel) | `SUPABASE_DB_URL`, `SUPABASE_TEST_*`, `PRAXA_INTEGRATIONS_TEST_DB_URL` | — | `ausentes` |
 
 **Limitación declarada:** la verificación es por presencia del nombre en Vercel. No acredita validez
 criptográfica del llavero (`PRAXA_CREDENTIAL_KEYS`/`_CURRENT`) ni conectividad efectiva del rol
-(`PRAXA_INTEGRATIONS_DB_URL`) desde el runtime de Vercel.
+(`PRAXA_INTEGRATIONS_DB_URL`) desde el runtime de Vercel. Tampoco acredita que las `META_*`
+sean válidas ni que la configuración de Meta funcione: eso se comprueba recién en VR-01, en `M16.2`.
 
 ## Migraciones (II.7, paso 3)
 

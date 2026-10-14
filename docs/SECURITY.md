@@ -83,9 +83,13 @@ spec, con decisión del usuario.
   `service_role` no es un cliente del runtime.
 - **INV-05 — Secretos en reposo.** Los tokens de integración se guardan solo cifrados; la
   clave de cifrado nunca vive en la base.
-- **INV-06 — Secretos fuera de canales visibles.** Ni tokens, ni códigos OAuth, ni claves,
-  ni URLs que los contengan aparecen en el navegador, logs, errores, snapshots, fixtures,
-  documentación o evidencia (CA-26, CB-02).
+- **INV-06 — Secretos fuera de canales visibles.** Los tokens y las claves nunca llegan al
+  navegador. Ni tokens, ni códigos OAuth, ni claves, ni URLs que los contengan aparecen en los
+  logs, errores, snapshots, fixtures, documentación o evidencia que produce PRAXA (CA-26,
+  CB-02). La única excepción es el código de autorización y el `state`, que el proveedor
+  entrega al callback en la consulta de la redirección: la plataforma de hosting puede
+  registrar esa petición entrante, límite declarado en la sección 12. Ningún token, secreto de
+  la app ni código aparece en una URL de salida hacia un proveedor.
 - **INV-07 — Solo lectura sobre sistemas externos.** PRAXA no escribe en Meta. El único
   permiso objetivo es `ads_read`.
 - **INV-08 — El LLM no es autoridad.** Ningún número, estado ni política que ve el dueño sale
@@ -105,10 +109,10 @@ spec, con decisión del usuario.
 | Escalada por membresías | Sin privilegio de escritura sobre `company_members`; la membresía inicial la crea un trigger `SECURITY DEFINER` en la misma transacción que el alta; `owner_id` inmutable | Vigente | Una cuenta administra una sola empresa (ver "Limitaciones") |
 | Exposición de tokens por la Data API | Credenciales en `private` (no expuesto); `worker_api` no expuesto; `revoke all` explícito antes de cada grant; RLS forzada en las tablas de integraciones | Vigente en la base y en `supabase/config.toml` | En el proyecto remoto, la lista de esquemas expuestos se verifica en el panel (intervención del usuario al preparar el entorno) |
 | Privilegios excesivos del runtime | INV-04; rol `praxa_integrations` `LOGIN`, `NOBYPASSRLS`, `NOINHERIT`, sin grants sobre tablas, `EXECUTE` función por función; la migración rechaza un rol preexistente con privilegios o membresías | Base y cliente Node del rol vigentes; prueba automática del confinamiento a un módulo `server-only` | La base confía en el actor y la empresa enviados por el servidor |
-| Replay o abuso del flujo OAuth | Propiedades de la sección 7 | Tabla y funciones de intentos: vigentes en la base. Rutas `iniciar` y `callback`: previstas | La base no ata la creación de una conexión pendiente a un intento consumido: lo garantiza el orden del servidor (`H-E1-24`) |
+| Replay o abuso del flujo OAuth | Propiedades de la sección 7 | Tabla y funciones de intentos: vigentes en la base. Rutas `iniciar` y `callback`, canje e inspección del token: vigentes, probados con Meta simulada | La base no ata la creación de una conexión pendiente a un intento consumido: lo garantiza el orden del servidor, con una prueba que lo fija (`H-E1-24`). El recorrido real con Meta es VR-01 |
 | Filtración de un dump o backup de la base | Tokens cifrados con AES-256-GCM y clave fuera de la base (sección 6) | Esquema y cifrado en Node vigentes | Un dump expone todo lo que no es credencial: conexiones, métricas y registros del chat |
 | Filtración de las variables del runtime | Ninguno completo. Rotación del llavero (CA-25) y revocación en Meta como respuesta a incidentes | Parcial | **Límite deliberado:** si `PRAXA_CREDENTIAL_KEYS` y `PRAXA_INTEGRATIONS_DB_URL` viven en el mismo entorno, quien lo compromete alcanza base y llavero, y puede descifrar las credenciales |
-| Logs o errores que filtren secretos o identificadores | INV-06; errores de `worker_api` con mensajes fijos, sin `DETAIL` ni valores; clase de error + mensaje redactado en la conexión (CA-09); identificador de cuenta truncado fuera de la base (CA-40); la pregunta del chat nunca va a logs (CA-63) | Base, errores redactados del cliente del rol y recorrido del árbol vigentes; cliente HTTP de Meta previsto | La redacción por patrones no detecta datos personales en forma libre (CA-66) |
+| Logs o errores que filtren secretos o identificadores | INV-06; errores de `worker_api` con mensajes fijos, sin `DETAIL` ni valores; clase de error + mensaje redactado en la conexión (CA-09); identificador de cuenta truncado fuera de la base (CA-40); la pregunta del chat nunca va a logs (CA-63) | Base, errores redactados del cliente del rol y recorrido del árbol vigentes. Cliente HTTP de Meta vigente: errores con texto fijo por clase y sin texto del proveedor, y ninguna URL de salida con credenciales, códigos ni tokens (van en el cuerpo de un `POST` o en `Authorization`; la URL que los lleve se rechaza antes de enviar) | La redacción por patrones no detecta datos personales en forma libre (CA-66). Los logs de la plataforma de hosting registran la consulta de las peticiones entrantes (sección 12) |
 | Pruebas destructivas contra el proyecto equivocado | Sección 11 | Guardas vigentes para pruebas SQL, de aplicación y del rol | Requiere configurar el proyecto desechable y su URL de rol; una guarda de destino no sustituye la prueba de conexión |
 | Prompt o pregunta maliciosa hacia el LLM | Catálogo cerrado de herramientas; el modelo no elige empresa, tabla ni SQL; las herramientas leen con el JWT del usuario bajo RLS (sección 8) | Previsto | La inyección puede degradar la respuesta; no puede ampliar el alcance de los datos |
 | Cifras o estados inventados por el LLM | Salida estructurada `text` + `claims`, verificación del servidor antes de mostrar; abstención controlada si no valida (sección 8) | Previsto | No garantiza que la herramienta elegida sea la correcta ni que el texto sin cifras sea fiel (CA-50b); eso lo mide VR-02 |
@@ -243,15 +247,22 @@ vencimiento, cookies, clasificación de errores) están en CA-01 a CA-05 y CA-28
   dice cuál condición falló.
 - El callback no confía solo en los parámetros del navegador: reconstruye K01 y exige que el
   intento sea de ese actor y esa empresa.
-- El código de autorización pasa por el navegador (es parte del flujo), pero en el servidor
-  existe solo durante el canje: no se persiste ni se registra. El callback termina con una
-  redirección a una URL limpia, con `Referrer-Policy: no-referrer`.
-- El token nunca llega al navegador, al HTML, a una cookie ni a una URL.
+- El código de autorización pasa por el navegador (es parte del flujo). PRAXA no lo persiste
+  ni lo registra, y lo envía a Meta en el cuerpo de un `POST`, nunca en una URL. La plataforma
+  de hosting puede registrar el `code` y el `state` de la petición entrante al callback (límite
+  declarado en la sección 12). El callback termina con una redirección a una URL limpia, con
+  `Referrer-Policy: no-referrer`.
+- El token nunca llega al navegador, al HTML, a una cookie ni a una URL, tampoco a una URL de
+  salida hacia Meta: viaja en el cuerpo de un `POST` o en el encabezado `Authorization`.
 - Antes de considerar válida una conexión, el servidor verifica el token: válido, emitido
   para esta app y con `ads_read` concedido.
 
-Vigente: tabla de intentos, creación y consumo atómico en `worker_api`, probados en pgTAP.
-Previsto: rutas `iniciar` y `callback`, canje e inspección del token.
+Vigente: tabla de intentos, creación y consumo atómico en `worker_api`, probados en pgTAP;
+rutas `iniciar` y `callback`, canje e inspección del token, probados con Meta simulada. El
+inicio solo acepta `POST` desde el propio origen.
+Previsto: el reemplazo de la credencial al reautorizar (hoy el callback de reautorización
+valida el intento y la conexión sin canjear el código), la revocación en Meta y el recorrido
+real con el dueño (VR-01).
 
 ## 8. Frontera del LLM (DEC-06, DEC-19; CA-48 a CA-50c, CA-54, CA-66)
 
@@ -330,6 +341,13 @@ Cubierto por `05_delete_carveout.test.sql`.
 - **El camino privilegiado confía en el servidor.** La base verifica que actor, empresa y
   conexión sean coherentes, no que el actor sea quien dice ser.
 - **Llavero y credencial de base en el mismo entorno** (sección 6).
+- **Los logs del hosting registran la consulta de las peticiones entrantes.** Los Runtime Logs
+  de Vercel muestran los parámetros de búsqueda de cada petición, así que el `code` y el
+  `state` del callback de OAuth quedan visibles para quien tenga acceso al proyecto de Vercel
+  durante la retención del plan, y en un Log Drain si se configura uno. La aplicación no puede
+  evitarlo. Mitigación: el código es de un solo uso y no sirve sin el secreto de la app; el
+  `state` es de un solo uso y la base guarda solo su hash. Las subpeticiones a Meta no entran
+  en este límite: sus URLs no llevan credenciales, códigos ni tokens (sección 4).
 - **Las funciones `SECURITY DEFINER` son propiedad de un rol con `bypassrls`.** Cambiar su
   dueño queda fuera de la ruta (CA-14).
 - **Sin limitación de intentos de inicio de sesión** propia, más allá de la de Supabase Auth.

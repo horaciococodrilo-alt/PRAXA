@@ -6,10 +6,12 @@
  * Supabase deben fallar con un mensaje comprensible en vez de romper el proceso durante
  * el build.
  *
- * Acá NO hay claves privilegiadas. La aplicación no usa ninguna credencial de servicio:
- * todo el acceso a datos ocurre con la clave publishable, bajo la sesión del usuario y
- * sujeto a RLS. Una prueba automática verifica esta invariante
- * (tests/unit/no-privileged-credentials.test.ts). Ver docs/SECURITY.md.
+ * Este archivo tiene solo configuración pública. El camino interactivo usa la clave
+ * publishable, bajo la sesión del usuario y sujeto a RLS; la aplicación no usa ninguna
+ * credencial de servicio. El conector de integraciones usa un rol acotado de PostgreSQL,
+ * confinado a un módulo `server-only` y limitado a funciones concretas. Una prueba
+ * automática verifica las dos cosas (tests/unit/no-privileged-credentials.test.ts). Ver
+ * docs/SECURITY.md.
  */
 
 export class MissingSupabaseConfigError extends Error {
