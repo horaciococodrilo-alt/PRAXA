@@ -4,6 +4,8 @@
 
 **Enmienda pendiente:** la ampliación de CA-67 para `avatars` preparada en el PR #20 requiere auditoría y aprobación visible del usuario. `APROBADA` corresponde a la versión anterior de este criterio.
 
+**Enmienda M16.1 (preparada el 2026-10-12), aprobada por el usuario el 2026-10-14:** CA-26, CA-29b, CA-30, CB-06 y la fila OAuth de la sección 14, preparadas a partir de las decisiones D-M16.1-03, D-M16.1-07, D-M16.1-08 y de las decisiones del usuario sobre la auditoría de la ronda 1 (A-01 y A-04; [spec de M16.1](../M16.1/spec.md)). Auditada junto con esa spec (`spec-audit-4`, APROBABLE). El usuario la aprobó en el chat al iniciar `M16.1` y pidió expresamente que el asistente lo registrara aquí. `APROBADA` corresponde al texto enmendado de esos criterios.
+
 `v1.0 — APROBADA` — 2026-09-24 (aprobada por el usuario en `G-DOCS`, al cerrar `M04a`). Incorpora:
 
 - las decisiones DEC-01 a DEC-21;
@@ -123,12 +125,12 @@ Variables del servidor. Ninguna es `NEXT_PUBLIC_`. En `.env.example` van sin val
 
 - **CA-28** El inicio crea un intento K02 con su propósito (CA-02c) y redirige al diálogo de Meta con `config_id` y `response_type=code`. No envía `scope`. Una conexión inicial solo se puede iniciar si la empresa no tiene una conexión viva. Si la tiene, el único propósito admitido es reautorizar esa conexión.
 - **CA-29** El callback rechaza el intento si el `state` falta, es desconocido, venció, ya fue consumido o pertenece a otro actor o a otra empresa. También lo rechaza si el hash del nonce de la cookie no coincide con el del intento. Todo eso se valida en la misma sentencia atómica que consume el intento (CA-03); no alcanza con comprobar que la cookie exista. El error que se muestra es comprensible y no tiene detalles internos.
-- **CA-29b** El callback sigue el camino que indica el propósito del intento:
+- **CA-29b** *(enmendado en M16.1)* El callback sigue el camino que indica el propósito del intento:
   - `initial` crea la conexión pendiente (CA-35);
-  - `reauth` reemplaza la credencial de la conexión esperada (CA-37c).
+  - `reauth` reemplaza la credencial de la conexión esperada (CA-37c). Se construye en dos partes: `M16.1` consume el intento y valida la conexión y la generación esperadas, sin canjear el código ni reemplazar la credencial; `M16.2` agrega el canje, la inspección, la verificación de cuentas delegadas y el reemplazo.
 - **CA-30** *(corregido)* El código de autorización pasa por el navegador, porque Meta lo entrega al callback en una redirección. Eso es parte del flujo elegido. Lo que se exige:
   - el token existe solo en el servidor: nunca llega al navegador, al HTML, a una cookie ni a una URL;
-  - el código se canjea en el servidor con `META_APP_SECRET`, una sola vez, y no se persiste ni aparece en logs, errores o snapshots;
+  - el código se canjea en el servidor con `META_APP_SECRET`, una sola vez, y no se persiste ni aparece en los logs, errores o snapshots que produce PRAXA. *(Enmendado en M16.1.)* La plataforma de hosting puede registrar la consulta de la petición entrante al callback, con el código y el `state`; la aplicación no puede evitarlo, y es un límite declarado en `SECURITY.md`;
   - el callback termina con una redirección inmediata a una URL limpia, sin `code` ni `state`, y responde con `Referrer-Policy: no-referrer`.
 - **CA-31** *(reemplaza el canje a token de larga duración)* El token se inspecciona con `debug_token` y se exige que sea válido, que haya sido emitido para esta app y que tenga `ads_read` concedido. Se guarda la expiración real informada. Si Meta no informa expiración, se guarda como ausente, sin inventar un plazo. La revocación se contempla aunque no haya vencimiento programado (CA-38, CA-39).
 - **CA-32** Si falta `ads_read` o la app emisora no coincide, no se crea una conexión que aparente estar sana.
@@ -248,7 +250,9 @@ Reglas para las funciones y el rol:
   4. Retirar la clave vieja solo cuando una función de `worker_api` confirme que ninguna credencial la referencia.
 
   Una versión ausente del llavero produce un error explícito, no un descifrado fallido silencioso.
-- **CA-26** Ni claves, ni tokens, ni códigos OAuth, ni secretos, ni URLs que los contengan aparecen en logs, errores, snapshots o fixtures. Una prueba recorre el árbol buscándolos y otra verifica la redacción de errores del cliente HTTP.
+- **CA-26** *(enmendado en M16.1)* Ni claves, ni tokens, ni códigos OAuth, ni secretos, ni URLs que los contengan aparecen en los logs, errores, snapshots o fixtures que produce PRAXA. Una prueba recorre el árbol buscándolos y otra verifica la redacción de errores del cliente HTTP.
+  - **Límite declarado:** la plataforma de hosting puede registrar el `code` y el `state` de la petición entrante al callback, porque llegan en la consulta de la URL; la aplicación no puede evitarlo y el límite se declara en `SECURITY.md`.
+  - **Sin excepción:** ningún token, secreto de la app ni credencial aparece en una URL de salida hacia Meta, y tampoco el código de autorización: viajan en el cuerpo de un `POST` o en el encabezado `Authorization` (D-M16.1-08).
 - **CA-27** *(reescrito)* `tests/unit/no-privileged-credentials.test.ts` se extiende: `PRAXA_INTEGRATIONS_DB_URL` solo puede aparecer en el módulo `server-only` del conector, y el resto de la invariante existente sigue pasando.
 
 ## 10. Ciclo de vida (M16.2)
@@ -529,7 +533,7 @@ Ningún secreto se pega en el chat ni se guarda en el repositorio.
 | Contratos (K01–K04) | — |
 | Migración y aislamiento | `db:check:test`, `db:push:test`, `test:policies` (privilegios del rol de C y aislamiento), `test:app` (lectura efectiva de las tablas nuevas por la Data API) |
 | Cifrado / M06.3a | `db:check:test` y `test:app` obligatorios, incluida la suite real del cliente `praxa_integrations`. Falla si `PRAXA_INTEGRATIONS_TEST_DB_URL` falta, es inválida o no corresponde al proyecto de pruebas; nunca usa `PRAXA_INTEGRATIONS_DB_URL` como fallback. Una suite omitida/skipped no acredita el gate (CB-06). |
-| OAuth | `test:app`: callback de otro actor o de otra empresa, `state` vencido o reutilizado, hash de vinculación distinto, intento `reauth` con generación vieja, URL limpia después del callback. Sin autorización real |
+| OAuth | `test:app`: callback de otro actor o de otra empresa, `state` vencido o reutilizado, hash de vinculación distinto, intento `reauth` con generación vieja (en `M16.1`, rechazado sin canje), URL limpia después del callback. Sin autorización real |
 | Ciclo de vida | `test:policies`: transiciones, pendiente → desconectada sin metadatos, confirmación vencida rechazada en la base, purga reanudable e idempotente, reconexión después de una purga, cierre (CA-67, CA-68). `test:app`: revocación y desconexión durante una sincronización. VR-01 |
 | Sincronización | `test:policies`, más pruebas unitarias con Meta simulada: paginación completa, fallo en una página intermedia, resincronización sin duplicados y con valores actualizados, ejecución desplazada (A vence, B publica, A es rechazada), snapshot nuevo sin fila donde el anterior tenía valor, captura parcial vista al día siguiente sin resincronizar, precisión SQL → API → TypeScript |
 | Chat | Pruebas obligatorias de CA-50b, aislamiento (CA-54), límites (CA-70), redacción (CA-66), escritura en vuelo (CA-38c), VR-02 y transcripciones reproducibles con fixtures sintéticos |
@@ -541,7 +545,10 @@ Criterios transversales:
 - **CB-03** Ninguna migración existente se modifica.
 - **CB-04** Ninguna prueba se ejecuta contra producción, salvo el recorrido manual acotado de `M28.2a` aprobado por el usuario y descrito en DEC-18 e II.7 del plan. Ninguna suite automatizada ni fixture se ejecuta contra `app`.
 - **CB-05** La evidencia registra comandos y resultados reales, redactados.
-- **CB-06** Un gate obligatorio no se aprueba si una prueba requerida se omitió por falta de configuración. Una prueba omitida cuenta como no ejecutada.
+- **CB-06** *(precisado en M16.1; resuelve `H-E1-23`)* Un gate obligatorio no se aprueba si una prueba requerida se omitió por falta de configuración. Una prueba omitida cuenta como no ejecutada.
+  - **Qué es requerida:** toda prueba de las suites que la microfase exige en III.3 del plan y todo caso que la spec de la microfase lista. Ninguna de ellas puede omitirse por falta de configuración.
+  - **Qué no bloquea:** las pruebas opt-in ajenas a la microfase (por ejemplo, las de correo de `tests/app/email-flows.test.ts`) pueden figurar como omitidas, siempre que la evidencia identifique cada archivo y el motivo de la omisión. La evidencia no declara "cero omitidas" para toda la suite.
+  - **Para `M16.1`:** ninguna prueba de `tests/app/meta-oauth.test.ts` ni ninguna suite positiva que el gate exija puede omitirse por falta de configuración, y `npm run test:app` tiene que terminar correctamente.
 
 ## 15. Correcciones de documentación pendientes
 

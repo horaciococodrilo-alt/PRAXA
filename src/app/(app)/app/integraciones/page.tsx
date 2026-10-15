@@ -1,8 +1,9 @@
 import { IconFlecha } from '@/components/app/icons';
 import i from '@/components/app/integraciones.module.css';
 import { IntegracionLogo } from '@/components/app/integracion-logo';
-import { Badge, Button, ButtonLink, Img, PageHeader } from '@/components/app/ui';
+import { Badge, Button, ButtonLink, Card, Img, PageHeader } from '@/components/app/ui';
 import { getIntegraciones, requireAppSession } from '@/modules/app-data';
+import { META_OAUTH_MESSAGES, parseMetaOAuthOutcome } from '@/modules/integrations/meta/outcomes';
 
 export const metadata = { title: 'Integraciones' };
 
@@ -11,9 +12,16 @@ export const metadata = { title: 'Integraciones' };
  * (→ Configuración) cuando lo está. "Conectar" y "Ver guía" todavía no tienen acción: no hay
  * ningún conector implementado, así que se muestran deshabilitados (como "Sincronizar" en
  * Inicio) en lugar de parecer rotos.
+ *
+ * El callback de Meta vuelve acá con `?meta=<resultado>` (D-M16.1-01). Solo se muestra el
+ * texto de la lista cerrada: ningún otro parámetro de la URL llega a la pantalla. Las props
+ * no se desestructuran en la firma: la sesión se verifica antes de leer `searchParams`.
  */
-export default async function IntegracionesPage() {
+export default async function IntegracionesPage(props: PageProps<'/app/integraciones'>) {
   await requireAppSession('/app/integraciones');
+  const searchParams = await props.searchParams;
+  const resultado = parseMetaOAuthOutcome(searchParams.meta);
+  const aviso = resultado === null ? null : META_OAUTH_MESSAGES[resultado];
   const integraciones = await getIntegraciones();
 
   return (
@@ -23,6 +31,12 @@ export default async function IntegracionesPage() {
         title="Integraciones"
         subtitle="Conectá tus canales y sistemas para que Praxa analice tu operación en tiempo real."
       />
+
+      {aviso ? (
+        <Card as="div" role={aviso.tone === 'error' ? 'alert' : 'status'}>
+          <p>{aviso.text}</p>
+        </Card>
+      ) : null}
 
       <section className={i.ban} aria-label="Guía de integraciones">
         <Img className={i.robot} src="/app/robot-praxa.png" alt="" width={44} height={44} />

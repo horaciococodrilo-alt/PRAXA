@@ -30,6 +30,7 @@ para lo previsto.
 ```
 src/
   app/                      rutas (landing, auth y la aplicación protegida `/app`)
+    api/integraciones/meta/ Route Handlers del OAuth con Meta: inicio (POST) y callback (GET)
   components/               UI compartida
     landing/                landing pública: secciones, tokens claro/oscuro y tema
     auth/                   pantallas de acceso: tarjeta, campos y mensajes de Auth
@@ -46,7 +47,10 @@ src/
     integrations/contract/  contratos K02–K04: intento OAuth, conexión, credencial
     integrations/crypto/    llavero y cifrado autenticado de credenciales
     integrations/db/        cliente PostgreSQL acotado a worker_api
-    integrations/repository/ preparación, lectura y recifrado de credenciales
+    integrations/repository/ credenciales, intentos OAuth sobre worker_api y lectura de la
+                            conexión viva bajo RLS
+    integrations/meta/      versión de la Graph API, cliente HTTP, OAuth, inspección del
+                            token y resultados del flujo
   proxy.ts                  refresco de sesión y redirección (NO autorización); Next.js
                             solo lo carga al mismo nivel que app/
 supabase/
@@ -60,7 +64,7 @@ tests/
 
 Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 
-- `integrations/`: cliente de Meta (OAuth, cuentas, Insights, errores) y ciclo de vida.
+- `integrations/`: listado de cuentas, Insights y ciclo de vida de la conexión con Meta.
 - `chat/`: redacción, herramientas cerradas, adaptador del modelo, orquestador y guarda de
   afirmaciones numéricas.
 
@@ -70,15 +74,16 @@ Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 |---|---|---|
 | `identity` | Usuario verificado con `getClaims()`; nunca `getSession()`. Nombre, apellido y foto de perfil del usuario (metadatos de Auth y Storage), solo para mostrar | Existe |
 | `company` | Empresa del usuario y membresía, resueltas bajo RLS. Alta y perfil desde Configuración | Existe |
-| `tenant` | Construye K01 (`user_id`, `company_id`, `role`, `request_id`) dentro del servidor. Es la única entrada de actor y empresa al camino privilegiado | Existe; todavía sin consumidores en `src/` |
+| `tenant` | Construye K01 (`user_id`, `company_id`, `role`, `request_id`) dentro del servidor. Es la única entrada de actor y empresa al camino privilegiado | Existe; lo consumen las rutas del OAuth con Meta |
 | Contexto declarado | Objetivos, problemas y sistemas de la empresa, versionados e inmutables una vez activos | Existe solo en la base (tablas y funciones). Sin código ni pantalla que lo cargue: se quitaron con el onboarding |
 | `app-data` | Única fuente de datos de las pantallas de `/app`. Lee lo real bajo RLS (usuario, empresa, existencia de un diagnóstico) y devuelve mock en cero para lo que no tiene backend (integraciones, uso de la IA) | Existe |
 | `reporting/contract` | Esquema del reporte y su evidencia tipada por procedencia | Existe; sin generación |
 | `integrations/contract` | Contratos Zod de intento OAuth, conexión (registro interno y DTO público separados) y credencial cifrada | Existe |
 | `integrations/crypto` | Llavero versionado y cifrado AES-256-GCM con AAD de empresa, conexión y proveedor; material descifrado en envoltorio redactado | Existe |
 | `integrations/db` | Cliente PostgreSQL `server-only` del rol `praxa_integrations`, limitado a `worker_api`, con TLS verificado y errores redactados | Existe |
-| `integrations/repository` | Prepara operaciones reutilizables, valida K01 y respuestas, lee y recifra credenciales según versión y estado | Existe |
-| `integrations` (resto) | OAuth con Meta, ciclo de vida y sincronización manual | Previsto |
+| `integrations/repository` | Prepara operaciones reutilizables, valida K01 y respuestas, lee y recifra credenciales según versión y estado; crea y consume intentos OAuth por `worker_api`; lee la conexión viva de la empresa con el JWT del usuario | Existe |
+| `integrations/meta` | Versión de la Graph API y URLs en un solo lugar; cliente HTTP con timeout, clasificación de errores por código de Graph y ninguna credencial en las URLs de salida; inicio y callback del OAuth, canje e inspección del token; resultados cerrados que muestra `/app/integraciones` | Existe (OAuth). El callback de reautorización valida el intento y la conexión, sin canjear el código |
+| `integrations` (resto) | Selección de cuenta, ciclo de vida (reautorización completa, desconexión, purga y revocación) y sincronización manual | Previsto |
 | `chat` | Consulta en lenguaje natural sobre gasto e impresiones, con cifras verificadas | Previsto |
 
 La ruta `meta_first` no construye Tiendanube, GA4, reportes publicados, métricas derivadas
@@ -185,7 +190,10 @@ Navegador ──► Route Handler / Server Action
   del rol, el llavero, el cifrado y el repositorio de credenciales. El cliente usa el pooler
   compartido en modo transacción con TLS verificado; el repositorio cifra antes de escribir
   y descifra después de leer. La base solo recibe material cifrado.
-- Previstas: las rutas OAuth, el cliente de Meta y la orquestación del ciclo de vida.
+- Existen también las rutas OAuth y el cliente de Meta: el callback construye K01, consume el
+  intento por `worker_api` y, en una autorización inicial, crea la conexión pendiente con la
+  credencial cifrada.
+- Prevista: la orquestación del ciclo de vida.
 - Toda escritura de integraciones pasa por este camino (DEC-04). `authenticated` solo lee
   por RLS las tablas de integraciones que lo permiten.
 - El cifrado y descifrado de la credencial ocurren en Node; la base solo guarda y devuelve
@@ -195,11 +203,27 @@ Por qué un rol propio y no `service_role`: `service_role` omite RLS y tiene acc
 `praxa_integrations` solo puede ejecutar funciones concretas, cada una con su chequeo. La
 motivación y las alternativas descartadas están en la spec, sección 7.
 
-### C. Llamadas a Meta (previsto)
+### C. Llamadas a Meta
 
-Desde el camino B, en el servidor: OAuth con Facebook Login for Business, listado de
-cuentas delegadas, prueba de acceso, lectura de Insights y revocación. Versión de la Graph
-API en una sola constante. Solo lectura.
+Desde el camino B, en el servidor. Versión de la Graph API en una sola constante. Solo
+lectura.
+
+```
+Navegador ──POST /api/integraciones/meta/iniciar (mismo origen)
+          ──► K01 ──► intento K02 por worker_api + cookie de vinculación
+          ──► diálogo de Facebook Login for Business (config_id, sin scope)
+Meta      ──GET /api/integraciones/meta/callback?code&state
+          ──► K01 ──► consumo atómico del intento
+          ──► canje (POST) ──► debug_token (POST) ──► /me (Authorization)
+          ──► conexión pendiente con credencial cifrada
+          ──► redirección limpia a /app/integraciones?meta=<resultado>
+```
+
+- Existen: el OAuth con Facebook Login for Business, el canje del código y la inspección del
+  token, probados con Meta simulada. Las URLs de salida no llevan credenciales, códigos ni
+  tokens.
+- Previstos: listado de cuentas delegadas, prueba de acceso, lectura de Insights y
+  revocación.
 
 ## Contexto declarado
 
