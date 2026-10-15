@@ -48,8 +48,8 @@ export class TokenRejectedError extends Error {
 
 /** H-02: el único tipo admitido es el de system user; cualquier otro se rechaza (DEC-02). */
 const SYSTEM_USER_TYPE = 'SYSTEM_USER';
-/** Forma de un permiso en K04 (`credential.ts`). */
-const SCOPE_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
+/** Forma de un permiso según el contrato K04, sin copiar su regla. */
+const scopeSchema = secretCredentialSchema.shape.granted_scopes.element;
 
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
@@ -82,10 +82,9 @@ export async function inspectToken(
   }
   if (data.type !== SYSTEM_USER_TYPE) throw new TokenRejectedError('unsupported_type');
 
-  const grantedScopes = [...new Set(data.scopes.filter((scope) => typeof scope === 'string' && SCOPE_PATTERN.test(scope)))] as string[];
-  if (!secretCredentialSchema.shape.granted_scopes.safeParse(grantedScopes).success) {
-    throw new TokenRejectedError('missing_ads_read');
-  }
+  // `ads_read` ya está y tiene la forma del contrato; el repositorio de credenciales vuelve a
+  // validar la lista completa antes de escribir.
+  const grantedScopes = [...new Set(data.scopes.filter((scope) => scopeSchema.safeParse(scope).success))] as string[];
 
   return Object.freeze({
     tokenType: 'system_user',

@@ -213,6 +213,11 @@ export async function handleMetaStart(request: NextRequest, partial?: Partial<Me
       if (error instanceof MetaConfigError) return finish('error', 'configuracion', ctx.request_id);
       throw error;
     }
+    // La cookie de vinculación es `__Host-` y la sesión es del host: un callback en otro host
+    // llegaría sin las dos y fallaría después de que la persona autorizó en Meta.
+    if (new URL(config.redirectUri).origin !== request.nextUrl.origin) {
+      return finish('error', 'configuracion', ctx.request_id);
+    }
 
     const live = await deps.readLiveConnection(ctx);
     // D-M16.1-04: con una pendiente no se inicia nada; su purga y revocación son de M16.2.
@@ -300,6 +305,10 @@ export async function handleMetaCallback(request: NextRequest, partial?: Partial
   const validState = state !== null && oauthStateSchema.safeParse(state).success ? state : null;
   const validNonce = nonce !== null && oauthStateSchema.safeParse(nonce).success ? nonce : null;
 
+  // Etapa y retorno vigentes, para que un fallo inesperado se registre donde ocurrió.
+  let stage: MetaOAuthLogEvent['etapa'] = 'consumo';
+  let consumedReturnPath: ReturnPath | undefined;
+
   try {
     // CA-34: la cancelación se muestra aunque el `state` no sirva; si sirve, se consume.
     if (providerError !== null) {
@@ -334,15 +343,18 @@ export async function handleMetaCallback(request: NextRequest, partial?: Partial
       throw error;
     }
     const returnPath = attempt.returnPath;
+    consumedReturnPath = returnPath;
 
     // D-M16.1-03: en M16.1 `reauth` valida la conexión y la generación, sin canjear el código.
     if (attempt.purpose === 'reauth') {
+      stage = 'reauth';
       const live = await deps.readLiveConnection(ctx);
       const unchanged =
         live !== null && live.id === attempt.expectedConnectionId && live.credentialGeneration === attempt.expectedGeneration;
       return finish(unchanged ? 'reautorizacion_no_disponible' : 'credencial_cambio', 'reauth', { returnPath });
     }
 
+    stage = 'configuracion';
     let config: MetaOAuthConfig;
     try {
       config = deps.config();
@@ -396,6 +408,6 @@ export async function handleMetaCallback(request: NextRequest, partial?: Partial
       return finish('error', etapa, { returnPath });
     }
   } catch {
-    return finish('error', 'consumo');
+    return finish('error', stage, { returnPath: consumedReturnPath });
   }
 }

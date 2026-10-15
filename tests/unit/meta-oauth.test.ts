@@ -729,6 +729,21 @@ describe('M16.1-T-11: barreras del inicio', () => {
     expect(worker.calls).toEqual([]);
   });
 
+  it('una URI de redirección de otro host responde error sin crear intento', async () => {
+    const worker = fakeWorker();
+    const otherHost = api.readMetaOAuthConfig({
+      META_APP_ID: APP_ID,
+      META_APP_SECRET: SECRET,
+      META_REDIRECT_URI: 'https://otro.praxa.test/api/integraciones/meta/callback',
+      META_CONFIG_ID: CONFIG_ID,
+    } as unknown as NodeJS.ProcessEnv);
+    const response = await oauth.handleMetaStart(startRequest(), deps(fakeMeta(), worker, { config: () => otherHost }));
+    expect(response.headers.get('location')).toBe(RESULT('error'));
+    expect(response.headers.get('set-cookie')).toBeNull();
+    expect(worker.calls).toEqual([]);
+    expect(logs).toContainEqual(expect.objectContaining({ etapa: 'configuracion', resultado: 'error' }));
+  });
+
   it('una carrera con una conexión nueva responde conexion_existente', async () => {
     const worker = fakeWorker({
       create_oauth_attempt: () => {
@@ -1145,6 +1160,18 @@ describe('M16.1-T-21: camino reauth', () => {
     expect(location).toBe(RESULT(outcome));
     expect(meta.calls).toEqual([]);
     expect(worker.calls.map((call) => call.fn)).toEqual(['consume_oauth_attempt']);
+  });
+
+  it('un fallo al leer la conexión después de consumir se registra en la etapa reauth', async () => {
+    const meta = fakeMeta();
+    const location = await runCallback(meta, reauthWorker(), {
+      readLiveConnection: async () => {
+        throw new Error('fallo sintético de lectura');
+      },
+    });
+    expect(location).toBe(RESULT('error'));
+    expect(logs).toEqual([expect.objectContaining({ etapa: 'reauth', resultado: 'error' })]);
+    expect(meta.calls).toEqual([]);
   });
 });
 
