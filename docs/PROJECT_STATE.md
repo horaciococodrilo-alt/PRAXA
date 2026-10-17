@@ -24,7 +24,7 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 ## Siguiente habilitada
 
 **M16.2 — Selección de cuenta, ciclo de vida, alta del dueño y VR-01: VERIFICADO — PENDIENTE DE APROBACIÓN.**
-Fase A verificada en `mf/M16.2`; fase B pendiente. Evidencia en
+Fase A verificada en `mf/M16.2` tras corregir la revisión de implementación; fase B pendiente. Evidencia en
 [sesiones/M16.2.md](FASES/FASE1/meta_first/sesiones/M16.2.md). `G-VR01` no está aprobado.
 Antes de la primera autorización real hacen falta `G-ACTA-META` y P-04; la fase B sigue al
 merge y despliegue de la fase A.

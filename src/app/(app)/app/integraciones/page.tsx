@@ -10,10 +10,8 @@ import { MetaTarjeta } from './meta-tarjeta';
 export const metadata = { title: 'Integraciones' };
 
 /**
- * Cada tarjeta muestra "Conectar" mientras el conector no está conectado y "Configurar"
- * (→ Configuración) cuando lo está. "Conectar" y "Ver guía" todavía no tienen acción: no hay
- * ningún conector implementado, así que se muestran deshabilitados (como "Sincronizar" en
- * Inicio) en lugar de parecer rotos.
+ * Meta tiene su propia tarjeta con selección, reautorización y desconexión. Las demás
+ * integraciones siguen como tarjetas informativas; "Ver guía" aún está deshabilitado.
  *
  * El callback de Meta vuelve acá con `?meta=<resultado>` (D-M16.1-01). Solo se muestra el
  * texto de la lista cerrada: ningún otro parámetro de la URL llega a la pantalla. Las props

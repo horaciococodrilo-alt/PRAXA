@@ -20,10 +20,9 @@ import { getCredentialKeyring, type CredentialKeyring } from '../crypto/keyring'
 import { SecretValue } from '../crypto/seal';
 import { getWorkerApi, WorkerApiError, type WorkerApi } from '../db/worker-api';
 import { consumeOAuthAttempt, createOAuthAttempt, LiveConnectionExistsError } from '../repository/attempts';
-import { readLiveConnection, type LiveConnection } from '../repository/connections';
-import { readConnectionRecord } from '../repository/connections';
+import { readConnectionRecord, readLiveConnection, type LiveConnection } from '../repository/connections';
 import type { IntegrationConnectionRecord } from '../contract';
-import { completeReauth, runLazyPurge, type MetaLifecycleLogEvent } from '../lifecycle';
+import { completeReauth, resolveAmbiguousWrite, runLazyPurge, type MetaLifecycleLogEvent } from '../lifecycle';
 import {
   executePreparedCredentialOperation,
   preparePendingConnectionWithCredential,
@@ -35,7 +34,6 @@ import type { MetaOAuthOutcome } from './outcomes';
 import { TokenRejectedError, exchangeCodeForToken, fetchClientBusinessId, inspectToken,
   type TokenRejectionReason } from './tokens';
 import { revokeToken } from './revoke';
-import { resolveAmbiguousWrite } from '../lifecycle';
 
 /**
  * Orquestación del inicio y del callback OAuth con Meta (II.9, pasos 3 a 7).

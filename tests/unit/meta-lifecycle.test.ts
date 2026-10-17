@@ -453,6 +453,43 @@ function confirmHarness(options: {
 }
 
 describe('M16.2: selección y estado de la tarjeta', () => {
+  it('T-27 entrega ids truncados desde loadMetaCardState en pendiente y activa', async () => {
+    const accountId = 'act_90001';
+    const pending = confirmHarness();
+    pending.deps.http = createMetaHttpClient({ fetch: async (url) => {
+      if (url.pathname === '/v26.0/me') {
+        return new Response('{"id":"5550001","client_business_id":"negocio_sintetico"}');
+      }
+      if (url.pathname === '/v26.0/5550001/assigned_ad_accounts') {
+        return new Response(JSON.stringify({ data: [{ id: accountId, name: 'Cuenta sintética',
+          currency: 'USD', timezone_name: 'UTC' }] }));
+      }
+      throw new Error('Petición inesperada.');
+    } });
+    pending.deps.workerApi = () => ({ call: (async (fn: string) => {
+      if (fn === 'list_pending_purges') return [];
+      if (fn === 'get_credential') return [credentialRow()];
+      throw new Error(`Llamada inesperada: ${fn}`);
+    }) as WorkerApi['call'] });
+    const pendingState = await loadMetaCardState(pending.deps);
+    expect(pendingState).toEqual({ kind: 'pendiente', pendingExpiresAt: pendingRecord().pending_expires_at,
+      accounts: [{ selectionKey: selectionKey(CONNECTION_ID, accountId), name: 'Cuenta sintética',
+        maskedId: '…0001', currency: 'USD', timezone: 'UTC' }], discarded: 0, listError: null });
+
+    const activeRecord: IntegrationConnectionRecord = { ...pendingRecord(), status: 'active',
+      external_account_id: accountId, currency: 'USD', timezone: 'UTC', pending_expires_at: null,
+      purge_requested_at: null };
+    const activeState = await loadMetaCardState({ tenant: async () => CTX,
+      workerApi: pending.deps.workerApi, readConnection: async () => activeRecord, log: () => {} });
+    expect(activeState).toEqual({ kind: 'activa', maskedId: '…0001', currency: 'USD', timezone: 'UTC' });
+    for (const state of [pendingState, activeState]) {
+      const serialized = JSON.stringify(state);
+      for (const forbidden of [accountId, '5550001', 'negocio_sintetico']) {
+        expect(serialized).not.toContain(forbidden);
+      }
+    }
+  });
+
   it('T-06 confirma solo después de releer, listar y probar la cuenta', async () => {
     const { deps, events } = confirmHarness();
     expect(await confirmAccount(selectionKey(), deps)).toBe('conectado');

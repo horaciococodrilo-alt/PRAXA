@@ -412,7 +412,10 @@ export async function completeReauth(
         if (trial === 0) continue;
         const resolution = await resolveAmbiguousWrite(ctx, token,
           { kind: 'reauth', connectionId: connection.id, expectedGeneration: attempt.expectedGeneration! }, deps);
-        if (resolution === 'applied') return { outcome: 'reautorizado', etapa: 'reauth' };
+        if (resolution === 'applied') {
+          deps.log({ evento: 'meta_ciclo', etapa: 'reauth', resultado: 'ok', request_id: ctx.request_id });
+          return { outcome: 'reautorizado', etapa: 'reauth' };
+        }
         await revokeNewToken(ctx, token, deps);
         return { outcome: 'error', etapa: 'reauth' };
       }
