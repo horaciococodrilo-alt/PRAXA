@@ -13,9 +13,15 @@ const limit = vi.fn();
 const getUser = vi.fn();
 const createSignedUrl = vi.fn();
 const requireUser = vi.fn();
+const requireTenantContext = vi.fn();
+const readConnectionRecord = vi.fn();
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/modules/identity/session', () => ({ requireUser: (p?: string) => requireUser(p) }));
+vi.mock('@/modules/tenant/context', () => ({ requireTenantContext: () => requireTenantContext() }));
+vi.mock('@/modules/integrations/repository/connections', () => ({
+  readConnectionRecord: (...args: unknown[]) => readConnectionRecord(...args),
+}));
 vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: async () => ({
     from: (t: string) => (from(t), { select: () => ({ eq: (...a: unknown[]) => (eq(...a), { limit: (n: number) => limit(n) }) }) }),
@@ -29,6 +35,8 @@ const { configuracionPendiente, getDiagnostico, getIntegraciones, getUsuario } =
 beforeEach(() => {
   vi.clearAllMocks();
   requireUser.mockResolvedValue({ id: ID, email: 'ana@praxa.test' });
+  requireTenantContext.mockResolvedValue({ user_id: ID, company_id: ID, role: 'owner', request_id: ID });
+  readConnectionRecord.mockResolvedValue(null);
 });
 
 describe('getDiagnostico', () => {
@@ -115,6 +123,21 @@ describe('getIntegraciones', () => {
   it('devuelve copias: una pantalla no puede alterar el mock compartido', async () => {
     const [primera] = await getIntegraciones();
     primera.conectada = true;
+    expect((await getIntegraciones())[0].conectada).toBe(false);
+  });
+
+  it.each([
+    ['active', true], ['pending_selection', false], ['needs_reauth', false],
+  ])('T-46 Meta %s se proyecta como conectada=%s', async (status, connected) => {
+    readConnectionRecord.mockResolvedValue({ status });
+    expect((await getIntegraciones())[0].conectada).toBe(connected);
+    expect((await getIntegraciones()).slice(1).map((item) => item.conectada)).toEqual([false, false]);
+  });
+
+  it('T-46 falla cerrado sin propagar errores de tenant ni lectura', async () => {
+    requireTenantContext.mockRejectedValueOnce(new Error('sin empresa'));
+    expect((await getIntegraciones())[0].conectada).toBe(false);
+    readConnectionRecord.mockRejectedValueOnce(new Error('fallo sintético'));
     expect((await getIntegraciones())[0].conectada).toBe(false);
   });
 });

@@ -4,6 +4,8 @@ import { cache } from 'react';
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { requireUser } from '@/modules/identity/session';
+import { requireTenantContext } from '@/modules/tenant/context';
+import { readConnectionRecord } from '@/modules/integrations/repository/connections';
 
 import { INTEGRACIONES_BASE, usoEnCero } from './mock';
 import type { Diagnostico, Empresa, Integracion, Uso, Usuario } from './types';
@@ -83,9 +85,15 @@ export function configuracionPendiente(empresa: Empresa | null): boolean {
   return !empresa || !empresa.rubro || !empresa.pais || !empresa.moneda;
 }
 
-/** MOCK: ningún conector está implementado, así que ninguna integración está conectada. */
+/** Meta real bajo RLS; las otras integraciones todavía no tienen conector. */
 export async function getIntegraciones(): Promise<Integracion[]> {
-  return INTEGRACIONES_BASE.map((i) => ({ ...i }));
+  let metaConnected = false;
+  try {
+    const ctx = await requireTenantContext();
+    metaConnected = (await readConnectionRecord(ctx))?.status === 'active';
+  } catch { metaConnected = false; }
+  return INTEGRACIONES_BASE.map((item) => ({ ...item,
+    conectada: item.id === 'meta_ads' ? metaConnected : false }));
 }
 
 /** MOCK: la IA todavía no se usa; todo en cero. */

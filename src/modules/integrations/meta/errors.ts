@@ -105,3 +105,23 @@ export class MetaApiError extends Error {
 export function transportError(): MetaApiError {
   return new MetaApiError({ errorClass: 'transport', graphCode: null, graphSubcode: null });
 }
+
+export type ConnectionEffect = 'needs_reauth' | 'unchanged';
+
+export const NEEDS_REAUTH_TEXTS: Readonly<Record<'authentication' | 'user_action' | 'permission' | 'asset_access', string>> =
+  Object.freeze({
+    authentication: 'Meta rechazó la credencial. Volvé a autorizar a Praxa.',
+    user_action: 'Meta pide que vuelvas a autorizar desde tu cuenta de Facebook.',
+    permission: 'Meta retiró el permiso de lectura de anuncios (ads_read). Volvé a autorizar.',
+    asset_access: 'Meta retiró el acceso a la cuenta publicitaria. Volvé a autorizar.',
+  });
+
+export function connectionEffectFor(errorClass: IntegrationErrorClass): ConnectionEffect {
+  return errorClass === 'authentication' || errorClass === 'user_action' ||
+    errorClass === 'permission' || errorClass === 'asset_access' ? 'needs_reauth' : 'unchanged';
+}
+
+export function rejectionOutcomeFor(errorClass: IntegrationErrorClass): 'rechazado' | 'meta_no_disponible' {
+  return errorClass === 'own_error' || errorClass === 'authentication' || errorClass === 'user_action' ||
+    errorClass === 'permission' ? 'rechazado' : 'meta_no_disponible';
+}

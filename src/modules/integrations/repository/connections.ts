@@ -3,6 +3,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { uuidSchema } from '@/modules/integrations/contract/primitives';
+import { integrationConnectionRecordSchema, type IntegrationConnectionRecord } from '@/modules/integrations/contract';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { tenantContextSchema, type TenantContext } from '@/modules/tenant/context';
 
@@ -60,4 +61,27 @@ export async function readLiveConnection(
     throw new ConnectionReadError();
   }
   return Object.freeze({ id: row.id as string, status, credentialGeneration: generation as number });
+}
+
+/** Registro completo de la conexión viva, leído con el JWT del usuario y RLS. */
+export async function readConnectionRecord(
+  ctx: TenantContext,
+  deps: { supabase?: SupabaseClient } = {},
+): Promise<IntegrationConnectionRecord | null> {
+  const parsedContext = tenantContextSchema.safeParse(ctx);
+  if (!parsedContext.success) throw new ConnectionReadError();
+  const supabase = deps.supabase ?? (await createSupabaseServerClient());
+  const { data, error } = await supabase.from('integration_connections')
+    .select('id, company_id, provider, client_business_id, credential_generation, current_sync_run_id, last_error_class, last_error_message, created_at, updated_at, external_account_id, currency, timezone, status, pending_expires_at, purge_requested_at')
+    .eq('company_id', parsedContext.data.company_id)
+    .eq('provider', 'meta')
+    .in('status', [...LIVE_STATUSES])
+    .maybeSingle();
+  if (error) throw new ConnectionReadError();
+  if (data === null) return null;
+  const parsed = integrationConnectionRecordSchema.safeParse(data);
+  if (!parsed.success || parsed.data.company_id !== parsedContext.data.company_id || parsed.data.provider !== 'meta') {
+    throw new ConnectionReadError();
+  }
+  return parsed.data;
 }

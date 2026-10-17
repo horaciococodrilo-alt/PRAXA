@@ -21,15 +21,21 @@ import { SecretValue } from '../crypto/seal';
 import { getWorkerApi, WorkerApiError, type WorkerApi } from '../db/worker-api';
 import { consumeOAuthAttempt, createOAuthAttempt, LiveConnectionExistsError } from '../repository/attempts';
 import { readLiveConnection, type LiveConnection } from '../repository/connections';
+import { readConnectionRecord } from '../repository/connections';
+import type { IntegrationConnectionRecord } from '../contract';
+import { completeReauth, runLazyPurge, type MetaLifecycleLogEvent } from '../lifecycle';
 import {
   executePreparedCredentialOperation,
   preparePendingConnectionWithCredential,
 } from '../repository/credentials';
-import { MetaConfigError, dialogUrl, getMetaOAuthConfig, graphUrl, type MetaOAuthConfig } from './api';
+import { MetaConfigError, dialogUrl, getMetaOAuthConfig, type MetaOAuthConfig } from './api';
 import { createMetaHttpClient, type MetaHttpClient } from './client';
-import { MetaApiError } from './errors';
+import { MetaApiError, rejectionOutcomeFor } from './errors';
 import type { MetaOAuthOutcome } from './outcomes';
-import { TokenRejectedError, fetchClientBusinessId, inspectToken } from './tokens';
+import { TokenRejectedError, exchangeCodeForToken, fetchClientBusinessId, inspectToken,
+  type TokenRejectionReason } from './tokens';
+import { revokeToken } from './revoke';
+import { resolveAmbiguousWrite } from '../lifecycle';
 
 /**
  * Orquestación del inicio y del callback OAuth con Meta (II.9, pasos 3 a 7).
@@ -55,6 +61,7 @@ export type MetaOAuthLogEvent = {
   etapa: 'inicio' | 'configuracion' | 'consumo' | 'canje' | 'inspeccion' | 'negocio' | 'pendiente' | 'reauth';
   resultado: MetaOAuthOutcome | 'ok';
   clase?: IntegrationErrorClass;
+  motivo?: TokenRejectionReason;
   request_id?: string;
 };
 
@@ -65,13 +72,14 @@ export type MetaOAuthDeps = {
   workerApi?: WorkerApi;
   keyring?: CredentialKeyring;
   readLiveConnection: (ctx: TenantContext) => Promise<LiveConnection | null>;
+  readConnection: (ctx: TenantContext) => Promise<IntegrationConnectionRecord | null>;
   now: () => Date;
   randomBytes: (size: number) => Buffer;
-  log: (event: MetaOAuthLogEvent) => void;
+  log: (event: MetaOAuthLogEvent | MetaLifecycleLogEvent) => void;
 };
 
-/** Una línea de formato fijo: solo etapa, resultado, clase y `request_id`. */
-function defaultLog(event: MetaOAuthLogEvent): void {
+/** Una línea de formato fijo con resultado, clase o motivo cerrados y `request_id`. */
+function defaultLog(event: MetaOAuthLogEvent | MetaLifecycleLogEvent): void {
   console.info(JSON.stringify(event));
 }
 
@@ -83,6 +91,7 @@ function resolveDeps(partial: Partial<MetaOAuthDeps> = {}) {
     config: partial.config ?? getMetaOAuthConfig,
     http: partial.http ?? createMetaHttpClient(),
     readLiveConnection: partial.readLiveConnection ?? ((ctx: TenantContext) => readLiveConnection(ctx)),
+    readConnection: partial.readConnection ?? ((ctx: TenantContext) => readConnectionRecord(ctx)),
     now: partial.now ?? (() => new Date()),
     randomBytes: partial.randomBytes ?? nodeRandomBytes,
     log: partial.log ?? defaultLog,
@@ -152,32 +161,6 @@ export function buildAuthorizationUrl(config: MetaOAuthConfig, state: string): U
   });
 }
 
-/** Canje por `POST` con todo en el cuerpo (D-M16.1-08). No reintenta: el código es de un solo uso. */
-export async function exchangeCodeForToken(
-  code: string,
-  deps: { http: MetaHttpClient; config: MetaOAuthConfig },
-): Promise<SecretValue> {
-  const body = await deps.http.postFormJson(graphUrl('oauth/access_token'), {
-    client_id: deps.config.appId,
-    redirect_uri: deps.config.redirectUri,
-    client_secret: deps.config.appSecret,
-    code: new SecretValue(code),
-  });
-  const token =
-    body && typeof body === 'object' && !Array.isArray(body) ? (body as { access_token?: unknown }).access_token : undefined;
-  if (typeof token !== 'string' || token === '') {
-    throw new MetaApiError({ errorClass: 'unknown', graphCode: null, graphSubcode: null });
-  }
-  return new SecretValue(token);
-}
-
-/** CA-39: las clases que indican una autorización inválida se muestran como rechazo. */
-const REJECTING_CLASSES = new Set<IntegrationErrorClass>(['own_error', 'authentication', 'user_action', 'permission']);
-
-function metaOutcome(error: MetaApiError): MetaOAuthOutcome {
-  return REJECTING_CLASSES.has(error.errorClass) ? 'rechazado' : 'meta_no_disponible';
-}
-
 // ---------------------------------------------------------------------------
 // POST /api/integraciones/meta/iniciar
 // ---------------------------------------------------------------------------
@@ -219,8 +202,14 @@ export async function handleMetaStart(request: NextRequest, partial?: Partial<Me
       return finish('error', 'configuracion', ctx.request_id);
     }
 
+    try {
+      await runLazyPurge(ctx, { http: deps.http, config: deps.config, workerApi: deps.workerApi,
+        keyring: deps.keyring, log: deps.log, now: deps.now, readConnection: deps.readConnection, tenant: deps.tenant });
+    } catch {
+      deps.log({ evento: 'meta_ciclo', etapa: 'purga', resultado: 'fallida', request_id: ctx.request_id });
+    }
     const live = await deps.readLiveConnection(ctx);
-    // D-M16.1-04: con una pendiente no se inicia nada; su purga y revocación son de M16.2.
+    // D-M16.1-04: una pendiente vigente bloquea un nuevo intento.
     if (live?.status === 'pending_selection') return finish('pendiente_vigente', 'inicio', ctx.request_id);
     const purpose = live === null ? 'initial' : 'reauth';
     const expectedConnectionId = live === null ? null : live.id;
@@ -280,13 +269,14 @@ export async function handleMetaCallback(request: NextRequest, partial?: Partial
   const finish = (
     outcome: MetaOAuthOutcome,
     etapa: MetaOAuthLogEvent['etapa'],
-    options: { clase?: IntegrationErrorClass; returnPath?: ReturnPath } = {},
+    options: { clase?: IntegrationErrorClass; motivo?: TokenRejectionReason; returnPath?: ReturnPath } = {},
   ) => {
     deps.log({
       evento: 'meta_oauth',
       etapa,
       resultado: outcome,
       ...(options.clase ? { clase: options.clase } : {}),
+      ...(options.motivo ? { motivo: options.motivo } : {}),
       ...(logContext.requestId ? { request_id: logContext.requestId } : {}),
     });
     return withClearedCookie(redirect(resultUrl(request, outcome, options.returnPath)));
@@ -345,13 +335,13 @@ export async function handleMetaCallback(request: NextRequest, partial?: Partial
     const returnPath = attempt.returnPath;
     consumedReturnPath = returnPath;
 
-    // D-M16.1-03: en M16.1 `reauth` valida la conexión y la generación, sin canjear el código.
     if (attempt.purpose === 'reauth') {
       stage = 'reauth';
-      const live = await deps.readLiveConnection(ctx);
-      const unchanged =
-        live !== null && live.id === attempt.expectedConnectionId && live.credentialGeneration === attempt.expectedGeneration;
-      return finish(unchanged ? 'reautorizacion_no_disponible' : 'credencial_cambio', 'reauth', { returnPath });
+      const result = await completeReauth(ctx, attempt, code, {
+        http: deps.http, config: deps.config, workerApi: deps.workerApi, keyring: deps.keyring,
+        readConnection: deps.readConnection, log: deps.log,
+      });
+      return finish(result.outcome, result.etapa, { returnPath, clase: result.clase, motivo: result.motivo });
     }
 
     stage = 'configuracion';
@@ -364,8 +354,10 @@ export async function handleMetaCallback(request: NextRequest, partial?: Partial
     }
 
     let etapa: MetaOAuthLogEvent['etapa'] = 'canje';
+    let exchangedToken: SecretValue | null = null;
     try {
       const token = await exchangeCodeForToken(code, { http: deps.http, config });
+      exchangedToken = token;
       etapa = 'inspeccion';
       const validated = await inspectToken(token, { http: deps.http, config });
       etapa = 'negocio';
@@ -394,13 +386,34 @@ export async function handleMetaCallback(request: NextRequest, partial?: Partial
               (error.failureKind === 'transport' || error.failureKind === 'timeout'))) {
           throw error;
         }
-        await executePreparedCredentialOperation(ctx, operation, { workerApi, keyring });
+        try {
+          await executePreparedCredentialOperation(ctx, operation, { workerApi, keyring });
+        } catch (second) {
+          if (second instanceof WorkerApiError && second.code === 'unavailable' &&
+              (second.failureKind === 'transport' || second.failureKind === 'timeout')) {
+            const resolution = await resolveAmbiguousWrite(ctx, token, { kind: 'initial' }, {
+              readConnection: deps.readConnection, workerApi: deps.workerApi, keyring: deps.keyring,
+            });
+            if (resolution === 'applied') return finish('pendiente', 'pendiente', { returnPath });
+          }
+          throw second;
+        }
       }
       return finish('pendiente', 'pendiente', { returnPath });
     } catch (error) {
-      if (error instanceof MetaApiError) return finish(metaOutcome(error), etapa, { clase: error.errorClass, returnPath });
+      if (exchangedToken) {
+        let revocation: Awaited<ReturnType<typeof revokeToken>>;
+        try { revocation = await revokeToken(exchangedToken, { http: deps.http, config }); }
+        catch { revocation = { status: 'failed', errorClass: 'own_error' }; }
+        deps.log({ evento: 'meta_ciclo', etapa: 'revocacion',
+          resultado: revocation.status === 'revoked' ? 'ok' : 'fallida',
+          ...(revocation.status === 'failed' ? { clase: revocation.errorClass } : {}),
+          request_id: ctx.request_id });
+      }
+      if (error instanceof MetaApiError) return finish(rejectionOutcomeFor(error.errorClass), etapa, { clase: error.errorClass, returnPath });
       if (error instanceof TokenRejectedError) {
-        return finish(error.reason === 'missing_ads_read' ? 'permiso_faltante' : 'token_no_valido', etapa, { returnPath });
+        return finish(error.reason === 'missing_ads_read' ? 'permiso_faltante' : 'token_no_valido', etapa,
+          { returnPath, motivo: error.reason });
       }
       if (error instanceof WorkerApiError && error.code === 'live_connection_exists') {
         return finish('conexion_existente', etapa, { returnPath });

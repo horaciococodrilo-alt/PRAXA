@@ -1,6 +1,6 @@
 # M16.2 — Plan de implementación
 
-**Estado:** BORRADOR
+**Estado:** APROBADO
 
 Solo el usuario pasa este plan a `APROBADO`, después de una auditoría APROBABLE.
 

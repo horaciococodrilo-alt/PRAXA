@@ -4,6 +4,8 @@ import { IntegracionLogo } from '@/components/app/integracion-logo';
 import { Badge, Button, ButtonLink, Card, Img, PageHeader } from '@/components/app/ui';
 import { getIntegraciones, requireAppSession } from '@/modules/app-data';
 import { META_OAUTH_MESSAGES, parseMetaOAuthOutcome } from '@/modules/integrations/meta/outcomes';
+import { loadMetaCardState } from '@/modules/integrations/lifecycle';
+import { MetaTarjeta } from './meta-tarjeta';
 
 export const metadata = { title: 'Integraciones' };
 
@@ -22,6 +24,7 @@ export default async function IntegracionesPage(props: PageProps<'/app/integraci
   const searchParams = await props.searchParams;
   const resultado = parseMetaOAuthOutcome(searchParams.meta);
   const aviso = resultado === null ? null : META_OAUTH_MESSAGES[resultado];
+  const metaState = await loadMetaCardState();
   const integraciones = await getIntegraciones();
 
   return (
@@ -57,7 +60,8 @@ export default async function IntegracionesPage(props: PageProps<'/app/integraci
         <h2 id="integraciones-marketing">Marketing y analítica</h2>
         <p>Conectá tus herramientas de marketing y analítica para medir el rendimiento.</p>
         <div className={i.cards}>
-          {integraciones.map((int) => (
+          <MetaTarjeta state={metaState} />
+          {integraciones.filter((int) => int.id !== 'meta_ads').map((int) => (
             <article key={int.id} className={i.card}>
               <div className={i.cardTop}>
                 <span className={i.logo}>

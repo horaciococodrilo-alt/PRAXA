@@ -22,6 +22,7 @@ export const GRAPH_URL_FORBIDDEN_PARAMS = [
   'client_secret',
   'code',
   'appsecret_proof',
+  'revoke_token',
 ] as const;
 
 export class MetaUrlParamError extends Error {
