@@ -416,6 +416,7 @@ function confirmHarness(options: {
   record?: IntegrationConnectionRecord;
   probeStatus?: number;
   probeCode?: number;
+  probeRows?: readonly Record<string, string>[];
   confirmErrors?: WorkerApiError[];
 } = {}) {
   const events: string[] = [];
@@ -428,7 +429,7 @@ function confirmHarness(options: {
       data: [{ id: ACCOUNT, name: 'Cuenta sintética', currency: 'USD', timezone_name: 'UTC' }],
     }));
     if (url.pathname === `/v26.0/${ACCOUNT}/insights`) return options.probeCode === undefined
-      ? new Response('{"data":[]}', { status: options.probeStatus ?? 200 })
+      ? new Response(JSON.stringify({ data: options.probeRows ?? [] }), { status: options.probeStatus ?? 200 })
       : new Response(JSON.stringify({ error: { code: options.probeCode } }), { status: options.probeStatus ?? 400 });
     throw new Error('Petición inesperada.');
   } });
@@ -458,6 +459,29 @@ describe('M16.2: selección y estado de la tarjeta', () => {
     expect(events).toEqual(['readConnection', 'db:get_credential', 'meta:/v26.0/me',
       'meta:/v26.0/5550001/assigned_ad_accounts', `meta:/v26.0/${ACCOUNT}/insights`,
       'db:confirm_connection']);
+  });
+
+  it('T-23 registra solo el resumen del probe y los conteos del listado', async () => {
+    const probe = confirmHarness({ probeRows: [{ date_start: '2026-10-01', spend: '1.23',
+      impressions: '9' }] });
+    expect(await confirmAccount(selectionKey(), probe.deps)).toBe('conectado');
+    expect(probe.logs).toEqual([
+      { evento: 'meta_ciclo', request_id: CTX.request_id, etapa: 'prueba', resultado: 'ok',
+        filas: 1, campos: ['date_start', 'spend', 'impressions'], paginas: 1, llamadas: 1,
+        completa: true, duracion_ms: expect.any(Number) },
+      { evento: 'meta_ciclo', request_id: CTX.request_id, etapa: 'confirmacion', resultado: 'ok' },
+    ]);
+
+    const listing = confirmHarness();
+    listing.deps.workerApi = () => ({ call: (async (fn: string) => fn === 'list_pending_purges'
+      ? [] : [credentialRow()]) as WorkerApi['call'] });
+    expect(await loadMetaCardState(listing.deps)).toMatchObject({ kind: 'pendiente' });
+    expect(listing.logs).toEqual([{ evento: 'meta_ciclo', request_id: CTX.request_id,
+      etapa: 'listado', resultado: 'ok', cuentas: 1, descartadas: 0 }]);
+
+    const recorded = JSON.stringify([...probe.logs, ...listing.logs]);
+    for (const forbidden of [TOKEN, ACCOUNT, '5550001', 'negocio_sintetico',
+      'Cuenta sintética', '1.23']) expect(recorded).not.toContain(forbidden);
   });
 
   it('T-07 descarta claves inválidas y claves ligadas a otra conexión', async () => {

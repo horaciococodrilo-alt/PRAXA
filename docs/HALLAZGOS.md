@@ -127,6 +127,7 @@ Registro único de hallazgos documentados en la auditoría M04.1, el baseline M0
 | `H-E1-115` | Aceptado como límite declarado: los logs del hosting registran el `code` y el `state` del callback | Ninguna (límite en `SECURITY.md` §12) | [Sesión M16.1](FASES/FASE1/meta_first/sesiones/M16.1.md), D-M16.1-07 |
 | `H-E1-116` | Pendiente de verificar con Meta real: el canje y `debug_token` por `POST`, y `/me` con `Authorization` | M16.2 (VR-01) | [Sesión M16.1](FASES/FASE1/meta_first/sesiones/M16.1.md), D-M16.1-08 |
 | `H-E1-117` | Pendiente: hipótesis de M16.1 que VR-01 tiene que confirmar | M16.2 (VR-01) | [Sesión M16.1](FASES/FASE1/meta_first/sesiones/M16.1.md), A-09 de la spec de M16.1 |
+| `H-E1-119` | Resuelto: T-23 no comprobaba el log del probe exitoso y podía pasar aunque se agregara un ID completo o un valor de Insights | M16.2, corrección de R-01 | [Revisión de implementación](FASES/FASE1/M16.2/revisiones/implementation-review-1.md); [sesión M16.2](FASES/FASE1/meta_first/sesiones/M16.2.md), 2026-10-17 |
 
 `H-E1-49` — Impacto: `next=/\evil.example/` pasaba la guarda de login y `router.replace`
 podía enviar al usuario fuera de PRAXA. Evidencia: guarda anterior en `login/page.tsx` y
@@ -549,3 +550,7 @@ No se agregan aquí montos, identificadores completos de cuentas, correos ni dat
 ## Hallazgo informativo registrado al implementar M16.2 (2026-10-17)
 
 - **`H-E1-118` — Comentario de numeración SQL desactualizado.** *Impacto:* el encabezado de `supabase/migrations/0012_integrations.sql` presenta `0013` y `0014` como números futuros para cobertura, snapshots y chat, pero `0014_profile_photos.sql` ya ocupa el segundo número; puede confundir la lectura histórica de la matriz, sin alterar los privilegios ejecutados. *Evidencia:* líneas 12–21 del encabezado de `0012_integrations.sql` y migración `0014_profile_photos.sql`. *Estado:* informativo; no se modifica una migración existente. *Asignación:* M16.2 (registro), futuras migraciones de la ruta para la numeración efectiva.
+
+## Hallazgo de la revisión de implementación de M16.2 (2026-10-17)
+
+- **`H-E1-119` — Falta de cobertura del log del probe exitoso.** *Impacto:* T-23 pasaba aunque se agregara al registro un ID completo de cuenta o un valor de Insights. *Evidencia:* R-01 de `implementation-review-1.md`; la mutación temporal del log `prueba ok` con el ID de cuenta no era detectada por la prueba anterior. *Resolución:* T-23 ahora recorre la confirmación exitosa y el listado, comprueba las claves exactas de sus registros y la ausencia de identificadores y valores sintéticos. La misma mutación hizo fallar la nueva prueba; el código original se restauró. *Asignación:* M16.2, corrección de R-01.
