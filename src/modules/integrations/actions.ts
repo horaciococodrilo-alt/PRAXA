@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { UnauthorizedError } from '@/modules/identity/session';
@@ -20,6 +21,7 @@ export async function confirmarCuentaMeta(formData: FormData): Promise<never> {
     result = 'error';
   }
   if (login) redirect(LOGIN);
+  revalidatePath('/app', 'layout');
   redirect(`${RESULT}${result}`);
 }
 
@@ -32,5 +34,6 @@ export async function desconectarMeta(): Promise<never> {
     result = 'error';
   }
   if (login) redirect(LOGIN);
+  revalidatePath('/app', 'layout');
   redirect(`${RESULT}${result}`);
 }

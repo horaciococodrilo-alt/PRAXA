@@ -690,9 +690,13 @@ describe('M16.2: Server Actions', () => {
     vi.resetModules();
     const identity = await import('@/modules/identity/session');
     const confirm = vi.fn().mockRejectedValueOnce(new identity.UnauthorizedError()).mockResolvedValueOnce('sin_empresa');
-    const disconnectAction = vi.fn().mockRejectedValueOnce(new identity.UnauthorizedError());
+    const disconnectAction = vi.fn()
+      .mockRejectedValueOnce(new identity.UnauthorizedError())
+      .mockResolvedValueOnce('desconectado');
     const redirect = vi.fn((url: string) => { throw new Error(`NEXT_REDIRECT:${url}`); });
+    const revalidatePath = vi.fn();
     vi.doMock('@/modules/integrations/lifecycle', () => ({ confirmAccount: confirm, disconnect: disconnectAction }));
+    vi.doMock('next/cache', () => ({ revalidatePath }));
     vi.doMock('next/navigation', () => ({ redirect }));
     try {
       const actions = await import('@/modules/integrations/actions');
@@ -707,12 +711,17 @@ describe('M16.2: Server Actions', () => {
         'NEXT_REDIRECT:/app/integraciones?meta=sin_empresa');
       await expect(actions.desconectarMeta()).rejects.toThrow(
         'NEXT_REDIRECT:/login?next=%2Fapp%2Fintegraciones');
+      await expect(actions.desconectarMeta()).rejects.toThrow(
+        'NEXT_REDIRECT:/app/integraciones?meta=desconectado');
       expect(confirm).toHaveBeenCalledWith(selectionKey());
       expect(confirm).toHaveBeenCalledTimes(2);
-      expect(disconnectAction).toHaveBeenCalledWith();
-      expect(redirect).toHaveBeenCalledTimes(3);
+      expect(disconnectAction).toHaveBeenCalledTimes(2);
+      expect(revalidatePath).toHaveBeenCalledTimes(2);
+      expect(revalidatePath).toHaveBeenCalledWith('/app', 'layout');
+      expect(redirect).toHaveBeenCalledTimes(4);
     } finally {
       vi.doUnmock('@/modules/integrations/lifecycle');
+      vi.doUnmock('next/cache');
       vi.doUnmock('next/navigation');
       vi.resetModules();
     }
