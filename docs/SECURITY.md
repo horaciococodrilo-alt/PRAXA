@@ -294,7 +294,7 @@ Estado de cada pieza, sin repetir los plazos (la fuente es la spec):
 | Pieza | Estado |
 |---|---|
 | Decisiones de retención: al desconectar se borra todo lo de la conexión (DEC-09); registros del chat sin plazo propio (DEC-12); vencimiento de conexiones pendientes (DEC-17); purga perezosa de intentos y copias de seguridad (CA-38b) | Cerradas en la spec |
-| Acta de datos reales que las ratifica y declara finalidad, accesos, terceros y transferencias | Pendiente en `M03a` (`G-ACTA-META`); ningún dato real entra antes (`H-E1-03`) |
+| Acta de datos reales que las ratifica y declara finalidad, accesos, terceros, transferencias, baja e incidentes | [Acta de datos reales](FASES/FASE1/M03a/acta-meta.md). Ningún dato real entra al proyecto `app` antes de su aprobación (`G-ACTA-META`). Las transferencias internacionales y la notificación de incidentes quedan marcadas para evaluación profesional |
 | Funciones de la base para desconexión y purga idempotente | Vigentes en `worker_api` |
 | Orquestación de la purga perezosa y revocación en Meta | Vigentes, probadas con Meta simulada. Una purga fallida queda pendiente hasta la siguiente visita o inicio; la revocación fallida no conserva la credencial local |
 | Flujo de baja de cuenta desde la aplicación | No existe (`H-E1-06`). El cierre del piloto es un procedimiento administrativo con orden obligatorio (CA-67) |

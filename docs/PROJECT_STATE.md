@@ -20,13 +20,14 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 | M06.3a — Cifrado, cliente acotado y documentación de la excepción | `G-CRYPTO` | 2026-10-02 (decisión del usuario; sin `/implementation-review` ni `/qa-review` con veredicto final sobre el HEAD cerrado — detalle en la sesión) | [sesiones/M06.3a.md](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 | M28.2a — Entorno del piloto | `G-ENTORNO` | 2026-10-11 (pasos manuales acreditados por declaración del usuario, sin capturas; detalle en la sesión) | [sesiones/M28.2a.md](FASES/FASE1/meta_first/sesiones/M28.2a.md) |
 | M16.1 — OAuth con Meta | `G-OAUTH` | 2026-10-14 (PR #23; despliegue y comprobaciones en producción acreditados por declaración del usuario, sin capturas; sin `/implementation-review` sobre las correcciones posteriores a la revisión; detalle en la sesión) | [sesiones/M16.1.md](FASES/FASE1/meta_first/sesiones/M16.1.md) |
+| M03a — Acta de datos reales de Meta y del chat | `G-ACTA-META` | 2026-10-18 (aprobación explícita del usuario) | [sesiones/M03a.md](FASES/FASE1/meta_first/sesiones/M03a.md) |
 
 ## Siguiente habilitada
 
 **M16.2 — Selección de cuenta, ciclo de vida, alta del dueño y VR-01: VERIFICADO — PENDIENTE DE APROBACIÓN.**
 Fase A verificada en `mf/M16.2` tras corregir la revisión de implementación; fase B pendiente. Evidencia en
 [sesiones/M16.2.md](FASES/FASE1/meta_first/sesiones/M16.2.md). `G-VR01` no está aprobado.
-Antes de la primera autorización real hacen falta `G-ACTA-META` y P-04; la fase B sigue al
+`G-ACTA-META` está aprobado. Antes de la primera autorización real sigue pendiente P-04; la fase B sigue al
 merge y despliegue de la fase A.
 
 Hallazgos asignados a M06.3a (cerrada): `H-M04.1-02`, `H-E1-09`, `H-E1-10`, `H-E1-17`, `H-E1-37`,
@@ -34,11 +35,6 @@ Hallazgos asignados a M06.3a (cerrada): `H-M04.1-02`, `H-E1-09`, `H-E1-10`, `H-E
 [HALLAZGOS.md](HALLAZGOS.md).
 
 Después de M16.2, en este orden: M16c, M25a.1, M25a.2 y M28.3a.
-
-## En paralelo
-
-- **M03a — Acta de datos reales de Meta y del chat:** sin empezar. Su gate `G-ACTA-META`
-  bloquea el primer dato real, en M16.2.
 
 ## Fuera de la ruta o pospuesto
 
