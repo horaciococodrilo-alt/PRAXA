@@ -66,8 +66,10 @@ class UserSession {
   }
 
   /** Asume el rol y los claims del usuario para el resto de la transacción. */
-  async begin() {
-    await this.client.query('begin');
+  async begin(isolationLevel?: 'read committed') {
+    await this.client.query(
+      isolationLevel ? 'begin transaction isolation level read committed' : 'begin',
+    );
     await this.client.query(
       `select set_config('request.jwt.claims', $1, true)`,
       [JSON.stringify({ sub: this.userId, role: 'authenticated' })],
@@ -272,6 +274,56 @@ describe.skipIf(!canRun)('carrera entre editar y confirmar (dos transacciones re
 
     // Y no quedó ninguna versión activa.
     expect(await activeVersion()).toBeNull();
+  }, 60_000);
+
+  it('edición directa del borrador pendiente: la confirmación no activa contenido sin revisar', async () => {
+    const draftId = await draftReadyToActivate();
+    const revision = await revisionOf(draftId);
+
+    // T1 edita una columna del borrador directamente (sin el cerrojo de la empresa) y NO confirma.
+    await t1.begin();
+    await t1.query(
+      'update public.company_context_versions set additional_context = $2 where id = $1',
+      [draftId, 'Cambio directo sin revisar'],
+    );
+    const editorPid = (await t1.query('select pg_backend_pid() as pid')).rows[0].pid as number;
+
+    // T2 activa con la revisión que el usuario había visto.
+    await t2.begin('read committed');
+    const activationPid = (await t2.query('select pg_backend_pid() as pid')).rows[0].pid as number;
+    const activation = t2
+      .query('select public.activate_context_draft($1, $2)', [draftId, revision])
+      .then(() => ({ ok: true as const }))
+      .catch((error: Error & { code?: string }) => ({
+        ok: false as const,
+        code: error.code,
+        message: error.message,
+      }));
+
+    // Esperar a que PostgreSQL confirme que T2 llegó al bloqueo de T1. Un retraso de red
+    // no debe hacer pasar el caso si T2 recién comienza después del COMMIT.
+    let blockedByEditor = false;
+    for (let attempt = 0; attempt < 30 && !blockedByEditor; attempt++) {
+      const { rows } = await t1.query('select pg_blocking_pids($1) as blockers', [activationPid]);
+      blockedByEditor = (rows[0].blockers as number[]).includes(editorPid);
+      if (!blockedByEditor) await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    expect(blockedByEditor, 'la activación no llegó a esperar la fila editada por T1').toBe(true);
+
+    await t1.commit();
+
+    const outcome = await activation;
+    await t2.rollbackQuietly();
+
+    // Sin el cerrojo de la fila, T2 comparaba la revisión con el contenido viejo y terminaba
+    // activando el nuevo. Ahora se relee con la fila bloqueada y la revisión no coincide.
+    expect(outcome.ok, 'se activó un contenido que el usuario no revisó').toBe(false);
+    if (!outcome.ok) expect(outcome.code).toBe('PT409');
+
+    expect(await activeVersion()).toBeNull();
+    const row = await versionRow(draftId);
+    expect(row?.status).toBe('draft');
+    expect(row?.additional_context).toBe('Cambio directo sin revisar');
   }, 60_000);
 
   it('activación primero: la edición posterior se rechaza por no ser un borrador', async () => {
