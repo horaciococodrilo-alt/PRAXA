@@ -151,6 +151,12 @@
   gap: 12px;
 }
 
+/* Cuando la acción va dentro de un <form>, el botón ocupa el ancho como los demás. */
+.actForm {
+  display: flex;
+  flex-direction: column;
+}
+
 @media (max-width: 900px) {
   .ban {
     flex-wrap: wrap;

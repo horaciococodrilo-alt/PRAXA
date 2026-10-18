@@ -1,5 +1,6 @@
+import { IconFlecha } from '@/components/app/icons';
 import { IntegracionLogo } from '@/components/app/integracion-logo';
-import { Badge } from '@/components/app/ui';
+import { Badge, Button } from '@/components/app/ui';
 import i from '@/components/app/integraciones.module.css';
 import { confirmarCuentaMeta, desconectarMeta } from '@/modules/integrations/actions';
 import type { MetaCardState } from '@/modules/integrations/lifecycle';
@@ -42,8 +43,11 @@ export function MetaTarjeta({ state }: { state: MetaCardState }) {
         <p>Primero completá los datos de tu empresa en <a href="/app/configuracion">Configuración</a>.</p>
       ) : null}
       {state.kind === 'sin_conexion' ? (
-        <form method="post" action={START}>
-          <button type="submit" className={i.act}>Conectar</button>
+        <form method="post" action={START} className={i.actForm}>
+          <Button type="submit" variant="small" className={i.act}>
+            <span>Conectar</span>
+            <IconFlecha size={13} stroke={2.1} />
+          </Button>
         </form>
       ) : null}
       {state.kind === 'pendiente' ? (
