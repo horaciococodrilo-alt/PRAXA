@@ -1,6 +1,6 @@
 # Acta de datos reales de Meta y del chat
 
-**Estado:** APROBADA — por el usuario el 2026-10-18 (`G-ACTA-META`).
+**Estado:** versión original aprobada por el usuario el 2026-10-18 (`G-ACTA-META`); corrección documental posterior pendiente de aprobación.
 **Alcance:** piloto de la ruta `meta_first`, con un dueño, una empresa y una cuenta publicitaria de Meta (spec `meta_first`, sección 1).
 **Fuentes:** sección III.6 del [plan de la ruta](../meta_first/plan.md) (contenido mínimo), decisiones DEC-01 a DEC-21 y criterios citados de la [spec de la ruta](../meta_first/spec.md), y [`docs/SECURITY.md`](../../../SECURITY.md).
 
@@ -37,6 +37,7 @@ Para la demostración del piloto con el dueño y para aprender qué pregunta y s
 
 - los datos de Meta permiten mostrar el gasto y las impresiones diarios y responder en el chat;
 - el registro por consulta permite medir qué se pregunta, si se respondió y si fue útil (DEC-10, DEC-13).
+- la cuenta de Supabase Auth permite al dueño ingresar y recuperar el acceso; el perfil y el contexto de la empresa permiten configurar y describir su negocio en la app; la foto opcional se muestra como avatar.
 
 El host del modelo no entrena con los datos (DEC-15). PRAXA no escribe sobre Meta: el permiso objetivo es solo `ads_read` (spec, sección 2). El operador se compromete a no vender los datos ni combinarlos con los de otros clientes (confirmación del usuario del 2026-10-18).
 
@@ -58,9 +59,9 @@ No hay otros usuarios ni empresas en el piloto.
 | Supabase | Base de datos, autenticación y almacenamiento de la foto | Oregon, EE. UU. (`us-west-2`) | Plan Free hasta VR-01 y Pro cuando el dueño use el piloto sin acompañamiento (DEC-08). Con Pro, copias de seguridad nocturnas durante 7 días |
 | Vercel | Hosting de la aplicación y sus logs de ejecución | Washington D. C./Virginia, EE. UU. (`iad1`, `us-east-1`) | Los logs no contienen la pregunta del chat (CA-63) ni tokens; sí la consulta de las peticiones entrantes y la ruta de las subpeticiones (sección 1) |
 | DeepInfra | La pregunta redactada y las cifras de gasto e impresiones que el chat le pasa al modelo (a partir de `M25a.2`) | EE. UU. | No entrena con los datos ni los guarda en disco, pero se reserva registrar porciones de las solicitudes para depuración o seguridad (DEC-15, riesgo aceptado) |
-| Resend (SMTP) | El correo del dueño, para confirmar el registro y recuperar la contraseña | São Paulo, Brasil (`sa-east-1`), región de envío informada | Configurado sobre el dominio del piloto con SPF y DKIM (DEC-18) |
+| Resend (SMTP) | El correo del dueño, para confirmar el registro y recuperar la contraseña | Envío: São Paulo, Brasil (`sa-east-1`), según la región informada; almacenamiento de datos: EE. UU., según Resend | Configurado sobre el dominio del piloto con SPF y DKIM (DEC-18) |
 
-Las regiones fueron informadas por el usuario el 2026-10-18; no se verificaron desde los dashboards en esta sesión. La región de envío de Resend no acredita la ubicación de todos sus registros y subprocesadores.
+Las regiones configuradas de Supabase y Vercel, y la región de envío de Resend, fueron informadas por el usuario el 2026-10-18; no se verificaron desde los dashboards en esta sesión. La [documentación de seguridad de Resend](https://resend.com/security), consultada el 2026-10-18, distingue esa región de envío del almacenamiento de sus datos en EE. UU. La ubicación de cada subprocesador no se verificó.
 
 ## 5. Retención
 
@@ -73,8 +74,9 @@ Las regiones fueron informadas por el usuario el 2026-10-18; no se verificaron d
 | Registro por consulta del chat | Sin plazo propio. Los de una conexión se borran al desconectarla; los que no tienen conexión, solo al cerrar el piloto | DEC-12, CA-62, CA-65 |
 | Todo lo del dueño, y la cuenta y la empresa sintéticas | Hasta el fin del piloto, cuando se ejecuta el cierre | DEC-12, DEC-18, DEC-20, CA-67 |
 | Copias de seguridad del proveedor | Con Supabase Pro, hasta 7 días después del borrado | CA-38b |
+| Correos y logs de Resend | 30 días en los planes Free, Pro y Scale; sus copias de seguridad se conservan 7 días | [Resend, seguridad](https://resend.com/security), consultada el 2026-10-18 |
 
-«Borrar» alcanza a la **base activa**. Con Supabase Pro, un dato borrado puede seguir hasta 7 días en las copias nocturnas; en el plan Free las copias no se pueden descargar. Es un límite declarado y no se mitiga (CA-38b). Según la información aportada por el usuario el 2026-10-18, los runtime logs del plan Hobby de Vercel duran 1 hora; los build logs se conservan indefinidamente por deployment. No se confirmó uso de Drains. Los logs de los demás terceros siguen sus propios plazos; no se confirmó un plazo específico para `auth_logs` de Supabase. La auditoría almacenada en Postgres no debe confundirse con esos logs: no se acreditó una purga automática ni que el cierre de CA-67 la elimine.
+«Borrar» alcanza a la **base activa**. Con Supabase Pro, un dato borrado puede seguir hasta 7 días en las copias nocturnas; en el plan Free las copias no se pueden descargar. Es un límite declarado y no se mitiga (CA-38b). Según la información aportada por el usuario el 2026-10-18, los runtime logs del plan Hobby de Vercel duran 1 hora; los build logs se conservan indefinidamente por deployment. No se confirmó uso de Drains. Los logs de terceros no especificados en la tabla siguen sus propios plazos; no se confirmó un plazo específico para `auth_logs` de Supabase. La auditoría almacenada en Postgres no debe confundirse con esos logs: no se acreditó una purga automática ni que el cierre de CA-67 la elimine.
 
 El historial de Meta se puede volver a obtener reconectando y resincronizando: Meta sirve los totales hasta 37 meses hacia atrás, con los valores revisados que tenga en ese momento (CA-38b).
 
@@ -87,7 +89,7 @@ El historial de Meta se puede volver a obtener reconectando y resincronizando: M
 
 ## 7. Transferencias internacionales
 
-**[REVISIÓN PROFESIONAL]** Los datos se tratan en servidores de terceros fuera de Argentina, al menos DeepInfra (EE. UU.) y, según su región, Supabase, Vercel y Resend. La Ley 25.326 de Protección de Datos Personales y sus normas complementarias regulan la transferencia internacional de datos personales. Esta acta no evalúa si los países de destino o las condiciones de cada proveedor cumplen esas exigencias, ni qué consentimiento o instrumento hace falta. Por decisión expresa del usuario del 2026-10-18, no se realiza ni se agenda esa evaluación para este proyecto escolar. Se conserva la marca de revisión profesional como límite no evaluado, sin afirmar cumplimiento ni una exención por el carácter escolar. DEC-15 mantiene la evaluación antes de escalar para el host del modelo.
+**[REVISIÓN PROFESIONAL]** Los datos se tratan en servidores de terceros fuera de Argentina: DeepInfra y el almacenamiento de Resend en EE. UU.; Supabase y Vercel en las regiones de EE. UU. informadas por el usuario. Resend envía los correos desde la región de São Paulo informada. La Ley 25.326 de Protección de Datos Personales y sus normas complementarias regulan la transferencia internacional de datos personales. Esta acta no evalúa si los países de destino o las condiciones de cada proveedor cumplen esas exigencias, ni qué consentimiento o instrumento hace falta. Por decisión expresa del usuario del 2026-10-18, no se realiza ni se agenda esa evaluación para este proyecto escolar. Se conserva la marca de revisión profesional como límite no evaluado, sin afirmar cumplimiento ni una exención por el carácter escolar. DEC-15 mantiene la evaluación antes de escalar para el host del modelo.
 
 ## 8. Incidentes
 
@@ -104,7 +106,7 @@ El historial de Meta se puede volver a obtener reconectando y resincronizando: M
 
 Antes de su alta en PRAXA, que es el primer dato real (paso 15 de la fase B de `M16.2`), en una conversación con el dueño, el operador le explica:
 
-1. qué datos de Meta se leen y para qué (secciones 1 y 2);
+1. qué datos de Meta se leen y para qué, y qué datos de su cuenta de Auth, del perfil y contexto de la empresa y de la foto opcional se guardan para darle acceso y configurar y mostrar su información en la app (secciones 1 y 2);
 2. quién accede y qué terceros intervienen, incluido que el modelo del chat está en EE. UU. (secciones 3 y 4);
 3. que las preguntas del chat se registran redactadas, sin las respuestas, y que el operador puede verlas (CA-62, CA-64);
 4. cuánto tiempo se conserva cada cosa y el límite de las copias de seguridad de hasta 7 días (sección 5);
@@ -118,8 +120,9 @@ El operador se compromete a mantener esta conversación antes del alta del dueñ
 
 | Campo | Valor |
 |---|---|
-| Aprobado por | Usuario, mediante aprobación explícita en el chat |
-| Fecha | 2026-10-18 |
-| Gate | `G-ACTA-META`, aprobado |
+| Versión original aprobada por | Usuario, mediante aprobación explícita en el chat |
+| Fecha de esa aprobación | 2026-10-18 |
+| Gate de la versión original | `G-ACTA-META`, aprobado |
+| Corrección posterior de R-01 y R-02 | Pendiente de aprobación del usuario |
 
-Solo el usuario aprueba esta acta. La aprobación se registra en `docs/PROJECT_STATE.md`.
+Solo el usuario aprueba esta acta. La aprobación de la versión original y el estado de la corrección posterior se registran en `docs/PROJECT_STATE.md`.
