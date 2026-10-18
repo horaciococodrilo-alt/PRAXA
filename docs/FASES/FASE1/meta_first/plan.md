@@ -5,6 +5,7 @@
 **Enmienda pendiente:** la precisión de M28.3a sobre `avatars` preparada en el PR #20 requiere auditoría y aprobación visible del usuario; el estado aprobado corresponde al plan anterior.
 **Enmienda M16.1 (preparada el 2026-10-12), aprobada por el usuario el 2026-10-14:** ficha de `M16.1`, sección II.9, nota de II.10 (paso 6) y filas de `M16.1` en III.2 y III.3, preparadas a partir de las decisiones D-M16.1-01 a D-M16.1-11 del usuario ([spec de M16.1](../M16.1/spec.md), "Decisiones de la microfase"). Auditada junto con esa spec (`spec-audit-4` y `plan-audit-3`, APROBABLE). El usuario la aprobó en el chat al iniciar `M16.1` y pidió expresamente que el asistente lo registrara aquí. El texto enmendado es el vigente.
 **Enmienda M16.2 preparada y aprobada por el usuario el 2026-10-16:** ficha de `M16.2` (CA-38b en la UI y excepción puntual al límite de 8 horas confirmada por el usuario), ficha de `M16c` (parte persistente de `H-E1-22` y CA-39 en su criterio de aceptación), intervenciones de la ficha de `M16.2` y su fila de III.2 (preflight y verificación posterior al despliegue VD-01), II.10 (archivos y pruebas necesarios para D-M16.2-01, -02, -03, -05, -10), II.11 paso 9 (revocación y desconexión durante sincronización), y fila de verificación del ciclo de vida/sincronización de la §14 de [la spec de la ruta](spec.md). Revisión del diff: [enmienda-ruta-1.md](../M16.2/revisiones/enmienda-ruta-1.md), aprobable como conjunto. El usuario aprobó expresamente ambos documentos en el chat el 2026-10-16. **El texto enmendado es vigente.**
+**Enmienda de numeración 0015 (preparada y aprobada por el usuario el 2026-10-18):** la migración `0015` se usa para corregir `H-E1-124` (cerrojo de la fila del borrador en `activate_context_draft`), como corrección puntual fuera de la ruta, sin microfase ni gate nuevos. Las migraciones previstas de la ruta corren un número: Insights de `M16c` pasa a `0016` (pgTAP `13`) y el registro del chat de `M25a.1` pasa a `0017` (pgTAP `14`). Afecta a las fichas de `M16c` y `M25a.1`, a I.5, a `purge_connection` en II.4, y a II.11 y II.12. El usuario pidió continuar con la renumeración en el chat el 2026-10-18; el texto enmendado es vigente.
 **Base:** spec `meta_first` v1.0 (decisiones DEC-01 a DEC-21), revisión del repositorio en `main@247cae8`, la sesión de revisión en la que se tomaron esas decisiones y las correcciones T01 a T16 de la revisión externa. En la versión aprobada no quedaban decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`.
 
 Este documento reemplaza al `plan.md` anterior y contiene, además, el texto de la **Enmienda 1**. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario, y la Parte I de este documento es el roadmap vigente de la ruta: encabeza la jerarquía de fuentes de `AGENTS.md`. Tiene tres partes:
@@ -291,7 +292,7 @@ Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA
 |---|---|
 | **ID** | `M16c` — ≤8 h |
 | **Objetivo** | Obtener gasto e impresiones diarios con snapshots inmutables, cobertura explícita y publicación atómica. |
-| **Implementación requerida** | Migración `0015`: ejecuciones con arrendamiento y token de posesión, snapshots, días de snapshot y la tabla de cobertura `meta_daily_coverage` (CA-43), con captura parcial persistida (CA-43b). Funciones de `worker_api` para iniciar, publicar y fallar una ejecución, solo desde la ejecución vigente (CA-59). Registro persistente de la clase de errores de una conexión existente que no llevan a `needs_reauth`, sin cambiar su estado (`H-E1-22`, parte diferida desde M16.2). Precisión de punta a punta (CA-44b). Paginación, límites y reintentos. Botón de sincronización manual. |
+| **Implementación requerida** | Migración `0016`: ejecuciones con arrendamiento y token de posesión, snapshots, días de snapshot y la tabla de cobertura `meta_daily_coverage` (CA-43), con captura parcial persistida (CA-43b). Funciones de `worker_api` para iniciar, publicar y fallar una ejecución, solo desde la ejecución vigente (CA-59). Registro persistente de la clase de errores de una conexión existente que no llevan a `needs_reauth`, sin cambiar su estado (`H-E1-22`, parte diferida desde M16.2). Precisión de punta a punta (CA-44b). Paginación, límites y reintentos. Botón de sincronización manual. |
 | **Procedimiento del asistente** | Pruebas primero con Meta simulada. Fijar Q-04 con mediciones reales y registrarlo en la spec. |
 | **Evidencia de cierre** | Pruebas en verde y una sincronización real redactada. |
 | **Criterio de aceptación** | CA-41 a CA-47b, CA-44b, CA-56 a CA-60 y CA-39 (registro persistente de la clase de los errores que no llevan a `needs_reauth`, `H-E1-22`). |
@@ -306,7 +307,7 @@ Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA
 |---|---|
 | **ID** | `M25a.1` — ≤8 h |
 | **Objetivo** | Tener todo lo determinístico del chat antes de conectar el modelo. |
-| **Implementación requerida** | Migración `0016` con el registro por consulta (DEC-10, DEC-11, DEC-13). Redacción (CA-66). Herramientas cerradas con cálculo en SQL y valores como texto (CA-44b, CA-48, CA-49). Límites del chat (CA-70). Registro y voto por `worker_api` (CA-38c). |
+| **Implementación requerida** | Migración `0017` con el registro por consulta (DEC-10, DEC-11, DEC-13). Redacción (CA-66). Herramientas cerradas con cálculo en SQL y valores como texto (CA-44b, CA-48, CA-49). Límites del chat (CA-70). Registro y voto por `worker_api` (CA-38c). |
 | **Procedimiento del asistente** | Pruebas primero. |
 | **Evidencia de cierre** | Pruebas en verde. |
 | **Criterio de aceptación** | CA-48, CA-49, CA-61 a CA-66, CA-69 y CA-70. |
@@ -355,20 +356,23 @@ Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA
 | **Condición para avanzar** | No bloquea ninguna microfase de la ruta. |
 | **Intervención requerida del usuario** | Todo: trámites, verificación del negocio y del dominio, y App Review. |
 
-## I.5 Corrección por MF_APP: onboarding y numeración de migraciones
+## I.5 Correcciones por MF_APP y H-E1-124: onboarding y numeración de migraciones
 
-Decisión del usuario del 2026-10-11, al cerrar la microfase MF_APP, que está fuera de la ruta
-([ficha](../MF_APP/ficha.md)). Corrige la ruta sin cambiar su alcance ni sus criterios:
+Decisiones del usuario del 2026-10-11, al cerrar MF_APP fuera de la ruta
+([ficha](../MF_APP/ficha.md)), y del 2026-10-18 para H-E1-124. Corrigen la ruta sin
+cambiar su alcance ni sus criterios:
 
 - **Onboarding.** La pantalla `/onboarding` ya no existe (`H-E1-93`). Después de crear cuenta,
   confirmar el correo o iniciar sesión se entra a Mi perfil (`/app/perfil`), y la empresa se
   crea y se completa en Configuración (`/app/configuracion`). `/onboarding` redirige a Mi
   perfil. Las fichas que nombraban el onboarding (M28.2a y M16.2, paso 10) usan Configuración.
 - **Numeración.** MF_APP tomó `0013_company_profile.sql` y `0014_profile_photos.sql`, con
-  sus pgTAP `11_company_profile` y `12_profile_photos` (`H-E1-94`, `H-E1-96`). Las migraciones
-  previstas de la ruta corren dos números: la de Insights de M16c pasa a `0015` (pgTAP `13`) y
-  la del registro del chat de M25a.1 pasa a `0016` (pgTAP `14`). Lo mismo vale para
-  `purge_connection`: la reemplazan `0015` y `0016`.
+  sus pgTAP `11_company_profile` y `12_profile_photos` (`H-E1-94`, `H-E1-96`). `0015` se usa
+  en la corrección puntual de `H-E1-124`, verificada por `tests/app/concurrency.test.ts` (sin
+  pgTAP nuevo). Las migraciones previstas de la ruta corren un número más: la de Insights
+  de M16c pasa a `0016` (pgTAP `13`) y la del registro
+  del chat de M25a.1 pasa a `0017` (pgTAP `14`). Lo mismo vale para
+  `purge_connection`: la reemplazan `0016` y `0017`.
 
 ---
 
@@ -479,7 +483,7 @@ Las columnas de las tablas nuevas tienen que coincidir con los contratos K02 a K
 | `replace_credential` | Reautorización (CA-37c): solo si la generación actual es la esperada por el intento `reauth`; incrementa `credential_generation` |
 | `mark_needs_reauth` | Transición con la clase de error |
 | `begin_disconnect` | Pasa a `disconnected`, incrementa la generación y fija `purge_requested_at`. Primer paso de CA-38. Idempotente |
-| `purge_connection` | Idempotente. Borra la credencial y los datos de la conexión y, al final, la fila de la conexión. Paso 3 de CA-38. Las migraciones `0015` y `0016` la reemplazan con `create or replace` para sumar sus tablas |
+| `purge_connection` | Idempotente. Borra la credencial y los datos de la conexión y, al final, la fila de la conexión. Paso 3 de CA-38. Las migraciones `0016` y `0017` la reemplazan con `create or replace` para sumar sus tablas |
 | `list_pending_purges` | Conexiones de la empresa que hay que purgar: pendientes vencidas y `disconnected` con la purga sin terminar. La usa la purga perezosa y reanudable |
 | `count_credentials_by_key_version` y `rewrap_credential` | Rotación de claves (CA-25) |
 
@@ -661,7 +665,7 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 
 | Paso | Acción | Archivos | Verificación |
 |---:|---|---|---|
-| 1 | Migración `0015`, con `revoke all` y `force row level security` en cada tabla y todo en cascada:<br>• `meta_sync_runs`: identificador, token de posesión, arrendamiento vencible y estado; una ejecución vigente por conexión.<br>• `meta_insight_snapshots`: parámetros sin credenciales, `fetched_at`, páginas, completitud y clase de error.<br>• `meta_snapshot_days`: `date`, `spend numeric`, `impressions bigint`.<br>• `meta_daily_coverage`: una fila por conexión y día cubierto, con presencia, valores (nulos si `sin_fila_reportada`), `snapshot_id`, `fetched_at` y `captured_before_day_end`.<br>Solo la cobertura es legible por `authenticated` | `supabase/migrations/0015_meta_insights.sql` | CA-41 a CA-44 y CA-68 |
+| 1 | Migración `0016`, con `revoke all` y `force row level security` en cada tabla y todo en cascada:<br>• `meta_sync_runs`: identificador, token de posesión, arrendamiento vencible y estado; una ejecución vigente por conexión.<br>• `meta_insight_snapshots`: parámetros sin credenciales, `fetched_at`, páginas, completitud y clase de error.<br>• `meta_snapshot_days`: `date`, `spend numeric`, `impressions bigint`.<br>• `meta_daily_coverage`: una fila por conexión y día cubierto, con presencia, valores (nulos si `sin_fila_reportada`), `snapshot_id`, `fetched_at` y `captured_before_day_end`.<br>Solo la cobertura es legible por `authenticated` | `supabase/migrations/0016_meta_insights.sql` | CA-41 a CA-44 y CA-68 |
 | 2 | Funciones de `worker_api`:<br>• `start_sync_run`: rechaza si hay una ejecución vigente y desplaza a una vencida.<br>• `publish_snapshot`: en una transacción inserta el snapshot y los días y reemplaza la cobertura de cada día cubierto, solo si la ejecución es la vigente (identificador y token de posesión, arrendamiento sin vencer), la conexión sigue `active` y la generación no cambió.<br>• `fail_sync_run`: exige la misma posesión.<br>• Registro persistente de la clase de los errores de conexiones existentes que no llevan a `needs_reauth`, sin alterar el estado (`H-E1-22`, parte diferida desde M16.2).<br>`create or replace` de `purge_connection` para sumar las tablas nuevas | misma migración | CA-39, CA-43, CA-45, CA-58, CA-59 y CA-38c |
 | 3 | Función de lectura de cobertura, `SECURITY INVOKER` sobre `meta_daily_coverage`: por día, presencia, estado temporal (`abierto` o `cerrado`, calculado en la zona de la cuenta), captura parcial, procedencia y frescura. Gasto e impresiones salen como texto | misma migración | CA-43b, CA-44b y CA-46 |
 | 4 | pgTAP de aislamiento, privilegios y publicación: ejecución desplazada rechazada, publicación después de una desconexión rechazada, snapshot nuevo sin fila donde el anterior tenía valor; clase de error persistida sin cambiar el estado ni aceptar otra empresa. Extender `10_demo_closure` con las tablas nuevas | `supabase/tests/13_meta_insights.test.sql`, `10_demo_closure.test.sql` | CA-19, CA-39, CA-43, CA-59 y CA-67; `H-E1-22` |
@@ -672,7 +676,7 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 | 9 | Pruebas con Meta simulada: paginación completa; fallo en la página intermedia; día sin fila; resincronización sin duplicados y con valores actualizados; ejecución A vencida, B inicia y publica, A termina y es rechazada; revocación y desconexión durante una sincronización (caso diferido desde M16.2, §14 de la spec de la ruta); clase de error persistida sin cambiar el estado (`H-E1-22`); captura del mediodía vista al día siguiente sin resincronizar; zona horaria con cambio de horario | `tests/unit/meta-insights.test.ts`, `tests/app/meta-sync.test.ts` | CA-38c, CA-39, CA-41 a CA-47b y CA-56 a CA-60; `H-E1-22` |
 | 10 | Precisión de punta a punta: un gasto que `number` no representa exactamente viaja SQL → API → TypeScript sin cambiar | `tests/app/meta-precision.test.ts` | CA-44b |
 
-**Cierre:** `npm run verify`, `npm run test:policies`, `npm run test:app`, `db:push` de `0015` al proyecto `app` ejecutado por el usuario, y una sincronización real redactada.
+**Cierre:** `npm run verify`, `npm run test:policies`, `npm run test:app`, `db:push` de `0016` al proyecto `app` ejecutado por el usuario, y una sincronización real redactada.
 
 **Trampa conocida.** Un día sin fila no es un día con gasto cero. `sin_fila_reportada` significa que la extracción completa no trajo fila para ese día, y nada más. Tratarlo como cero requiere fundamentar antes la semántica del endpoint (CA-43).
 
@@ -690,7 +694,7 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 
 | Paso | Acción | Archivos | Verificación |
 |---:|---|---|---|
-| 1 | Migración `0016`: `chat_query_records` con `company_id` (cascada), `connection_id` nulo si no hay conexión, `question_redacted` (hasta 500 caracteres), `tool_names text[]`, `outcome`, `reason`, `latency_ms`, `requested_model_id`, `reported_model_id` (nulo si el proveedor no respondió), `feedback` (nulo, `useful` o `not_useful`) y `created_at`. `revoke all`, `force row level security` y ningún grant para `authenticated`. Funciones `worker_api.record_query`, que cumple CA-38c, y `worker_api.set_feedback`, que verifica que el registro sea de la empresa. `create or replace` de `purge_connection` para borrar los registros al desconectar (DEC-09) | `supabase/migrations/0016_chat_queries.sql` | CA-38c, CA-62, CA-64, CA-65 y CA-69 |
+| 1 | Migración `0017`: `chat_query_records` con `company_id` (cascada), `connection_id` nulo si no hay conexión, `question_redacted` (hasta 500 caracteres), `tool_names text[]`, `outcome`, `reason`, `latency_ms`, `requested_model_id`, `reported_model_id` (nulo si el proveedor no respondió), `feedback` (nulo, `useful` o `not_useful`) y `created_at`. `revoke all`, `force row level security` y ningún grant para `authenticated`. Funciones `worker_api.record_query`, que cumple CA-38c, y `worker_api.set_feedback`, que verifica que el registro sea de la empresa. `create or replace` de `purge_connection` para borrar los registros al desconectar (DEC-09) | `supabase/migrations/0017_chat_queries.sql` | CA-38c, CA-62, CA-64, CA-65 y CA-69 |
 | 2 | pgTAP de privilegios y aislamiento del registro. Extender `10_demo_closure` | `supabase/tests/14_chat_queries.test.sql` | CA-64 y CA-67 |
 | 3 | Pruebas de redacción: cada patrón, montos con separador de miles que no se redactan, tarjetas que no pasan Luhn y quedan tal cual, idempotencia y longitud máxima | `tests/unit/chat-redaction.test.ts` | CA-66 |
 | 4 | Función única de redacción: email, teléfono internacional, CUIT/CUIL con guiones, tarjeta con Luhn, CBU/CVU de 22 dígitos, URL, cadena con forma de secreto, `act_` truncado | `src/modules/chat/redaction.ts` | CA-66 |
@@ -699,7 +703,7 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 | 7 | Tipos de resultado apoyados en `periodSchema` y el patrón `knownOr` de reporting. **No** se usa `calculatedMetricEvidenceSchema` tal cual, porque su `value` es `number` y el gasto exige decimal exacto | `src/modules/chat/tools/results.ts` | Reutilización declarada en la spec |
 | 8 | Pruebas de herramientas: período con días sin cobertura, totales parciales, captura parcial, días de distintas extracciones con rango de `fetched_at`, empresa ajena, período mayor al máximo llamado directo por la API, registro que llega después de una desconexión | `tests/unit/chat-tools.test.ts`, `tests/app/chat-tools.test.ts` | CA-38c, CA-51, CA-51b, CA-54 y CA-70 |
 
-**Cierre:** `npm run verify`, `npm run test:policies`, `npm run test:app` y `db:push` de `0016` al proyecto `app` ejecutado por el usuario.
+**Cierre:** `npm run verify`, `npm run test:policies`, `npm run test:app` y `db:push` de `0017` al proyecto `app` ejecutado por el usuario.
 
 **Trampa conocida.** El texto de la pregunta nunca va a `console.log`. Los logs de ejecución de Vercel lo guardarían fuera del alcance de DEC-09 (CA-63).
 
