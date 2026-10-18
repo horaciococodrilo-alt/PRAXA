@@ -23,9 +23,11 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 
 ## Siguiente habilitada
 
-**M16.2 — Selección de cuenta, ciclo de vida, alta del dueño y VR-01.** Habilitada por
-`G-OAUTH` (2026-10-14). Sin empezar: arranca cuando el usuario la pida. Antes de la primera
-autorización real hacen falta `G-ACTA-META` y la decisión sobre `H-E1-114` y `H-E1-116`.
+**M16.2 — Selección de cuenta, ciclo de vida, alta del dueño y VR-01: VERIFICADO — PENDIENTE DE APROBACIÓN.**
+Fase A verificada en `mf/M16.2` tras corregir la revisión de implementación; fase B pendiente. Evidencia en
+[sesiones/M16.2.md](FASES/FASE1/meta_first/sesiones/M16.2.md). `G-VR01` no está aprobado.
+Antes de la primera autorización real hacen falta `G-ACTA-META` y P-04; la fase B sigue al
+merge y despliegue de la fase A.
 
 Hallazgos asignados a M06.3a (cerrada): `H-M04.1-02`, `H-E1-09`, `H-E1-10`, `H-E1-17`, `H-E1-37`,
 `H-E1-43` a `H-E1-70` y la comprobación de acceso real del rol de `H-E1-36`. Detalle en

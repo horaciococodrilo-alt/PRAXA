@@ -112,7 +112,7 @@ spec, con decisión del usuario.
 | Replay o abuso del flujo OAuth | Propiedades de la sección 7 | Tabla y funciones de intentos: vigentes en la base. Rutas `iniciar` y `callback`, canje e inspección del token: vigentes, probados con Meta simulada | La base no ata la creación de una conexión pendiente a un intento consumido: lo garantiza el orden del servidor, con una prueba que lo fija (`H-E1-24`). El recorrido real con Meta es VR-01 |
 | Filtración de un dump o backup de la base | Tokens cifrados con AES-256-GCM y clave fuera de la base (sección 6) | Esquema y cifrado en Node vigentes | Un dump expone todo lo que no es credencial: conexiones, métricas y registros del chat |
 | Filtración de las variables del runtime | Ninguno completo. Rotación del llavero (CA-25) y revocación en Meta como respuesta a incidentes | Parcial | **Límite deliberado:** si `PRAXA_CREDENTIAL_KEYS` y `PRAXA_INTEGRATIONS_DB_URL` viven en el mismo entorno, quien lo compromete alcanza base y llavero, y puede descifrar las credenciales |
-| Logs o errores que filtren secretos o identificadores | INV-06; errores de `worker_api` con mensajes fijos, sin `DETAIL` ni valores; clase de error + mensaje redactado en la conexión (CA-09); identificador de cuenta truncado fuera de la base (CA-40); la pregunta del chat nunca va a logs (CA-63) | Base, errores redactados del cliente del rol y recorrido del árbol vigentes. Cliente HTTP de Meta vigente: errores con texto fijo por clase y sin texto del proveedor, y ninguna URL de salida con credenciales, códigos ni tokens (van en el cuerpo de un `POST` o en `Authorization`; la URL que los lleve se rechaza antes de enviar) | La redacción por patrones no detecta datos personales en forma libre (CA-66). Los logs de la plataforma de hosting registran la consulta de las peticiones entrantes (sección 12) |
+| Logs o errores que filtren secretos o identificadores | INV-06; errores de `worker_api` con mensajes fijos, sin `DETAIL` ni valores; clase de error + mensaje redactado en la conexión (CA-09); identificador de cuenta truncado fuera de la base (CA-40); la pregunta del chat nunca va a logs (CA-63) | Base, errores redactados del cliente del rol y recorrido del árbol vigentes. Cliente HTTP de Meta vigente: errores con texto fijo por clase y sin texto del proveedor, y ninguna URL de salida con credenciales, códigos ni tokens. El listado y la prueba de acceso registran solo conteos, clases y presencia de campos, sin valores de métricas ni identificadores de cuentas | La redacción por patrones no detecta datos personales en forma libre (CA-66). Los logs de la plataforma de hosting registran la consulta de las peticiones entrantes (sección 12) |
 | Pruebas destructivas contra el proyecto equivocado | Sección 11 | Guardas vigentes para pruebas SQL, de aplicación y del rol | Requiere configurar el proyecto desechable y su URL de rol; una guarda de destino no sustituye la prueba de conexión |
 | Prompt o pregunta maliciosa hacia el LLM | Catálogo cerrado de herramientas; el modelo no elige empresa, tabla ni SQL; las herramientas leen con el JWT del usuario bajo RLS (sección 8) | Previsto | La inyección puede degradar la respuesta; no puede ampliar el alcance de los datos |
 | Cifras o estados inventados por el LLM | Salida estructurada `text` + `claims`, verificación del servidor antes de mostrar; abstención controlada si no valida (sección 8) | Previsto | No garantiza que la herramienta elegida sea la correcta ni que el texto sin cifras sea fiel (CA-50b); eso lo mide VR-02 |
@@ -171,6 +171,7 @@ La matriz exacta de privilegios vive en cada migración y en su pgTAP. No se cop
 | Interactivo | Clave publishable + JWT del usuario | Pública por diseño; el aislamiento lo dan `GRANT` + RLS, no el secreto de la clave |
 | Privilegiado de integraciones | `PRAXA_INTEGRATIONS_DB_URL` (rol `praxa_integrations`) | Solo `EXECUTE` sobre funciones de `worker_api`; ninguna lectura directa de tablas. Confinada a un único módulo `server-only` (CA-27) |
 | Pruebas de aplicación | `SUPABASE_TEST_SECRET_KEY` (`service_role`) | Solo fixtures administrativos en Node (sección 11) |
+| Preflight local de Meta | `META_APP_SECRET` del `.env.local` del usuario | Una consulta de lectura a Graph; salida cerrada sin identificadores ni respuesta de Meta. Se ejecuta en el equipo del usuario, fuera del asistente y del despliegue |
 | Operación administrativa | Rol administrativo desde el panel de Supabase | Fuera de la aplicación: cierre del piloto (CA-67) y migraciones ejecutadas por el usuario |
 
 Las capacidades exactas del rol `praxa_integrations` son las funciones que le concede la
@@ -193,6 +194,9 @@ de archivos y patrones de secretos complementa esta guarda (`H-E1-10`).
   valores (hay una prueba que lo exige).
 - El rol `praxa_integrations` se crea sin contraseña: la fija el usuario fuera del
   repositorio, en cada proyecto.
+- Las operaciones de consulta y revocación de Graph que requieren token o secreto se envían
+  como un lote `POST` en el cuerpo de la petición. Ninguna URL de salida lleva credenciales;
+  el cliente la rechaza antes de enviarla. No hay respaldo con `GET` directo.
 - Las variables de prueba (`SUPABASE_TEST_*`, `PRAXA_INTEGRATIONS_TEST_DB_URL`) nunca se
   cargan en el entorno de despliegue.
 
@@ -257,12 +261,12 @@ vencimiento, cookies, clasificación de errores) están en CA-01 a CA-05 y CA-28
 - Antes de considerar válida una conexión, el servidor verifica el token: válido, emitido
   para esta app y con `ads_read` concedido.
 
-Vigente: tabla de intentos, creación y consumo atómico en `worker_api`, probados en pgTAP;
-rutas `iniciar` y `callback`, canje e inspección del token, probados con Meta simulada. El
-inicio solo acepta `POST` desde el propio origen.
-Previsto: el reemplazo de la credencial al reautorizar (hoy el callback de reautorización
-valida el intento y la conexión sin canjear el código), la revocación en Meta y el recorrido
-real con el dueño (VR-01).
+Vigente: tabla de intentos, creación y consumo atómico en `worker_api`, rutas `iniciar` y
+`callback`, canje, inspección del token, selección de cuenta, reautorización y desconexión.
+El inicio solo acepta `POST` desde el propio origen. El reemplazo exige la conexión y su
+generación esperadas; los rechazos del token nuevo intentan revocarlo. La revocación es de
+mejor esfuerzo: un fallo de Meta no impide purgar la credencial local. Estas operaciones
+están probadas con Meta simulada; el recorrido real con el dueño sigue pendiente (VR-01).
 
 ## 8. Frontera del LLM (DEC-06, DEC-19; CA-48 a CA-50c, CA-54, CA-66)
 
@@ -292,7 +296,7 @@ Estado de cada pieza, sin repetir los plazos (la fuente es la spec):
 | Decisiones de retención: al desconectar se borra todo lo de la conexión (DEC-09); registros del chat sin plazo propio (DEC-12); vencimiento de conexiones pendientes (DEC-17); purga perezosa de intentos y copias de seguridad (CA-38b) | Cerradas en la spec |
 | Acta de datos reales que las ratifica y declara finalidad, accesos, terceros y transferencias | Pendiente en `M03a` (`G-ACTA-META`); ningún dato real entra antes (`H-E1-03`) |
 | Funciones de la base para desconexión y purga idempotente | Vigentes en `worker_api` |
-| Orquestación de la purga perezosa y revocación en Meta | Previstas |
+| Orquestación de la purga perezosa y revocación en Meta | Vigentes, probadas con Meta simulada. Una purga fallida queda pendiente hasta la siguiente visita o inicio; la revocación fallida no conserva la credencial local |
 | Flujo de baja de cuenta desde la aplicación | No existe (`H-E1-06`). El cierre del piloto es un procedimiento administrativo con orden obligatorio (CA-67) |
 | Foto de perfil | Al reemplazarla o eliminarla se borra el archivo de Storage. Si ese borrado falla, el archivo puede quedar sin referencia en la carpeta del usuario. Con la baja de cuenta, igual que el resto (`H-E1-06`) |
 | Copias de seguridad del proveedor | Un dato borrado de la base activa puede seguir en las copias durante su plazo (CA-38b). Es un límite declarado, no se mitiga |

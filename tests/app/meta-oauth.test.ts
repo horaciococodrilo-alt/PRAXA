@@ -109,6 +109,21 @@ describe('M16.1: OAuth con Meta simulada contra la base real', () => {
     const fetch: MetaFetch = async (input, init) => {
       const url = new URL(input);
       calls.push({ method: init.method ?? 'GET', path: url.pathname });
+      if (url.pathname === '/v26.0/' && init.method === 'POST') {
+        const form = new URLSearchParams(String(init.body));
+        const batch = JSON.parse(form.get('batch') ?? 'null');
+        if (!Array.isArray(batch) || batch.length !== 1 || batch[0]?.method !== 'GET') {
+          return json({ error: { code: 100 } }, 400);
+        }
+        const inner = new URL(batch[0].relative_url, 'https://graph.facebook.com/');
+        if (inner.pathname === '/debug_token') {
+          return json([{ code: 200, body: JSON.stringify({
+            data: { is_valid: true, app_id: APP_ID, type: 'SYSTEM_USER', scopes: debugScopes, expires_at: EXPIRES_AT },
+          }) }]);
+        }
+        if (inner.pathname === '/oauth/revoke') return json([{ code: 200, body: '{"success":true}' }]);
+        return json([{ code: 404, body: JSON.stringify({ error: { code: 803 } }) }]);
+      }
       switch (url.pathname) {
         case '/v26.0/oauth/access_token':
           return json({ access_token: TOKEN, token_type: 'bearer' });
@@ -118,6 +133,8 @@ describe('M16.1: OAuth con Meta simulada contra la base real', () => {
           });
         case '/v26.0/me':
           return json({ id: '9876543', client_business_id: BUSINESS });
+        case '/v26.0/9876543/assigned_ad_accounts':
+          return json({ data: [{ id: 'act_1001', name: 'Cuenta sintética', currency: 'USD', timezone_name: 'UTC' }] });
         default:
           return json({ error: { code: 803 } }, 404);
       }
@@ -139,6 +156,7 @@ describe('M16.1: OAuth con Meta simulada contra la base real', () => {
       workerApi: workerApi!,
       keyring: keyringModule.getCredentialKeyring(),
       readLiveConnection: (ctx: TenantContext) => connections.readLiveConnection(ctx, { supabase: owner.user.client }),
+      readConnection: (ctx: TenantContext) => connections.readConnectionRecord(ctx, { supabase: owner.user.client }),
       log: () => {},
       ...over,
     } satisfies Partial<MetaOAuthDeps>;
@@ -228,7 +246,7 @@ describe('M16.1: OAuth con Meta simulada contra la base real', () => {
     expect(raw[0].ciphertext).not.toBe(Buffer.from(TOKEN).toString('base64'));
     expect(meta.calls.map((call) => call.path)).toEqual([
       '/v26.0/oauth/access_token',
-      '/v26.0/debug_token',
+      '/v26.0/',
       '/v26.0/me',
     ]);
   });
@@ -362,7 +380,7 @@ describe('M16.1: OAuth con Meta simulada contra la base real', () => {
       owner.ctx.user_id,
       owner.ctx.company_id,
       pending.id,
-      `cuenta_sint_${RUN_ID}_33`,
+      'act_1001',
       'USD',
       'UTC',
       true,
@@ -411,12 +429,12 @@ describe('M16.1: OAuth con Meta simulada contra la base real', () => {
     expect(meta.calls).toEqual([]);
 
     const current = await start(owner);
-    expect(await callback(owner, current.state, current.nonce, meta)).toBe(RESULT('reautorizacion_no_disponible'));
-    expect(meta.calls).toEqual([]);
+    expect(await callback(owner, current.state, current.nonce, meta)).toBe(RESULT('reautorizado'));
+    expect(meta.calls.some((call) => call.path === '/v26.0/9876543/assigned_ad_accounts')).toBe(true);
 
     const read = await credentials.readCredential(owner.ctx, pending.id, { workerApi: workerApi!, keyring });
-    expect(read.token.reveal()).toBe('token-sint-nuevo');
-    expect(read.credentialGeneration).toBe(1);
+    expect(read.token.reveal()).toBe(TOKEN);
+    expect(read.credentialGeneration).toBe(2);
   });
 
   it('T-34 sin ads_read no se crea ninguna conexión', async () => {

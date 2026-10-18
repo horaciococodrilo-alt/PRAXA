@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { SecretValue } from '../crypto/seal';
-import { GRAPH_ORIGIN, GRAPH_URL_FORBIDDEN_PARAMS } from './api';
+import { GRAPH_ORIGIN, GRAPH_URL_FORBIDDEN_PARAMS, graphUrl } from './api';
 import { MetaApiError, classifyGraphError, transportError } from './errors';
 
 /**
@@ -18,6 +18,11 @@ export type MetaFetch = (input: URL, init: RequestInit) => Promise<Response>;
 export type MetaHttpClient = {
   getJson(url: URL, options?: { bearer?: SecretValue }): Promise<unknown>;
   postFormJson(url: URL, form: Record<string, string | SecretValue>): Promise<unknown>;
+  postBatchGetJson(
+    relativePath: string,
+    query: Record<string, string | SecretValue>,
+    accessToken: SecretValue,
+  ): Promise<unknown>;
 };
 
 /** URL rechazada antes de enviar. Es un defecto de programación, no un error de Meta. */
@@ -117,6 +122,49 @@ export function createMetaHttpClient(deps: { fetch?: MetaFetch; timeoutMs?: numb
         headers: { accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded' },
         body: body.toString(),
       });
+    },
+
+    async postBatchGetJson(relativePath, query, accessToken) {
+      if (relativePath !== 'debug_token' && relativePath !== 'oauth/revoke') {
+        throw new MetaRequestRejectedError();
+      }
+      const url = graphUrl('');
+      const secrets = [accessToken.reveal(), ...Object.values(query).flatMap((value) =>
+        value instanceof SecretValue ? [value.reveal()] : [])];
+      assertOutgoingUrl(url, { allowQuery: false, secrets });
+      const relativeUrl = new URL(relativePath, GRAPH_ORIGIN);
+      for (const [name, value] of Object.entries(query)) {
+        relativeUrl.searchParams.set(name, value instanceof SecretValue ? value.reveal() : value);
+      }
+      const body = new URLSearchParams({
+        access_token: accessToken.reveal(),
+        batch: JSON.stringify([{ method: 'GET', relative_url: `${relativePath}${relativeUrl.search}` }]),
+      });
+      const outer = await request(url, {
+        method: 'POST',
+        headers: { accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+      });
+      const unknownError = () => new MetaApiError({ errorClass: 'unknown', graphCode: null, graphSubcode: null });
+      if (!Array.isArray(outer) || outer.length !== 1) throw unknownError();
+      const item = outer[0];
+      if (item === null) throw transportError();
+      if (!item || typeof item !== 'object' || Array.isArray(item)) throw unknownError();
+      const fields = item as { code?: unknown; body?: unknown };
+      if (typeof fields.code !== 'number' || !Number.isInteger(fields.code) || typeof fields.body !== 'string') {
+        throw unknownError();
+      }
+      let result: unknown;
+      try {
+        result = JSON.parse(fields.body);
+      } catch {
+        throw transportError();
+      }
+      const graphError = result && typeof result === 'object' && !Array.isArray(result)
+        ? (result as { error?: unknown }).error : undefined;
+      if (graphError && typeof graphError === 'object') throw new MetaApiError(classifyGraphError(result));
+      if (fields.code < 200 || fields.code >= 300) throw unknownError();
+      return result;
     },
   };
 }

@@ -7,6 +7,7 @@ import { NextRequest } from 'next/server';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { TenantContext } from '@/modules/tenant/context';
+import type { IntegrationConnectionRecord } from '@/modules/integrations/contract';
 
 /**
  * M16.1: OAuth con Meta, probado contra Meta simulada (casos T-01 a T-22 y T-40 a T-42 de
@@ -49,6 +50,7 @@ const outcomes = await import('@/modules/integrations/meta/outcomes');
 const { WorkerApiError } = await import('@/modules/integrations/db/worker-api');
 const { parseCredentialKeyring } = await import('@/modules/integrations/crypto/keyring');
 const { SecretValue } = await import('@/modules/integrations/crypto/seal');
+const { sealCredential } = await import('@/modules/integrations/crypto/seal');
 const { redactErrorMessage, redactedErrorMessageSchema, integrationErrorClassSchema } = await import(
   '@/modules/integrations/contract'
 );
@@ -99,6 +101,10 @@ const DEFAULT_RESPONSES: Record<string, Responder> = {
       },
     }),
   '/v26.0/me': () => json({ id: '9876543', client_business_id: BUSINESS }),
+  '/v26.0/9876543/assigned_ad_accounts': () => json({ data: [
+    { id: 'act_1001', name: 'Cuenta sintética', currency: 'USD', timezone_name: 'UTC' },
+  ] }),
+  '/v26.0/oauth/revoke': () => json({ success: true }),
 };
 
 function fakeMeta(overrides: Record<string, Responder> = {}) {
@@ -112,6 +118,18 @@ function fakeMeta(overrides: Record<string, Responder> = {}) {
     const call = { method, url, headers: new Headers(init.headers), body };
     calls.push(call);
     events.push(`meta:${url.pathname}`);
+    if (url.pathname === '/v26.0/' && method === 'POST') {
+      const form = new URLSearchParams(body ?? '');
+      const batch = JSON.parse(form.get('batch') ?? 'null');
+      if (!Array.isArray(batch) || batch.length !== 1 || batch[0]?.method !== 'GET') {
+        return json({ error: { code: 100 } }, 400);
+      }
+      const innerUrl = new URL(batch[0].relative_url, `${GRAPH}/`);
+      const inner = responses[`/v26.0/${innerUrl.pathname.replace(/^\//, '')}`];
+      if (!inner) return json([{ code: 404, body: JSON.stringify({ error: { code: 803 } }) }]);
+      const response = await inner({ ...call, method: 'GET', url: innerUrl, body: null });
+      return json([{ code: response.status, body: await response.text() }]);
+    }
     if (method === 'GET' && /\/(oauth\/access_token|debug_token)$/.test(url.pathname)) {
       violations.push(`GET ${url.pathname}`);
     }
@@ -148,6 +166,7 @@ function fakeWorker(overrides: Partial<Record<string, WorkerHandler>> = {}) {
       },
     ],
     consume_oauth_attempt: () => [consumedRow()],
+    list_pending_purges: () => [],
     create_pending_connection: (args) => [
       {
         connection_id: args[2],
@@ -504,7 +523,7 @@ describe('M16.1-T-06: transporte y respuestas ilegibles', () => {
     };
     const http = client.createMetaHttpClient({ fetch: spy });
     await http.getJson(api.graphUrl('me', { fields: 'id' }));
-    await http.postFormJson(api.graphUrl('debug_token'), { input_token: new SecretValue(TOKEN) });
+    await http.postBatchGetJson('debug_token', { input_token: new SecretValue(TOKEN) }, new SecretValue(SECRET));
     expect(seen).toHaveLength(2);
     for (const init of seen) {
       expect(init.redirect).toBe('error');
@@ -515,7 +534,7 @@ describe('M16.1-T-06: transporte y respuestas ilegibles', () => {
 });
 
 describe('M16.1-T-07: redacción de errores de Meta', () => {
-  const ACCOUNT = 'act_123456789';
+  const ACCOUNT = 'act_90001';
   const leakyBody = {
     error: {
       code: 190,
@@ -618,8 +637,8 @@ describe('M16.1-T-08: inicio sin conexión viva', () => {
     const { location, cookie, state, nonce } = parseStart(response);
     expect(location.origin).toBe('https://www.facebook.com');
 
-    expect(worker.calls.map((call) => call.fn)).toEqual(['create_oauth_attempt']);
-    const [actor, company, purpose, stateHash, bindingHash, returnPath, expiresAt, expected] = worker.calls[0].args;
+    expect(worker.calls.map((call) => call.fn)).toEqual(['list_pending_purges', 'create_oauth_attempt']);
+    const [actor, company, purpose, stateHash, bindingHash, returnPath, expiresAt, expected] = worker.calls[1].args;
     expect([actor, company, purpose]).toEqual([CTX.user_id, CTX.company_id, 'initial']);
     expect(stateHash).toBe(sha256(state));
     expect(bindingHash).toBe(sha256(nonce));
@@ -654,9 +673,9 @@ describe('M16.1-T-09: inicio con una conexión activa o por reautorizar', () => 
     );
     expect(response.status).toBe(303);
     expect(new URL(response.headers.get('location') ?? '').origin).toBe('https://www.facebook.com');
-    expect(worker.calls).toHaveLength(1);
-    expect(worker.calls[0].args[2]).toBe('reauth');
-    expect(worker.calls[0].args[7]).toBe(CONNECTION_ID);
+    expect(worker.calls.map((call) => call.fn)).toEqual(['list_pending_purges', 'create_oauth_attempt']);
+    expect(worker.calls[1].args[2]).toBe('reauth');
+    expect(worker.calls[1].args[7]).toBe(CONNECTION_ID);
   });
 });
 
@@ -671,7 +690,7 @@ describe('M16.1-T-10: inicio con una pendiente', () => {
     );
     expect(response.status).toBe(303);
     expect(response.headers.get('location')).toBe(RESULT('pendiente_vigente'));
-    expect(worker.calls).toEqual([]);
+    expect(worker.calls.map((call) => call.fn)).toEqual(['list_pending_purges']);
     expect(meta.calls).toEqual([]);
   });
 });
@@ -925,7 +944,7 @@ describe('M16.1-T-16: orden de llamadas del camino initial', () => {
     expect(events).toEqual([
       'db:consume_oauth_attempt',
       'meta:/v26.0/oauth/access_token',
-      'meta:/v26.0/debug_token',
+      'meta:/v26.0/',
       'meta:/v26.0/me',
       'db:create_pending_connection',
     ]);
@@ -993,9 +1012,10 @@ describe('M16.1-T-18: inspección del token', () => {
         getJson: async () => {
           throw new Error('no se espera GET');
         },
-        postFormJson: async () => ({
+        postBatchGetJson: async () => ({
           data: { is_valid: true, app_id: APP_ID, type: 'SYSTEM_USER', scopes: ['ads_read'], ...data },
         }),
+        postFormJson: async () => { throw new Error('no se espera POST directo'); },
       },
     });
 
@@ -1033,8 +1053,13 @@ describe('M16.1-T-18: inspección del token', () => {
     expect(call.method).toBe('POST');
     expect(call.url.search).toBe('');
     const form = new URLSearchParams(call.body ?? '');
-    expect(form.get('input_token')).toBe(TOKEN);
     expect(form.get('access_token')).toBe(`${APP_ID}|${SECRET}`);
+    const batch = JSON.parse(form.get('batch') ?? 'null');
+    expect(batch).toHaveLength(1);
+    expect(batch[0].method).toBe('GET');
+    const relative = new URL(batch[0].relative_url, `${GRAPH}/`);
+    expect(relative.pathname).toBe('/debug_token');
+    expect(relative.searchParams.get('input_token')).toBe(TOKEN);
   });
 });
 
@@ -1147,16 +1172,12 @@ describe('M16.1-T-21: camino reauth', () => {
     ['sin conexión viva', null, 'credencial_cambio'],
     ['con otra conexión', { id: randomUUID(), status: 'active', credentialGeneration: 2 }, 'credencial_cambio'],
     ['con otra generación', { id: CONNECTION_ID, status: 'active', credentialGeneration: 3 }, 'credencial_cambio'],
-    ['con la misma generación', { id: CONNECTION_ID, status: 'active', credentialGeneration: 2 }, 'reautorizacion_no_disponible'],
-    [
-      'necesita reautorización con la misma generación',
-      { id: CONNECTION_ID, status: 'needs_reauth', credentialGeneration: 2 },
-      'reautorizacion_no_disponible',
-    ],
   ] as Array<[string, LiveConnection | null, string]>)('%s → %s sin canje', async (_name, live, outcome) => {
     const meta = fakeMeta();
     const worker = reauthWorker();
-    const location = await runCallback(meta, worker, { readLiveConnection: async () => live });
+    const connection = live && { id: live.id, status: live.status,
+      credential_generation: live.credentialGeneration };
+    const location = await runCallback(meta, worker, { readConnection: async () => connection as never });
     expect(location).toBe(RESULT(outcome));
     expect(meta.calls).toEqual([]);
     expect(worker.calls.map((call) => call.fn)).toEqual(['consume_oauth_attempt']);
@@ -1165,13 +1186,278 @@ describe('M16.1-T-21: camino reauth', () => {
   it('un fallo al leer la conexión después de consumir se registra en la etapa reauth', async () => {
     const meta = fakeMeta();
     const location = await runCallback(meta, reauthWorker(), {
-      readLiveConnection: async () => {
+      readConnection: async () => {
         throw new Error('fallo sintético de lectura');
       },
     });
     expect(location).toBe(RESULT('error'));
     expect(logs).toEqual([expect.objectContaining({ etapa: 'reauth', resultado: 'error' })]);
     expect(meta.calls).toEqual([]);
+  });
+});
+
+function activeReauthRecord(): IntegrationConnectionRecord {
+  return { id: CONNECTION_ID, company_id: CTX.company_id, provider: 'meta',
+    client_business_id: BUSINESS, credential_generation: 2, current_sync_run_id: null,
+    last_error_class: null, last_error_message: null, created_at: '2026-10-14T00:00:00.000Z',
+    updated_at: '2026-10-14T00:00:00.000Z', status: 'active', external_account_id: 'act_1001',
+    currency: 'USD', timezone: 'UTC', pending_expires_at: null, purge_requested_at: null };
+}
+
+function savedReauthCredential(token: string) {
+  return { connection_id: CONNECTION_ID, company_id: CTX.company_id, provider: 'meta',
+    status: 'active', credential_generation: 3,
+    ...sealCredential(token, { company_id: CTX.company_id, connection_id: CONNECTION_ID, provider: 'meta' }, KEYRING),
+    token_type: 'system_user', issued_for_app_id: APP_ID, granted_scopes: ['ads_read'], expires_at: null };
+}
+
+function revokeCalls(meta: ReturnType<typeof fakeMeta>): MetaCall[] {
+  return meta.calls.filter((call) => {
+    if (call.url.pathname !== '/v26.0/' || call.body === null) return false;
+    const batch = JSON.parse(new URLSearchParams(call.body).get('batch') ?? '[]');
+    return batch[0]?.relative_url?.startsWith('oauth/revoke?') === true;
+  });
+}
+
+describe('M16.2-T-13: purga al iniciar con Meta inyectada', () => {
+  it('revoca una desconectada antes de leer la conexión viva y crear el intento', async () => {
+    const meta = fakeMeta();
+    const worker = fakeWorker({
+      list_pending_purges: () => [{ connection_id: CONNECTION_ID, status: 'disconnected',
+        reason: 'disconnect_requested', has_credential: true,
+        pending_expires_at: null, purge_requested_at: new Date(NOW) }],
+      get_credential: () => [{ connection_id: CONNECTION_ID, company_id: CTX.company_id,
+        provider: 'meta', status: 'disconnected', credential_generation: 1,
+        ...sealCredential(TOKEN, { company_id: CTX.company_id, connection_id: CONNECTION_ID,
+          provider: 'meta' }, KEYRING), token_type: 'system_user', issued_for_app_id: APP_ID,
+        granted_scopes: ['ads_read'], expires_at: null }],
+      purge_connection: () => [{ purge_connection: true }],
+    });
+    const readLiveConnection = vi.fn(async () => { events.push('readLive'); return null; });
+    const defaultClient = vi.spyOn(client, 'createMetaHttpClient');
+    const response = await oauth.handleMetaStart(startRequest(), deps(meta, worker, { readLiveConnection }));
+    expect(response.status).toBe(303);
+    expect(revokeCalls(meta)).toHaveLength(1);
+    expect(defaultClient).not.toHaveBeenCalled();
+    expect(events).toEqual(['db:list_pending_purges', 'db:get_credential', 'meta:/v26.0/',
+      'db:purge_connection', 'readLive', 'db:create_oauth_attempt']);
+  });
+
+  it.each([
+    ['sin conexión', null, 'https://www.facebook.com/v26.0/dialog/oauth', 1],
+    ['pendiente vigente', { id: CONNECTION_ID, status: 'pending_selection', credentialGeneration: 0 },
+      RESULT('pendiente_vigente'), 0],
+  ] as const)('T-13 una purga que lanza no corta el inicio: %s', async (_name, live, expected, attempts) => {
+    const meta = fakeMeta();
+    const worker = fakeWorker({ list_pending_purges: () => { throw new Error('Fallo sintético de purga.'); } });
+    const defaultClient = vi.spyOn(client, 'createMetaHttpClient');
+    const readLiveConnection = vi.fn(async () => { events.push('readLive'); return live; });
+    const response = await oauth.handleMetaStart(startRequest(), deps(meta, worker, { readLiveConnection }));
+    expect(response.status).toBe(303);
+    expect(response.headers.get('location')).toContain(expected);
+    expect(worker.calls.filter((call) => call.fn === 'create_oauth_attempt')).toHaveLength(attempts);
+    expect(events.slice(0, 2)).toEqual(['db:list_pending_purges', 'readLive']);
+    expect(logs).toContainEqual({ evento: 'meta_ciclo', etapa: 'purga', resultado: 'fallida',
+      request_id: CTX.request_id });
+    expect(defaultClient).not.toHaveBeenCalled();
+    expect(meta.calls).toEqual([]);
+  });
+});
+
+describe('M16.2: reautorización y recuperación del token nuevo', () => {
+  const workerForReauth = (handler: WorkerHandler = (args) => [{ connection_id: args[2],
+    status: 'active', credential_generation: 3 }]) => fakeWorker({
+    consume_oauth_attempt: () => [consumedRow('reauth', 2)], replace_credential: handler,
+  });
+
+  it('T-15 consume, valida y reemplaza la credencial antes de responder reautorizado', async () => {
+    const meta = fakeMeta();
+    const worker = workerForReauth();
+    expect(await runCallback(meta, worker, { readConnection: async () => activeReauthRecord() }))
+      .toBe(RESULT('reautorizado'));
+    expect(worker.calls.map((call) => call.fn)).toEqual(['consume_oauth_attempt', 'replace_credential']);
+    expect(events).toEqual(['db:consume_oauth_attempt', 'meta:/v26.0/oauth/access_token',
+      'meta:/v26.0/', 'meta:/v26.0/me', 'meta:/v26.0/9876543/assigned_ad_accounts',
+      'db:replace_credential']);
+    expect(worker.calls[1].args.slice(0, 4)).toEqual([CTX.user_id, CTX.company_id,
+      CONNECTION_ID, expect.any(String)]);
+    expect(revokeCalls(meta)).toHaveLength(0);
+  });
+
+  it('T-17 revoca el token nuevo si la cuenta conectada dejó de estar delegada', async () => {
+    const meta = fakeMeta({ '/v26.0/9876543/assigned_ad_accounts': () => json({ data: [] }) });
+    const worker = workerForReauth();
+    expect(await runCallback(meta, worker, { readConnection: async () => activeReauthRecord() }))
+      .toBe(RESULT('cuenta_no_delegada'));
+    expect(worker.calls.map((call) => call.fn)).toEqual(['consume_oauth_attempt']);
+    expect(revokeCalls(meta)).toHaveLength(1);
+  });
+
+  it('T-51 revoca el token nuevo si el listado supera el límite', async () => {
+    let pages = 0;
+    const meta = fakeMeta({ '/v26.0/9876543/assigned_ad_accounts': () => {
+      pages += 1;
+      return json({ data: [], paging: { next: 'ignorado', cursors: { after: `cur-${pages}` } } });
+    } });
+    const worker = workerForReauth();
+    expect(await runCallback(meta, worker, { readConnection: async () => activeReauthRecord() }))
+      .toBe(RESULT('meta_no_disponible'));
+    expect(pages).toBe(10);
+    expect(revokeCalls(meta)).toHaveLength(1);
+    expect(worker.calls.map((call) => call.fn)).not.toContain('replace_credential');
+  });
+
+  it('T-51 revoca el token nuevo si reauth no obtiene ads_read', async () => {
+    const meta = fakeMeta({ '/v26.0/debug_token': debugToken({ scopes: [] }) });
+    const worker = workerForReauth();
+    expect(await runCallback(meta, worker, { readConnection: async () => activeReauthRecord() }))
+      .toBe(RESULT('permiso_faltante'));
+    expect(revokeCalls(meta)).toHaveLength(1);
+    expect(worker.calls.map((call) => call.fn)).toEqual(['consume_oauth_attempt']);
+    expect(JSON.stringify(logs)).not.toContain(TOKEN);
+  });
+
+  it.each([
+    ['generation_mismatch', 'credencial_cambio'], ['invalid_transition', 'credencial_cambio'],
+    ['not_authorized', 'credencial_cambio'], ['attempt_rejected', 'rechazado'],
+    ['invalid_argument', 'error'],
+  ] as const)('T-18 %s → %s y una revocación', async (code, expected) => {
+    const meta = fakeMeta();
+    const worker = workerForReauth(() => { throw new WorkerApiError(code); });
+    expect(await runCallback(meta, worker, { readConnection: async () => activeReauthRecord() }))
+      .toBe(RESULT(expected));
+    expect(revokeCalls(meta)).toHaveLength(1);
+    expect(JSON.stringify(logs)).not.toContain(TOKEN);
+  });
+
+  it.each([
+    ['debug_token sin ads_read', { '/v26.0/debug_token': debugToken({ scopes: [] }) }, {}, 'permiso_faltante'],
+    ['/me sin negocio', { '/v26.0/me': () => json({ id: '9876543' }) }, {}, 'token_no_valido'],
+    ['/me con error de Graph', { '/v26.0/me': () => json(graphError(190), 400) }, {}, 'rechazado'],
+    ['PX003 al crear pendiente', {}, { create_pending_connection: () => {
+      throw new WorkerApiError('live_connection_exists');
+    } }, 'conexion_existente'],
+    ['error inesperado al crear pendiente', {}, { create_pending_connection: () => {
+      throw new Error('Fallo sintético de escritura.');
+    } }, 'error'],
+  ] as Array<[string, Record<string, Responder>, Partial<Record<string, WorkerHandler>>, string]>)
+  ('T-19 revoca una vez el token nuevo en initial tras %s', async (_name, metaOverrides, workerOverrides, outcome) => {
+    const meta = fakeMeta(metaOverrides);
+    const worker = fakeWorker(workerOverrides);
+    expect(await runCallback(meta, worker)).toBe(RESULT(outcome));
+    expect(revokeCalls(meta)).toHaveLength(1);
+    expect(JSON.stringify(logs)).not.toContain(TOKEN);
+  });
+
+  it('T-20 no revoca sin token después de fallar el canje', async () => {
+    const denied = fakeMeta({ '/v26.0/oauth/access_token': () => json(graphError(100), 400) });
+    expect(await runCallback(denied, fakeWorker())).toBe(RESULT('rechazado'));
+    expect(revokeCalls(denied)).toHaveLength(0);
+    expect(outcomes.META_OAUTH_MESSAGES.rechazado.text).toContain('Si llegaste a autorizar en Meta');
+    expect(outcomes.META_OAUTH_MESSAGES.meta_no_disponible.text).toContain('Si llegaste a autorizar en Meta');
+  });
+
+  it.each([
+    ['mismo token', TOKEN, false, 'reautorizado', 0],
+    ['otro token', 'token-anterior', false, 'error', 1],
+    ['lectura fallida', TOKEN, true, 'error', 1],
+  ] as const)('T-52 relee tras dos fallos de transporte: %s', async (_case, saved, unreadable, expected, revocations) => {
+    const meta = fakeMeta();
+    let writes = 0;
+    const worker = fakeWorker({
+      consume_oauth_attempt: () => [consumedRow('reauth', 2)],
+      replace_credential: () => { writes += 1; throw new WorkerApiError('unavailable', 'transport'); },
+      get_credential: () => unreadable ? (() => { throw new WorkerApiError('unavailable', 'transport'); })()
+        : [savedReauthCredential(saved)],
+    });
+    let reads = 0;
+    const result = await runCallback(meta, worker, { readConnection: async () => {
+      reads += 1;
+      return { ...activeReauthRecord(), credential_generation: reads === 1 ? 2 : 3 };
+    } });
+    expect(result).toBe(RESULT(expected));
+    expect(writes).toBe(2);
+    expect(revokeCalls(meta)).toHaveLength(revocations);
+    const reauthLines = logs.filter((line) => (line as { evento?: string; etapa?: string }).evento === 'meta_ciclo' &&
+      (line as { etapa?: string }).etapa === 'reauth');
+    expect(reauthLines).toEqual(expected === 'reautorizado'
+      ? [{ evento: 'meta_ciclo', etapa: 'reauth', resultado: 'ok', request_id: CTX.request_id }] : []);
+    expect(JSON.stringify(logs)).not.toContain(TOKEN);
+    expect(JSON.stringify(logs)).not.toContain(sha256(TOKEN));
+  });
+});
+
+describe('M16.2: registros cerrados y frontera de servidor', () => {
+  it('T-23 registra solo campos cerrados sin token, cuenta ni valores del proveedor', async () => {
+    const meta = fakeMeta({ '/v26.0/debug_token': debugToken({ scopes: [] }) });
+    expect(await runCallback(meta, fakeWorker())).toBe(RESULT('permiso_faltante'));
+    const allowed = new Set(['evento', 'etapa', 'resultado', 'clase', 'motivo', 'request_id',
+      'filas', 'campos', 'paginas', 'llamadas', 'completa', 'duracion_ms', 'cuentas', 'descartadas']);
+    for (const line of logs) {
+      expect(line).toMatchObject({ evento: expect.stringMatching(/^meta_(oauth|ciclo)$/) });
+      for (const key of Object.keys(line as object)) expect(allowed.has(key)).toBe(true);
+    }
+    const serialized = JSON.stringify(logs);
+    for (const forbidden of [TOKEN, 'act_1001', 'act_90001', BUSINESS, 'Cuenta sintética', '1.23']) {
+      expect(serialized).not.toContain(forbidden);
+    }
+  });
+
+  it('T-24 confina los módulos nuevos al servidor', () => {
+    for (const file of ['src/modules/integrations/lifecycle.ts',
+      'src/modules/integrations/meta/accounts.ts', 'src/modules/integrations/meta/probe.ts',
+      'src/modules/integrations/meta/revoke.ts',
+      'src/modules/integrations/repository/lifecycle-calls.ts']) {
+      expect(startsWithServerOnly(sources.get(file) ?? '')).toBe(true);
+    }
+    const actions = sources.get('src/modules/integrations/actions.ts') ?? '';
+    expect(actions.trimStart().startsWith("'use server';")).toBe(true);
+    expect(actions.match(/export (?:async )?function /g)).toEqual(['export async function ', 'export async function ']);
+    expect(actions).not.toMatch(/export (?:const|class|type|interface) /);
+  });
+});
+
+describe('M16.2-T-52: escritura inicial ambigua en el callback', () => {
+  it.each([
+    ['mismo token', TOKEN, 'pendiente', 0],
+    ['otro token', 'token-anterior', 'error', 1],
+    ['sin conexión', null, 'error', 1],
+    ['lectura fallida', TOKEN, 'error', 1],
+  ] as const)('%s → %s tras relectura', async (_case, saved, expected, revocations) => {
+    const meta = fakeMeta();
+    let pendingId = '';
+    let writes = 0;
+    const worker = fakeWorker({
+      create_pending_connection: (args) => {
+        pendingId = args[2] as string;
+        writes += 1;
+        throw new WorkerApiError('unavailable', 'transport');
+      },
+      get_credential: () => {
+        if (!saved) throw new Error('No se debía leer credencial.');
+        return [{ connection_id: pendingId, company_id: CTX.company_id, provider: 'meta',
+          status: 'pending_selection', credential_generation: 0,
+          ...sealCredential(saved, { company_id: CTX.company_id, connection_id: pendingId,
+            provider: 'meta' }, KEYRING), token_type: 'system_user', issued_for_app_id: APP_ID,
+          granted_scopes: ['ads_read'], expires_at: null }];
+      },
+    });
+    const readConnection = async (): Promise<IntegrationConnectionRecord | null> => {
+      if (_case === 'lectura fallida') throw new Error('Relectura fallida.');
+      return saved === null ? null : {
+      id: pendingId, company_id: CTX.company_id, provider: 'meta', client_business_id: BUSINESS,
+      credential_generation: 0, current_sync_run_id: null, last_error_class: null,
+      last_error_message: null, created_at: '2026-10-14T00:00:00.000Z',
+      updated_at: '2026-10-14T00:00:00.000Z', status: 'pending_selection',
+      external_account_id: null, currency: null, timezone: null,
+      pending_expires_at: '2030-01-01T00:00:00.000Z', purge_requested_at: null,
+      };
+    };
+    expect(await runCallback(meta, worker, { readConnection })).toBe(RESULT(expected));
+    expect(writes).toBe(2);
+    expect(revokeCalls(meta)).toHaveLength(revocations);
+    expect(JSON.stringify(logs)).not.toContain(TOKEN);
+    expect(JSON.stringify(logs)).not.toContain(sha256(TOKEN));
   });
 });
 
@@ -1202,7 +1488,7 @@ describe('M16.1-T-22: resultados cerrados', () => {
 
   it('rechazado usa el mismo texto que el contrato K02', async () => {
     const { OAuthAttemptRejectedError } = await import('@/modules/integrations/contract');
-    expect(outcomes.META_OAUTH_MESSAGES.rechazado.text).toBe(new OAuthAttemptRejectedError().message);
+    expect(outcomes.META_OAUTH_MESSAGES.rechazado.text).toContain(new OAuthAttemptRejectedError().message);
   });
 });
 

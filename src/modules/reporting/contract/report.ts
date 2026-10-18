@@ -194,6 +194,35 @@ export const reportSchema = reportShape.superRefine((report, ctx) => {
     }
   });
 
+  const inferenceGraph = new Map<string, string[]>();
+  report.evidence.forEach((item) => {
+    if (item.kind === 'inference') {
+      inferenceGraph.set(item.id, item.derived_from.filter((ref) => ref !== item.id));
+    }
+  });
+  const inferenceState = new Map<string, 'visiting' | 'done'>();
+  const hasInferenceCycle = (id: string): boolean => {
+    const current = inferenceState.get(id);
+    if (current === 'visiting') return true;
+    if (current === 'done') return false;
+    inferenceState.set(id, 'visiting');
+    for (const ref of inferenceGraph.get(id) ?? []) {
+      if (inferenceGraph.has(ref) && hasInferenceCycle(ref)) return true;
+    }
+    inferenceState.set(id, 'done');
+    return false;
+  };
+  for (const id of inferenceGraph.keys()) {
+    if (hasInferenceCycle(id)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['evidence'],
+        message: `dependencias circulares entre inferencias, detectadas en ${id}`,
+      });
+      break;
+    }
+  }
+
   // Las métricas de la situación actual deben ser métricas calculadas, no declaraciones.
   const calculatedIds = new Set(
     report.evidence.filter((e) => e.kind === 'calculated_metric').map((e) => e.id),

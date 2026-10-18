@@ -47,16 +47,17 @@ src/
     integrations/contract/  contratos K02–K04: intento OAuth, conexión, credencial
     integrations/crypto/    llavero y cifrado autenticado de credenciales
     integrations/db/        cliente PostgreSQL acotado a worker_api
-    integrations/repository/ credenciales, intentos OAuth sobre worker_api y lectura de la
-                            conexión viva bajo RLS
-    integrations/meta/      versión de la Graph API, cliente HTTP, OAuth, inspección del
-                            token y resultados del flujo
+    integrations/repository/ credenciales, intentos y ciclo de vida por worker_api; lectura
+                            de la conexión viva bajo RLS
+    integrations/meta/      Graph API, cliente HTTP, OAuth, listado, prueba, revocación y
+                            resultados del flujo
+    integrations/           orquestación del ciclo de vida y Server Actions
   proxy.ts                  refresco de sesión y redirección (NO autorización); Next.js
                             solo lo carga al mismo nivel que app/
 supabase/
   migrations/               migraciones SQL versionadas
   tests/                    pruebas pgTAP de políticas, privilegios y ciclo de vida
-scripts/                    guardas de destino, migración y ejecución de pgTAP
+scripts/                    guardas de destino, migración, pgTAP y preflight local de Meta
 tests/
   unit/ component/          contratos, esquemas, guardas de credenciales y de destino
   app/                      pruebas contra el proyecto remoto desechable
@@ -64,7 +65,7 @@ tests/
 
 Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 
-- `integrations/`: listado de cuentas, Insights y ciclo de vida de la conexión con Meta.
+- `integrations/`: sincronización manual de Insights.
 - `chat/`: redacción, herramientas cerradas, adaptador del modelo, orquestador y guarda de
   afirmaciones numéricas.
 
@@ -76,14 +77,14 @@ Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 | `company` | Empresa del usuario y membresía, resueltas bajo RLS. Alta y perfil desde Configuración | Existe |
 | `tenant` | Construye K01 (`user_id`, `company_id`, `role`, `request_id`) dentro del servidor. Es la única entrada de actor y empresa al camino privilegiado | Existe; lo consumen las rutas del OAuth con Meta |
 | Contexto declarado | Objetivos, problemas y sistemas de la empresa, versionados e inmutables una vez activos | Existe solo en la base (tablas y funciones). Sin código ni pantalla que lo cargue: se quitaron con el onboarding |
-| `app-data` | Única fuente de datos de las pantallas de `/app`. Lee lo real bajo RLS (usuario, empresa, existencia de un diagnóstico) y devuelve mock en cero para lo que no tiene backend (integraciones, uso de la IA) | Existe |
+| `app-data` | Única fuente de datos de las pantallas de `/app`. Lee lo real bajo RLS (usuario, empresa, existencia de un diagnóstico y conexión activa de Meta) y devuelve mock en cero para lo que no tiene backend (otras integraciones, uso de la IA) | Existe |
 | `reporting/contract` | Esquema del reporte y su evidencia tipada por procedencia | Existe; sin generación |
 | `integrations/contract` | Contratos Zod de intento OAuth, conexión (registro interno y DTO público separados) y credencial cifrada | Existe |
 | `integrations/crypto` | Llavero versionado y cifrado AES-256-GCM con AAD de empresa, conexión y proveedor; material descifrado en envoltorio redactado | Existe |
 | `integrations/db` | Cliente PostgreSQL `server-only` del rol `praxa_integrations`, limitado a `worker_api`, con TLS verificado y errores redactados | Existe |
-| `integrations/repository` | Prepara operaciones reutilizables, valida K01 y respuestas, lee y recifra credenciales según versión y estado; crea y consume intentos OAuth por `worker_api`; lee la conexión viva de la empresa con el JWT del usuario | Existe |
-| `integrations/meta` | Versión de la Graph API y URLs en un solo lugar; cliente HTTP con timeout, clasificación de errores por código de Graph y ninguna credencial en las URLs de salida; inicio y callback del OAuth, canje e inspección del token; resultados cerrados que muestra `/app/integraciones` | Existe (OAuth). El callback de reautorización valida el intento y la conexión, sin canjear el código |
-| `integrations` (resto) | Selección de cuenta, ciclo de vida (reautorización completa, desconexión, purga y revocación) y sincronización manual | Previsto |
+| `integrations/repository` | Prepara operaciones reutilizables, valida K01 y respuestas, lee y recifra credenciales según versión y estado; ejecuta las operaciones del ciclo de vida por `worker_api`; lee la conexión viva de la empresa con el JWT del usuario | Existe |
+| `integrations/meta` | Versión de la Graph API y URLs en un solo lugar; cliente HTTP con timeout, clasificación de errores y ninguna credencial en las URLs de salida; OAuth, listado de cuentas delegadas, prueba de acceso a Insights, revocación y resultados cerrados | Existe; probado con Meta simulada |
+| `integrations` (resto) | Orquesta selección, reautorización, desconexión y purga perezosa; Server Actions de confirmación y desconexión. La sincronización manual queda prevista | Parcial |
 | `chat` | Consulta en lenguaje natural sobre gasto e impresiones, con cifras verificadas | Previsto |
 
 La ruta `meta_first` no construye Tiendanube, GA4, reportes publicados, métricas derivadas
@@ -193,7 +194,8 @@ Navegador ──► Route Handler / Server Action
 - Existen también las rutas OAuth y el cliente de Meta: el callback construye K01, consume el
   intento por `worker_api` y, en una autorización inicial, crea la conexión pendiente con la
   credencial cifrada.
-- Prevista: la orquestación del ciclo de vida.
+- Existe la orquestación del ciclo de vida: la tarjeta lee la conexión bajo RLS; las acciones
+  confirman la cuenta o inician la desconexión; la purga reanudable usa el camino privilegiado.
 - Toda escritura de integraciones pasa por este camino (DEC-04). `authenticated` solo lee
   por RLS las tablas de integraciones que lo permiten.
 - El cifrado y descifrado de la credencial ocurren en Node; la base solo guarda y devuelve
@@ -214,16 +216,18 @@ Navegador ──POST /api/integraciones/meta/iniciar (mismo origen)
           ──► diálogo de Facebook Login for Business (config_id, sin scope)
 Meta      ──GET /api/integraciones/meta/callback?code&state
           ──► K01 ──► consumo atómico del intento
-          ──► canje (POST) ──► debug_token (POST) ──► /me (Authorization)
+          ──► canje (POST) ──► debug_token (lote POST) ──► /me (Authorization)
           ──► conexión pendiente con credencial cifrada
           ──► redirección limpia a /app/integraciones?meta=<resultado>
+Navegador ──► tarjeta de integraciones ──► cuentas delegadas ──► prueba de Insights
+          ──► confirmación de cuenta o desconexión por Server Action
 ```
 
-- Existen: el OAuth con Facebook Login for Business, el canje del código y la inspección del
-  token, probados con Meta simulada. Las URLs de salida no llevan credenciales, códigos ni
-  tokens.
-- Previstos: listado de cuentas delegadas, prueba de acceso, lectura de Insights y
-  revocación.
+- Existen: OAuth, canje, inspección del token, listado de cuentas delegadas, prueba de acceso
+  a Insights y revocación de mejor esfuerzo, probados con Meta simulada. Las operaciones de
+  Graph con secretos en parámetros internos viajan dentro de un lote `POST`; ninguna URL de
+  salida lleva credenciales, códigos ni tokens.
+- Prevista: sincronización y lectura persistida de Insights.
 
 ## Contexto declarado
 
@@ -280,7 +284,7 @@ La ruta no tiene workers, colas ni programación automática (spec, sección 2; 
 
 - La sincronización de Insights (prevista) es manual: una Server Action con límites de
   ventana, páginas y duración por debajo del máximo del hosting (CA-56, Q-04).
-- La purga de conexiones pendientes o desconectadas (prevista) es perezosa y reanudable: se
+- La purga de conexiones pendientes o desconectadas es perezosa y reanudable: se
   ejecuta cuando el dueño vuelve a la página de integraciones o inicia una conexión.
 - Una ejecución colgada no bloquea para siempre porque su arrendamiento vence.
 

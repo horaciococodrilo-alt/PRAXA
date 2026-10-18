@@ -6,6 +6,8 @@
 
 **Enmienda M16.1 (preparada el 2026-10-12), aprobada por el usuario el 2026-10-14:** CA-26, CA-29b, CA-30, CB-06 y la fila OAuth de la sección 14, preparadas a partir de las decisiones D-M16.1-03, D-M16.1-07, D-M16.1-08 y de las decisiones del usuario sobre la auditoría de la ronda 1 (A-01 y A-04; [spec de M16.1](../M16.1/spec.md)). Auditada junto con esa spec (`spec-audit-4`, APROBABLE). El usuario la aprobó en el chat al iniciar `M16.1` y pidió expresamente que el asistente lo registrara aquí. `APROBADA` corresponde al texto enmendado de esos criterios.
 
+**Enmienda M16.2 preparada y aprobada por el usuario el 2026-10-16:** la prueba de revocación y desconexión durante una sincronización de la fila «Ciclo de vida» de §14 se asigna a «Sincronización» (`M16c`), donde existe una sincronización que puede quedar en vuelo. En `M16.2` se prueban la desconexión durante confirmación y reautorización, además de las transiciones y la purga. Cambio coordinado con la enmienda aprobada de [plan.md](plan.md), ficha de `M16c` e II.11 paso 9. Revisión del diff: [enmienda-ruta-1.md](../M16.2/revisiones/enmienda-ruta-1.md), aprobable como conjunto. El usuario aprobó expresamente ambos documentos en el chat el 2026-10-16. **El texto enmendado es vigente.**
+
 `v1.0 — APROBADA` — 2026-09-24 (aprobada por el usuario en `G-DOCS`, al cerrar `M04a`). Incorpora:
 
 - las decisiones DEC-01 a DEC-21;
@@ -534,8 +536,8 @@ Ningún secreto se pega en el chat ni se guarda en el repositorio.
 | Migración y aislamiento | `db:check:test`, `db:push:test`, `test:policies` (privilegios del rol de C y aislamiento), `test:app` (lectura efectiva de las tablas nuevas por la Data API) |
 | Cifrado / M06.3a | `db:check:test` y `test:app` obligatorios, incluida la suite real del cliente `praxa_integrations`. Falla si `PRAXA_INTEGRATIONS_TEST_DB_URL` falta, es inválida o no corresponde al proyecto de pruebas; nunca usa `PRAXA_INTEGRATIONS_DB_URL` como fallback. Una suite omitida/skipped no acredita el gate (CB-06). |
 | OAuth | `test:app`: callback de otro actor o de otra empresa, `state` vencido o reutilizado, hash de vinculación distinto, intento `reauth` con generación vieja (en `M16.1`, rechazado sin canje), URL limpia después del callback. Sin autorización real |
-| Ciclo de vida | `test:policies`: transiciones, pendiente → desconectada sin metadatos, confirmación vencida rechazada en la base, purga reanudable e idempotente, reconexión después de una purga, cierre (CA-67, CA-68). `test:app`: revocación y desconexión durante una sincronización. VR-01 |
-| Sincronización | `test:policies`, más pruebas unitarias con Meta simulada: paginación completa, fallo en una página intermedia, resincronización sin duplicados y con valores actualizados, ejecución desplazada (A vence, B publica, A es rechazada), snapshot nuevo sin fila donde el anterior tenía valor, captura parcial vista al día siguiente sin resincronizar, precisión SQL → API → TypeScript |
+| Ciclo de vida | `test:policies`: transiciones, pendiente → desconectada sin metadatos, confirmación vencida rechazada en la base, purga reanudable e idempotente, reconexión después de una purga, cierre (CA-67, CA-68). `test:app`: desconexión durante una confirmación y durante una reautorización, con Meta simulada. VR-01 |
+| Sincronización | `test:policies`, `test:app` de revocación y desconexión durante una sincronización, más pruebas unitarias con Meta simulada: paginación completa, fallo en una página intermedia, resincronización sin duplicados y con valores actualizados, ejecución desplazada (A vence, B publica, A es rechazada), snapshot nuevo sin fila donde el anterior tenía valor, captura parcial vista al día siguiente sin resincronizar, precisión SQL → API → TypeScript |
 | Chat | Pruebas obligatorias de CA-50b, aislamiento (CA-54), límites (CA-70), redacción (CA-66), escritura en vuelo (CA-38c), VR-02 y transcripciones reproducibles con fixtures sintéticos |
 
 Criterios transversales:

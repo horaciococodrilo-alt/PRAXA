@@ -18,8 +18,12 @@ vi.mock('@/modules/app-data', () => ({
       descripcion: ['Campañas de Facebook', 'e Instagram'],
       conectada: false,
     },
+    { id: 'google_analytics', nombre: 'Google Analytics', descripcion: ['Analítica', 'web'], conectada: false },
+    { id: 'tiendanube', nombre: 'Tiendanube', descripcion: ['Tienda', 'online'], conectada: false },
   ],
 }));
+vi.mock('@/modules/integrations/lifecycle', () => ({ loadMetaCardState: async () => ({ kind: 'sin_conexion' }) }));
+vi.mock('@/modules/integrations/actions', () => ({ confirmarCuentaMeta: vi.fn(), desconectarMeta: vi.fn() }));
 
 const { default: IntegracionesPage } = await import('@/app/(app)/app/integraciones/page');
 const { META_OAUTH_MESSAGES } = await import('@/modules/integrations/meta/outcomes');
@@ -78,9 +82,12 @@ describe('aviso del resultado de Meta en /app/integraciones', () => {
     }
   });
 
-  it('Conectar sigue deshabilitado', async () => {
+  it('Conectar Meta está habilitado y los otros conectores siguen deshabilitados', async () => {
     await renderPage({ meta: 'pendiente' });
-    expect(screen.getByRole('button', { name: 'Conectar' })).toBeDisabled();
+    const buttons = screen.getAllByRole('button', { name: 'Conectar' });
+    expect(buttons[0]).toBeEnabled();
+    expect(buttons[1]).toBeDisabled();
+    expect(buttons[2]).toBeDisabled();
   });
 
   it('sin sesión rechaza antes de leer searchParams', async () => {

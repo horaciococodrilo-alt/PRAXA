@@ -9,6 +9,7 @@ import {
 import { isoDateTimeSchema } from '@/modules/integrations/contract/primitives';
 import { SecretValue } from '../crypto/seal';
 import { graphUrl, type MetaOAuthConfig } from './api';
+import { MetaApiError } from './errors';
 import type { MetaHttpClient } from './client';
 
 /**
@@ -70,10 +71,7 @@ export async function inspectToken(
   deps: { http: MetaHttpClient; config: MetaOAuthConfig },
 ): Promise<ValidatedToken> {
   const appToken = new SecretValue(`${deps.config.appId}|${deps.config.appSecret.reveal()}`);
-  const body = await deps.http.postFormJson(graphUrl('debug_token'), {
-    input_token: token,
-    access_token: appToken,
-  });
+  const body = await deps.http.postBatchGetJson('debug_token', { input_token: token }, appToken);
   const data = record(record(body)?.data);
   if (!data || data.is_valid !== true) throw new TokenRejectedError('invalid');
   if (String(data.app_id) !== deps.config.appId) throw new TokenRejectedError('wrong_app');
@@ -94,9 +92,39 @@ export async function inspectToken(
   });
 }
 
-export async function fetchClientBusinessId(token: SecretValue, deps: { http: MetaHttpClient }): Promise<string> {
+export type SystemUser = Readonly<{ id: string; clientBusinessId: string }>;
+
+export async function fetchSystemUser(token: SecretValue, deps: { http: MetaHttpClient }): Promise<SystemUser> {
   const body = await deps.http.getJson(graphUrl('me', { fields: 'id,client_business_id' }), { bearer: token });
-  const parsed = clientBusinessIdSchema.safeParse(record(body)?.client_business_id);
-  if (!parsed.success) throw new TokenRejectedError('missing_business');
-  return parsed.data;
+  const fields = record(body);
+  const parsed = clientBusinessIdSchema.safeParse(fields?.client_business_id);
+  const id = typeof fields?.id === 'number' && Number.isSafeInteger(fields.id)
+    ? String(fields.id) : fields?.id;
+  if (!parsed.success || typeof id !== 'string' || !/^[0-9]{1,32}$/.test(id)) {
+    throw new TokenRejectedError('missing_business');
+  }
+  return Object.freeze({ id, clientBusinessId: parsed.data });
+}
+
+export async function fetchClientBusinessId(token: SecretValue, deps: { http: MetaHttpClient }): Promise<string> {
+  return (await fetchSystemUser(token, deps)).clientBusinessId;
+}
+
+/** Canje por POST con todo en el cuerpo; el código de un solo uso no se reintenta. */
+export async function exchangeCodeForToken(
+  code: string,
+  deps: { http: MetaHttpClient; config: MetaOAuthConfig },
+): Promise<SecretValue> {
+  const body = await deps.http.postFormJson(graphUrl('oauth/access_token'), {
+    client_id: deps.config.appId,
+    redirect_uri: deps.config.redirectUri,
+    client_secret: deps.config.appSecret,
+    code: new SecretValue(code),
+  });
+  const token = body && typeof body === 'object' && !Array.isArray(body)
+    ? (body as { access_token?: unknown }).access_token : undefined;
+  if (typeof token !== 'string' || token === '') {
+    throw new MetaApiError({ errorClass: 'unknown', graphCode: null, graphSubcode: null });
+  }
+  return new SecretValue(token);
 }
