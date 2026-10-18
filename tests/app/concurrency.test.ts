@@ -66,8 +66,10 @@ class UserSession {
   }
 
   /** Asume el rol y los claims del usuario para el resto de la transacción. */
-  async begin() {
-    await this.client.query('begin');
+  async begin(isolationLevel?: 'read committed') {
+    await this.client.query(
+      isolationLevel ? 'begin transaction isolation level read committed' : 'begin',
+    );
     await this.client.query(
       `select set_config('request.jwt.claims', $1, true)`,
       [JSON.stringify({ sub: this.userId, role: 'authenticated' })],
@@ -287,8 +289,7 @@ describe.skipIf(!canRun)('carrera entre editar y confirmar (dos transacciones re
     const editorPid = (await t1.query('select pg_backend_pid() as pid')).rows[0].pid as number;
 
     // T2 activa con la revisión que el usuario había visto.
-    await t2.begin();
-    await t2.query('set transaction isolation level read committed');
+    await t2.begin('read committed');
     const activationPid = (await t2.query('select pg_backend_pid() as pid')).rows[0].pid as number;
     const activation = t2
       .query('select public.activate_context_draft($1, $2)', [draftId, revision])
