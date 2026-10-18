@@ -365,6 +365,24 @@ describe('contrato del reporte', () => {
       expect(issues.some((issue) => issue.message.includes('sí misma'))).toBe(true);
     });
 
+    it('rechaza inferencias que se derivan circularmente entre sí', () => {
+      const issues = expectRejected(
+        mutate((report) => {
+          const inference = report.evidence[2];
+          if (inference.kind !== 'inference') throw new Error('caso de prueba inválido');
+          inference.derived_from = ['ev_segunda_inferencia'];
+          report.evidence.push({
+            ...inference,
+            id: 'ev_segunda_inferencia',
+            derived_from: [inference.id],
+          });
+        }),
+      );
+      expect(issues.some((issue) => issue.message.includes('circulares entre inferencias'))).toBe(
+        true,
+      );
+    });
+
     it('exige que la situación actual use métricas calculadas, no declaraciones', () => {
       const issues = expectRejected(
         mutate((report) => {
