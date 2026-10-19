@@ -8,7 +8,7 @@ import type { ComponentProps, HTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/components/ui';
 
 import s from './app.module.css';
-import { IconBajar, IconPlano, IconSubir } from './icons';
+import { IconBajar, IconChevronAbajo, IconPlano, IconSubir } from './icons';
 import { variacion } from './format';
 
 /** Imagen de `public/`. */
@@ -16,13 +16,19 @@ export function Img({ alt, ...props }: ComponentProps<'img'> & { src: string; al
   return <img alt={alt} {...props} />;
 }
 
-type Variant = 'primary' | 'secondary' | 'small';
+type Variant = 'primary' | 'secondary' | 'small' | 'danger';
 
+/** `danger` es el botón chico con los colores de peligro, para acciones que borran datos. */
 const VARIANT: Record<Variant, string> = {
   primary: s.primary,
   secondary: s.secondary,
   small: s.small,
+  danger: cn(s.small, s.danger),
 };
+
+function buttonClassName(variant: Variant, className?: string) {
+  return cn(s.btn, VARIANT[variant], className);
+}
 
 /**
  * Botón del sistema. `disabled` aplica el estilo deshabilitado del diseño (borde suave,
@@ -34,7 +40,7 @@ export function Button({
   type = 'button',
   ...props
 }: ComponentProps<'button'> & { variant?: Variant }) {
-  return <button type={type} className={cn(s.btn, VARIANT[variant], className)} {...props} />;
+  return <button type={type} className={buttonClassName(variant, className)} {...props} />;
 }
 
 export function ButtonLink({
@@ -42,7 +48,32 @@ export function ButtonLink({
   className,
   ...props
 }: ComponentProps<typeof Link> & { variant?: Variant }) {
-  return <Link className={cn(s.btn, VARIANT[variant], className)} {...props} />;
+  return <Link className={buttonClassName(variant, className)} {...props} />;
+}
+
+/**
+ * Resumen de un `<details>` con aspecto de botón del sistema. El `<summary>` solo envuelve
+ * (bloque, sin marcador nativo) y el aspecto lo lleva un `<span>` interno en flex, así que
+ * sirve con cualquier variante y no depende de que el navegador acepte un `<summary>` flex.
+ * Mientras el detalle está abierto, el chevrón apunta hacia arriba.
+ */
+export function DisclosureButton({
+  variant = 'small',
+  className,
+  children,
+}: {
+  variant?: Variant;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <summary className={s.disclosure}>
+      <span className={buttonClassName(variant, className)}>
+        <span>{children}</span>
+        <IconChevronAbajo size={13} className={s.disclosureIcon} />
+      </span>
+    </summary>
+  );
 }
 
 export function Card({

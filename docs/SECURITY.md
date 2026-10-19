@@ -31,6 +31,7 @@ nada hasta que exista.
 | Secretos de terceros (`META_APP_SECRET`, `DEEPINFRA_API_KEY`) y credenciales administrativas de Supabase | Suplantación de la app o acceso total a la base |
 | Integridad de las cifras mostradas al dueño | Una cifra falsa presentada como hecho es un daño aunque no haya filtración |
 | Identidad del dueño y su cuenta de Supabase Auth | Todo lo demás se autoriza a partir de ella |
+| Enlaces y códigos de confirmación y recuperación de Supabase Auth | Permiten completar operaciones sobre la cuenta mientras son válidos; viajan en correos transaccionales |
 | Foto de perfil, nombre y apellido del usuario | Datos personales. La foto puede traer metadatos ocultos, como la ubicación donde se sacó |
 
 ## 2. Fronteras de confianza
@@ -58,6 +59,11 @@ nada hasta que exista.
    los metadatos de Auth, que el propio usuario puede escribir. Por eso el servidor solo firma
    o borra una ruta de la carpeta del usuario, y esos metadatos (también nombre y apellido)
    nunca deciden acceso: solo se muestran.
+9. **Supabase Auth → Resend (SMTP) → casilla del dueño.** Resend recibe la dirección y el
+   mensaje completo de confirmación o recuperación, incluidos enlaces o códigos de un solo
+   uso. El operador con acceso al servicio de envío puede consultar mensajes conservados allí.
+   El borrado en la base activa no borra esos mensajes; el alcance y el procedimiento están en
+   el acta de M03a.
 
 `worker_api` es un nombre heredado: **la ruta `meta_first` no construye ningún worker en
 segundo plano** (spec, sección 2, y D2). El camino 3 lo recorre código `server-only` de Next,
@@ -362,6 +368,9 @@ Cubierto por `05_delete_carveout.test.sql`.
 - **Sin registro de auditoría** de accesos ni de cambios, más allá de las versiones de
   contexto, las marcas de tiempo y los registros por consulta del chat.
 - **Retención del host del modelo** (sección 8) y **copias de seguridad** (sección 9).
+- **Correos de Auth en el proveedor SMTP.** Los enlaces y códigos de un solo uso llegan al
+  proveedor de envío como parte del mensaje. La retención y el borrado en ese tercero siguen
+  los límites declarados en el acta de M03a; el cierre local de CA-67 no los elimina.
 - **La foto se verifica por su cabecera, no se regenera.** Storage confía en el tipo declarado.
   Por eso, al registrar la foto, el servidor comprueba que los primeros bytes sean de un JPG o
   un PNG; si no lo son, no la registra y la borra (vigente). La verificación es solo al
