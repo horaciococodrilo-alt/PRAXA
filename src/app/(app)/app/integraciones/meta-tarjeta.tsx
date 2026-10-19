@@ -1,6 +1,6 @@
 import { IconFlecha } from '@/components/app/icons';
 import { IntegracionLogo } from '@/components/app/integracion-logo';
-import { Badge, Button } from '@/components/app/ui';
+import { Badge, Button, DisclosureButton } from '@/components/app/ui';
 import i from '@/components/app/integraciones.module.css';
 import { confirmarCuentaMeta, desconectarMeta } from '@/modules/integrations/actions';
 import type { MetaCardState } from '@/modules/integrations/lifecycle';
@@ -10,16 +10,10 @@ import { META_OAUTH_MESSAGES } from '@/modules/integrations/meta/outcomes';
 const START = '/api/integraciones/meta/iniciar';
 const DISCONNECT_HELP = 'Desconectar no quita a Praxa de tu negocio en Meta. Para hacerlo, entrá a la configuración de tu negocio en Meta, a las integraciones o apps conectadas, y quitá a Praxa.';
 const RETENTION = 'Se borran la credencial y los datos de esta conexión de la base activa. Esta acción no se puede deshacer. Si el proyecto usa Supabase Pro, las copias nocturnas pueden conservarlos hasta 7 días.';
-const DISCLOSURE_STYLE = {
-  display: 'flex', alignItems: 'center', minHeight: 36, padding: '0 13px',
-  border: '1px solid var(--line-strong)', borderRadius: 9,
-  background: 'var(--surface-raised)', color: 'var(--text-strong-muted)',
-  fontSize: 13, fontWeight: 600, cursor: 'pointer', listStyle: 'none',
-} as const;
-const DESTRUCTIVE_STYLE = {
-  borderColor: 'var(--danger-text)', background: 'var(--danger-bg)',
-  color: 'var(--danger-text)',
-} as const;
+// La spec fija los dos textos anteriores para `activa` y `requiere_reauth`; los de la conexión
+// pendiente, que todavía no sincronizó nada, nombran la acción que se confirma.
+const PENDING_NOTICE = 'Se descarta la conexión pendiente y se borra de la base activa la credencial que autorizaste. Para usar Meta tendrás que conectarla de nuevo. Si el proyecto usa Supabase Pro, las copias nocturnas pueden conservarla hasta 7 días.';
+const PENDING_HELP = 'Cancelar la conexión no quita a Praxa de tu negocio en Meta. Para hacerlo, entrá a la configuración de tu negocio en Meta, a las integraciones o apps conectadas, y quitá a Praxa.';
 
 function StartControl({ label }: { label: string }) {
   return (
@@ -35,13 +29,11 @@ function StartControl({ label }: { label: string }) {
 function DisconnectControl({ pending = false }: { pending?: boolean }) {
   return (
     <details>
-      <summary className={i.act} style={DISCLOSURE_STYLE}>
-        {pending ? 'Cancelar conexión' : 'Desconectar'}
-      </summary>
-      {pending ? <p>Se descartará la conexión pendiente. Para usar Meta tendrás que conectarla de nuevo.</p> : <p>{RETENTION}</p>}
-      <p>{DISCONNECT_HELP}</p>
+      <DisclosureButton className={i.act}>{pending ? 'Cancelar conexión' : 'Desconectar'}</DisclosureButton>
+      <p>{pending ? PENDING_NOTICE : RETENTION}</p>
+      <p>{pending ? PENDING_HELP : DISCONNECT_HELP}</p>
       <form action={desconectarMeta} className={i.actForm}>
-        <Button type="submit" variant="small" className={i.act} style={DESTRUCTIVE_STYLE}>
+        <Button type="submit" variant="danger" className={i.act}>
           {pending ? 'Sí, cancelar conexión' : 'Sí, desconectar'}
         </Button>
       </form>

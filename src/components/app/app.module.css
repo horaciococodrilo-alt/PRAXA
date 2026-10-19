@@ -130,7 +130,9 @@
 }
 
 .root a:focus-visible,
-.root button:focus-visible {
+.root button:focus-visible,
+.root .btn:focus-visible,
+.root .disclosure:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
@@ -467,6 +469,59 @@
 }
 
 .small:hover {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+/* Destructivo: el chico con borde, fondo y texto de peligro; el hover invierte los colores. */
+.danger {
+  border-color: var(--danger-text);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+/* En pantallas táctiles el hover queda pegado tras el toque: ahí conserva los colores de peligro. */
+.danger:hover {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+@media (hover: hover) {
+  .danger:hover {
+    background: var(--danger-text);
+    color: var(--danger-bg);
+  }
+}
+
+.danger:active {
+  background: var(--danger-text);
+  color: var(--danger-bg);
+}
+
+/*
+ * DisclosureButton: el <summary> envuelve en bloque y sin marcador; el <span> interno lleva
+ * el botón y ocupa la línea. Abierto, el chevrón gira y el chico queda marcado como presionado.
+ */
+.disclosure {
+  display: block;
+  list-style: none;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.disclosure::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure > .btn {
+  display: flex;
+}
+
+details[open] > .disclosure .disclosureIcon {
+  transform: rotate(180deg);
+}
+
+details[open] > .disclosure > .small:not(.danger) {
   background: var(--surface-raised);
   color: var(--text);
 }
