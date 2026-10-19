@@ -7,6 +7,8 @@ vi.mock('@/modules/integrations/actions', () => ({
 }));
 
 import { MetaTarjeta } from '@/app/(app)/app/integraciones/meta-tarjeta';
+import buttonStyles from '@/components/app/app.module.css';
+import cardStyles from '@/components/app/integraciones.module.css';
 import type { MetaCardState } from '@/modules/integrations/lifecycle';
 
 const base = { kind: 'pendiente' as const, pendingExpiresAt: '2026-10-17T10:00:00.000Z',
@@ -21,6 +23,8 @@ describe('M16.2: tarjeta de Meta', () => {
     const form = button.closest('form');
     expect(form?.getAttribute('method')).toBe('post');
     expect(form?.getAttribute('action')).toBe('/api/integraciones/meta/iniciar');
+    expect(button).toHaveClass(buttonStyles.small, cardStyles.act);
+    expect(form).toHaveClass(cardStyles.actForm);
     expect(container.innerHTML).not.toContain('act_90001');
   });
 
@@ -29,8 +33,16 @@ describe('M16.2: tarjeta de Meta', () => {
     const radio = screen.getByRole('radio') as HTMLInputElement;
     expect(radio.name).toBe('cuenta');
     expect(radio.checked).toBe(false);
-    expect(screen.getByRole('button', { name: 'Confirmar cuenta' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Cancelar conexión' })).toBeInTheDocument();
+    const confirm = screen.getByRole('button', { name: 'Confirmar cuenta' });
+    expect(confirm).toHaveClass(buttonStyles.small, cardStyles.act);
+    expect(confirm.closest('form')).toHaveClass(cardStyles.actForm);
+    const cancel = screen.getByText('Cancelar conexión', { selector: 'summary' });
+    expect(cancel).toHaveClass(cardStyles.act);
+    expect(cancel.closest('details')).not.toHaveAttribute('open');
+    expect(cancel).toHaveStyle({ display: 'flex' });
+    const destructive = screen.getByRole('button', { name: 'Sí, cancelar conexión' });
+    expect(destructive).toHaveClass(buttonStyles.small, cardStyles.act);
+    expect(destructive).toHaveStyle({ color: 'var(--danger-text)' });
     expect(container.innerHTML).toContain('…0001');
     for (const secret of ['act_90001', 'negocio_sintetico', '5550001']) expect(container.innerHTML).not.toContain(secret);
   });
@@ -52,6 +64,8 @@ describe('M16.2: tarjeta de Meta', () => {
     expect(screen.getByText(/hasta 7 días/)).toBeInTheDocument();
     expect(screen.getByText(/apps conectadas/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sí, desconectar' })).toBeInTheDocument();
+    expect(screen.getByText('Desconectar', { selector: 'summary' })).toHaveStyle({ display: 'flex' });
+    expect(screen.getByRole('button', { name: 'Sí, desconectar' })).toHaveStyle({ color: 'var(--danger-text)' });
   });
 
   it.each(['user_action', 'permission'] as const)('T-28 requiere reautorización por %s', (errorClass) => {
@@ -59,6 +73,8 @@ describe('M16.2: tarjeta de Meta', () => {
       timezone: 'UTC', errorClass }} />);
     const button = screen.getByRole('button', { name: 'Volver a autorizar' });
     expect(button.closest('form')?.getAttribute('action')).toBe('/api/integraciones/meta/iniciar');
+    expect(button).toHaveClass(buttonStyles.small, cardStyles.act);
+    expect(button.closest('form')).toHaveClass(cardStyles.actForm);
     expect(screen.getByText('Requiere autorización')).toBeInTheDocument();
     expect(screen.getByText(/apps conectadas/)).toBeInTheDocument();
     expect(screen.getByText(/base activa/)).toBeInTheDocument();
