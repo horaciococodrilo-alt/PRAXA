@@ -20,19 +20,13 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 | M06.3a — Cifrado, cliente acotado y documentación de la excepción | `G-CRYPTO` | 2026-10-02 (decisión del usuario; sin `/implementation-review` ni `/qa-review` con veredicto final sobre el HEAD cerrado — detalle en la sesión) | [sesiones/M06.3a.md](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 | M28.2a — Entorno del piloto | `G-ENTORNO` | 2026-10-11 (pasos manuales acreditados por declaración del usuario, sin capturas; detalle en la sesión) | [sesiones/M28.2a.md](FASES/FASE1/meta_first/sesiones/M28.2a.md) |
 | M16.1 — OAuth con Meta | `G-OAUTH` | 2026-10-14 (PR #23; despliegue y comprobaciones en producción acreditados por declaración del usuario, sin capturas; sin `/implementation-review` sobre las correcciones posteriores a la revisión; detalle en la sesión) | [sesiones/M16.1.md](FASES/FASE1/meta_first/sesiones/M16.1.md) |
-| M03a — Acta de datos reales de Meta y del chat | `G-ACTA-META` | 2026-10-18 (aprobación explícita del usuario) | [sesiones/M03a.md](FASES/FASE1/meta_first/sesiones/M03a.md) |
-
-## Corrección documental pendiente de aprobación
-
-**M03a — R-01 y R-02: VERIFICADO — PENDIENTE DE APROBACIÓN.** La aprobación de `G-ACTA-META` corresponde a la versión original del acta; la versión corregida aún requiere aprobación explícita del usuario. Evidencia en [sesiones/M03a.md](FASES/FASE1/meta_first/sesiones/M03a.md).
+| M03a — Acta de datos reales de Meta y del chat | `G-ACTA-META` | 2026-10-18 (versión vigente aprobada explícitamente por el usuario; blob Git `c274963069c15fc23f62fedc95f0b669bc391c0e`) | [sesiones/M03a.md](FASES/FASE1/meta_first/sesiones/M03a.md) |
 
 ## Siguiente habilitada
 
-**M16.2 — Selección de cuenta, ciclo de vida, alta del dueño y VR-01: VERIFICADO — PENDIENTE DE APROBACIÓN.**
-Fase A verificada en `mf/M16.2` tras corregir la revisión de implementación; fase B pendiente. Evidencia en
-[sesiones/M16.2.md](FASES/FASE1/meta_first/sesiones/M16.2.md). `G-VR01` no está aprobado.
-`G-ACTA-META` está aprobado para la versión original del acta. Antes de la primera autorización real siguen pendientes P-04 y la aprobación de la corrección documental de M03a; la fase B sigue al
-merge y despliegue de la fase A.
+**M16.2 — Selección de cuenta, ciclo de vida, alta del dueño y VR-01: FASE A FUSIONADA EN `main` — CORRECCIÓN POSTERIOR PENDIENTE DE REVISIÓN.**
+La fase A se fusionó en el PR #25. La fase B sigue pendiente del despliegue, las intervenciones del usuario y `G-VR01`. Evidencia en [sesiones/M16.2.md](FASES/FASE1/meta_first/sesiones/M16.2.md).
+Antes de la primera autorización real sigue pendiente P-04. La conversación con el dueño exigida por el acta debe ocurrir antes de su alta.
 
 Hallazgos asignados a M06.3a (cerrada): `H-M04.1-02`, `H-E1-09`, `H-E1-10`, `H-E1-17`, `H-E1-37`,
 `H-E1-43` a `H-E1-70` y la comprobación de acceso real del rol de `H-E1-36`. Detalle en
