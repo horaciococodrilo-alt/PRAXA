@@ -2,6 +2,7 @@
 
 **Versión:** 1.0 — 2026-09-24
 **Estado:** `APROBADO PARA EJECUCIÓN`. `M04a` está cerrada y `G-DOCS` fue aprobado por el usuario el 2026-09-24. El estado de cada microfase y la siguiente habilitada están en `docs/PROJECT_STATE.md`.
+**Enmienda CA-67 aprobada expresamente por el usuario el 2026-10-19:** al cierre, después del orden local, se comprueba si Resend conserva correos de Auth del dueño y se solicita su borrado anticipado. Se registra la respuesta sin datos personales ni valores de los mensajes. El cambio está coordinado con [la spec de la ruta](spec.md) y es vigente.
 **Enmienda pendiente:** la precisión de M28.3a sobre `avatars` preparada en el PR #20 requiere auditoría y aprobación visible del usuario; el estado aprobado corresponde al plan anterior.
 **Enmienda M16.1 (preparada el 2026-10-12), aprobada por el usuario el 2026-10-14:** ficha de `M16.1`, sección II.9, nota de II.10 (paso 6) y filas de `M16.1` en III.2 y III.3, preparadas a partir de las decisiones D-M16.1-01 a D-M16.1-11 del usuario ([spec de M16.1](../M16.1/spec.md), "Decisiones de la microfase"). Auditada junto con esa spec (`spec-audit-4` y `plan-audit-3`, APROBABLE). El usuario la aprobó en el chat al iniciar `M16.1` y pidió expresamente que el asistente lo registrara aquí. El texto enmendado es el vigente.
 **Enmienda M16.2 preparada y aprobada por el usuario el 2026-10-16:** ficha de `M16.2` (CA-38b en la UI y excepción puntual al límite de 8 horas confirmada por el usuario), ficha de `M16c` (parte persistente de `H-E1-22` y CA-39 en su criterio de aceptación), intervenciones de la ficha de `M16.2` y su fila de III.2 (preflight y verificación posterior al despliegue VD-01), II.10 (archivos y pruebas necesarios para D-M16.2-01, -02, -03, -05, -10), II.11 paso 9 (revocación y desconexión durante sincronización), y fila de verificación del ciclo de vida/sincronización de la §14 de [la spec de la ruta](spec.md). Revisión del diff: [enmienda-ruta-1.md](../M16.2/revisiones/enmienda-ruta-1.md), aprobable como conjunto. El usuario aprobó expresamente ambos documentos en el chat el 2026-10-16. **El texto enmendado es vigente.**
@@ -339,12 +340,12 @@ Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA
 | **Objetivo** | Cumplir el criterio de salida (DEC-01). La microfase se cierra al completar la demostración (DEC-20). Al finalizar el piloto, se borra todo con CA-67. |
 | **Implementación requerida** | Guion de la demo. Recorrido completo del dueño con el usuario creado en `M16.2`. Evidencia redactada. Paso a Supabase Pro cuando el dueño use el piloto sin acompañamiento (DEC-08). Procedimiento de cierre del piloto con CA-67, que se ejecuta al finalizar el piloto. |
 | **Procedimiento del asistente** | Preparar el guion y la lista de verificación. Durante la demo, no tocar datos reales fuera de la aplicación. |
-| **Evidencia de cierre** | Lista de verificación de la demo, redactada. Al finalizar el piloto, lista de verificación de CA-67. |
-| **Criterio de aceptación** | El dueño completó el recorrido con su propio login. Al finalizar el piloto, y después de CA-67, no quedan filas de la empresa ni objetos en su carpeta de `avatars`, y el usuario está eliminado. |
+| **Evidencia de cierre** | Lista de verificación de la demo, redactada. Al finalizar el piloto, lista de verificación de CA-67, incluida la solicitud a Resend y su respuesta o estado pendiente, sin datos de los mensajes. |
+| **Criterio de aceptación** | El dueño completó el recorrido con su propio login. Al finalizar el piloto, y después de los pasos locales de CA-67, no quedan filas de la empresa ni objetos en su carpeta de `avatars`, y el usuario está eliminado. La gestión ante Resend está documentada sin presentar una solicitud pendiente como borrado confirmado. |
 | **Pruebas** | La lista de verificación; `tests/app/closure-storage.test.ts` en el proyecto desechable para el borrado de fotos por Storage API. |
 | **Condición para avanzar** | `G-DEMO` al completar la demostración. |
 | **Dependencias / habilita** | `G-VR02` / — |
-| **Intervención requerida del usuario** | Coordinar con el dueño, ejecutar los pasos de CA-67 que requieren dashboard y quitar al dueño como tester. |
+| **Intervención requerida del usuario** | Coordinar con el dueño, ejecutar los pasos de CA-67 que requieren dashboard, quitar al dueño como tester y solicitar a Resend el borrado anticipado de los mensajes afectados si aún los conserva. |
 
 ### M16d — App Review y Business Verification (fuera de la ruta)
 
@@ -763,6 +764,7 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 | 4 | Usuario | Borrar el usuario de Supabase Auth |
 | 5 | Usuario | Quitar al dueño como tester en Meta y pedirle que quite la app de las apps conectadas de su negocio |
 | 6 | Asistente | Verificar que no quedan filas de la empresa ni objetos en la carpeta de `avatars`. Declarar que las copias nocturnas de Pro pueden conservar datos hasta 7 días |
+| 7 | Usuario | Comprobar en Resend si quedan correos de Auth del dueño dentro de su retención. Si los hay, solicitar al proveedor su borrado anticipado y registrar solicitud y respuesta redactadas; si no hay confirmación, dejar el borrado externo pendiente. No copiar direcciones, enlaces, códigos ni identificadores de mensajes a la evidencia |
 
 **Trampa conocida.** El orden no es opcional. `companies.owner_id` tiene `on delete restrict` y `company_context_versions.created_by` referencia a `auth.users` sin acción de borrado: borrar primero el usuario falla. Borrar metadatos de `storage.objects` por SQL no borra los archivos físicos; si falla Storage, conservar el usuario y reintentar.
 
