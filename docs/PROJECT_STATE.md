@@ -24,8 +24,8 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 
 ## Siguiente habilitada
 
-**M16.2 — Selección de cuenta, ciclo de vida, alta del dueño y VR-01: FASE A FUSIONADA EN `main` — CORRECCIÓN POSTERIOR PENDIENTE DE REVISIÓN.**
-La fase A se fusionó en el PR #25. La fase B sigue pendiente del despliegue, las intervenciones del usuario y `G-VR01`. Evidencia en [sesiones/M16.2.md](FASES/FASE1/meta_first/sesiones/M16.2.md).
+**M16.2 — Selección de cuenta, ciclo de vida, alta del dueño y VR-01: FASE A FUSIONADA EN `main` — FASE B PENDIENTE.**
+La fase A se fusionó en el PR #25 y la corrección posterior de la tarjeta en el PR #29. La fase B sigue pendiente del despliegue, las intervenciones del usuario y `G-VR01`. Evidencia en [sesiones/M16.2.md](FASES/FASE1/meta_first/sesiones/M16.2.md).
 Antes de la primera autorización real sigue pendiente P-04. La conversación con el dueño exigida por el acta debe ocurrir antes de su alta.
 
 Hallazgos asignados a M06.3a (cerrada): `H-M04.1-02`, `H-E1-09`, `H-E1-10`, `H-E1-17`, `H-E1-37`,
