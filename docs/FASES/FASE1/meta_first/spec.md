@@ -8,6 +8,8 @@
 
 **Enmienda M16.1 (preparada el 2026-10-12), aprobada por el usuario el 2026-10-14:** CA-26, CA-29b, CA-30, CB-06 y la fila OAuth de la sección 14, preparadas a partir de las decisiones D-M16.1-03, D-M16.1-07, D-M16.1-08 y de las decisiones del usuario sobre la auditoría de la ronda 1 (A-01 y A-04; [spec de M16.1](../M16.1/spec.md)). Auditada junto con esa spec (`spec-audit-4`, APROBABLE). El usuario la aprobó en el chat al iniciar `M16.1` y pidió expresamente que el asistente lo registrara aquí. `APROBADA` corresponde al texto enmendado de esos criterios.
 
+**Enmienda de referencias (`H-E1-40`), aprobada por el usuario el 2026-10-20:** la ficha de `M03a` y el paso 3 de II.8 de [plan.md](plan.md), y la §15 de [la spec de la ruta](spec.md), nombran la sección «9. Datos, retención y borrado» de `SECURITY.md` en lugar de su antigua línea 181. No cambia el contenido de la ruta.
+
 **Enmienda M16.2 preparada y aprobada por el usuario el 2026-10-16:** la prueba de revocación y desconexión durante una sincronización de la fila «Ciclo de vida» de §14 se asigna a «Sincronización» (`M16c`), donde existe una sincronización que puede quedar en vuelo. En `M16.2` se prueban la desconexión durante confirmación y reautorización, además de las transiciones y la purga. Cambio coordinado con la enmienda aprobada de [plan.md](plan.md), ficha de `M16c` e II.11 paso 9. Revisión del diff: [enmienda-ruta-1.md](../M16.2/revisiones/enmienda-ruta-1.md), aprobable como conjunto. El usuario aprobó expresamente ambos documentos en el chat el 2026-10-16. **El texto enmendado es vigente.**
 
 `v1.0 — APROBADA` — 2026-09-24 (aprobada por el usuario en `G-DOCS`, al cerrar `M04a`). Incorpora:
@@ -563,7 +565,7 @@ Criterios transversales:
   - Si el ROADMAP vuelve al árbol, reemplazar antes esos datos por "cuenta piloto", "moneda de la cuenta" y "zona de la cuenta distinta de Buenos Aires".
   - La visibilidad del repositorio y la reescritura del historial, que siguen siendo una decisión del usuario; no se hacen automáticamente.
 - **Rutas desactualizadas. Resuelto en `M04a` (H-E1-02).** `AGENTS.md`, líneas 15 y 16, apuntaba a `docs/microfases/<ID>/`, pero la estructura real es `docs/FASES/FASE1/<MF>/`. Además, `docs/FASES/FASE1/MF04/m04-1-auditoria.md` citaba un nombre anterior del roadmap; también se aclaró en `M04a`.
-- **`SECURITY.md`, línea 181.** Dice que no hay política de retención. Se alinea con DEC-09 cuando `M03a` la ratifique.
+- **`SECURITY.md`, sección «9. Datos, retención y borrado».** Dice que no hay política de retención. Se alinea con DEC-09 cuando `M03a` la ratifique.
 
 ## Fuentes
 

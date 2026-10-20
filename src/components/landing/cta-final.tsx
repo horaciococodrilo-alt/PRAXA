@@ -14,7 +14,7 @@ export function CtaFinal() {
           <span className={shared.soloMov}>número</span> quedarte
         </h2>
         <p className={cn(s.lead, shared.soloMov)}>
-          Contanos de tu operación y, si hay encaje, te damos acceso al piloto.
+          Creá tu cuenta y empezá a ver tus números en un solo lugar.
         </p>
         <Link href="/signup" className={cn(s.button, shared.btn)}>
           Crear cuenta

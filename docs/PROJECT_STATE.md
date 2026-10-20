@@ -49,12 +49,12 @@ Después de M16.2, en este orden: M16c, M25a.1, M25a.2 y M28.3a.
 
 ## Decisiones pendientes del usuario
 
-- Visibilidad del repositorio y reescritura del historial (`H-E1-04`).
-- Referencias por número de línea a `SECURITY.md` en la ficha de M03a, el plan y la spec
-  (`H-E1-40`).
-- Pendientes de MF_FRONTEND: contraste en modo claro (`H-E1-76`), texto del CTA móvil
-  (`H-E1-78`), prevención en `.gitignore` de `H-E1-81` y el texto de la landing sobre
-  disponibilidad de Meta Ads (`H-E1-82`).
+- Enmienda de `avatars` del PR #20 (CA-67 y ficha de M28.3a): sigue sin aprobar. El
+  2026-10-20 el usuario decidió dejarla como está; hay que aprobarla o rechazarla antes de
+  M28.3a.
+
+Las decisiones sobre `H-E1-04`, `H-E1-40`, `H-E1-76`, `H-E1-78`, `H-E1-81` y `H-E1-82` se
+tomaron el 2026-10-20; el detalle está en [HALLAZGOS.md](HALLAZGOS.md).
 
 ## Regla de actualización
 

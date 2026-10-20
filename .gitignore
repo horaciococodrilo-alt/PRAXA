@@ -34,6 +34,12 @@ yarn-error.log*
 # .env.example es la única excepción y no contiene valores reales.
 .env*
 !.env.example
+# Variantes sin el punto inicial, que `.env*` no cubre (H-E1-81). Sin un patrón
+# `env.*` general: ignoraría módulos como `src/lib/env.ts`.
+/env
+/env.*
+env.local
+env.*.local
 
 # vercel
 .vercel

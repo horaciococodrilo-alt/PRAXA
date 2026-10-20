@@ -6,6 +6,7 @@
 **Enmienda pendiente:** la precisión de M28.3a sobre `avatars` preparada en el PR #20 requiere auditoría y aprobación visible del usuario; el estado aprobado corresponde al plan anterior.
 **Enmienda M16.1 (preparada el 2026-10-12), aprobada por el usuario el 2026-10-14:** ficha de `M16.1`, sección II.9, nota de II.10 (paso 6) y filas de `M16.1` en III.2 y III.3, preparadas a partir de las decisiones D-M16.1-01 a D-M16.1-11 del usuario ([spec de M16.1](../M16.1/spec.md), "Decisiones de la microfase"). Auditada junto con esa spec (`spec-audit-4` y `plan-audit-3`, APROBABLE). El usuario la aprobó en el chat al iniciar `M16.1` y pidió expresamente que el asistente lo registrara aquí. El texto enmendado es el vigente.
 **Enmienda M16.2 preparada y aprobada por el usuario el 2026-10-16:** ficha de `M16.2` (CA-38b en la UI y excepción puntual al límite de 8 horas confirmada por el usuario), ficha de `M16c` (parte persistente de `H-E1-22` y CA-39 en su criterio de aceptación), intervenciones de la ficha de `M16.2` y su fila de III.2 (preflight y verificación posterior al despliegue VD-01), II.10 (archivos y pruebas necesarios para D-M16.2-01, -02, -03, -05, -10), II.11 paso 9 (revocación y desconexión durante sincronización), y fila de verificación del ciclo de vida/sincronización de la §14 de [la spec de la ruta](spec.md). Revisión del diff: [enmienda-ruta-1.md](../M16.2/revisiones/enmienda-ruta-1.md), aprobable como conjunto. El usuario aprobó expresamente ambos documentos en el chat el 2026-10-16. **El texto enmendado es vigente.**
+**Enmienda de referencias (`H-E1-40`), aprobada por el usuario el 2026-10-20:** la ficha de `M03a` y el paso 3 de II.8 de [plan.md](plan.md), y la §15 de [la spec de la ruta](spec.md), nombran la sección «9. Datos, retención y borrado» de `SECURITY.md` en lugar de su antigua línea 181. No cambia el contenido de la ruta.
 **Enmienda de numeración 0015 (preparada y aprobada por el usuario el 2026-10-18):** la migración `0015` se usa para corregir `H-E1-124` (cerrojo de la fila del borrador en `activate_context_draft`), como corrección puntual fuera de la ruta, sin microfase ni gate nuevos. Las migraciones previstas de la ruta corren un número: Insights de `M16c` pasa a `0016` (pgTAP `13`) y el registro del chat de `M25a.1` pasa a `0017` (pgTAP `14`). Afecta a las fichas de `M16c` y `M25a.1`, a I.5, a `purge_connection` en II.4, y a II.11 y II.12. El usuario pidió continuar con la renumeración en el chat el 2026-10-18; el texto enmendado es vigente.
 **Base:** spec `meta_first` v1.0 (decisiones DEC-01 a DEC-21), revisión del repositorio en `main@247cae8`, la sesión de revisión en la que se tomaron esas decisiones y las correcciones T01 a T16 de la revisión externa. En la versión aprobada no quedaban decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`.
 
@@ -248,7 +249,7 @@ Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA
 |---|---|
 | **ID** | `M03a` — ≤8 h |
 | **Objetivo** | Declarar, antes del primer dato real, qué se guarda, para qué, dónde, por cuánto tiempo y quién lo ve. |
-| **Implementación requerida** | Redactar `docs/FASES/FASE1/M03a/acta-meta.md` con el contenido mínimo de la sección III.6. Alinear la línea 181 de `SECURITY.md`. |
+| **Implementación requerida** | Redactar `docs/FASES/FASE1/M03a/acta-meta.md` con el contenido mínimo de la sección III.6. Alinear la sección «9. Datos, retención y borrado» de `SECURITY.md`. |
 | **Procedimiento del asistente** | Redactar a partir de las decisiones. No afirmar cumplimiento legal: marcar lo que requiere evaluación profesional. |
 | **Evidencia de cierre** | Acta aprobada por el usuario. |
 | **Criterio de aceptación** | El acta cubre todos los puntos de III.6 y no contradice DEC-01 a DEC-18. |
@@ -587,7 +588,7 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 |---:|---|---|
 | 1 | Redactar el acta con todos los puntos de III.6 | `docs/FASES/FASE1/M03a/acta-meta.md` |
 | 2 | Marcar lo que requiere evaluación profesional, como las transferencias internacionales según la Ley 25.326. No afirmar cumplimiento legal | mismo archivo |
-| 3 | Reemplazar la línea 181 de `SECURITY.md` por la política aprobada | `docs/SECURITY.md` |
+| 3 | Alinear la sección «9. Datos, retención y borrado» de `SECURITY.md` con la política aprobada | `docs/SECURITY.md` |
 | 4 | Aprobación del usuario | — |
 
 ---
