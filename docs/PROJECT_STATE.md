@@ -38,6 +38,9 @@ Después de M16.2, en este orden: M16c, M25a.1, M25a.2 y M28.3a.
 
 - **M16d — App Review y Business Verification:** depende de trámites del usuario ante Meta.
   Hasta su cierre, solo pueden conectarse cuentas de personas con rol en la app (`H-E1-01`).
+  Pausada por decisión del usuario (2026-10-20): Business Verification exige una entidad
+  legal y PRAXA es por ahora un proyecto; no bloquea el piloto. También espera a
+  `H-E1-176`.
 - M03 completa, el resto de M05.1, M05.2 y las fuentes Tiendanube y GA4: pospuestas.
 - **MF_FRONTEND — Frontend público (landing y pantallas de acceso):** cerrada el 2026-10-09 por
   decisión del usuario, sin gate de la ruta, e integrada en `mf/M28.2a`. Desde esa integración
