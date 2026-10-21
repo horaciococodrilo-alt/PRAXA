@@ -12,7 +12,7 @@ const DISCONNECT_HELP = 'Desconectar no quita a Praxa de tu negocio en Meta. Par
 const RETENTION = 'Se borran la credencial y los datos de esta conexión de la base activa. Esta acción no se puede deshacer. Si el proyecto usa Supabase Pro, las copias nocturnas pueden conservarlos hasta 7 días.';
 // La spec fija los dos textos anteriores para `activa` y `requiere_reauth`; los de la conexión
 // pendiente, que todavía no sincronizó nada, nombran la acción que se confirma.
-const PENDING_NOTICE = 'Se descarta la conexión pendiente y se borra de la base activa la credencial que autorizaste. Para usar Meta tendrás que conectarla de nuevo. Si el proyecto usa Supabase Pro, las copias nocturnas pueden conservarla hasta 7 días.';
+const PENDING_NOTICE = 'Se descarta la conexión pendiente y se borra de la base activa la credencial que autorizaste. Esta acción no se puede deshacer. Para usar Meta tendrás que conectarla de nuevo. Si el proyecto usa Supabase Pro, las copias nocturnas pueden conservarla hasta 7 días.';
 const PENDING_HELP = 'Cancelar la conexión no quita a Praxa de tu negocio en Meta. Para hacerlo, entrá a la configuración de tu negocio en Meta, a las integraciones o apps conectadas, y quitá a Praxa.';
 
 function StartControl({ label }: { label: string }) {

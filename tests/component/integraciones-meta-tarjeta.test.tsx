@@ -71,7 +71,7 @@ describe('M16.2: tarjeta de Meta', () => {
       /Supabase Pro/, /hasta 7 días/, /apps conectadas/,
     ]);
     expect(details).not.toHaveTextContent(/desconect/i);
-    expect(details).not.toHaveTextContent(/no se puede deshacer/);
+    expect(details).toHaveTextContent(/no se puede deshacer/);
     expect(container.innerHTML).toContain('…0001');
     for (const secret of ['act_90001', 'negocio_sintetico', '5550001']) expect(container.innerHTML).not.toContain(secret);
   });
