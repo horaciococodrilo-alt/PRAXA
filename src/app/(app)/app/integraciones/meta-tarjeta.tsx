@@ -14,6 +14,8 @@ const RETENTION = 'Se borran la credencial y los datos de esta conexión de la b
 // pendiente, que todavía no sincronizó nada, nombran la acción que se confirma.
 const PENDING_NOTICE = 'Se descarta la conexión pendiente y se borra de la base activa la credencial que autorizaste. Esta acción no se puede deshacer. Para usar Meta tendrás que conectarla de nuevo. Si el proyecto usa Supabase Pro, las copias nocturnas pueden conservarla hasta 7 días.';
 const PENDING_HELP = 'Cancelar la conexión no quita a Praxa de tu negocio en Meta. Para hacerlo, entrá a la configuración de tu negocio en Meta, a las integraciones o apps conectadas, y quitá a Praxa.';
+// Listado vacío sin error ni descartadas (`H-E1-182`).
+const NO_ACCOUNTS = 'Meta no compartió ninguna cuenta publicitaria con Praxa. Cancelá la conexión y volvé a conectar: en Meta, marcá la cuenta publicitaria. Solo aparecen las cuentas que pertenecen al portfolio que elegiste.';
 
 function StartControl({ label }: { label: string }) {
   return (
@@ -66,6 +68,7 @@ export function MetaTarjeta({ state }: { state: MetaCardState }) {
         <>
           {state.listError ? <p role="alert">{META_OAUTH_MESSAGES[state.listError].text}</p> : null}
           {state.discarded > 0 ? <p>{state.discarded} cuentas no se pueden usar porque Meta no informó moneda o zona válidas.</p> : null}
+          {!state.listError && state.discarded === 0 && state.accounts.length === 0 ? <p>{NO_ACCOUNTS}</p> : null}
           {state.accounts.length > 0 ? (
             <form action={confirmarCuentaMeta} className={i.actForm}>
               <fieldset>
