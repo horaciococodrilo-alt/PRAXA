@@ -4,7 +4,7 @@
 
 **Enmienda CA-67 aprobada expresamente por el usuario el 2026-10-19:** incorpora al cierre la gestión de borrado anticipado de los correos de Auth que todavía conserve Resend. Los cinco pasos locales conservan su orden. Este texto es vigente.
 
-**Enmienda pendiente:** la ampliación de CA-67 para `avatars` preparada en el PR #20 requiere auditoría y aprobación visible del usuario. `APROBADA` corresponde a la versión anterior de este criterio.
+**Enmienda `avatars` (PR #20), aprobada por el usuario el 2026-11-05:** CA-67 y la ficha de `M28.3a` borran por Storage API todos los objetos de la carpeta `avatars/<user_id>/` antes de borrar cada usuario (`H-E1-110`). Revisión del asistente antes de la aprobación: la spec de la ruta (CA-67, paso 3), la ficha de `M28.3a` y la tabla de pasos del cierre coinciden, y `tests/app/closure-storage.test.ts` pasó en el proyecto desechable el 2026-11-05. El texto enmendado es vigente.
 
 **Enmienda M16.1 (preparada el 2026-10-12), aprobada por el usuario el 2026-10-14:** CA-26, CA-29b, CA-30, CB-06 y la fila OAuth de la sección 14, preparadas a partir de las decisiones D-M16.1-03, D-M16.1-07, D-M16.1-08 y de las decisiones del usuario sobre la auditoría de la ronda 1 (A-01 y A-04; [spec de M16.1](../M16.1/spec.md)). Auditada junto con esa spec (`spec-audit-4`, APROBABLE). El usuario la aprobó en el chat al iniciar `M16.1` y pidió expresamente que el asistente lo registrara aquí. `APROBADA` corresponde al texto enmendado de esos criterios.
 

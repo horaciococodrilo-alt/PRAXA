@@ -53,9 +53,8 @@ Después de M16c, en este orden: M25a.1, M25a.2 y M28.3a.
 
 ## Decisiones pendientes del usuario
 
-- Enmienda de `avatars` del PR #20 (CA-67 y ficha de M28.3a): sigue sin aprobar. El
-  2026-10-20 el usuario decidió dejarla como está; hay que aprobarla o rechazarla antes de
-  M28.3a.
+Ninguna abierta. El 2026-11-05 el usuario aprobó la enmienda de `avatars` del PR #20 y
+ratificó los cambios de Resend en `SECURITY.md` (`H-E1-179`).
 
 Las decisiones sobre `H-E1-04`, `H-E1-40`, `H-E1-76`, `H-E1-78`, `H-E1-81` y `H-E1-82` se
 tomaron el 2026-10-20; el detalle está en [HALLAZGOS.md](HALLAZGOS.md).

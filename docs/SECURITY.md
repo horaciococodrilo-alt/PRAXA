@@ -307,6 +307,7 @@ Estado de cada pieza, sin repetir los plazos (la fuente es la spec):
 | Orquestación de la purga perezosa y revocación en Meta | Vigentes, probadas con Meta simulada. Una purga fallida queda pendiente hasta la siguiente visita o inicio; la revocación fallida no conserva la credencial local |
 | Flujo de baja de cuenta desde la aplicación | No existe (`H-E1-06`). El cierre del piloto es un procedimiento administrativo con orden obligatorio (CA-67) |
 | Foto de perfil | Al reemplazarla o eliminarla se borra el archivo de Storage. Si ese borrado falla, el archivo puede quedar sin referencia en la carpeta del usuario. Con la baja de cuenta, igual que el resto (`H-E1-06`) |
+| Correos de Auth en Resend | El proveedor conserva los mensajes de confirmación y recuperación durante su retención; el borrado de la base activa no los alcanza. Al cerrar el piloto se pide su borrado anticipado (CA-67). Alcance y procedimiento en el [acta de datos reales](FASES/FASE1/M03a/acta-meta.md) |
 | Copias de seguridad del proveedor | Un dato borrado de la base activa puede seguir en las copias durante su plazo (CA-38b). Es un límite declarado, no se mitiga |
 
 "Borrado" en este documento significa borrado en la base activa.
