@@ -21,6 +21,8 @@ const base = { kind: 'pendiente' as const, pendingExpiresAt: '2026-10-17T10:00:0
 // Textos fijados por la spec de M16.2 (§15) para `activa` y `requiere_reauth`.
 const RETENTION = 'Se borran la credencial y los datos de esta conexión de la base activa. Esta acción no se puede deshacer. Si el proyecto usa Supabase Pro, las copias nocturnas pueden conservarlos hasta 7 días.';
 const DISCONNECT_HELP = 'Desconectar no quita a Praxa de tu negocio en Meta. Para hacerlo, entrá a la configuración de tu negocio en Meta, a las integraciones o apps conectadas, y quitá a Praxa.';
+// Texto de `pendiente` sin cuentas, fijado por la enmienda de `H-E1-182` (§15).
+const NO_ACCOUNTS = 'Meta no compartió ninguna cuenta publicitaria con Praxa. Cancelá la conexión y volvé a conectar: en Meta, marcá la cuenta publicitaria. Solo aparecen las cuentas que pertenecen al portfolio que elegiste.';
 
 /**
  * El control que purga la conexión: un `DisclosureButton` dentro de un detalle cerrado, y
@@ -74,6 +76,23 @@ describe('M16.2: tarjeta de Meta', () => {
     expect(details).toHaveTextContent(/no se puede deshacer/);
     expect(container.innerHTML).toContain('…0001');
     for (const secret of ['act_90001', 'negocio_sintetico', '5550001']) expect(container.innerHTML).not.toContain(secret);
+  });
+
+  it('H-E1-182 explica el listado vacío sin ofrecer confirmar', () => {
+    render(<MetaTarjeta state={{ ...base, accounts: [] }} />);
+    expect(screen.getByText(NO_ACCOUNTS)).toBeInTheDocument();
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Confirmar cuenta' })).not.toBeInTheDocument();
+    expectConfirmedPurge('Cancelar conexión', 'Sí, cancelar conexión', [/Se descarta la conexión pendiente/]);
+  });
+
+  it.each([
+    [{ ...base, accounts: [], listError: 'error' } as MetaCardState],
+    [{ ...base, accounts: [], discarded: 2 } as MetaCardState],
+    [base as MetaCardState],
+  ])('H-E1-182 no muestra el texto del listado vacío si hay otra explicación o cuentas', (state) => {
+    render(<MetaTarjeta state={state} />);
+    expect(screen.queryByText(NO_ACCOUNTS)).not.toBeInTheDocument();
   });
 
   it.each([

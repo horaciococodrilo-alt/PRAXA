@@ -21,18 +21,19 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 | M28.2a — Entorno del piloto | `G-ENTORNO` | 2026-10-11 (pasos manuales acreditados por declaración del usuario, sin capturas; detalle en la sesión) | [sesiones/M28.2a.md](FASES/FASE1/meta_first/sesiones/M28.2a.md) |
 | M16.1 — OAuth con Meta | `G-OAUTH` | 2026-10-14 (PR #23; despliegue y comprobaciones en producción acreditados por declaración del usuario, sin capturas; sin `/implementation-review` sobre las correcciones posteriores a la revisión; detalle en la sesión) | [sesiones/M16.1.md](FASES/FASE1/meta_first/sesiones/M16.1.md) |
 | M03a — Acta de datos reales de Meta y del chat | `G-ACTA-META` | 2026-10-18 (versión vigente aprobada explícitamente por el usuario; blob Git `c274963069c15fc23f62fedc95f0b669bc391c0e`) | [sesiones/M03a.md](FASES/FASE1/meta_first/sesiones/M03a.md) |
+| M16.2 — Selección de cuenta, ciclo de vida, alta del dueño y VR-01 | `G-VR01` | 2026-11-05 (pasos con el dueño acreditados por declaración del usuario; la confirmación final sin logs; cuenta sin actividad, con la validación de campos y Q-04 diferidas a `M16c`; detalle en la sesión) | [sesiones/M16.2.md](FASES/FASE1/meta_first/sesiones/M16.2.md) |
 
 ## Siguiente habilitada
 
-**M16.2 — Selección de cuenta, ciclo de vida, alta del dueño y VR-01: FASE A FUSIONADA EN `main` — FASE B PENDIENTE.**
-La fase A se fusionó en el PR #25 y la corrección posterior de la tarjeta en el PR #29. La fase B sigue pendiente del despliegue, las intervenciones del usuario y `G-VR01`. Evidencia en [sesiones/M16.2.md](FASES/FASE1/meta_first/sesiones/M16.2.md).
-Antes de la primera autorización real sigue pendiente P-04. La conversación con el dueño exigida por el acta debe ocurrir antes de su alta.
+**M16c — Sincronización manual de Insights diarios.** Habilitada por `G-VR01` (2026-11-05). La conexión del dueño
+quedó activa; la cuenta no tiene actividad reciente, así que la validación de los campos de
+Insights y la medición de Q-04 se hacen en `M16c` (ver [HALLAZGOS.md](HALLAZGOS.md)).
 
 Hallazgos asignados a M06.3a (cerrada): `H-M04.1-02`, `H-E1-09`, `H-E1-10`, `H-E1-17`, `H-E1-37`,
 `H-E1-43` a `H-E1-70` y la comprobación de acceso real del rol de `H-E1-36`. Detalle en
 [HALLAZGOS.md](HALLAZGOS.md).
 
-Después de M16.2, en este orden: M16c, M25a.1, M25a.2 y M28.3a.
+Después de M16c, en este orden: M25a.1, M25a.2 y M28.3a.
 
 ## Fuera de la ruta o pospuesto
 
@@ -52,9 +53,8 @@ Después de M16.2, en este orden: M16c, M25a.1, M25a.2 y M28.3a.
 
 ## Decisiones pendientes del usuario
 
-- Enmienda de `avatars` del PR #20 (CA-67 y ficha de M28.3a): sigue sin aprobar. El
-  2026-10-20 el usuario decidió dejarla como está; hay que aprobarla o rechazarla antes de
-  M28.3a.
+Ninguna abierta. El 2026-11-05 el usuario aprobó la enmienda de `avatars` del PR #20 y
+ratificó los cambios de Resend en `SECURITY.md` (`H-E1-179`).
 
 Las decisiones sobre `H-E1-04`, `H-E1-40`, `H-E1-76`, `H-E1-78`, `H-E1-81` y `H-E1-82` se
 tomaron el 2026-10-20; el detalle está en [HALLAZGOS.md](HALLAZGOS.md).

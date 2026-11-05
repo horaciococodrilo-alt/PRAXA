@@ -117,7 +117,7 @@ spec, con decisión del usuario.
 | Privilegios excesivos del runtime | INV-04; rol `praxa_integrations` `LOGIN`, `NOBYPASSRLS`, `NOINHERIT`, sin grants sobre tablas, `EXECUTE` función por función; la migración rechaza un rol preexistente con privilegios o membresías | Base y cliente Node del rol vigentes; prueba automática del confinamiento a un módulo `server-only` | La base confía en el actor y la empresa enviados por el servidor |
 | Replay o abuso del flujo OAuth | Propiedades de la sección 7 | Tabla y funciones de intentos: vigentes en la base. Rutas `iniciar` y `callback`, canje e inspección del token: vigentes, probados con Meta simulada | La base no ata la creación de una conexión pendiente a un intento consumido: lo garantiza el orden del servidor, con una prueba que lo fija (`H-E1-24`). El recorrido real con Meta es VR-01 |
 | Filtración de un dump o backup de la base | Tokens cifrados con AES-256-GCM y clave fuera de la base (sección 6) | Esquema y cifrado en Node vigentes | Un dump expone todo lo que no es credencial: conexiones, métricas y registros del chat |
-| Filtración de las variables del runtime | Ninguno completo. Rotación del llavero (CA-25) y revocación en Meta como respuesta a incidentes | Parcial | **Límite deliberado:** si `PRAXA_CREDENTIAL_KEYS` y `PRAXA_INTEGRATIONS_DB_URL` viven en el mismo entorno, quien lo compromete alcanza base y llavero, y puede descifrar las credenciales |
+| Filtración de las variables del runtime | Ninguno completo. Rotación del llavero (CA-25). La revocación en Meta no está disponible desde Praxa para el token del system user: la respuesta a un incidente exige que el dueño quite a Praxa de su negocio en Meta | Parcial | **Límite deliberado:** si `PRAXA_CREDENTIAL_KEYS` y `PRAXA_INTEGRATIONS_DB_URL` viven en el mismo entorno, quien lo compromete alcanza base y llavero, y puede descifrar las credenciales |
 | Logs o errores que filtren secretos o identificadores | INV-06; errores de `worker_api` con mensajes fijos, sin `DETAIL` ni valores; clase de error + mensaje redactado en la conexión (CA-09); identificador de cuenta truncado fuera de la base (CA-40); la pregunta del chat nunca va a logs (CA-63) | Base, errores redactados del cliente del rol y recorrido del árbol vigentes. Cliente HTTP de Meta vigente: errores con texto fijo por clase y sin texto del proveedor, y ninguna URL de salida con credenciales, códigos ni tokens. El listado y la prueba de acceso registran solo conteos, clases y presencia de campos, sin valores de métricas ni identificadores de cuentas | La redacción por patrones no detecta datos personales en forma libre (CA-66). Los logs de la plataforma de hosting registran la consulta de las peticiones entrantes (sección 12) |
 | Pruebas destructivas contra el proyecto equivocado | Sección 11 | Guardas vigentes para pruebas SQL, de aplicación y del rol | Requiere configurar el proyecto desechable y su URL de rol; una guarda de destino no sustituye la prueba de conexión |
 | Prompt o pregunta maliciosa hacia el LLM | Catálogo cerrado de herramientas; el modelo no elige empresa, tabla ni SQL; las herramientas leen con el JWT del usuario bajo RLS (sección 8) | Previsto | La inyección puede degradar la respuesta; no puede ampliar el alcance de los datos |
@@ -271,8 +271,10 @@ Vigente: tabla de intentos, creación y consumo atómico en `worker_api`, rutas 
 `callback`, canje, inspección del token, selección de cuenta, reautorización y desconexión.
 El inicio solo acepta `POST` desde el propio origen. El reemplazo exige la conexión y su
 generación esperadas; los rechazos del token nuevo intentan revocarlo. La revocación es de
-mejor esfuerzo: un fallo de Meta no impide purgar la credencial local. Estas operaciones
-están probadas con Meta simulada; el recorrido real con el dueño sigue pendiente (VR-01).
+mejor esfuerzo: un fallo de Meta no impide purgar la credencial local. Con el token del
+system user, Meta rechaza la revocación por esta vía, así que quitar a Praxa del negocio
+queda a cargo del dueño. Estas operaciones están probadas con Meta simulada y en el
+recorrido real con el dueño.
 
 ## 8. Frontera del LLM (DEC-06, DEC-19; CA-48 a CA-50c, CA-54, CA-66)
 
@@ -305,6 +307,7 @@ Estado de cada pieza, sin repetir los plazos (la fuente es la spec):
 | Orquestación de la purga perezosa y revocación en Meta | Vigentes, probadas con Meta simulada. Una purga fallida queda pendiente hasta la siguiente visita o inicio; la revocación fallida no conserva la credencial local |
 | Flujo de baja de cuenta desde la aplicación | No existe (`H-E1-06`). El cierre del piloto es un procedimiento administrativo con orden obligatorio (CA-67) |
 | Foto de perfil | Al reemplazarla o eliminarla se borra el archivo de Storage. Si ese borrado falla, el archivo puede quedar sin referencia en la carpeta del usuario. Con la baja de cuenta, igual que el resto (`H-E1-06`) |
+| Correos de Auth en Resend | El proveedor conserva los mensajes de confirmación y recuperación durante su retención; el borrado de la base activa no los alcanza. Al cerrar el piloto se pide su borrado anticipado (CA-67). Alcance y procedimiento en el [acta de datos reales](FASES/FASE1/M03a/acta-meta.md) |
 | Copias de seguridad del proveedor | Un dato borrado de la base activa puede seguir en las copias durante su plazo (CA-38b). Es un límite declarado, no se mitiga |
 
 "Borrado" en este documento significa borrado en la base activa.
