@@ -2,6 +2,9 @@
 
 **Versión:** 1.0 — 2026-09-24
 **Estado:** `APROBADO PARA EJECUCIÓN`. `M04a` está cerrada y `G-DOCS` fue aprobado por el usuario el 2026-09-24. El estado de cada microfase y la siguiente habilitada están en `docs/PROJECT_STATE.md`.
+**Enmienda de corrida única de M16c, aprobada por el usuario el 2026-11-07:** `M16c` se ejecuta como una microfase única en tres etapas, con una spec, un plan, una corrida de `/microfase` y un solo gate (`G-SYNC`); `G-SYNC-DB` y `G-SYNC-EXTRACT` pasan a ser controles de etapa. Excepción puntual al límite de 8 horas de `AGENTS.md` (D-M16c-05). Cambian la ficha de `M16c`, sus etapas, II.11, III.2 y III.3. Evidencia: [sesión](sesiones/enmienda-corrida-unica-2026-11-07.md) y [propuesta](../M16c/revisiones/propuesta-enmienda-corrida-unica-1.md). **El texto enmendado es vigente.**
+**Enmienda G-SYNC con cuenta sin actividad, aprobada por el usuario el 2026-11-07:** Q-04 se fija según la spec (duración por debajo de Vercel, ventana de CA-47b y cotas técnicas) y `G-SYNC` puede cerrarse con la sincronización real de los cuatro niveles con 0 filas; la validación de campos queda en `H-E1-189` como riesgo aceptado temporal (D-M16c-02). Cambian la Base, la ficha de `M16c`, II.11 y III.4 de este plan, y la línea 23 y la fila Q-04 de la spec de la ruta. Evidencia: [sesión](sesiones/enmienda-gsync-2026-11-07.md). **El texto enmendado es vigente.**
+**Enmienda de Insights ampliados, aprobada por el usuario el 2026-11-06:** el usuario confirmó el alcance de cuatro niveles y ordenó resolver e integrar la enmienda antes de M16c. El contrato vigente es §11 de la spec de la ruta; se coordinan Parte I, II.11, el chat y el acta M03a. La aprobación de alcance no cierra G-SYNC ni aprueba las specs/planes de implementación. Se conserva la evidencia histórica en [la propuesta inicial](../M16c/revisiones/propuesta-ampliacion-insights-1.md).
 **Enmienda CA-67 aprobada expresamente por el usuario el 2026-10-19:** al cierre, después del orden local, se comprueba si Resend conserva correos de Auth del dueño y se solicita su borrado anticipado. Se registra la respuesta sin datos personales ni valores de los mensajes. El cambio está coordinado con [la spec de la ruta](spec.md) y es vigente.
 **Enmienda `avatars` (PR #20), aprobada por el usuario el 2026-11-05:** CA-67 y la ficha de `M28.3a` borran por Storage API todos los objetos de la carpeta `avatars/<user_id>/` antes de borrar cada usuario (`H-E1-110`). Revisión del asistente antes de la aprobación: la spec de la ruta (CA-67, paso 3), la ficha de `M28.3a` y la tabla de pasos del cierre coinciden, y `tests/app/closure-storage.test.ts` pasó en el proyecto desechable el 2026-11-05. El texto enmendado es vigente.
 **Enmienda de Resend en `SECURITY.md` (`H-E1-179`), aprobada por el usuario el 2026-11-05:** se ratifican los cambios de la corrección de `M03a` y de la enmienda CA-67 en §1 (activos), §2 (frontera 9) y §12 (riesgos aceptados) de `SECURITY.md`, y §9 suma la fila de los correos de Auth en Resend. El texto enmendado es vigente.
@@ -10,7 +13,7 @@
 **Enmienda de referencias (`H-E1-40`), aprobada por el usuario el 2026-10-20:** la ficha de `M03a` y el paso 3 de II.8 de [plan.md](plan.md), y la §15 de [la spec de la ruta](spec.md), nombran la sección «9. Datos, retención y borrado» de `SECURITY.md` en lugar de su antigua línea 181. No cambia el contenido de la ruta.
 **Enmienda de numeración 0015 (preparada y aprobada por el usuario el 2026-10-18):** la migración `0015` se usa para corregir `H-E1-124` (cerrojo de la fila del borrador en `activate_context_draft`), como corrección puntual fuera de la ruta, sin microfase ni gate nuevos. Las migraciones previstas de la ruta corren un número: Insights de `M16c` pasa a `0016` (pgTAP `13`) y el registro del chat de `M25a.1` pasa a `0017` (pgTAP `14`). Afecta a las fichas de `M16c` y `M25a.1`, a I.5, a `purge_connection` en II.4, y a II.11 y II.12. El usuario pidió continuar con la renumeración en el chat el 2026-10-18; el texto enmendado es vigente.
 **Enmienda de la revocación en `SECURITY.md` (`H-E1-183`), aprobada por el usuario el 2026-11-05:** el paso 9c de II.10 incluye, además de los controles que pasan a vigentes, la corrección de un control que VR-01 mostró no disponible: la revocación en Meta del token del system user. Autoriza la fila «Filtración de las variables del runtime» de §4 de `SECURITY.md`. No cambia el orden de la ruta ni otros archivos. El texto enmendado es vigente.
-**Base:** spec `meta_first` v1.0 (decisiones DEC-01 a DEC-21), revisión del repositorio en `main@247cae8`, la sesión de revisión en la que se tomaron esas decisiones y las correcciones T01 a T16 de la revisión externa. En la versión aprobada no quedaban decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`.
+**Base:** spec `meta_first` v1.0 (decisiones DEC-01 a DEC-21), revisión del repositorio en `main@247cae8`, la sesión de revisión en la que se tomaron esas decisiones y las correcciones T01 a T16 de la revisión externa. En la versión aprobada no quedaban decisiones abiertas. Q-04 es un parámetro que se fija en `M16c` (spec, Q-04).
 
 Este documento reemplaza al `plan.md` anterior y contiene, además, el texto de la **Enmienda 1**. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario, y la Parte I de este documento es el roadmap vigente de la ruta: encabeza la jerarquía de fuentes de `AGENTS.md`. Tiene tres partes:
 
@@ -26,7 +29,7 @@ Antes de `M04a`, `AGENTS.md` ponía a `docs/ROADMAP.md` por encima de la spec y 
 
 ## I.1 Qué cambia y por qué
 
-**Motivo.** Antes de construir la Rama A completa (`ads_catalog`: Meta, Tiendanube y GA4), la ruta valida con un dueño real un corte vertical: conectar Meta Ads en modo lectura, sincronizar gasto e impresiones diarios y consultarlos en un chat cuyas cifras siempre son verificables.
+**Motivo.** Antes de construir la Rama A completa (`ads_catalog`: Meta, Tiendanube y GA4), la ruta valida con un dueño real un corte vertical: conectar Meta Ads en modo lectura, sincronizar el catálogo diario de Meta Ads de §11 de la spec y consultarlos en un chat cuyas cifras siempre son verificables.
 
 **Alcance del piloto (DEC-01).** Un usuario, una empresa y una cuenta publicitaria. El criterio de salida es que el dueño real de la cuenta piloto, con rol de tester en la app de Meta, complete con su propio login este recorrido: registro → conexión → sincronización → pregunta al chat. Además tiene que quedar evidencia redactada.
 
@@ -47,7 +50,7 @@ Antes de `M04a`, `AGENTS.md` ponía a `docs/ROADMAP.md` por encima de la spec y 
 | `M16b` | Sin cambios | Fuera de la ruta |
 | — | `M16c` — Insights diarios | Nueva |
 | — | `M16d` — App Review y Business Verification | Nueva, **fuera de la ruta**: hace falta recién para escalar |
-| `M25.1` a `M25.5` — Chat | `M25a.1`, `M25a.2` | Chat acotado a gasto e impresiones |
+| `M25.1` a `M25.5` — Chat | `M25a.1`, `M25a.2` | Chat sobre el catálogo de §11 con entidades, atribución y cifras verificadas |
 | `M28.2` — Despliegue | `M28.2a` — Entorno del piloto | Adelanta un despliegue mínimo |
 | `M28.3` — Guion de demostración | `M28.3a` — Demo con el dueño y cierre | Nueva |
 
@@ -294,16 +297,34 @@ Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA
 
 | Campo | Contenido |
 |---|---|
-| **ID** | `M16c` — ≤8 h |
-| **Objetivo** | Obtener gasto e impresiones diarios con snapshots inmutables, cobertura explícita y publicación atómica. |
-| **Implementación requerida** | Migración `0016`: ejecuciones con arrendamiento y token de posesión, snapshots, días de snapshot y la tabla de cobertura `meta_daily_coverage` (CA-43), con captura parcial persistida (CA-43b). Funciones de `worker_api` para iniciar, publicar y fallar una ejecución, solo desde la ejecución vigente (CA-59). Registro persistente de la clase de errores de una conexión existente que no llevan a `needs_reauth`, sin cambiar su estado (`H-E1-22`, parte diferida desde M16.2). Precisión de punta a punta (CA-44b). Paginación, límites y reintentos. Botón de sincronización manual. |
-| **Procedimiento del asistente** | Pruebas primero con Meta simulada. Fijar Q-04 con mediciones reales y registrarlo en la spec. |
-| **Evidencia de cierre** | Pruebas en verde y una sincronización real redactada. |
+| **ID** | `M16c` — microfase única en tres etapas (`M16c.1`, `M16c.2` y `M16c.3`), con una spec, un plan y una corrida; excepción puntual al límite de 8 horas de `AGENTS.md` aprobada por el usuario el 2026-11-07 (D-M16c-05) |
+| **Objetivo** | Obtener el catálogo de §11 de la spec en cuenta, campaña, conjunto y anuncio, con snapshots por nivel, cobertura explícita y publicación protegida por posesión. |
+| **Implementación requerida** | Catálogo y reglas de §11 (DEC-22). Migración `0016`: metadata de entidades y acciones tipadas; ejecuciones con arrendamiento y token de posesión, snapshots, días de snapshot y la tabla de cobertura por nivel/día `meta_daily_coverage` (CA-43), con captura parcial persistida (CA-43b). Funciones de `worker_api` para iniciar, publicar y fallar una ejecución, solo desde la ejecución vigente (CA-59). Registro persistente de la clase de errores de una conexión existente que no llevan a `needs_reauth`, sin cambiar su estado (`H-E1-22`, parte diferida desde M16.2). Precisión de punta a punta (CA-44b). Paginación, límites y reintentos. Botón de sincronización manual. |
+| **Procedimiento del asistente** | Pruebas primero con Meta simulada. Fijar Q-04 según la spec (Q-04): duración por debajo de la configurada en Vercel, ventana según CA-47b y cotas técnicas conservadoras; contrastarlo con la sincronización real y registrarlo en la spec (D-M16c-02). |
+| **Evidencia de cierre** | Pruebas en verde y una sincronización real redactada de los cuatro niveles. Si la cuenta no tiene actividad, la sincronización puede traer 0 filas: no valida campos ni tipos ni acredita valores cero (`H-E1-189`). |
 | **Criterio de aceptación** | CA-41 a CA-47b, CA-44b, CA-56 a CA-60 y CA-39 (registro persistente de la clase de los errores que no llevan a `needs_reauth`, `H-E1-22`). |
 | **Pruebas** | Unitarias, `test:policies` y `test:app`. |
 | **Condición para avanzar** | `G-SYNC`. |
 | **Dependencias / habilita** | `G-VR01` / `M25a.1` |
-| **Intervención requerida del usuario** | Ninguna, salvo coordinar una sincronización real con el dueño. |
+| **Intervención requerida del usuario** | Comunicar al dueño el acta ampliada antes de la primera sincronización ampliada y coordinarla; push, despliegue y migraciones reservados según III.2. |
+
+#### Etapas obligatorias de M16c (DEC-22)
+
+Las tres etapas se ejecutan en orden, en una sola corrida de `/microfase M16c` en la rama `mf/M16c`, con la spec y el plan únicos de M16c. Heredan aceptación, pruebas y seguridad de M16c y se delimitan así:
+
+1. **Control de etapa.** Antes de pasar a la siguiente: `npm run verify`, `db:check:test`, `test:policies` y `test:app` completos y en verde contra el desechable; evidencia en `meta_first/sesiones/M16c.md`, y commit de la etapa en `mf/M16c` hecho por el usuario. Si un control falla, la corrida se detiene y el fallo se diagnostica antes de seguir.
+2. **Pausas por intervención del usuario.** La corrida se detiene en `db:push:test` de 0016 (etapa .1), en el commit de cada etapa, en la comunicación del acta ampliada al dueño, en `db:push` a `app`, integración en `main` y push (D-M16c-03), y en la sincronización real (etapa .3).
+3. **Reanudable.** La corrida puede continuar en otra sesión desde el último control registrado y el último commit de la rama; el plan indica el punto de reanudación de cada etapa.
+4. **Revisiones.** `/implementation-review` y `/qa-review` revisan M16c completa al final, sobre el último commit; una revisión parcial al final de una etapa es opcional, a pedido del usuario.
+5. **Gate único.** Los controles de etapa no esperan aprobación del usuario; el usuario aprueba `G-SYNC` al final.
+
+| ID | Objetivo e implementación requerida | Procedimiento y pruebas | Evidencia / aceptación / condición para avanzar | Dependencia / habilita | Intervención del usuario |
+|---|---|---|---|---|---|
+| M16c.1 | Persistencia del catálogo de §11: migración nueva 0016, ACL/RLS, metadata, acciones, snapshots por nivel, cobertura, posesión, funciones, precisión, purga y H-E1-22/27/35/36; adaptador cerrado y persistencia en lifecycle | Pruebas sintéticas primero; verify, policies y app. Especificar firmas/errores y estructuras antes de SQL | Control de etapa en `sesiones/M16c.md`; CA-39/41-46/58-59/68 y pruebas de integridad/carreras aplicables | G-VR01; spec y plan de M16c aprobados / etapa .2 | Aplicar 0016 al desechable después de la guarda |
+| M16c.2 | Extractor de los cuatro niveles, metadata y acciones, validación, paginación, presupuesto y publicación por nivel. Sin nuevas migraciones ni UI | Meta simulada y base desechable; verify, policies y app; precisión, errores, ausencia y desconexión en vuelo | Control de etapa en `sesiones/M16c.md`; CA-41-47b/56-60 | Control de la etapa .1 / etapa .3 | Configuración externa solo si falta; no datos reales nuevos |
+| M16c.3 | Acción y UI por nivel/entidad, frescura, resultados parciales, revisión de controles que pasan a vigentes, validación real y Q-04 | verify, policies, app y sincronización real redactada; sin fixtures en app | `sesiones/M16c.md` con evidencia consolidada; todos los CA de M16c; `G-SYNC` | Control de la etapa .2 / M25a.1 | Comunicar ampliación al dueño, push/despliegue/db:push, coordinar sincronización y aprobar gate |
+
+`M16c/spec.md` es la spec única de las tres etapas y `M16c/plan.md` su plan único; no se preparan specs ni planes por etapa. su borrador anterior de dos métricas no se ejecuta. Esta enmienda autoriza la revisión del acta M03a, los documentos transversales por propiedades y los ajustes de archivos de II.11; no aprueba las futuras specs ni gates de implementación.
 
 ### M25a.1 — Chat: registro por consulta, redacción y herramientas
 
@@ -665,32 +686,25 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 
 ---
 
-## II.11 `M16c` — Sincronización manual
+## II.11 `M16c` — Sincronización manual ampliada
 
-| Paso | Acción | Archivos | Verificación |
-|---:|---|---|---|
-| 1 | Migración `0016`, con `revoke all` y `force row level security` en cada tabla y todo en cascada:<br>• `meta_sync_runs`: identificador, token de posesión, arrendamiento vencible y estado; una ejecución vigente por conexión.<br>• `meta_insight_snapshots`: parámetros sin credenciales, `fetched_at`, páginas, completitud y clase de error.<br>• `meta_snapshot_days`: `date`, `spend numeric`, `impressions bigint`.<br>• `meta_daily_coverage`: una fila por conexión y día cubierto, con presencia, valores (nulos si `sin_fila_reportada`), `snapshot_id`, `fetched_at` y `captured_before_day_end`.<br>Solo la cobertura es legible por `authenticated` | `supabase/migrations/0016_meta_insights.sql` | CA-41 a CA-44 y CA-68 |
-| 2 | Funciones de `worker_api`:<br>• `start_sync_run`: rechaza si hay una ejecución vigente y desplaza a una vencida.<br>• `publish_snapshot`: en una transacción inserta el snapshot y los días y reemplaza la cobertura de cada día cubierto, solo si la ejecución es la vigente (identificador y token de posesión, arrendamiento sin vencer), la conexión sigue `active` y la generación no cambió.<br>• `fail_sync_run`: exige la misma posesión.<br>• Registro persistente de la clase de los errores de conexiones existentes que no llevan a `needs_reauth`, sin alterar el estado (`H-E1-22`, parte diferida desde M16.2).<br>`create or replace` de `purge_connection` para sumar las tablas nuevas | misma migración | CA-39, CA-43, CA-45, CA-58, CA-59 y CA-38c |
-| 3 | Función de lectura de cobertura, `SECURITY INVOKER` sobre `meta_daily_coverage`: por día, presencia, estado temporal (`abierto` o `cerrado`, calculado en la zona de la cuenta), captura parcial, procedencia y frescura. Gasto e impresiones salen como texto | misma migración | CA-43b, CA-44b y CA-46 |
-| 4 | pgTAP de aislamiento, privilegios y publicación: ejecución desplazada rechazada, publicación después de una desconexión rechazada, snapshot nuevo sin fila donde el anterior tenía valor; clase de error persistida sin cambiar el estado ni aceptar otra empresa. Extender `10_demo_closure` con las tablas nuevas | `supabase/tests/13_meta_insights.test.sql`, `10_demo_closure.test.sql` | CA-19, CA-39, CA-43, CA-59 y CA-67; `H-E1-22` |
-| 5 | Lectura de Insights: nivel `account`, `time_increment=1`, `spend` e `impressions`, `time_range` en fechas de la zona de la cuenta. Paginación por cursor `after` hasta agotar la respuesta o chocar un límite. Relectura de 28 días | `src/modules/integrations/meta/insights.ts` | CA-41, CA-42, CA-47b y CA-56 |
-| 6 | Reintentos solo para la clase temporal, con tope y espera, dentro del presupuesto. Un límite de Meta termina la ejecución como incompleta | mismo archivo | CA-57 |
-| 7 | Server Action de sincronización y UI: botón, estado de la ejecución, cobertura por día y la limitación declarada de que no hay recolección automática | `src/modules/integrations/actions.ts`, `src/app/(app)/app/integraciones/` | D2 declarada |
-| 8 | Fijar Q-04 (ventana máxima, páginas máximas, duración) con lo medido en VR-01 y por debajo de la duración configurada en Vercel. Registrarlo en la spec | spec | Q-04 cerrada |
-| 9 | Pruebas con Meta simulada: paginación completa; fallo en la página intermedia; día sin fila; resincronización sin duplicados y con valores actualizados; ejecución A vencida, B inicia y publica, A termina y es rechazada; revocación y desconexión durante una sincronización (caso diferido desde M16.2, §14 de la spec de la ruta); clase de error persistida sin cambiar el estado (`H-E1-22`); captura del mediodía vista al día siguiente sin resincronizar; zona horaria con cambio de horario | `tests/unit/meta-insights.test.ts`, `tests/app/meta-sync.test.ts` | CA-38c, CA-39, CA-41 a CA-47b y CA-56 a CA-60; `H-E1-22` |
-| 10 | Precisión de punta a punta: un gasto que `number` no representa exactamente viaja SQL → API → TypeScript sin cambiar | `tests/app/meta-precision.test.ts` | CA-44b |
+El catálogo y la semántica exactos viven en §11 de la spec (DEC-22); no se duplica aquí la lista de campos. Conservar migración 0016 y pgTAP 13; M25a.1 conserva 0017/14.
 
-**Cierre:** `npm run verify`, `npm run test:policies`, `npm run test:app`, `db:push` de `0016` al proyecto `app` ejecutado por el usuario, y una sincronización real redactada.
+| Corte | Acción obligatoria | Archivos autorizados | Verificación |
+|---|---|---|---|
+| M16c.1 | Diseñar persistencia de entidades, acciones tipadas, snapshots por nivel y cobertura nivel/día; RLS/force, revocaciones, cascadas, precisión, guardas y purga; resolver H-E1-27/36 | `supabase/migrations/0016_meta_insights.sql` (nueva) | CA-41 a CA-46, CA-58/59/68 |
+| M16c.1 | pgTAP de catálogo exacto, rol sintético limpio y bloque real de normalización, cascadas y cierre; H-E1-35 | `supabase/tests/13_meta_insights.test.sql`, `supabase/tests/09_integration_privileges.test.sql`, `supabase/tests/10_demo_closure.test.sql`, `scripts/run-pgtap.mjs` | policies sin omitir 09; integridad y carreras |
+| M16c.1 | Ampliar allowlist/casts/errores del adaptador; hacer obligatoria la persistencia de errores no reauth en la rama unchanged de lifecycle, con generación y tenant; H-E1-22 | `src/modules/integrations/db/worker-api.ts`, `src/modules/integrations/lifecycle.ts`, `tests/unit/meta-lifecycle.test.ts`, `tests/app/meta-lifecycle.test.ts`, `tests/app/integrations-worker-api-client.test.ts` | Flujo real guarda last_error sin cambiar estado; ajena/generación vieja rechazadas |
+| M16c.2 | Extracción y contratos cerrados del catálogo de §11, metadata de entidades y atribución, cuatro niveles, paginación after, reintentos temporales/transporte, límites y publicación por nivel | `src/modules/integrations/meta/insights.ts`, `src/modules/integrations/meta/entities.ts` (nuevo); reutilizar cliente y clasificación existentes | CA-39/41/42/47b/56-60; sin usar paging.next |
+| M16c.2 | Casos sintéticos: precisión, acciones decimales, cuatro niveles, páginas fallidas, metadatos cambiantes, cobertura ausente, atribución incompatible, ejecución desplazada y desconexión/reauth en vuelo | `tests/unit/meta-insights.test.ts`, `tests/app/meta-sync.test.ts`, `tests/app/meta-precision.test.ts` | verify, policies y app; valores fuera de precisión de number |
+| M16c.3 | Acción manual, selector de nivel/entidad, cobertura y estados parciales; la UI nunca declara todo completo si falta un nivel | `src/modules/integrations/actions.ts`, `src/app/(app)/app/integraciones/`, `tests/component/integraciones-meta-sync.test.tsx` | CA-46/58; D2 visible; sin datos internos en resultados/logs |
+| M16c.3 | Actualizar las pruebas existentes que fijan las acciones del conector y que importan la página de Integraciones (D-M16c-06, aprobada por el usuario el 2026-11-08) | `tests/unit/meta-oauth.test.ts`, `tests/component/integraciones-meta-aviso.test.tsx`, `tests/component/app-paginas-sesion.test.tsx` | T-24 conserva el conjunto cerrado de acciones; la lectura nueva queda sujeta a la verificación de sesión |
+| Previo documental y M16c.3 | Actualizar acta y propiedades previstas; al implementar, pasar a vigentes solo controles probados | `docs/FASES/FASE1/M03a/acta-meta.md`, `docs/SECURITY.md`, `docs/ARCHITECTURE.md` | Contrato documental, minimización hacia LLM y borrado completo |
+| M16c.3 | Fijar Q-04 por los cuatro niveles, debajo del límite efectivo desplegado (spec, Q-04); validar campos y tipos reales si la sincronización trae filas, y comunicar ampliación al dueño | `M16c/spec.md` y `meta_first/sesiones/M16c.md` | Sin extrapolar campos desde respuesta vacía. Con la cuenta sin actividad, G-SYNC puede cerrarse con la sincronización real de los cuatro niveles completos y 0 filas; `H-E1-189` pasa a riesgo aceptado temporal. G-SYNC pendiente si falta la sincronización real |
 
-**Trampa conocida.** Un día sin fila no es un día con gasto cero. `sin_fila_reportada` significa que la extracción completa no trajo fila para ese día, y nada más. Tratarlo como cero requiere fundamentar antes la semántica del endpoint (CA-43).
+**Cierre:** cada etapa termina con verify, policies y app en verde (control de etapa). El usuario aplica migraciones, hace push/despliegue y coordina la captura real; nunca se corren suites contra app. `G-SYNC` solo se alcanza en M16c.3 con todos los niveles, CA y evidencia real. La evidencia real puede ser una sincronización sin filas cuando la cuenta autorizada no tiene actividad (D-M16c-02); no se presenta como validación de campos ni de tipos. Q-04 permanece medible durante implementación; su falta no reabre G-VR01 ni autoriza inventar límites.
 
-**Segunda trampa.** Los enlaces `paging.next` pueden llevar el token en la URL. Se pagina con el cursor `after` y nunca se guardan ni se registran esos enlaces (CA-41).
-
-**Tercera trampa.** Comparar sumas contra un crudo truncado no prueba completitud: si el crudo está truncado, coincide igual. La completitud es un hecho aparte, registrado en el snapshot (CA-42 y CA-47).
-
-**Cuarta trampa.** Una Server Action no garantiza que la ejecución termine. El arrendamiento vencible evita que una ejecución colgada bloquee para siempre. Pero `active` y generación no alcanzan: una ejecución desplazada puede seguir viva y terminar después. Por eso la publicación exige el token de posesión de la ejecución vigente.
-
-**Quinta trampa.** `numeric` en SQL no alcanza si después viaja como número JSON y se convierte a `number`. Gasto e impresiones salen de SQL como texto.
+**Trampas obligatorias:** ausencia no es cero; métricas ausentes no invalidan valores válidos pero tampoco son cero; no seguir ni guardar paging.next; no probar completitud con sumas; comprobar posesión y reloj después de bloqueos también al fallar/reauth; métricas SQL como texto; no sumar reach/frecuencia/tasas; no sumar niveles de jerarquía; no mezclar atribuciones; metadata actual no describe el estado histórico del día medido.
 
 ---
 
@@ -702,8 +716,8 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 | 2 | pgTAP de privilegios y aislamiento del registro. Extender `10_demo_closure` | `supabase/tests/14_chat_queries.test.sql` | CA-64 y CA-67 |
 | 3 | Pruebas de redacción: cada patrón, montos con separador de miles que no se redactan, tarjetas que no pasan Luhn y quedan tal cual, idempotencia y longitud máxima | `tests/unit/chat-redaction.test.ts` | CA-66 |
 | 4 | Función única de redacción: email, teléfono internacional, CUIT/CUIL con guiones, tarjeta con Luhn, CBU/CVU de 22 dígitos, URL, cadena con forma de secreto, `act_` truncado | `src/modules/chat/redaction.ts` | CA-66 |
-| 5 | Catálogo cerrado con Zod: `coverage(period)`, `daily_series(metric, period)`, `total(metric, period)` y `connection_status()`, con `metric` en `spend` o `impressions`. Sin SQL, tablas ni `company_id` como argumentos | `src/modules/chat/tools/schema.ts` | CA-48 y CA-49 |
-| 6 | Ejecución con el JWT del usuario y bajo RLS. Los totales se calculan en SQL con `numeric` y salen como texto. Las funciones SQL que llama la API rechazan períodos más largos que el máximo de CA-70. Cada valor devuelto tiene un identificador de referencia, su métrica, unidad, moneda, cuenta, período, presencia, estado temporal, captura parcial y `fetched_at` | `src/modules/chat/tools/execute.ts` y funciones de lectura en `0014` | CA-44, CA-44b, CA-49, CA-51, CA-51b y CA-70 |
+| 5 | Catálogo cerrado con Zod: `entities(level)`, `action_types(entity_ref)`, `coverage(level, period)`, `daily_series(entity_ref, metric, period, action_type?)`, `total(entity_ref, metric, period, action_type?)` y `connection_status()`, sujetos al catálogo y reglas de §11. Tipos de acción y entidades solo desde referencias autorizadas por el servidor. Sin SQL, tablas ni `company_id` como argumentos | `src/modules/chat/tools/schema.ts` | CA-48 y CA-49 |
+| 6 | Ejecución con el JWT del usuario y bajo RLS. Los totales se calculan en SQL con `numeric` y salen como texto. Las funciones SQL que llama la API rechazan períodos más largos que el máximo de CA-70. Cada valor devuelto tiene un identificador de referencia, su métrica, unidad, moneda, cuenta, nivel, entidad, tipo de acción y atribución cuando correspondan, período, presencia, estado temporal, captura parcial y `fetched_at` | `src/modules/chat/tools/execute.ts` y funciones de lectura nuevas en `0017` (nunca editar 0016 aplicada) | CA-44, CA-44b, CA-49, CA-51, CA-51b y CA-70 |
 | 7 | Tipos de resultado apoyados en `periodSchema` y el patrón `knownOr` de reporting. **No** se usa `calculatedMetricEvidenceSchema` tal cual, porque su `value` es `number` y el gasto exige decimal exacto | `src/modules/chat/tools/results.ts` | Reutilización declarada en la spec |
 | 8 | Pruebas de herramientas: período con días sin cobertura, totales parciales, captura parcial, días de distintas extracciones con rango de `fetched_at`, empresa ajena, período mayor al máximo llamado directo por la API, registro que llega después de una desconexión | `tests/unit/chat-tools.test.ts`, `tests/app/chat-tools.test.ts` | CA-38c, CA-51, CA-51b, CA-54 y CA-70 |
 
@@ -717,11 +731,11 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 
 | Paso | Acción | Archivos | Verificación |
 |---:|---|---|---|
-| 1 | Esquema de salida: `text` en lenguaje natural más `claims`, cada uno con `span`, `kind`, `tool_call_id` y ruta, `metric`, `unit`, `currency`, `account_ref` y `period` | `src/modules/chat/output-schema.ts` | CA-50 |
+| 1 | Esquema de salida: `text` en lenguaje natural más `claims`, cada uno con `span`, `kind`, `tool_call_id` y ruta, `metric`, `unit`, `currency`, `account_ref`, `level`, `entity_ref`, `action_type`, `attribution_ref` cuando correspondan, y `period` | `src/modules/chat/output-schema.ts` | CA-50 |
 | 2 | Adaptador de DeepInfra: endpoint compatible con OpenAI, modelo `deepseek-ai/DeepSeek-V4.1-Flash`, `response_format` de tipo `json_schema` con `strict`, timeout, tope de tokens de salida, sin registrar contenido. Guarda el identificador solicitado y el informado | `src/modules/chat/llm.ts` | CA-53, CA-53b y CA-70 |
 | 3 | Orquestador en dos pasos: el modelo elige herramienta y argumentos (salida estricta); el servidor ejecuta, con un máximo de llamadas por turno; el modelo redacta `text` y `claims` | `src/modules/chat/orchestrator.ts` | CA-50 y CA-70 |
 | 4 | Detector de candidatos numéricos: dígitos con `.` o `,`, porcentajes, cantidades en palabras en español, multiplicadores y variaciones, comparativos | `src/modules/chat/numeric-candidates.ts` | CA-50, punto 1 |
-| 5 | Validación: todo candidato cubierto por un claim; `observed_value` coincide en valor normalizado, métrica, unidad, moneda, cuenta y período con un resultado del turno actual; comparación cualitativa recalculada; variaciones y ratios rechazados; `user_provided` presente en la pregunta redactada. Normalización es-AR; gasto exacto o redondeado a 0 o 2 decimales half-up; impresiones enteras; sin abreviaturas ni porcentajes | `src/modules/chat/guard.ts` | CA-50 y CA-50c |
+| 5 | Validación: todo candidato cubierto por un claim; `observed_value` coincide en valor normalizado, métrica, unidad, moneda, cuenta, nivel, entidad, tipo de acción, atribución y período con un resultado del turno actual; comparación cualitativa recalculada; variaciones no soportadas rechazadas; tasas del catálogo verificadas; `user_provided` presente en la pregunta redactada. Normalización es-AR; gasto exacto o redondeado a 0 o 2 decimales half-up; impresiones enteras; sin abreviaturas; porcentaje solo para CTR respaldado por herramienta | `src/modules/chat/guard.ts` | CA-50 y CA-50c |
 | 6 | Presentación: respuesta validada, con período, zona, cobertura, frescura y cuenta truncada. Las cifras del dueño aparecen diferenciadas. Si no valida: abstención controlada y `guard_rejected` | `src/modules/chat/render.ts` | CA-50, punto 7, CA-51 y CA-52 |
 | 7 | Server Action del chat: construye K01, aplica los límites de CA-70 (un turno en curso por usuario, duración total), redacta, ejecuta y registra | `src/modules/chat/actions.ts` | CA-61 a CA-65 y CA-70 |
 | 8 | UI: conversación solo de sesión; aviso de que las preguntas se registran; botones "útil" y "no útil", también en abstenciones; con el modelo caído, conserva la pregunta y permite reintentar. Acceso al chat en la navegación | `src/app/(app)/app/chat/page.tsx`, `src/components/app-nav.tsx` | CA-51 a CA-53, CA-55, CA-61, CA-65 y CA-69 |
@@ -802,6 +816,7 @@ El detalle y los criterios de aceptación están en la spec v1.0.
 | DEC-19 | Respuestas en lenguaje natural con cifras; cada afirmación numérica vinculada y verificada por el servidor (CA-50). Reemplaza la prohibición de dígitos |
 | DEC-20 | `M28.3a` se cierra al completar la demostración; CA-67 se ejecuta al finalizar el piloto |
 | DEC-21 | Umbrales de VR-02 adoptados como criterios iniciales |
+| DEC-22 | Catálogo de Insights ampliados, granularidad y agregación: §11 de la spec; cortes y archivos: ficha M16c e II.11 |
 | D2 | Sin worker: la sincronización es manual y la limitación se declara en la interfaz |
 | K01 | `M05.1.1` entra en la ruta como primer contrato |
 
@@ -818,6 +833,7 @@ El detalle y los criterios de aceptación están en la spec v1.0.
 | `M28.2a` | Proyecto de Vercel con dominio fijo; variables nuevas y existentes (incluida `NEXT_PUBLIC_SITE_URL`); contraseña del rol en el proyecto `app`; verificar que `worker_api` no esté expuesto; configurar `site_url` y redirecciones de Auth; configurar el SMTP propio con SPF y DKIM; registro de prueba con una dirección externa; cerrar el registro; probar la recuperación de contraseña con el registro cerrado |
 | Antes de VR-01, en `M16.2` | Agregar al dueño como tester y confirmar que aceptó y que tiene control total de su portfolio (P-04) |
 | `M16.2` | Antes del alta, correr el preflight local (`node --env-file=.env.local scripts/meta-preflight.mjs`) y copiar a la sesión la línea que imprime. Después del despliegue, la verificación VD-01: con la cuenta sintética, pulsar "Conectar" y comprobar en Network `Origin` coincidente y `303` hacia Meta, sin conceder acceso. Abrir el registro, acompañar el alta del dueño y su empresa, cerrar el registro. Coordinar la autorización y la confirmación de la cuenta |
+| `M16c`, etapa .3 | Comunicar el acta ampliada al dueño antes de la primera captura ampliada; coordinar sincronización real y publicación reservada |
 | `M25a.2` | Crear la cuenta de DeepInfra y cargar `DEEPINFRA_API_KEY` |
 | `M28.3a` | Coordinar la demostración. Pasar a Supabase Pro si el dueño lo va a usar sin acompañamiento |
 | Fin del piloto | Ejecutar los pasos de CA-67 que requieren dashboard y quitar al dueño como tester |
@@ -840,7 +856,8 @@ Ninguna clave se pega en el chat.
 | `M03a` | — (documento; revisión cruzada con la spec) |
 | `M16.1` | `test:app`. Sin autorización real. Ninguna prueba de `tests/app/meta-oauth.test.ts` ni suite positiva exigida por el gate puede omitirse por falta de configuración (CB-06 precisado en la Enmienda M16.1). Las pruebas opt-in ajenas pueden figurar como omitidas, con su archivo y su motivo en la evidencia |
 | `M16.2` | `test:policies`, `test:app`; alta del dueño y VR-01 |
-| `M16c` | `test:policies`, `test:app`; una sincronización real |
+| `M16c`, etapas .1 y .2 | `test:policies`, `test:app` en desechable, en cada control de etapa |
+| `M16c`, etapa .3 | `test:policies`, `test:app`; sincronización real de cuatro niveles y Q-04 |
 | `M25a.1` | `test:policies`, `test:app` |
 | `M25a.2` | Suite adversaria; VR-02 |
 | `M28.3a` | Checklists de la demo y del cierre |
@@ -860,7 +877,7 @@ Toda evidencia registra los comandos y sus resultados reales. Nada se declara pr
 | H-03 | `oauth/revoke` sobre este tipo de token | `M16.2` |
 | H-04 | Código de error cuando se quita la cuenta de la delegación | Opcional, al cierre |
 | Cascada | `RESTRICT` de `reports` en la cascada de `companies` | `M06.2a` |
-| Q-04 | Límites de la sincronización | `M16c`, con datos de VR-01 |
+| Q-04 | Límites de la sincronización | `M16c`, según la spec (Q-04) y la sincronización real de M16c.3 (D-M16c-02) |
 | VR-02 | Modelo en DeepInfra, contra los criterios de la spec | `M25a.2` |
 
 ## III.5 Riesgos, en orden de probabilidad
@@ -894,7 +911,7 @@ Toda evidencia registra los comandos y sus resultados reales. Nada se declara pr
   - Meta, como origen.
   - Supabase: base de datos y autenticación. Hay que completar la región del proyecto. Con Pro, copias nocturnas durante 7 días.
   - Vercel: hosting. Los logs de ejecución no contienen preguntas (CA-63).
-  - DeepInfra: EE. UU.; no entrena con los datos ni los guarda en disco, pero se reserva registrar porciones para depuración o seguridad. Recibe la pregunta redactada y las cifras de gasto e impresiones.
+  - DeepInfra: EE. UU.; no entrena con los datos ni los guarda en disco, pero se reserva registrar porciones para depuración o seguridad. Recibe la pregunta redactada y resultados pertinentes del catálogo de §11, incluidos nombres de entidades cuando sean necesarios.
   - El proveedor de SMTP: recibe el email del dueño.
 - **Retención.** DEC-09, DEC-12 y DEC-17. Intentos vencidos purgados. Cierre con CA-67. Copias de seguridad de Pro hasta 7 días.
 - **Baja y borrado.** Cómo pide el dueño el borrado, qué se borra y qué no: las copias de seguridad siguen su propio plazo.

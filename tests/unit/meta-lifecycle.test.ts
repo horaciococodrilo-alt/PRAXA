@@ -614,7 +614,8 @@ describe('M16.2: efectos, mensajes y desconexión', () => {
     const logs: unknown[] = [];
     const workerApi = { call: (async (fn: string, args: readonly unknown[]) => {
       calls.push({ fn, args });
-      return [{ connection_id: CONNECTION_ID, status: 'needs_reauth', credential_generation: 2 }];
+      return [{ connection_id: CONNECTION_ID, credential_generation: 2,
+        status: fn === 'mark_needs_reauth' ? 'needs_reauth' : 'active' }];
     }) as WorkerApi['call'] };
     const deps = { workerApi: () => workerApi, log: (line: unknown) => logs.push(line) };
     const connection = { id: CONNECTION_ID, credentialGeneration: 2 };
@@ -624,9 +625,37 @@ describe('M16.2: efectos, mensajes y desconexión', () => {
       CONNECTION_ID, 2, 'authentication', auth.redactedMessage] });
     const unknown = new MetaApiError({ errorClass: 'unknown', graphCode: null, graphSubcode: null });
     expect(await applyConnectionFailure(CTX, connection, unknown, deps)).toBe('unchanged');
-    expect(calls).toHaveLength(1);
-    expect(logs[1]).toEqual({ evento: 'meta_ciclo', etapa: 'error_conexion', resultado: 'omitida',
+    expect(calls[1]).toEqual({ fn: 'record_connection_error', args: [CTX.user_id, CTX.company_id,
+      CONNECTION_ID, 2, 'unknown', unknown.redactedMessage] });
+    expect(calls).toHaveLength(2);
+    expect(logs[1]).toEqual({ evento: 'meta_ciclo', etapa: 'error_conexion', resultado: 'ok',
       clase: 'unknown', request_id: CTX.request_id });
+  });
+
+  it('M16c-T-21 la rama unchanged persiste antes de registrar y distingue los rechazos', async () => {
+    const connection = { id: CONNECTION_ID, credentialGeneration: 2 };
+    const failure = new MetaApiError({ errorClass: 'rate_limit', graphCode: 4, graphSubcode: null });
+    const order: string[] = [];
+    const persisted = { call: (async () => { order.push('sql');
+      return [{ connection_id: CONNECTION_ID, status: 'active', credential_generation: 2 }]; }) as WorkerApi['call'] };
+    expect(await applyConnectionFailure(CTX, connection, failure,
+      { workerApi: () => persisted, log: () => order.push('log') })).toBe('unchanged');
+    expect(order).toEqual(['sql', 'log']);
+
+    for (const code of ['generation_mismatch', 'invalid_transition'] as const) {
+      const logs: unknown[] = [];
+      const rejected = { call: (async () => { throw new WorkerApiError(code); }) as WorkerApi['call'] };
+      expect(await applyConnectionFailure(CTX, connection, failure,
+        { workerApi: () => rejected, log: (line: unknown) => logs.push(line) })).toBe('unchanged');
+      expect(logs).toEqual([{ evento: 'meta_ciclo', etapa: 'error_conexion', resultado: 'omitida',
+        clase: 'rate_limit', request_id: CTX.request_id }]);
+    }
+
+    const logs: unknown[] = [];
+    const down = { call: (async () => { throw new WorkerApiError('unavailable', 'transport'); }) as WorkerApi['call'] };
+    await expect(applyConnectionFailure(CTX, connection, failure,
+      { workerApi: () => down, log: (line: unknown) => logs.push(line) })).rejects.toMatchObject({ code: 'unavailable' });
+    expect(logs).toEqual([]);
   });
 
   it('T-25 conserva resultados cerrados y textos de recuperación', () => {

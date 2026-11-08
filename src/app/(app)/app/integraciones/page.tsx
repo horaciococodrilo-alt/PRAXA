@@ -4,10 +4,15 @@ import { IntegracionLogo } from '@/components/app/integracion-logo';
 import { Badge, Button, ButtonLink, Card, Img, PageHeader } from '@/components/app/ui';
 import { getIntegraciones, requireAppSession } from '@/modules/app-data';
 import { META_OAUTH_MESSAGES, parseMetaOAuthOutcome } from '@/modules/integrations/meta/outcomes';
+import { loadMetaSyncView, parseMetaSyncResult, syncNotice, type MetaSyncView } from '@/modules/integrations/meta/insights';
 import { loadMetaCardState } from '@/modules/integrations/lifecycle';
+import { MetaSyncButton, MetaSyncPanel } from './meta-sync-control';
 import { MetaTarjeta } from './meta-tarjeta';
 
 export const metadata = { title: 'Integraciones' };
+
+// Duración efectiva de Vercel. También cubre la Server Action de la página (Q-04, M16c/spec.md).
+export const maxDuration = 300;
 
 /**
  * Meta tiene su propia tarjeta con selección, reautorización y desconexión. Las demás
@@ -23,6 +28,14 @@ export default async function IntegracionesPage(props: PageProps<'/app/integraci
   const resultado = parseMetaOAuthOutcome(searchParams.meta);
   const aviso = resultado === null ? null : META_OAUTH_MESSAGES[resultado];
   const metaState = await loadMetaCardState();
+  let syncView: MetaSyncView | null = null;
+  let syncError = false;
+  try {
+    syncView = await loadMetaSyncView({ nivel: searchParams.nivel, entidad: searchParams.entidad });
+  } catch {
+    syncError = metaState.kind === 'activa' || metaState.kind === 'requiere_reauth';
+  }
+  const notice = syncNotice(parseMetaSyncResult(searchParams.sync), syncView?.status.effective_status ?? null);
   const integraciones = await getIntegraciones();
 
   return (
@@ -58,7 +71,7 @@ export default async function IntegracionesPage(props: PageProps<'/app/integraci
         <h2 id="integraciones-marketing">Marketing y analítica</h2>
         <p>Conectá tus herramientas de marketing y analítica para medir el rendimiento.</p>
         <div className={i.cards}>
-          <MetaTarjeta state={metaState} />
+          <MetaTarjeta state={metaState} syncControl={syncView?.canSync ? <MetaSyncButton /> : undefined} />
           {integraciones.filter((int) => int.id !== 'meta_ads').map((int) => (
             <article key={int.id} className={i.card}>
               <div className={i.cardTop}>
@@ -92,6 +105,9 @@ export default async function IntegracionesPage(props: PageProps<'/app/integraci
           ))}
         </div>
       </section>
+
+      {syncView ? <MetaSyncPanel view={syncView} notice={notice} /> : null}
+      {syncError ? <Card as="div" role="alert"><p>No pudimos leer los datos de Meta. Probá de nuevo más tarde.</p></Card> : null}
     </>
   );
 }

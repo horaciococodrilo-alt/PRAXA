@@ -20,20 +20,22 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 | M06.3a — Cifrado, cliente acotado y documentación de la excepción | `G-CRYPTO` | 2026-10-02 (decisión del usuario; sin `/implementation-review` ni `/qa-review` con veredicto final sobre el HEAD cerrado — detalle en la sesión) | [sesiones/M06.3a.md](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 | M28.2a — Entorno del piloto | `G-ENTORNO` | 2026-10-11 (pasos manuales acreditados por declaración del usuario, sin capturas; detalle en la sesión) | [sesiones/M28.2a.md](FASES/FASE1/meta_first/sesiones/M28.2a.md) |
 | M16.1 — OAuth con Meta | `G-OAUTH` | 2026-10-14 (PR #23; despliegue y comprobaciones en producción acreditados por declaración del usuario, sin capturas; sin `/implementation-review` sobre las correcciones posteriores a la revisión; detalle en la sesión) | [sesiones/M16.1.md](FASES/FASE1/meta_first/sesiones/M16.1.md) |
-| M03a — Acta de datos reales de Meta y del chat | `G-ACTA-META` | 2026-10-18 (versión vigente aprobada explícitamente por el usuario; blob Git `c274963069c15fc23f62fedc95f0b669bc391c0e`) | [sesiones/M03a.md](FASES/FASE1/meta_first/sesiones/M03a.md) |
+| M03a — Acta de datos reales de Meta y del chat | `G-ACTA-META` | 2026-10-18 (versión vigente aprobada explícitamente por el usuario; ampliación de M16c aprobada el 2026-11-08; blob Git `33d8cec71fa117e35a0cb9e180dcb4f0a4728180`) | [sesiones/M03a.md](FASES/FASE1/meta_first/sesiones/M03a.md) |
 | M16.2 — Selección de cuenta, ciclo de vida, alta del dueño y VR-01 | `G-VR01` | 2026-11-05 (pasos con el dueño acreditados por declaración del usuario; la confirmación final sin logs; cuenta sin actividad, con la validación de campos y Q-04 diferidas a `M16c`; detalle en la sesión) | [sesiones/M16.2.md](FASES/FASE1/meta_first/sesiones/M16.2.md) |
 
 ## Siguiente habilitada
 
-**M16c — Sincronización manual de Insights diarios.** Habilitada por `G-VR01` (2026-11-05). La conexión del dueño
+**M16c — BLOQUEADO (2026-11-08), paso 18 de la etapa .3: `0016` aplicada en `app`; falta integrar en `main` y hacer push, acciones del usuario. Commits de etapa `86c8a3b`, `35dc7ff` y `58f4cfb`.** Spec y plan únicos aprobados, con hashes coincidentes con las últimas auditorías APROBABLE. Dependencia `G-VR01` aprobada (2026-11-05). Rama `mf/M16c`. Controles de base en verde; bloqueo de conectividad resuelto. Evidencia: [sesiones/M16c.md](FASES/FASE1/meta_first/sesiones/M16c.md). La conexión del dueño
 quedó activa; la cuenta no tiene actividad reciente, así que la validación de los campos de
-Insights y la medición de Q-04 se hacen en `M16c` (ver [HALLAZGOS.md](HALLAZGOS.md)).
+Insights y la fijación de Q-04 se hacen en `M16c` (ver [HALLAZGOS.md](HALLAZGOS.md)).
+
+La enmienda documental de alcance y del acta fue autorizada por el usuario el 2026-11-06 e integrada (`H-E1-187`). Las etapas .1, .2 y .3 de M16c están pendientes de implementación; su único gate es `G-SYNC` ([enmienda de corrida única](FASES/FASE1/meta_first/sesiones/enmienda-corrida-unica-2026-11-07.md), 2026-11-07). La comunicación al dueño fue declarada por el usuario el 2026-11-08. `G-SYNC` sigue pendiente. Evidencia: [enmienda](FASES/FASE1/meta_first/sesiones/enmienda-insights-2026-11-06.md). El 2026-11-07 el usuario aprobó que, con la cuenta sin actividad, `G-SYNC` pueda cerrarse con la sincronización real de los cuatro niveles con 0 filas ([enmienda G-SYNC](FASES/FASE1/meta_first/sesiones/enmienda-gsync-2026-11-07.md)).
 
 Hallazgos asignados a M06.3a (cerrada): `H-M04.1-02`, `H-E1-09`, `H-E1-10`, `H-E1-17`, `H-E1-37`,
 `H-E1-43` a `H-E1-70` y la comprobación de acceso real del rol de `H-E1-36`. Detalle en
 [HALLAZGOS.md](HALLAZGOS.md).
 
-Después de M16c, en este orden: M25a.1, M25a.2 y M28.3a.
+Secuencia pendiente: M16c (etapas .1 → .2 → .3, una corrida) → M25a.1 → M25a.2 → M28.3a. Cada microfase se solicita y aprueba por separado.
 
 ## Fuera de la ruta o pospuesto
 
@@ -53,11 +55,13 @@ Después de M16c, en este orden: M25a.1, M25a.2 y M28.3a.
 
 ## Decisiones pendientes del usuario
 
-Ninguna abierta. El 2026-11-05 el usuario aprobó la enmienda de `avatars` del PR #20 y
-ratificó los cambios de Resend en `SECURITY.md` (`H-E1-179`).
+La ampliación y su actualización documental fueron autorizadas el 2026-11-06 (`H-E1-187`). La spec y el plan únicos de M16c figuran aprobados; `G-SYNC` continúa pendiente. Las specs, planes y gates de las sucesoras siguen pendientes; no se aprueban por esa autorización. El 2026-11-05 el usuario aprobó la
+enmienda de `avatars` del PR #20 y ratificó los cambios de Resend en `SECURITY.md` (`H-E1-179`).
 
 Las decisiones sobre `H-E1-04`, `H-E1-40`, `H-E1-76`, `H-E1-78`, `H-E1-81` y `H-E1-82` se
 tomaron el 2026-10-20; el detalle está en [HALLAZGOS.md](HALLAZGOS.md).
+
+Antes de expandir la spec de `M25a.1`, el usuario decide qué cuentas adicionales y qué gráficos tendrá el chat (`H-E1-190`). No bloquea M16c.
 
 ## Regla de actualización
 

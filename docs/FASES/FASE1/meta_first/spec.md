@@ -2,6 +2,8 @@
 
 ## Estado
 
+**Enmienda de Insights ampliados, aprobada por el usuario el 2026-11-06:** el usuario confirmó el alcance de cuatro niveles y ordenó resolver e integrar la enmienda antes de M16c. El contrato vigente es §11 de la spec de la ruta; se coordinan Parte I, II.11, el chat y el acta M03a. La aprobación de alcance no cierra G-SYNC ni aprueba las specs/planes de implementación. Se conserva la evidencia histórica en [la propuesta inicial](../M16c/revisiones/propuesta-ampliacion-insights-1.md).
+
 **Enmienda CA-67 aprobada expresamente por el usuario el 2026-10-19:** incorpora al cierre la gestión de borrado anticipado de los correos de Auth que todavía conserve Resend. Los cinco pasos locales conservan su orden. Este texto es vigente.
 
 **Enmienda `avatars` (PR #20), aprobada por el usuario el 2026-11-05:** CA-67 y la ficha de `M28.3a` borran por Storage API todos los objetos de la carpeta `avatars/<user_id>/` antes de borrar cada usuario (`H-E1-110`). Revisión del asistente antes de la aprobación: la spec de la ruta (CA-67, paso 3), la ficha de `M28.3a` y la tabla de pasos del cierre coinciden, y `tests/app/closure-storage.test.ts` pasó en el proyecto desechable el 2026-11-05. El texto enmendado es vigente.
@@ -14,11 +16,11 @@
 
 `v1.0 — APROBADA` — 2026-09-24 (aprobada por el usuario en `G-DOCS`, al cerrar `M04a`). Incorpora:
 
-- las decisiones DEC-01 a DEC-21;
+- las decisiones DEC-01 a DEC-21 y la enmienda DEC-22 del 2026-11-06;
 - las correcciones T01 a T16 de la revisión externa;
 - las correcciones técnicas de la revisión del repositorio.
 
-En la v1.0 no quedaban decisiones abiertas. Q-04 es un parámetro que se fija con mediciones en `M16c`. La Enmienda 1 fue aprobada formalmente en `G-DOCS` al cerrar `M04a`; el estado de cada microfase y la siguiente habilitada están en `docs/PROJECT_STATE.md`. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario: la Parte I de [plan.md](plan.md) es el roadmap vigente de la ruta y encabeza la jerarquía de fuentes de `AGENTS.md`.
+En la v1.0 no quedaban decisiones abiertas. Q-04 es un parámetro que se fija en `M16c`; el origen de cada límite está en la tabla de preguntas (Q-04). La Enmienda 1 fue aprobada formalmente en `G-DOCS` al cerrar `M04a`; el estado de cada microfase y la siguiente habilitada están en `docs/PROJECT_STATE.md`. Desde `M04a`, `docs/ROADMAP.md` (v2.3) está archivado fuera del repositorio por decisión del usuario: la Parte I de [plan.md](plan.md) es el roadmap vigente de la ruta y encabeza la jerarquía de fuentes de `AGENTS.md`.
 
 El roadmap de la ruta (Enmienda 1) y el plan de ejecución están en [plan.md](plan.md), versión 1.0.
 
@@ -41,7 +43,7 @@ Un usuario (el dueño), una empresa y una cuenta publicitaria conectada. El due�
 - Más de una cuenta conectada por empresa. Más de un proveedor.
 - Workers, colas, reintentos en segundo plano, programación automática. El esquema `worker_api` es un nombre heredado del ROADMAP v2.3 y no implica construir un worker.
 - Tiendanube, GA4, reportes publicados (`reliability`, `catalog`).
-- Métricas derivadas, ratios, benchmarks, recomendaciones de presupuesto, explicación causal del rendimiento y evaluación de rentabilidad.
+- Benchmarks, recomendaciones de presupuesto, explicación causal del rendimiento y evaluación de rentabilidad. Solo se admiten las métricas y tasas del contrato de §11; el modelo no calcula cifras autoritativas.
 - Base vectorial o RAG.
 
 ## 3. Registro de decisiones
@@ -69,6 +71,7 @@ Un usuario (el dueño), una empresa y una cuenta publicitaria conectada. El due�
 | DEC-19 | Las respuestas del chat pueden incluir cifras en lenguaje natural. Cada afirmación numérica se vincula a un resultado de herramienta del turno actual y el servidor la verifica antes de mostrarla (CA-50). Reemplaza la prohibición de dígitos | Cerrada |
 | DEC-20 | `M28.3a` se cierra al completar la demostración. CA-67 se ejecuta al finalizar el piloto, no al terminar la demo | Cerrada |
 | DEC-21 | Los umbrales propuestos para VR-02 se adoptan como criterios iniciales de aprobación | Cerrada |
+| DEC-22 | Insights diarios de cuenta, campaña, conjunto y anuncio, catálogo y reglas de agregación de §11; chat sobre datos persistidos y verificados. Aprobada por el usuario el 2026-11-06 | Cerrada |
 
 ## 4. Prerrequisitos de Meta — pendientes de verificar
 
@@ -322,38 +325,44 @@ Reglas para las funciones y el rol:
 
 ## 11. Sincronización manual (M16c)
 
-### Contrato de métricas
+### Contrato de datos (DEC-22)
 
-- Nivel `account`, `time_increment=1`, campos `spend` e `impressions`, y `time_range` expresado en fechas de la zona de la cuenta.
-- **CA-44b** *(precisión de punta a punta)* `spend` se guarda como `numeric` y sale de SQL como texto decimal (`::text`) en toda función o vista que lea la API, incluidos los totales. `impressions` se guarda como `bigint` y también sale como texto. En TypeScript los dos son cadenas validadas con Zod: decimal para el gasto, entero para las impresiones. Nunca pasan por `number`, y convertirlos a cadena después de haber pasado por `number` no cuenta. Se prueba de punta a punta (SQL → API → TypeScript) con valores que un `number` no representa exactamente.
-- Moneda y zona son las de la cuenta confirmadas en CA-36. No se convierte moneda.
+Este es el catálogo único de datos de Insights. Las specs de implementación lo refinan; los documentos transversales y el acta lo enlazan.
 
-### Snapshots y cobertura (DEC-05)
+| Categoría | Campos y contrato |
+|---|---|
+| Nivel y fechas | Cuatro extracciones separadas: `account`, `campaign`, `adset`, `ad`; `time_increment=1`, `date_start=date_stop`, `time_range` en la zona de la cuenta. Una cuenta conectada. Clave lógica: conexión, nivel, entidad, fecha. |
+| Rendimiento base | `spend`, `impressions`, `reach`, `clicks`, `inline_link_clicks`. Gasto decimal; conteos enteros no negativos. |
+| Tasas informadas por Meta | `ctr`, `cpc`, `cpm`, `frequency`, decimales no negativos, nullable cuando Meta no los informe. Se conservan con su nivel y día; no se suman ni se promedian para representar otro período. |
+| Resultados | `actions` y `action_values`, proyectados a filas tipadas por `action_type`, con conteo y valor separados. Ambos pueden ser decimales; ningún conteo de acción se fuerza a entero. Se conservan los tipos devueltos con identificador validado y acotado, sin guardar JSON crudo. Un tipo desconocido no se traduce automáticamente a compras, leads ni mensajes. |
+| Entidades | IDs y nombres de campaña, conjunto y anuncio y sus relaciones; estado efectivo y objetivo de campaña mediante lecturas de metadata. Se congelan con la captura. El estado observado al sincronizar no acredita el estado histórico del día de la métrica. |
+| Procedencia | Moneda y zona confirmadas, nivel, entidad, campos solicitados, rango, configuración de atribución usada, `action_report_time`, captura, páginas, completitud, snapshot y ejecución. No convertir moneda. |
 
-- **CA-41** Cada extracción crea un snapshot inmutable. Contiene los parámetros de la consulta sin credenciales, `fetched_at`, las páginas consumidas, el resultado y, por cada día, solo `date_start`, `date_stop`, `spend` e `impressions`. No se guardan la respuesta cruda completa ni los enlaces de paginación, porque pueden contener el token.
-- **CA-42** Un snapshot es completo solo si se consumieron todas las páginas de Insights sin error.
-- **CA-43** *(cobertura persistida)* La cobertura vive en `public.meta_daily_coverage`, legible por `authenticated` bajo RLS. Tiene una fila por conexión y día cubierto por un snapshot completo, con:
-  - presencia: `con_datos` o `sin_fila_reportada`;
-  - gasto e impresiones, nulos si la presencia es `sin_fila_reportada`;
-  - `snapshot_id` y `fetched_at`;
-  - si la captura fue anterior al cierre del día (CA-43b).
+- La extracción fija explícitamente `action_report_time=impression` y usa la atribución unificada del conjunto (`use_unified_attribution_setting=true`), conservando la configuración efectiva disponible por conjunto. Si Meta no permite acreditar esos parámetros para un resultado, su atribución se declara desconocida y no se combina con otras configuraciones como si fueran equivalentes. La compatibilidad exacta en la versión Graph y cuenta autorizadas se verifica con documentación oficial y sincronización real; no se presume por un probe vacío.
+- Un campo ausente o nulo es `no_informado`, distinto de cero explícito y de día sin fila. No invalida por sí solo campos válidos de la fila; un valor presente mal formado sí hace incompleta la extracción. Las variantes de atribución en arrays de acciones se conservan separadas; no sumar ventanas ni tipos de evento superpuestos.
+- `action_type` es un identificador del proveedor, de 1 a 128 caracteres alfanuméricos, punto o guion bajo; valores y claves fuera del contrato se rechazan o se descartan según sean datos malformados o campos extra. El chat consulta tipos presentes mediante catálogo del servidor y los referencia por su identificador. Solo usa nombres de negocio con mapeo explícito probado; jamás fusiona, por ejemplo, varios tipos de compra para inventar un total.
+- El total de cuenta se obtiene de `account`, no de la suma de otros niveles. El alcance y la frecuencia se ofrecen por día/entidad; no se calcula alcance o frecuencia de varios días o entidades con las filas diarias. Una solicitud de ese agregado recibe resultado no soportado. No se agrega una consulta directa a Meta desde el chat.
+- Para períodos y una misma entidad se suman solo métricas aditivas con unidad, moneda y atribución compatibles. CTR se calcula como `100 * clicks / impressions`; CPC como `spend / clicks`; CPM como `1000 * spend / impressions`. Denominador cero o datos necesarios ausentes producen resultado no calculable, nunca cero ni infinito. Las tasas de período se recalculan en SQL desde las bases cubiertas y se presentan parciales si falta cobertura. No se promedian tasas diarias. No se calculan ROAS, rentabilidad ni variaciones porcentuales en este corte.
+- **CA-44b** Toda medida, tasa y valor de acción se almacena con precisión exacta (`numeric`; los conteos base, `bigint`) y sale de SQL como texto, incluidos JSON y totales. TypeScript valida cadenas; nunca convierte a `number`. Prueba SQL → Data API → TypeScript con decimales y enteros fuera de precisión de `number`.
 
-  Un día sin fila en la tabla es `no_observado`. `publish_snapshot` actualiza la tabla en la misma transacción que el snapshot: cada día que cubre el snapshot nuevo queda con lo que ese snapshot trajo. Si un snapshot anterior traía un valor y el nuevo, completo, no trae fila, el día pasa a `sin_fila_reportada` y el valor anterior deja de sumarse. `sin_fila_reportada` no equivale a cero ni prueba ausencia de actividad; tratarla como cero requiere primero fundamentar la semántica del endpoint.
-- **CA-43b** *(estado temporal y captura parcial)* Son dos cosas distintas:
-  - el estado del día al consultar, en la zona de la cuenta: `abierto` o `cerrado`. `cerrado` significa que el día terminó, no que Meta ya no vaya a revisar el valor;
-  - `captured_before_day_end`: si el dato vigente se extrajo antes del cierre del día. Queda persistido en la fila de cobertura. Un valor extraído al mediodía sigue marcado como captura parcial al día siguiente, hasta que lo reemplace una extracción completa posterior al cierre. Se prueba sin resincronizar.
-- **CA-44** Cada valor vigente conserva la moneda, la zona y la procedencia hasta el snapshot y la ejecución que lo respaldan.
-- **CA-45** *(reemplazado)* Reprocesar el mismo snapshot produce la misma cobertura, sin duplicados. Un snapshot completo más nuevo puede actualizar valores. Uno parcial o fallido nunca reemplaza datos vigentes.
-- **CA-46** La cobertura por día de una ventana es consultable, con presencia, estado temporal, captura parcial, procedencia y frescura.
-- **CA-47** *(reemplazado)* La completitud se verifica por separado (CA-42). Comparar sumas contra un crudo truncado no prueba nada.
-- **CA-47b** Cada sincronización relee los últimos 28 días. Es un valor inicial configurable. No se afirma que Meta congele gasto e impresiones después de ese plazo.
+### Snapshots y cobertura (DEC-05, DEC-22)
+
+- **CA-41** Snapshot inmutable por nivel y extracción, con las filas del catálogo anterior, metadata capturada y parámetros sin credenciales. Una ejecución agrupa hasta cuatro snapshots. No guardar respuesta cruda, enlaces, cursores ni secretos. Solo registros estructurados validados.
+- **CA-42** Cada nivel es completo solo cuando todas sus páginas y la metadata necesaria fueron consumidas sin error. La ejecución informa resultados separados por nivel y solo declara éxito total si los cuatro completaron. Un nivel completo puede publicarse aunque otro falle, siempre bajo CA-59.
+- **CA-43** `public.meta_daily_coverage` registra cobertura por conexión, nivel y día y referencia el snapshot completo vigente. Sus filas y valores por entidad se leen bajo RLS. Los días completos sin filas se representan explícitamente sin inventar entidades. Para una entidad conocida, ausencia en un día cubierto significa `sin_fila_reportada`; sin cobertura del nivel/día, `no_observado`. Cada métrica puede además ser `no_informado`. Una nueva extracción completa reemplaza todo el conjunto de filas del nivel/día, incluyendo valores que dejaron de venir; una incompleta no modifica esa cobertura. La ausencia no prueba cero, existencia histórica ni ausencia de actividad.
+- **CA-43b** El estado temporal `abierto/cerrado` se calcula al consultar según la zona de la cuenta; separado de `captured_before_day_end`, que se persiste y sobrevive al cambio de día sin resincronizar. Día cerrado no significa valor definitivo de Meta. Se prueban DST y captura de mediodía consultada al día siguiente.
+- **CA-44** Cada valor conserva nivel, entidad, unidad, moneda cuando corresponda, atribución, zona y procedencia hasta snapshot y ejecución. Cambios de nombre, estado o eliminación de entidades no reescriben la metadata histórica.
+- **CA-45** Publicar el mismo snapshot es idempotente; payload diferente con el mismo ID se rechaza. Un completo nuevo sustituye cobertura del mismo nivel/día. Uno parcial o fallido conserva datos vigentes y su antigüedad visible.
+- **CA-46** La consulta de cobertura, serie y valores identifica nivel/entidad, presencia de fila y de métrica, estado temporal, captura parcial, atribución, fuente y frescura. Metadata y acciones visibles solo bajo aislamiento de la empresa; los IDs externos completos permanecen en la base, y las referencias expuestas son opacas.
+- **CA-47** La completitud se prueba por agotamiento de páginas y metadata requerida; una suma no acredita que la extracción esté completa.
+- **CA-47b** Cada sincronización relee 28 días iniciales configurables en los cuatro niveles. No se afirma que Meta congele valores después. Cambios de estado/eliminación de una entidad no borran su procedencia antes de la purga de la conexión.
 
 ### Ejecución
 
 - **CA-56** Límites explícitos de ventana máxima, páginas máximas y duración máxima de la ejecución, fijados por debajo del tiempo máximo configurado en Vercel (sección 5b, Q-04). Se pagina hasta agotar la respuesta o hasta chocar un límite. Chocar un límite deja el snapshot incompleto.
 - **CA-57** Solo se reintentan los errores de clase temporal o de transporte, con tope y espera, dentro del presupuesto de duración. Los límites de Meta no se reintentan en la misma ejecución.
 - **CA-58** *(ejecución vigente)* Hay una sola ejecución vigente por conexión. Cada ejecución tiene un identificador, un token de posesión aleatorio y un arrendamiento con vencimiento. Iniciar una ejecución mientras hay otra vigente se rechaza con un mensaje claro. Si el arrendamiento de A venció, B puede iniciar, toma la posesión y A queda desplazada.
-- **CA-59** *(publicación atómica, solo de la ejecución vigente)* `publish_snapshot` inserta el snapshot, sus días y la cobertura en una transacción, y solo si en ese momento se cumple todo esto:
+- **CA-59** *(publicación atómica, solo de la ejecución vigente)* `publish_snapshot` inserta el snapshot de un nivel, sus filas y la cobertura de ese nivel en una transacción, y solo si en ese momento se cumple todo esto:
   - la ejecución es la vigente de la conexión: coinciden el identificador y el token de posesión, y el arrendamiento no venció;
   - la conexión sigue `active`;
   - la generación de credencial es la del inicio.
@@ -366,10 +375,13 @@ Reglas para las funciones y el rol:
 ### Herramientas y límites
 
 - **CA-48** Catálogo cerrado de herramientas:
-  - cobertura de un período;
-  - serie diaria de una métrica (`spend` o `impressions`);
-  - total de una métrica en un período;
+  - catálogo de entidades y tipos de acción disponibles;
+  - cobertura de un período y nivel;
+  - serie diaria del catálogo de §11 para una entidad autorizada;
+  - total o tasa de período únicamente según las reglas de §11;
   - estado de la conexión.
+
+  Referencias de entidades opacas, resueltas por el servidor dentro de la conexión autorizada; no IDs externos elegidos libremente. Parámetros y resultados incluyen nivel, entidad, tipo de acción y atribución cuando correspondan.
 
   El modelo no elige empresa, tabla ni SQL.
 - **CA-49** El tenant y la conexión se resuelven en el servidor. Las herramientas leen con el JWT del usuario, bajo RLS.
@@ -386,7 +398,7 @@ Reglas para las funciones y el rol:
 
 - **CA-50** *(salida estructurada con afirmaciones verificadas)* El modelo redacta en lenguaje natural y puede incluir cifras. Su salida estructurada tiene dos partes: `text` y `claims`.
   - Cada afirmación numérica de `text` sobre los datos del negocio tiene un `claim` que la vincula a un resultado de herramienta del turno actual.
-  - Un claim contiene: `span` (posición exacta en el texto), `kind`, `tool_call_id` con la ruta del valor dentro del resultado, y los campos declarados `metric`, `unit`, `currency` (cuando corresponde), `account_ref` y `period`.
+  - Un claim contiene: `span` (posición exacta en el texto), `kind`, `tool_call_id` con la ruta del valor dentro del resultado, y los campos declarados `metric`, `unit`, `currency` (cuando corresponde), `account_ref`, `level`, `entity_ref`, `action_type` y `attribution_ref` (cuando corresponden), y `period`.
   - Tipos de claim:
     - `observed_value`: un valor devuelto por una herramienta;
     - `period_bound`: una fecha límite del período consultado;
@@ -403,19 +415,20 @@ Reglas para las funciones y el rol:
      - comparativos: "más que", "menos que", "igual que".
 
      Cada candidato tiene que quedar cubierto por el `span` de un claim.
-  2. **`observed_value`.** La ruta resuelve a un valor de un resultado del turno actual. `metric`, `unit`, `currency`, `account_ref` y `period` del claim coinciden exactamente con los del resultado. La cifra escrita, normalizada, coincide con el valor.
+  2. **`observed_value`.** La ruta resuelve a un valor de un resultado del turno actual. `metric`, `unit`, `currency`, `account_ref`, `level`, `entity_ref`, `action_type`, `attribution_ref` y `period` del claim coinciden exactamente con los del resultado. La cifra escrita, normalizada, coincide con el valor.
   3. **Normalización.** Se acepta el formato es-AR (miles con `.` y decimales con `,`) y también la cifra sin separador de miles.
      - Gasto: valor exacto, o redondeado a 0 o 2 decimales con redondeo half-up.
-     - Impresiones: entero exacto, con o sin agrupación de miles.
-     - En esta versión no se aceptan abreviaturas ("1,2 M", "30 mil") ni porcentajes.
+     - Conteos base: entero exacto, con o sin agrupación de miles.
+     - Otras medidas decimales del catálogo: exactas o redondeadas half-up a dos decimales por el servidor; unidad y tipo de acción/atribución coinciden con la herramienta. CTR conserva unidad porcentual. La representación no convierte la métrica a number.
+     - No se aceptan abreviaturas ("1,2 M", "30 mil"). Se acepta porcentaje únicamente para CTR devuelto por una herramienta del catálogo de §11, con unidad y valor verificados.
   4. **`qualitative_comparison`.** Referencia dos `observed_value` y la relación declarada. El servidor calcula la relación, y tiene que coincidir con la declarada.
-  5. **Variaciones y ratios cuantitativos** ("se duplicó", "subió un 20 %"). Ninguna herramienta los calcula, así que se rechazan. Una operación que ninguna herramienta soporta no se presenta como calculada ni verificada.
+  5. **Variaciones y ratios cuantitativos.** Solo se aceptan las tasas de §11 cuando una herramienta las devuelve y se verifican con su unidad, entidad, período y fuente. Variaciones como "se duplicó" o "subió un 20 %" siguen rechazadas. Una operación no soportada no se presenta como calculada.
   6. **`user_provided`.** La cifra tiene que aparecer en la pregunta redactada del turno. La UI la muestra diferenciada de las cifras observadas en Meta, por ejemplo "según lo que mencionaste".
   7. **Rechazo.** Si algo no valida, la respuesta no se muestra como un hecho: se registra como `guard_rejected` y el dueño ve una abstención controlada.
 - **CA-50b** *(qué se garantiza y qué se prueba)*
   - **Garantías determinísticas:**
     - ninguna cifra, cantidad en palabras, variación ni comparativo llega a la pantalla sin un claim válido;
-    - todo `observed_value` coincide en valor, métrica, unidad, moneda, cuenta y período con un resultado del turno actual;
+    - todo `observed_value` coincide en valor, métrica, unidad, moneda, cuenta, nivel, entidad, tipo de acción, atribución y período con un resultado del turno actual;
     - toda comparación cualitativa fue recalculada por el servidor.
   - **No garantizado; se evalúa con pruebas y con VR-02:**
     - que la herramienta elegida sea la correcta para la pregunta;
@@ -445,7 +458,7 @@ Reglas para las funciones y el rol:
   - Zod es la autoridad final: una salida que no valida se rechaza como `guard_rejected`.
   - Cada registro de consulta guarda el identificador de modelo solicitado y el informado por la respuesta. El informado es nulo si el proveedor no respondió.
 - **CA-54** Aislamiento entre empresas, tanto frente a preguntas directas como frente a instrucciones inyectadas en la pregunta.
-- **CA-55** El chat describe gasto e impresiones. No explica causas ni evalúa rentabilidad. Una interpretación se marca como tal y se separa de los hechos observados.
+- **CA-55** El chat describe el catálogo de §11 por cuenta, campaña, conjunto y anuncio, con las restricciones de agregación y atribución allí definidas. No explica causas ni evalúa rentabilidad. Una interpretación se marca como tal y se separa de los hechos observados.
 
 ### Registro por consulta (DEC-10)
 
@@ -503,13 +516,13 @@ Reglas para las funciones y el rol:
   - la respuesta informa el identificador de modelo.
 
   Si VR-02 falla, primero se diagnostica la causa: prompt, esquema, herramientas, esfuerzo de razonamiento o modelo. Cambiar de host es el último recurso y no es gratis: además de `llm.ts`, exige actualizar la configuración, las pruebas y `M03a`.
-- **Declaración en `M03a`** (P01): DeepInfra como host, con centros de datos en EE. UU. y sin entrenamiento sobre los datos. Retención: no guarda entradas en disco, pero se reserva registrar porciones chicas de las solicitudes para depuración o seguridad. También hay que declarar que la pregunta viaja redactada (DEC-11) y que viajan las cifras de gasto e impresiones.
+- **Declaración en `M03a`** (P01): DeepInfra como host, con centros de datos en EE. UU. y sin entrenamiento sobre los datos. Retención: no guarda entradas en disco, pero se reserva registrar porciones chicas de las solicitudes para depuración o seguridad. También hay que declarar que la pregunta viaja redactada (DEC-11) y que viajan resultados pertinentes del catálogo de §11 y nombres de entidades cuando sean necesarios para responder.
 
 ## 13. Parámetros pendientes de medición
 
 | ID | Pregunta | Tipo |
 |---|---|---|
-| Q-04 | Valores iniciales de ventana máxima, páginas y duración de la sincronización. Se fijan en `M16c` con lo medido en VR-01 y por debajo de la duración configurada en Vercel. No bloquea ninguna microfase anterior | Técnica |
+| Q-04 | Valores iniciales de ventana máxima, páginas y duración de la sincronización. Se fijan en `M16c`: la duración, por debajo de la configurada en Vercel con margen; la ventana, a partir de los 28 días de CA-47b; páginas, entidades y payload, como cotas técnicas conservadoras. Lo medido en VR-01 y en la sincronización real de `M16c.3` se registra como referencia y, si la cuenta no tiene actividad, no se presenta como representativo (D-M16c-02). No bloquea ninguna microfase anterior | Técnica |
 
 ## 13b. Intervenciones del usuario
 

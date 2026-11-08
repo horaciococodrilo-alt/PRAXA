@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { IconFlecha } from '@/components/app/icons';
 import { IntegracionLogo } from '@/components/app/integracion-logo';
 import { Badge, Button, DisclosureButton } from '@/components/app/ui';
@@ -43,7 +45,7 @@ function DisconnectControl({ pending = false }: { pending?: boolean }) {
   );
 }
 
-export function MetaTarjeta({ state }: { state: MetaCardState }) {
+export function MetaTarjeta({ state, syncControl }: { state: MetaCardState; syncControl?: ReactNode }) {
   const connected = state.kind === 'activa';
   return (
     <article className={i.card}>
@@ -89,6 +91,7 @@ export function MetaTarjeta({ state }: { state: MetaCardState }) {
       {(state.kind === 'activa' || state.kind === 'requiere_reauth') ? (
         <>
           <p>Cuenta {state.maskedId} · {state.currency} · {state.timezone}</p>
+          {state.kind === 'activa' ? syncControl : null}
           {state.kind === 'requiere_reauth' ? (
             <>
               <p>{NEEDS_REAUTH_TEXTS[state.errorClass]}</p>

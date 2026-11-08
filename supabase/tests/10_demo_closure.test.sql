@@ -11,13 +11,14 @@
 -- `reports_context_fkey` (0003) rompiera la cascada desde `companies`. La parte 1, corrida
 -- sola antes de 0012, pasó: la hipótesis es falsa y 0012 no toca `reports`.
 --
--- Parte 2 (CA-67, CA-68, H-E1-06). Agrega la integración: el cierre deja cero filas en las
--- nueve tablas, y el usuario solo se puede borrar después de su empresa.
+-- Parte 2 (CA-67, CA-68, H-E1-06). Agrega la integración y los Insights de M16c: el cierre
+-- deja cero filas en las dieciséis tablas, y el usuario solo se puede borrar después de su
+-- empresa.
 
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(28);
 
 -- ---------------------------------------------------------------------------
 -- Parte 1: empresa con contexto activo y reporte, sin integración
@@ -145,12 +146,35 @@ select 1 from worker_api.create_pending_connection(
 
 select 1 from worker_api.confirm_connection(
   'aaaaaaaa-0000-4000-8000-000000000102', 'c0a00000-0000-4000-8000-000000000102',
-  'cc000000-0000-4000-8000-000000000102', 'cuenta_sintetica_0102', 'USD', 'UTC', true);
+  'cc000000-0000-4000-8000-000000000102', 'act_90000102', 'USD', 'UTC', true);
 
 select 1 from worker_api.create_oauth_attempt(
   'aaaaaaaa-0000-4000-8000-000000000102', 'c0a00000-0000-4000-8000-000000000102',
   'reauth', repeat('c', 64), repeat('d', 64), '/app/integraciones',
   now() + interval '5 minutes', 'cc000000-0000-4000-8000-000000000102');
+
+-- Insights: una ejecución con su snapshot, entidad, metadata, día, acción y cobertura.
+select 1 from worker_api.start_sync_run(
+  'aaaaaaaa-0000-4000-8000-000000000102', 'c0a00000-0000-4000-8000-000000000102',
+  'cc000000-0000-4000-8000-000000000102', 0, 'e0000000-0000-4000-8000-000000000102',
+  repeat('e', 64), current_date, current_date,
+  '{"lookbackDays":1,"maxWindowDays":1,"maxPagesPerLevel":1,"maxMetadataPages":1,"maxEntities":1,"maxPayloadBytes":100000,"maxDurationMs":1000,"finalizationReserveMs":1000,"leaseSeconds":2,"maxRetries":2,"retryDelayMs":500}');
+
+select 1 from worker_api.publish_snapshot(
+  'aaaaaaaa-0000-4000-8000-000000000102', 'c0a00000-0000-4000-8000-000000000102',
+  'cc000000-0000-4000-8000-000000000102', 0, 'e0000000-0000-4000-8000-000000000102',
+  repeat('e', 64), '5a000000-0000-4000-8000-000000000102', 'account', clock_timestamp(), 1, 1,
+  jsonb_build_object(
+    'entities', jsonb_build_array(jsonb_build_object(
+      'level', 'account', 'external_id', 'act_90000102', 'parent_external_id', null,
+      'name', 'Cuenta sintetica', 'effective_status', null, 'objective', null,
+      'metadata_fetched_at', to_char(clock_timestamp() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+      'attribution', '{"known":false,"report_time":"impression","unified":true,"settings":[]}'::jsonb)),
+    'days', jsonb_build_array(jsonb_build_object(
+      'date', current_date::text, 'level', 'account', 'external_id', 'act_90000102',
+      'spend', '1.50', 'impressions', '10', 'reach', null, 'clicks', null, 'inline_link_clicks', null,
+      'ctr', null, 'cpc', null, 'cpm', null, 'frequency', null,
+      'actions', '[{"action_type":"purchase","variant":"value","count":"1","value":"2.50"}]'::jsonb))));
 
 -- H-E1-06: el usuario no se puede borrar antes que su empresa.
 select throws_ok(
@@ -209,6 +233,41 @@ select is(
   (select count(*)::int from private.integration_credentials
     where company_id = 'c0a00000-0000-4000-8000-000000000102'),
   0, 'CIERRE 2: cero filas en integration_credentials');
+
+select is(
+  (select count(*)::int from public.meta_sync_runs
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  0, 'CIERRE 2: cero filas en meta_sync_runs');
+
+select is(
+  (select count(*)::int from public.meta_entities
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  0, 'CIERRE 2: cero filas en meta_entities');
+
+select is(
+  (select count(*)::int from public.meta_insight_snapshots
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  0, 'CIERRE 2: cero filas en meta_insight_snapshots');
+
+select is(
+  (select count(*)::int from public.meta_snapshot_entities
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  0, 'CIERRE 2: cero filas en meta_snapshot_entities');
+
+select is(
+  (select count(*)::int from public.meta_snapshot_days
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  0, 'CIERRE 2: cero filas en meta_snapshot_days');
+
+select is(
+  (select count(*)::int from public.meta_snapshot_actions
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  0, 'CIERRE 2: cero filas en meta_snapshot_actions');
+
+select is(
+  (select count(*)::int from public.meta_daily_coverage
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  0, 'CIERRE 2: cero filas en meta_daily_coverage');
 
 select lives_ok(
   $$delete from auth.users where id = 'aaaaaaaa-0000-4000-8000-000000000102'$$,

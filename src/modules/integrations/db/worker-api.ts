@@ -10,7 +10,8 @@ export type WorkerApiFunction =
   | 'create_oauth_attempt' | 'consume_oauth_attempt' | 'create_pending_connection'
   | 'get_credential' | 'confirm_connection' | 'replace_credential' | 'mark_needs_reauth'
   | 'begin_disconnect' | 'purge_connection' | 'list_pending_purges'
-  | 'count_credentials_by_key_version' | 'rewrap_credential';
+  | 'count_credentials_by_key_version' | 'rewrap_credential' | 'start_sync_run' | 'publish_snapshot'
+  | 'fail_sync_run' | 'record_connection_error';
 
 export interface Queryable {
   query<Row extends pg.QueryResultRow = pg.QueryResultRow>(
@@ -28,6 +29,7 @@ export type WorkerFailureKind = 'transport' | 'timeout' | 'other';
 export type WorkerApiCode =
   | 'not_authorized' | 'attempt_rejected' | 'live_connection_exists' | 'invalid_transition'
   | 'pending_expired' | 'generation_mismatch' | 'account_conflict' | 'key_version_mismatch'
+  | 'sync_in_progress' | 'sync_ownership_lost'
   | 'invalid_argument' | 'privilege_missing' | 'unavailable' | 'unexpected'
   | 'config_missing' | 'config_invalid';
 
@@ -40,6 +42,8 @@ const MESSAGES: Record<WorkerApiCode, string> = {
   generation_mismatch: 'La generación de la conexión cambió.',
   account_conflict: 'La cuenta ya está vinculada.',
   key_version_mismatch: 'La versión de clave cambió.',
+  sync_in_progress: 'Ya hay una sincronización en curso.',
+  sync_ownership_lost: 'La sincronización venció o fue reemplazada. Volvé a sincronizar.',
   invalid_argument: 'Argumento de worker_api inválido.',
   privilege_missing: 'Falta un privilegio del rol de integraciones.',
   unavailable: 'La base de datos no está disponible.',
@@ -73,6 +77,10 @@ const SQL_CASTS: Record<WorkerApiFunction, readonly string[]> = {
   list_pending_purges: ['uuid', 'uuid'],
   count_credentials_by_key_version: [],
   rewrap_credential: ['uuid', 'uuid', 'uuid', 'integer', 'integer', 'text', 'text', 'text', 'integer'],
+  start_sync_run: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'text', 'date', 'date', 'jsonb'],
+  publish_snapshot: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'text', 'uuid', 'text', 'timestamptz', 'integer', 'integer', 'jsonb'],
+  fail_sync_run: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'text', 'uuid', 'text', 'timestamptz', 'integer', 'integer', 'jsonb', 'integer', 'text', 'text', 'text', 'boolean'],
+  record_connection_error: ['uuid', 'uuid', 'uuid', 'integer', 'text', 'text'],
 };
 
 const SQL: Record<WorkerApiFunction, string> = Object.fromEntries(
@@ -124,7 +132,8 @@ function translated(error: unknown): WorkerApiError {
   const sql: Record<string, WorkerApiCode> = {
     PX001: 'not_authorized', PX002: 'attempt_rejected', PX003: 'live_connection_exists',
     PX004: 'invalid_transition', PX005: 'pending_expired', PX006: 'generation_mismatch',
-    PX007: 'account_conflict', PX008: 'key_version_mismatch', '22023': 'invalid_argument',
+    PX007: 'account_conflict', PX008: 'key_version_mismatch', PX009: 'sync_in_progress',
+    PX010: 'sync_ownership_lost', '22023': 'invalid_argument',
     '42501': 'privilege_missing', '42883': 'privilege_missing',
   };
   if (sql[source]) return new WorkerApiError(sql[source]);

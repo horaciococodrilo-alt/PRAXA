@@ -252,6 +252,21 @@ describe('M16.2: ciclo de vida con base desechable y Meta simulada', () => {
   it('T-37 marca reautorización solo para la generación vigente', async () => {
     const owner = await company('failure'); const meta = fakeMeta(); const row = await active(owner, meta);
     const { MetaApiError } = await import('@/modules/integrations/meta/errors');
+    const persisted = new MetaApiError({ errorClass: 'unknown', graphCode: null, graphSubcode: null });
+    const read = () => connections.readConnectionRecord(owner.ctx, { supabase: owner.user.client });
+    // M16c-T-21: la aserción de last_error va antes del cambio de lifecycle.
+    expect(await lifecycle.applyConnectionFailure(owner.ctx, { id: row.id, credentialGeneration: 0 }, persisted,
+      lifeDeps(owner, meta))).toBe('unchanged');
+    expect(await read()).toMatchObject({ status: 'active', credential_generation: 0,
+      last_error_class: 'unknown', last_error_message: persisted.redactedMessage });
+    const stale = new MetaApiError({ errorClass: 'rate_limit', graphCode: 4, graphSubcode: null });
+    expect(await lifecycle.applyConnectionFailure(owner.ctx, { id: row.id, credentialGeneration: 7 }, stale,
+      lifeDeps(owner, meta))).toBe('unchanged');
+    expect((await read())?.last_error_class).toBe('unknown');
+    const stranger = await company('failure-ajena');
+    await expect(lifecycle.applyConnectionFailure(stranger.ctx, { id: row.id, credentialGeneration: 0 }, stale,
+      lifeDeps(stranger, meta))).rejects.toMatchObject({ code: 'not_authorized' });
+    expect((await read())?.last_error_class).toBe('unknown');
     const failure = new MetaApiError({ errorClass: 'authentication', graphCode: 190, graphSubcode: null });
     expect(await lifecycle.applyConnectionFailure(owner.ctx, { id: row.id, credentialGeneration: 0 }, failure,
       lifeDeps(owner, meta))).toBe('needs_reauth');
@@ -264,5 +279,7 @@ describe('M16.2: ciclo de vida con base desechable y Meta simulada', () => {
       lifeDeps(owner, meta))).toBe('unchanged');
     expect((await connections.readConnectionRecord(owner.ctx, { supabase: owner.user.client }))?.last_error_class)
       .toBe('authentication');
+    expect((await connections.readConnectionRecord(owner.ctx, { supabase: owner.user.client }))?.last_error_message)
+      .toBe(failure.redactedMessage);
   });
 });

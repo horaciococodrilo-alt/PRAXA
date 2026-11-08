@@ -1407,12 +1407,14 @@ describe('M16.2: registros cerrados y frontera de servidor', () => {
     for (const file of ['src/modules/integrations/lifecycle.ts',
       'src/modules/integrations/meta/accounts.ts', 'src/modules/integrations/meta/probe.ts',
       'src/modules/integrations/meta/revoke.ts',
-      'src/modules/integrations/repository/lifecycle-calls.ts']) {
-      expect(startsWithServerOnly(sources.get(file) ?? '')).toBe(true);
+      'src/modules/integrations/meta/entities.ts', 'src/modules/integrations/meta/insights.ts',
+      'src/modules/integrations/repository/lifecycle-calls.ts',
+      'src/modules/integrations/repository/sync-calls.ts']) {
+      expect(startsWithServerOnly(sources.get(file) ?? ''), file).toBe(true);
     }
     const actions = sources.get('src/modules/integrations/actions.ts') ?? '';
     expect(actions.trimStart().startsWith("'use server';")).toBe(true);
-    expect(actions.match(/export (?:async )?function /g)).toEqual(['export async function ', 'export async function ']);
+    expect(actions.match(/export (?:async )?function /g)).toEqual(['export async function ', 'export async function ', 'export async function ']);
     expect(actions).not.toMatch(/export (?:const|class|type|interface) /);
   });
 });

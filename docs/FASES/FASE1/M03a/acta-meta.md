@@ -1,8 +1,10 @@
 # Acta de datos reales de Meta y del chat
 
-**Estado de aprobación:** ver [`docs/PROJECT_STATE.md`](../../../PROJECT_STATE.md); la evidencia histórica está en la [sesión de M03a](../meta_first/sesiones/M03a.md).
+**Enmienda de alcance:** autorizada expresamente por el usuario el 2026-11-06 al pedir resolver e integrar los datos ampliados antes de M16c. La comunicación al dueño sobre el alcance ampliado se acredita antes de la primera sincronización ampliada; no se presume realizada por esta autorización.
+
+**Estado de aprobación histórica:** ver [`docs/PROJECT_STATE.md`](../../../PROJECT_STATE.md); la evidencia histórica está en la [sesión de M03a](../meta_first/sesiones/M03a.md).
 **Alcance:** piloto de la ruta `meta_first`, con un dueño, una empresa y una cuenta publicitaria de Meta (spec `meta_first`, sección 1).
-**Fuentes:** sección III.6 del [plan de la ruta](../meta_first/plan.md) (contenido mínimo), decisiones DEC-01 a DEC-21 y criterios citados de la [spec de la ruta](../meta_first/spec.md), y [`docs/SECURITY.md`](../../../SECURITY.md).
+**Fuentes:** sección III.6 del [plan de la ruta](../meta_first/plan.md) (contenido mínimo), decisiones DEC-01 a DEC-22 y criterios citados de la [spec de la ruta](../meta_first/spec.md), y [`docs/SECURITY.md`](../../../SECURITY.md).
 
 Este documento declara qué datos reales entran a PRAXA durante el piloto, para qué, dónde quedan, quién los ve, cuánto tiempo se conservan y cómo se borran. **No es un dictamen legal ni afirma el cumplimiento de ninguna norma.** Los puntos marcados con **[REVISIÓN PROFESIONAL]** requieren la evaluación de un profesional.
 
@@ -12,9 +14,9 @@ Ningún dato real entra al proyecto `app` antes de que el usuario apruebe esta a
 
 | Dato | Dónde vive | Cómo se protege |
 |---|---|---|
-| Identificador de la cuenta publicitaria de Meta | Completo solo en la base (`integration_connections`) | Truncado en la interfaz, en las capturas y en la evidencia (CA-09b). Nunca aparece junto a datos de gasto (CA-40). Excepción declarada: la ruta de las peticiones a Insights (ver los límites abajo) |
+| Identificador de la cuenta publicitaria de Meta | Completo solo en la base (`integration_connections`) | Truncado en la interfaz, en las capturas y en la evidencia (CA-09b). Nunca aparece junto a datos de gasto (CA-40). Excepción declarada: la ruta de las peticiones de lectura a Meta de la cuenta, Insights y edges de metadata (ver los límites abajo) |
 | Identificador del negocio de Meta (`client_business_id`), moneda y zona horaria de la cuenta | Base (`integration_connections`) | Lectura bajo RLS, solo para los miembros de la empresa |
-| Gasto e impresiones diarios | Base: snapshots, días y cobertura (a partir de `M16c`) | Lectura bajo RLS. Los snapshots son inmutables. El gasto se guarda como `numeric` y las impresiones como `bigint`, y salen como texto (CA-44b) |
+| Datos diarios de rendimiento y resultados de Meta por cuenta, campaña, conjunto y anuncio; metadata de entidades y atribución | Base: snapshots, filas y cobertura, a partir de los cortes de M16c | Catálogo único y reglas en [§11 de la spec](../meta_first/spec.md#11-sincronización-manual-m16c). Valores exactos y snapshots inmutables; lectura bajo RLS, sin JSON crudo. Los IDs completos permanecen en la base; los nombres pueden contener texto libre del anunciante y se minimizan en salidas |
 | Token de Meta (system user) | Base, esquema `private`, cifrado con AES-256-GCM | La base lo entrega cifrado solo por `worker_api` al rol propio; lo descifra el servidor con el llavero, que no vive en la base (DEC-03, DEC-04). No aparece en logs, errores ni URLs (CA-26) |
 | Intentos de autorización (OAuth) | Base | Se guardan solo los hashes del `state` y del nonce, nunca los valores. Se purgan de forma perezosa al vencer o consumirse (CA-38b) |
 | Registro por consulta del chat (a partir de `M25a.1`) | Base, sin lectura para `authenticated` | La pregunta se guarda **redactada** (CA-66), con los nombres de las herramientas llamadas, el resultado, el motivo si no respondió, la fecha, la latencia, el modelo solicitado y el informado, la conexión a la que se refiere (o nula si no hay conexión) y el voto «útil» o «no útil». No se guardan respuestas ni cifras de herramientas (CA-62). La pregunta nunca va a los logs (CA-63) |
@@ -30,13 +32,13 @@ Ningún dato real entra al proyecto `app` antes de que el usuario apruebe esta a
 - La redacción de la pregunta no detecta nombres, direcciones, DNI sueltos ni otros datos escritos en forma libre (CA-66). Por eso la pantalla del chat avisa que las preguntas se registran y para qué (CA-65).
 - La pregunta redactada puede conservar montos y fechas que escribió el dueño (CA-62).
 - Los logs del hosting registran la consulta de las peticiones entrantes: el `code` y el `state` del callback de OAuth quedan visibles para quien acceda a esos logs. Ambos son de un solo uso (`SECURITY.md`, sección 12).
-- El identificador completo de la cuenta va en la ruta de las peticiones a Insights, así que puede verse si el hosting muestra esas subpeticiones. Esas rutas no llevan montos.
+- El identificador completo de la cuenta va en la ruta de las peticiones de lectura a Meta de la cuenta (Insights y edges de metadata), así que puede verse si el hosting muestra esas subpeticiones. Esas rutas no llevan montos. Los IDs de campaña, conjunto y anuncio no van en la ruta: las referencias faltantes se piden por la raíz de Graph, con los IDs en la consulta.
 
 ## 2. Para qué
 
 Para la demostración del piloto con el dueño y para aprender qué pregunta y si las respuestas le sirven. En concreto:
 
-- los datos de Meta permiten mostrar el gasto y las impresiones diarios y responder en el chat;
+- los datos de Meta permiten mostrar rendimiento y resultados por nivel del catálogo de §11 y responder en el chat con procedencia y atribución; no se demuestra rentabilidad real con estos datos;
 - el registro por consulta permite medir qué se pregunta, si se respondió y si fue útil (DEC-10, DEC-13);
 - la cuenta de Supabase Auth permite al dueño ingresar y recuperar el acceso; el perfil y el contexto de la empresa permiten configurar y describir su negocio en la app; la foto opcional se muestra como avatar.
 
@@ -59,7 +61,7 @@ No hay otros usuarios ni empresas en el piloto.
 | Meta | Es el origen de los datos de la cuenta publicitaria | — | Además de las lecturas, PRAXA envía el canje del código y la inspección del token. La única operación que cambia estado en Meta es la revocación del propio token |
 | Supabase | Base de datos, autenticación y almacenamiento de la foto | Oregon, EE. UU. (`us-west-2`) | Plan Free hasta VR-01 y Pro cuando el dueño use el piloto sin acompañamiento (DEC-08). Con Pro, copias de seguridad nocturnas durante 7 días |
 | Vercel | Hosting de la aplicación y sus logs de ejecución | Washington D. C./Virginia, EE. UU. (`iad1`, `us-east-1`) | Los logs no contienen la pregunta del chat (CA-63) ni tokens; sí la consulta de las peticiones entrantes y la ruta de las subpeticiones (sección 1) |
-| DeepInfra | La pregunta redactada y las cifras de gasto e impresiones que el chat le pasa al modelo (a partir de `M25a.2`) | EE. UU. | No entrena con los datos ni los guarda en disco, pero se reserva registrar porciones de las solicitudes para depuración o seguridad (DEC-15, riesgo aceptado) |
+| DeepInfra | La pregunta redactada y los resultados pertinentes de las herramientas del catálogo de §11, incluidos nombres de entidades cuando sean necesarios, que el chat le pasa al modelo (a partir de `M25a.2`) | EE. UU. | No entrena con los datos ni los guarda en disco, pero se reserva registrar porciones de las solicitudes para depuración o seguridad (DEC-15, riesgo aceptado) |
 | Resend (SMTP) | La dirección del dueño y el mensaje completo de confirmación o recuperación, con su enlace o código de un solo uso, además de los registros de entrega | Envío: São Paulo, Brasil (`sa-east-1`), según la región informada; almacenamiento de datos: EE. UU., según Resend | Plan Free informado por el usuario el 2026-10-18; configurado sobre el dominio del piloto con SPF y DKIM (DEC-18) |
 
 Las regiones configuradas de Supabase y Vercel, y la región de envío de Resend, fueron informadas por el usuario el 2026-10-18; no se verificaron desde los dashboards en esta sesión. La [documentación de seguridad de Resend](https://resend.com/security), consultada el 2026-10-18, distingue esa región de envío del almacenamiento de sus datos en EE. UU. La ubicación de cada subprocesador no se verificó.
@@ -116,6 +118,8 @@ Antes de su alta en PRAXA, que es el primer dato real (paso 15 de la fase B de `
 Además, la pantalla del chat avisa que las preguntas se registran y para qué (CA-65), y la desconexión declara el límite de las copias de seguridad (CA-38b).
 
 El operador se compromete a mantener esta conversación antes del alta del dueño (confirmación del usuario del 2026-10-18). La confirmación del compromiso no acredita que la conversación ya haya ocurrido.
+
+Antes de la primera sincronización ampliada, el operador explica al dueño las nuevas categorías y niveles de datos y que el modelo recibirá los resultados pertinentes y, cuando corresponda, nombres de entidades. Registra esa comunicación y la conformidad del dueño sin datos personales ni cifras en la evidencia de M16c.3. La comunicación histórica sobre gasto e impresiones no acredita este paso nuevo.
 
 ## 10. Aprobación
 

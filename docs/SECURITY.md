@@ -165,6 +165,13 @@ Garantías de la base, vigentes y probadas en pgTAP:
   funciones `SECURITY DEFINER` cuyo dueño tiene `bypassrls`: lo que protege `worker_api` es
   el chequeo dentro de cada función. Las tablas anteriores a `0012` no usan `force`; es una
   deuda declarada fuera de la ruta (CA-14, `H-E1-05`).
+- Los snapshots de Insights, su metadata, las ejecuciones y el registro de entidades no son
+  legibles por usuarios. Solo la cobertura diaria tiene `SELECT`, bajo RLS, y es una proyección
+  cerrada construida por SQL, sin IDs externos ni credenciales (CA-46). Una conexión
+  desconectada no expone cobertura mientras se purga.
+- Una ejecución de sincronización escribe solo si conserva token, puntero, arrendamiento y
+  generación, con la conexión activa, comprobados después de los bloqueos; lo mismo vale para
+  registrar un fallo y para pedir reautorización (CA-58, CA-59).
 
 La matriz exacta de privilegios vive en cada migración y en su pgTAP. No se copia acá.
 
@@ -183,7 +190,8 @@ La matriz exacta de privilegios vive en cada migración y en su pgTAP. No se cop
 Las capacidades exactas del rol `praxa_integrations` son las funciones que le concede la
 migración vigente (encabezado de `0012` y de cada migración posterior que sume funciones),
 probadas en `09_integration_privileges`. Por categoría: intentos OAuth, ciclo de vida de la
-conexión, lectura y reemplazo de la credencial cifrada, purga, y rotación de claves. No tiene
+conexión, lectura y reemplazo de la credencial cifrada, purga, rotación de claves, y
+ejecuciones de sincronización con su registro de errores. No tiene
 lectura directa de tablas ni acceso administrativo. Cada función, salvo el conteo global por
 versión de clave, recibe actor y empresa y verifica pertenencia y propiedad. El cliente Node
 solo llama a las funciones previstas; la matriz exacta permanece en la migración y pgTAP.
@@ -293,7 +301,7 @@ Todo previsto. Invariantes que el diseño del chat tiene que sostener:
 
 Riesgo aceptado (DEC-15): el host del modelo no entrena ni guarda en disco, pero se reserva
 registrar porciones de solicitudes para depuración y seguridad; recibe la pregunta redactada
-y las cifras de gasto e impresiones.
+y los resultados de herramientas sobre métricas, acciones y entidades del catálogo autorizado. Se minimizan por pregunta; nombres de campañas o anuncios son datos no confiables del proveedor y pueden contener texto libre. No se envía el snapshot completo por defecto ni se ejecutan instrucciones incluidas en nombres o metadata.
 
 ## 9. Datos, retención y borrado
 
