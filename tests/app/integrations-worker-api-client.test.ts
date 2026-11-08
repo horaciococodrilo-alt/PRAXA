@@ -18,6 +18,7 @@ describe('M06.3a: cliente real praxa_integrations → worker_api', () => {
   let sealApi: typeof import('@/modules/integrations/crypto/seal');
   let workerApiModule: typeof import('@/modules/integrations/db/worker-api');
   let repository: typeof import('@/modules/integrations/repository/credentials');
+  let syncCalls: typeof import('@/modules/integrations/repository/sync-calls');
   let client: ReturnType<typeof import('@/modules/integrations/db/worker-api').createWorkerApi> | undefined;
   let pool: pg.Pool | undefined;
 
@@ -29,11 +30,12 @@ describe('M06.3a: cliente real praxa_integrations → worker_api', () => {
     if (blocked) throw new Error(blocked);
     if (!(await remoteProjectReachable())) throw new Error('El proyecto de pruebas no responde.');
 
-    [keyringApi, sealApi, workerApiModule, repository] = await Promise.all([
+    [keyringApi, sealApi, workerApiModule, repository, syncCalls] = await Promise.all([
       vi.importActual<typeof keyringApi>('@/modules/integrations/crypto/keyring'),
       vi.importActual<typeof sealApi>('@/modules/integrations/crypto/seal'),
       vi.importActual<typeof workerApiModule>('@/modules/integrations/db/worker-api'),
       vi.importActual<typeof repository>('@/modules/integrations/repository/credentials'),
+      vi.importActual<typeof syncCalls>('@/modules/integrations/repository/sync-calls'),
     ]);
 
     const originalOn = pg.Pool.prototype.on;
@@ -175,5 +177,124 @@ describe('M06.3a: cliente real praxa_integrations → worker_api', () => {
     expect(second).toEqual(first);
     const rows = await client!.call('get_credential', [ctx.user_id, ctx.company_id, first.connectionId]);
     expect(rows).toHaveLength(1);
+  });
+
+  // --- M16c: cuatro operaciones nuevas con el rol real ---
+
+  const LIMITS = { lookbackDays: 3, maxWindowDays: 3, maxPagesPerLevel: 2, maxMetadataPages: 2, maxEntities: 10,
+    maxPayloadBytes: 100_000, maxDurationMs: 20_000, finalizationReserveMs: 10_000, leaseSeconds: 30, maxRetries: 2,
+    retryDelayMs: 500 };
+  const SHORT_LEASE = { ...LIMITS, maxDurationMs: 500, finalizationReserveMs: 500, leaseSeconds: 1 };
+  const EMPTY = { entities: [], days: [] };
+  const today = () => new Date().toISOString().slice(0, 10);
+
+  async function activeConnection(prefix: string) {
+    const ctx = await company(prefix);
+    const keyring = keyringApi.getCredentialKeyring();
+    const created = await repository.executePreparedCredentialOperation(ctx,
+      repository.preparePendingConnectionWithCredential(ctx, input, { keyring }), { workerApi: client! });
+    await client!.call('confirm_connection', [ctx.user_id, ctx.company_id, created.connectionId,
+      `act_${randomInt(1_000_000, 2_000_000_000)}`, 'USD', 'UTC', true]);
+    return { ctx, connectionId: created.connectionId };
+  }
+
+  function run(connectionId: string, limits = LIMITS) {
+    return { connectionId, expectedGeneration: 0, runId: randomUUID(), ownershipToken: randomBytes(32).toString('hex'),
+      windowFrom: today(), windowTo: today(), limits };
+  }
+
+  it('M16c-T-26 las cuatro operaciones nuevas corren con el rol real y sus errores no llevan detalle', async () => {
+    const { ctx, connectionId } = await activeConnection('sync-ops');
+    const a = run(connectionId);
+    const started = await syncCalls.startSyncRun(ctx, a, { workerApi: client! });
+    expect(started).toMatchObject({ runId: a.runId, credentialGeneration: 0 });
+    expect(started.startedAt).toBeInstanceOf(Date);
+    expect(started.leaseExpiresAt.getTime()).toBeGreaterThan(started.startedAt.getTime());
+
+    const conflict = await syncCalls.startSyncRun(ctx, run(connectionId), { workerApi: client! }).catch((error) => error);
+    expect(conflict).toMatchObject({ code: 'sync_in_progress', message: 'Ya hay una sincronización en curso.' });
+    expect(Object.keys(conflict)).not.toContain('detail');
+
+    const shared = { connectionId, expectedGeneration: 0, runId: a.runId, ownershipToken: a.ownershipToken };
+    const published = await syncCalls.publishSnapshot(ctx, { ...shared, snapshotId: randomUUID(), level: 'account',
+      fetchedAt: started.startedAt.toISOString(), pages: 1, durationMs: 5, payload: EMPTY }, { workerApi: client! });
+    expect(published).toEqual({ snapshotId: expect.any(String), level: 'account', complete: true });
+
+    const failed = await syncCalls.failSyncRun(ctx, { ...shared, snapshotId: randomUUID(), level: 'campaign',
+      fetchedAt: started.startedAt.toISOString(), pages: 0, durationMs: 5, payload: EMPTY, validatedPages: 0,
+      failureReason: 'own_error', errorClass: 'own_error', errorMessage: 'Fallo sintético.', stopRemaining: true },
+    { workerApi: client! });
+    expect(failed).toEqual({ runId: a.runId, level: 'campaign', status: 'partial', snapshotResult: 'failed' });
+
+    const lost = await syncCalls.publishSnapshot(ctx, { ...shared, ownershipToken: randomBytes(32).toString('hex'),
+      snapshotId: randomUUID(), level: 'adset', fetchedAt: started.startedAt.toISOString(), pages: 1, durationMs: 5,
+      payload: EMPTY }, { workerApi: client! }).catch((error) => error);
+    expect(lost).toMatchObject({ code: 'sync_ownership_lost',
+      message: 'La sincronización venció o fue reemplazada. Volvé a sincronizar.' });
+
+    expect(await syncCalls.recordConnectionError(ctx, { connectionId, expectedGeneration: 0, errorClass: 'unknown',
+      message: 'Error de Meta sin detalle.' }, { workerApi: client! }))
+      .toEqual({ connectionId, status: 'active', credentialGeneration: 0 });
+    await expect(pool!.query('select * from public.meta_sync_runs limit 1')).rejects.toMatchObject({ code: '42501' });
+  });
+
+  it('M16c-T-26 el adaptador rechaza nombres arbitrarios y los envoltorios validan entrada y respuesta', async () => {
+    await expect(client!.call('select_anything' as never, [])).rejects.toMatchObject({ code: 'invalid_argument' });
+    await expect(client!.call('publish_snapshot', [])).rejects.toMatchObject({ code: 'invalid_argument' });
+
+    const ctx: TenantContext = { user_id: randomUUID(), company_id: randomUUID(), role: 'owner', request_id: randomUUID() };
+    const connectionId = randomUUID();
+    const silent: WorkerApi = { call: vi.fn(async () => { throw new Error('no debe llamarse'); }) };
+    await expect(syncCalls.recordConnectionError(ctx, { connectionId, expectedGeneration: -1, errorClass: 'unknown',
+      message: 'x' }, { workerApi: silent })).rejects.toThrow('Respuesta de sincronización inválida.');
+    await expect(syncCalls.recordConnectionError(ctx, { connectionId, expectedGeneration: 0, errorClass: 'authentication',
+      message: 'x' }, { workerApi: silent })).rejects.toThrow('Respuesta de sincronización inválida.');
+    await expect(syncCalls.startSyncRun(ctx, { ...run(connectionId), ownershipToken: 'corto' },
+      { workerApi: silent })).rejects.toThrow('Respuesta de sincronización inválida.');
+    await expect(syncCalls.startSyncRun({ ...ctx, user_id: 'sin-uuid' }, run(connectionId),
+      { workerApi: silent })).rejects.toThrow('Respuesta de sincronización inválida.');
+    expect(silent.call).not.toHaveBeenCalled();
+
+    const answering = (row: unknown): WorkerApi => ({ call: (async () => [row]) as WorkerApi['call'] });
+    const base = { connection_id: connectionId, status: 'active', credential_generation: 0 };
+    const send = (row: unknown) => syncCalls.recordConnectionError(ctx, { connectionId, expectedGeneration: 0,
+      errorClass: 'unknown', message: 'x' }, { workerApi: answering(row) });
+    await expect(send(base)).resolves.toEqual({ connectionId, status: 'active', credentialGeneration: 0 });
+    for (const row of [{ ...base, extra: 1 }, { ...base, credential_generation: '0' }, { ...base, status: 'otro' },
+      { ...base, connection_id: randomUUID() }]) {
+      await expect(send(row)).rejects.toThrow('Respuesta de sincronización inválida.');
+    }
+  });
+
+  it('M16c-T-04 dos inicios concurrentes dejan una sola ejecución vigente', async () => {
+    const { ctx, connectionId } = await activeConnection('sync-concurrent');
+    const results = await Promise.allSettled([run(connectionId), run(connectionId), run(connectionId)]
+      .map((attempt) => syncCalls.startSyncRun(ctx, attempt, { workerApi: client! })));
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    for (const result of results) {
+      if (result.status === 'rejected') expect(result.reason).toMatchObject({ code: 'sync_in_progress' });
+    }
+  });
+
+  it('M16c-T-04 una escritura que espera el bloqueo hasta vencer el lease se rechaza con el reloj real', async () => {
+    const { ctx, connectionId } = await activeConnection('sync-lock');
+    const a = run(connectionId, SHORT_LEASE);
+    const started = await syncCalls.startSyncRun(ctx, a, { workerApi: client! });
+    const shared = { connectionId, expectedGeneration: 0, runId: a.runId, ownershipToken: a.ownershipToken };
+    const holder = await pool!.connect();
+    try {
+      // La transacción abierta conserva el cerrojo de empresa que toma la función.
+      await holder.query('begin');
+      await holder.query('select * from worker_api.record_connection_error($1::uuid, $2::uuid, $3::uuid, $4::integer, $5::text, $6::text)',
+        [ctx.user_id, ctx.company_id, connectionId, 0, 'unknown', 'Fallo sintético.']);
+      const late = syncCalls.publishSnapshot(ctx, { ...shared, snapshotId: randomUUID(), level: 'account',
+        fetchedAt: started.startedAt.toISOString(), pages: 1, durationMs: 5, payload: EMPTY }, { workerApi: client! })
+        .catch((error) => error);
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+      await holder.query('rollback');
+      expect(await late).toMatchObject({ code: 'sync_ownership_lost' });
+    } finally {
+      holder.release();
+    }
   });
 });

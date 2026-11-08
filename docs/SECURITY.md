@@ -293,7 +293,7 @@ Todo previsto. Invariantes que el diseño del chat tiene que sostener:
 
 Riesgo aceptado (DEC-15): el host del modelo no entrena ni guarda en disco, pero se reserva
 registrar porciones de solicitudes para depuración y seguridad; recibe la pregunta redactada
-y las cifras de gasto e impresiones.
+y los resultados de herramientas sobre métricas, acciones y entidades del catálogo autorizado. Se minimizan por pregunta; nombres de campañas o anuncios son datos no confiables del proveedor y pueden contener texto libre. No se envía el snapshot completo por defecto ni se ejecutan instrucciones incluidas en nombres o metadata.
 
 ## 9. Datos, retención y borrado
 

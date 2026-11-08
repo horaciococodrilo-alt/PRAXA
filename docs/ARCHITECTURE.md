@@ -85,10 +85,9 @@ Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 | `integrations/repository` | Prepara operaciones reutilizables, valida K01 y respuestas, lee y recifra credenciales según versión y estado; ejecuta las operaciones del ciclo de vida por `worker_api`; lee la conexión viva de la empresa con el JWT del usuario | Existe |
 | `integrations/meta` | Versión de la Graph API y URLs en un solo lugar; cliente HTTP con timeout, clasificación de errores y ninguna credencial en las URLs de salida; OAuth, listado de cuentas delegadas, prueba de acceso a Insights, revocación y resultados cerrados | Existe; probado con Meta simulada |
 | `integrations` (resto) | Orquesta selección, reautorización, desconexión y purga perezosa; Server Actions de confirmación y desconexión. La sincronización manual queda prevista | Parcial |
-| `chat` | Consulta en lenguaje natural sobre gasto e impresiones, con cifras verificadas | Previsto |
+| `chat` | Consulta en lenguaje natural sobre métricas y resultados persistidos de Meta por nivel y entidad, con cifras verificadas; catálogo en §11 de la spec de la ruta | Previsto |
 
-La ruta `meta_first` no construye Tiendanube, GA4, reportes publicados, métricas derivadas
-ni base vectorial (spec, sección 2).
+La ruta `meta_first` no construye Tiendanube, GA4, reportes publicados ni base vectorial. Solo admite las medidas y tasas del catálogo de la spec de la ruta, sin cálculos autoritativos del modelo.
 
 ## Base de datos
 
@@ -227,7 +226,7 @@ Navegador ──► tarjeta de integraciones ──► cuentas delegadas ──�
   a Insights y revocación de mejor esfuerzo, probados con Meta simulada. Las operaciones de
   Graph con secretos en parámetros internos viajan dentro de un lote `POST`; ninguna URL de
   salida lleva credenciales, códigos ni tokens.
-- Prevista: sincronización y lectura persistida de Insights.
+- Prevista: sincronización y lectura persistida de Insights por nivel y entidad, con snapshots independientes por nivel, metadata capturada y acciones tipadas. La cobertura completa de un nivel puede avanzar aunque otro falle; el resultado global conserva esa distinción. Los totales de cuenta provienen de su extracción propia. El chat consulta la base bajo RLS; no consulta Meta directamente.
 
 ## Contexto declarado
 

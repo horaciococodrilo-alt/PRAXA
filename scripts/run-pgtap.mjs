@@ -24,21 +24,33 @@ import { verifiedTestDbConfig } from './lib/test-db-client.mjs';
  * Repite 09 tras normalizar un rol sintético limpio con membresías entrante y saliente.
  * El bloque es el real de 0012, con solo el nombre del rol sustituido. El rol persistido
  * ya tiene privilegios directos, por lo que la nueva precondición debe rechazarlo.
+ * 09 también ejecuta el bloque real de 0012 sobre un rol sintético limpio y el de atributos
+ * de 0016 sobre otro con grants (H-E1-35, H-E1-36), siempre dentro de su rollback.
  * Siempre deja la conexión limpia: ante un error a mitad de archivo, la transacción
  * queda abortada y se emite un ROLLBACK explícito antes de seguir.
  */
 
 const TESTS_DIR = join(process.cwd(), 'supabase', 'tests');
 const INTEGRATIONS_MIGRATION = join(process.cwd(), 'supabase', 'migrations', '0012_integrations.sql');
+const INSIGHTS_MIGRATION = join(process.cwd(), 'supabase', 'migrations', '0016_meta_insights.sql');
 const ROLE_TEST_FILE = '09_integration_privileges.test.sql';
 
-async function roleNormalizationBlock() {
-  const migration = await readFile(INTEGRATIONS_MIGRATION, 'utf8');
+/** Primer bloque `do $$` de la migración, que tiene que ser el que altera el rol de C. */
+async function roleBlockOf(path, label) {
+  const migration = await readFile(path, 'utf8');
   const roleBlock = migration.match(/^do \$\$\r?\n[\s\S]*?^\$\$;/m)?.[0];
   if (!roleBlock?.includes('alter role praxa_integrations')) {
-    throw new Error('No se encontró el bloque de normalización de praxa_integrations en 0012.');
+    throw new Error(`No se encontró el bloque de ${label} de praxa_integrations.`);
   }
   return roleBlock;
+}
+
+function roleNormalizationBlock() {
+  return roleBlockOf(INTEGRATIONS_MIGRATION, 'normalización');
+}
+
+function roleAttributesBlock() {
+  return roleBlockOf(INSIGHTS_MIGRATION, 'atributos');
 }
 
 async function roleNormalizationSetup() {
@@ -134,6 +146,11 @@ async function runFile(client, file, setupSql = null) {
     sql = sql.replace('__ROLE_NORMALIZATION_BLOCK__', () => roleBlock);
     sql = sql.replace('__CROSS_ROLE_NORMALIZATION_BLOCK__', () =>
       roleBlock.replaceAll('praxa_integrations', 'praxa_cross_worker'));
+    sql = sql.replaceAll('__CLEAN_ROLE_NORMALIZATION_BLOCK__', () =>
+      roleBlock.replaceAll('praxa_integrations', 'praxa_clean_probe'));
+    const attributesBlock = await roleAttributesBlock();
+    sql = sql.replace('__ROLE_ATTRIBUTES_BLOCK__', () =>
+      attributesBlock.replaceAll('praxa_integrations', 'praxa_attr_probe'));
   }
   if (setupSql !== null) {
     const begin = /^begin;\r?$/im;

@@ -17,6 +17,7 @@ import { CredentialNotFoundError, executePreparedCredentialOperation, prepareRep
 import type { ConsumedAttempt } from './repository/attempts';
 import { beginDisconnect, confirmConnection, listPendingPurges, markNeedsReauth, purgeConnection } from
   './repository/lifecycle-calls';
+import { recordConnectionError } from './repository/sync-calls';
 import { getMetaOAuthConfig, type MetaOAuthConfig } from './meta/api';
 import { createMetaHttpClient, type MetaHttpClient } from './meta/client';
 import { MetaApiError, connectionEffectFor, rejectionOutcomeFor, type ConnectionEffect } from './meta/errors';
@@ -279,7 +280,18 @@ export async function applyConnectionFailure(
   const deps = resolveDeps(partial);
   const effect = connectionEffectFor(error.errorClass);
   if (effect === 'unchanged') {
-    log(deps, ctx, { etapa: 'error_conexion', resultado: 'omitida', clase: error.errorClass });
+    try {
+      await recordConnectionError(ctx, { connectionId: connection.id, expectedGeneration: connection.credentialGeneration,
+        errorClass: error.errorClass, message: error.redactedMessage }, { workerApi: deps.workerApi() });
+    } catch (cause) {
+      // La conexión cambió: su estado o generación actuales mandan y no se sobrescriben.
+      if (cause instanceof WorkerApiError && (cause.code === 'generation_mismatch' || cause.code === 'invalid_transition')) {
+        log(deps, ctx, { etapa: 'error_conexion', resultado: 'omitida', clase: error.errorClass });
+        return 'unchanged';
+      }
+      throw cause;
+    }
+    log(deps, ctx, { etapa: 'error_conexion', resultado: 'ok', clase: error.errorClass });
     return 'unchanged';
   }
   try {

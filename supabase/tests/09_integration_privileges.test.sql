@@ -13,7 +13,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(57);
+select plan(69);
 
 -- Ejecuta una sentencia con el rol pedido y devuelve el SQLSTATE del error, o null si no
 -- hubo error. El bloque `exception` revierte la subtransacción, incluido el cambio de
@@ -219,7 +219,7 @@ select columns_are('public', 'integration_connections', array[
   'id', 'company_id', 'provider', 'status', 'external_account_id', 'client_business_id',
   'currency', 'timezone', 'credential_generation', 'pending_expires_at',
   'purge_requested_at', 'current_sync_run_id', 'last_error_class', 'last_error_message',
-  'created_at', 'updated_at'],
+  'created_at', 'updated_at', 'meta_sync_summary'],
   'T-07: columnas de integration_connections (K03)');
 
 select results_eq(
@@ -238,6 +238,7 @@ select results_eq(
            ('id', 'uuid', true),
            ('last_error_class', 'text', false),
            ('last_error_message', 'text', false),
+           ('meta_sync_summary', 'jsonb', false),
            ('pending_expires_at', 'timestamptz', false),
            ('provider', 'integration_provider', true),
            ('purge_requested_at', 'timestamptz', false),
@@ -376,27 +377,29 @@ select results_eq(
                           'private.integration_credentials'::regclass)
      order by 1, 2$$,
   $$values ('integration_connections', 'public.companies', 'c'),
+           ('integration_connections', 'public.meta_sync_runs', 'a'),
            ('integration_credentials', 'public.integration_connections', 'c'),
            ('oauth_attempts', 'auth.users', 'c'),
            ('oauth_attempts', 'public.companies', 'c'),
            ('oauth_attempts', 'public.integration_connections', 'c')$$,
-  'T-11: todas las FK de las tres tablas son on delete cascade');
+  'T-11: todas las FK de las tres tablas son on delete cascade, salvo el puntero de ejecución, que la purga anula primero');
 
 -- ---------------------------------------------------------------------------
--- T-12: las doce funciones de worker_api (C-15)
+-- T-12: las dieciséis funciones de worker_api (C-15, M16c-C-17)
 -- ---------------------------------------------------------------------------
 
 select functions_are('worker_api', array[
   'create_oauth_attempt', 'consume_oauth_attempt', 'create_pending_connection',
   'get_credential', 'confirm_connection', 'replace_credential', 'mark_needs_reauth',
   'begin_disconnect', 'purge_connection', 'list_pending_purges',
-  'count_credentials_by_key_version', 'rewrap_credential'],
-  'T-12: worker_api tiene exactamente las doce funciones de II.4');
+  'count_credentials_by_key_version', 'rewrap_credential', 'start_sync_run',
+  'publish_snapshot', 'fail_sync_run', 'record_connection_error'],
+  'T-12: worker_api tiene exactamente las doce funciones de II.4 y las cuatro de M16c');
 
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'worker_api'),
-  12, 'T-12: doce funciones, sin sobrecargas');
+  16, 'T-12: dieciséis funciones, sin sobrecargas');
 
 select is_empty(
   $$select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -432,7 +435,7 @@ select is_empty(
   $$select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'worker_api'
        and not has_function_privilege('praxa_integrations', p.oid, 'EXECUTE')$$,
-  'T-12: praxa_integrations tiene EXECUTE sobre las doce');
+  'T-12: praxa_integrations tiene EXECUTE sobre las dieciséis');
 
 select is(
   (select p.pronargs::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -448,23 +451,23 @@ select is_empty(
             or p.proargnames[2] is distinct from 'p_company_id'
             or p.proargtypes[0] <> 'uuid'::regtype
             or p.proargtypes[1] <> 'uuid'::regtype)$$,
-  'T-12: las otras once reciben p_actor_user_id y p_company_id primero');
+  'T-12: las otras quince reciben p_actor_user_id y p_company_id primero');
 
 -- Los helpers privados tampoco tienen EXECUTE para nadie más que su dueño (C-03).
 select is_empty(
   $$select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace,
            aclexplode(p.proacl) a
      where n.nspname = 'private'
-       and p.proname in ('assert_worker_actor', 'valid_granted_scopes')
+       and p.proname in ('assert_worker_actor', 'valid_granted_scopes', 'raise_worker_integrity_error')
        and a.grantee <> p.proowner$$,
-  'T-12: assert_worker_actor y valid_granted_scopes sin EXECUTE para otros roles');
+  'T-12: assert_worker_actor, valid_granted_scopes y raise_worker_integrity_error sin EXECUTE para otros roles');
 
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'private'
-      and p.proname in ('assert_worker_actor', 'valid_granted_scopes')
+      and p.proname in ('assert_worker_actor', 'valid_granted_scopes', 'raise_worker_integrity_error')
       and p.proacl is not null and not p.prosecdef),
-  2, 'T-12: los helpers privados son SECURITY INVOKER y tienen ACL explícita');
+  3, 'T-12: los helpers privados son SECURITY INVOKER y tienen ACL explícita');
 
 -- ---------------------------------------------------------------------------
 -- T-13: ejecución efectiva por rol (C-30)
@@ -516,12 +519,12 @@ select ok(
 select is(
   (select count(*)::int from pg_temp.worker_api_calls() c
     where pg_temp.sqlstate_as('authenticated', c.call) = '42501'),
-  12, 'T-13: authenticated no ejecuta ninguna de las doce funciones, aun con USAGE (42501)');
+  16, 'T-13: authenticated no ejecuta ninguna de las dieciséis funciones, aun con USAGE (42501)');
 
 select is(
   (select count(*)::int from pg_temp.worker_api_calls() c
     where pg_temp.sqlstate_as('anon', c.call) = '42501'),
-  12, 'T-13: anon no ejecuta ninguna de las doce funciones, aun con USAGE (42501)');
+  16, 'T-13: anon no ejecuta ninguna de las dieciséis funciones, aun con USAGE (42501)');
 
 -- El USAGE temporal se revoca apenas termina T-13: si quedara hasta el rollback final,
 -- cualquier aserción posterior sobre el ACL del esquema (T-04 ya afirma lo contrario para
@@ -551,7 +554,78 @@ select is(
      join pg_namespace n on n.oid = p.pronamespace
      join pg_roles r on r.oid = p.proowner
     where n.nspname = 'worker_api' and r.rolbypassrls),
-  12, 'T-15: el dueño de las doce funciones tiene rolbypassrls');
+  16, 'T-15: el dueño de las dieciséis funciones tiene rolbypassrls');
+
+-- ---------------------------------------------------------------------------
+-- M16c-T-25: rol sintético limpio y bloques reales (H-E1-35, H-E1-36)
+-- ---------------------------------------------------------------------------
+--
+-- H-E1-35: T-05 no aísla el privilegio, porque el rol persistido ya tiene sus grants de
+-- 0012. Acá el bloque real de 0012 corre sobre un rol sintético sin ningún privilegio:
+-- con un único grant falla, y sin él pasa. Si el bloque dejara de mirar las ACL, la
+-- primera aserción se pondría en rojo por esa sola causa.
+create role praxa_clean_probe nologin;
+create schema praxa_clean_acl;
+grant usage on schema praxa_clean_acl to praxa_clean_probe;
+select results_eq(
+  $query$select sqlstate, message from pg_temp.role_error_of(
+      $role_sql$__CLEAN_ROLE_NORMALIZATION_BLOCK__$role_sql$)$query$,
+  $query$values ('P0001', 'praxa: praxa_clean_probe tiene objetos, privilegios o configuraciones; hay que borrar el rol a mano antes de aplicar esta migración')$query$,
+  'M16c-T-25: un único grant sobre un rol limpio hace fallar la normalización');
+select is(
+  (select r.rolcanlogin from pg_roles r where r.rolname = 'praxa_clean_probe'), false,
+  'M16c-T-25: el rechazo no cambia los atributos del rol');
+revoke usage on schema praxa_clean_acl from praxa_clean_probe;
+drop schema praxa_clean_acl;
+select results_eq(
+  $query$select sqlstate, message from pg_temp.role_error_of(
+      $role_sql$__CLEAN_ROLE_NORMALIZATION_BLOCK__$role_sql$)$query$,
+  $query$values (null::text, null::text)$query$,
+  'M16c-T-25: sin el grant, el mismo bloque pasa');
+select is(
+  (select r.rolcanlogin from pg_roles r where r.rolname = 'praxa_clean_probe'), true,
+  'M16c-T-25: el bloque deja el rol limpio con LOGIN');
+
+-- H-E1-36: el bloque real de 0016 corrige la cota de conexiones y la vigencia sin tocar
+-- grants. La contraseña no se puede leer desde postgres en Supabase (pg_authid requiere
+-- superusuario): que ALTER ROLE la conserva lo acredita la conexión real de test:app
+-- después de aplicar 0016 (M16c-T-26).
+create role praxa_attr_probe login connection limit 0 valid until '2000-01-01';
+create schema praxa_attr_acl;
+grant usage on schema praxa_attr_acl to praxa_attr_probe;
+select results_eq(
+  $query$select sqlstate, message from pg_temp.role_error_of(
+      $role_sql$__ROLE_ATTRIBUTES_BLOCK__$role_sql$)$query$,
+  $query$values (null::text, null::text)$query$,
+  'M16c-T-25: el bloque real de atributos de 0016 pasa sobre un rol con grants');
+select results_eq(
+  $$select r.rolconnlimit, r.rolvaliduntil = 'infinity'::timestamptz
+      from pg_roles r where r.rolname = 'praxa_attr_probe'$$,
+  $$values (-1, true)$$,
+  'M16c-T-25: connection limit y validez quedan normalizados');
+select ok(has_schema_privilege('praxa_attr_probe', 'praxa_attr_acl', 'USAGE'),
+  'M16c-T-25: los grants del rol quedan intactos');
+select results_eq(
+  $$select r.rolconnlimit, r.rolvaliduntil = 'infinity'::timestamptz
+      from pg_roles r where r.rolname = 'praxa_integrations'$$,
+  $$values (-1, true)$$,
+  'M16c-T-25: 0016 normalizó el rol de C');
+select ok(has_schema_privilege('praxa_integrations', 'worker_api', 'USAGE'),
+  'M16c-T-25: el rol de C conserva USAGE sobre worker_api');
+select is(
+  (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'worker_api' and has_function_privilege('praxa_integrations', p.oid, 'EXECUTE')),
+  16, 'M16c-T-25: el rol de C conserva EXECUTE función por función');
+select is(
+  (select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relname like 'meta\_%'
+      and has_table_privilege('praxa_integrations', c.oid, 'SELECT')),
+  0, 'M16c-T-25: el rol de C sigue sin grants directos sobre tablas nuevas');
+select is(
+  (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'private' and p.proname = 'raise_worker_integrity_error'
+      and p.prosrc like '%integration_credentials%'),
+  0, 'M16c-T-25: el helper de integridad no menciona credenciales (T-14 sin excepción)');
 
 select * from finish();
 rollback;
