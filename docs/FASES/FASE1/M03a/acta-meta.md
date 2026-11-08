@@ -14,7 +14,7 @@ Ningún dato real entra al proyecto `app` antes de que el usuario apruebe esta a
 
 | Dato | Dónde vive | Cómo se protege |
 |---|---|---|
-| Identificador de la cuenta publicitaria de Meta | Completo solo en la base (`integration_connections`) | Truncado en la interfaz, en las capturas y en la evidencia (CA-09b). Nunca aparece junto a datos de gasto (CA-40). Excepción declarada: la ruta de las peticiones a Insights (ver los límites abajo) |
+| Identificador de la cuenta publicitaria de Meta | Completo solo en la base (`integration_connections`) | Truncado en la interfaz, en las capturas y en la evidencia (CA-09b). Nunca aparece junto a datos de gasto (CA-40). Excepción declarada: la ruta de las peticiones de lectura a Meta de la cuenta, Insights y edges de metadata (ver los límites abajo) |
 | Identificador del negocio de Meta (`client_business_id`), moneda y zona horaria de la cuenta | Base (`integration_connections`) | Lectura bajo RLS, solo para los miembros de la empresa |
 | Datos diarios de rendimiento y resultados de Meta por cuenta, campaña, conjunto y anuncio; metadata de entidades y atribución | Base: snapshots, filas y cobertura, a partir de los cortes de M16c | Catálogo único y reglas en [§11 de la spec](../meta_first/spec.md#11-sincronización-manual-m16c). Valores exactos y snapshots inmutables; lectura bajo RLS, sin JSON crudo. Los IDs completos permanecen en la base; los nombres pueden contener texto libre del anunciante y se minimizan en salidas |
 | Token de Meta (system user) | Base, esquema `private`, cifrado con AES-256-GCM | La base lo entrega cifrado solo por `worker_api` al rol propio; lo descifra el servidor con el llavero, que no vive en la base (DEC-03, DEC-04). No aparece en logs, errores ni URLs (CA-26) |
@@ -32,7 +32,7 @@ Ningún dato real entra al proyecto `app` antes de que el usuario apruebe esta a
 - La redacción de la pregunta no detecta nombres, direcciones, DNI sueltos ni otros datos escritos en forma libre (CA-66). Por eso la pantalla del chat avisa que las preguntas se registran y para qué (CA-65).
 - La pregunta redactada puede conservar montos y fechas que escribió el dueño (CA-62).
 - Los logs del hosting registran la consulta de las peticiones entrantes: el `code` y el `state` del callback de OAuth quedan visibles para quien acceda a esos logs. Ambos son de un solo uso (`SECURITY.md`, sección 12).
-- El identificador completo de la cuenta va en la ruta de las peticiones a Insights, así que puede verse si el hosting muestra esas subpeticiones. Esas rutas no llevan montos.
+- El identificador completo de la cuenta va en la ruta de las peticiones de lectura a Meta de la cuenta (Insights y edges de metadata), así que puede verse si el hosting muestra esas subpeticiones. Esas rutas no llevan montos. Los IDs de campaña, conjunto y anuncio no van en la ruta: las referencias faltantes se piden por la raíz de Graph, con los IDs en la consulta.
 
 ## 2. Para qué
 

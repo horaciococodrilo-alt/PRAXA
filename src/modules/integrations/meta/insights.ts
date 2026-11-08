@@ -316,15 +316,49 @@ export async function extractMetaLevel(
 // ---------------------------------------------------------------------------
 
 /**
- * Valores iniciales de Q-04. Se fijan en la etapa .3 contra la duración efectiva de Vercel
- * (D-M16c-02); son cotas técnicas, no volúmenes medidos. Las pruebas inyectan los suyos.
+ * Q-04 (D-M16c-02): perfil único y su justificación en `M16c/spec.md`. Son cotas técnicas
+ * contra los 300 s efectivos de Vercel, no volúmenes medidos. Las pruebas inyectan los suyos.
  */
 export const DEFAULT_SYNC_LIMITS: SyncLimits = { lookbackDays: 28, maxWindowDays: 28, maxPagesPerLevel: 20, maxMetadataPages: 20,
-  maxEntities: 2_000, maxPayloadBytes: 4_000_000, maxDurationMs: 240_000, finalizationReserveMs: 55_000, leaseSeconds: 295,
+  maxEntities: 500, maxPayloadBytes: 2_000_000, maxDurationMs: 240_000, finalizationReserveMs: 55_000, leaseSeconds: 295,
   maxRetries: 2, retryDelayMs: 500 };
 
-export type SyncResult = 'completa' | 'parcial' | 'incompleta' | 'en_curso' | 'requiere_reauth' | 'conexion_cambio' | 'error' | 'no_confirmada';
+export const META_SYNC_RESULTS = ['completa', 'parcial', 'incompleta', 'en_curso', 'requiere_reauth', 'conexion_cambio', 'error',
+  'no_confirmada'] as const;
+export type SyncResult = (typeof META_SYNC_RESULTS)[number];
 export type SyncOutcome = Readonly<{ result: SyncResult }>;
+
+/** Texto fijo por resultado: en la UI no se muestra ningún texto externo ni de `worker_api`. */
+export const META_SYNC_MESSAGES: Readonly<Record<SyncResult, Readonly<{ tone: 'ok' | 'info' | 'error'; text: string }>>> = Object.freeze({
+  completa: { tone: 'ok', text: 'Sincronización completa.' },
+  parcial: { tone: 'info', text: 'Algunos niveles se actualizaron. Revisá la cobertura.' },
+  incompleta: { tone: 'error', text: 'La sincronización quedó incompleta. Conservamos la cobertura anterior.' },
+  en_curso: { tone: 'info', text: 'Ya hay una sincronización en curso.' },
+  requiere_reauth: { tone: 'error', text: 'Meta pidió volver a autorizar a Praxa. La sincronización se detuvo; revisá la cobertura y volvé a autorizar.' },
+  conexion_cambio: { tone: 'error', text: 'La conexión cambió durante la sincronización. Revisá su estado.' },
+  error: { tone: 'error', text: 'No pudimos sincronizar. Probá de nuevo más tarde.' },
+  no_confirmada: { tone: 'error', text: 'No pudimos confirmar el resultado de la sincronización. Revisá la cobertura antes de volver a sincronizar.' },
+});
+
+/** Ante la duda, `null`: un valor repetido, vacío o desconocido no muestra nada. */
+export function parseMetaSyncResult(value: string | string[] | undefined): SyncResult | null {
+  return typeof value === 'string' && (META_SYNC_RESULTS as readonly string[]).includes(value) ? value as SyncResult : null;
+}
+
+const RESULT_PRECEDENCE: readonly SyncResult[] = ['requiere_reauth', 'conexion_cambio', 'no_confirmada', 'en_curso'];
+
+/** Si un caso encaja en varios resultados, gana esta precedencia; después, el estado del run. */
+export function pickSyncResult(candidates: readonly SyncResult[]): SyncResult {
+  return RESULT_PRECEDENCE.find((result) => candidates.includes(result)) ?? candidates[0];
+}
+
+/** La query no acredita un éxito: `completa` y `parcial` se muestran solo si el estado persistido coincide. */
+export function syncNotice(result: SyncResult | null, effective: MetaSyncStatus['effective_status'] | null) {
+  if (result === null) return null;
+  if (result === 'completa' && effective !== 'completed') return null;
+  if (result === 'parcial' && effective !== 'partial') return null;
+  return META_SYNC_MESSAGES[result];
+}
 
 export type MetaSyncLogEvent = {
   evento: 'meta_sync';
@@ -398,6 +432,8 @@ function overallResult(complete: number): SyncResult {
 
 export async function syncMetaInsights(partial: Partial<SyncDeps> = {}): Promise<SyncOutcome> {
   const deps = resolveDeps(partial);
+  // El presupuesto incluye todo lo que corre desde la entrada, también las lecturas previas.
+  const deadline = deps.monotonicNow() + deps.limits.maxDurationMs;
   let ctx: TenantContext;
   try { ctx = await deps.tenant(); }
   catch (error) {
@@ -420,8 +456,6 @@ export async function syncMetaInsights(partial: Partial<SyncDeps> = {}): Promise
 
   const { id: connectionId, credential_generation: generation } = connection;
   const workerApi = deps.workerApi();
-  const entry = deps.monotonicNow();
-  const deadline = entry + deps.limits.maxDurationMs;
   const window = localSyncWindow(deps.wallNow(), connection.timezone, deps.limits.lookbackDays);
   const runId = randomUUID();
   const ownershipToken = randomBytes(32).toString('hex');
@@ -481,7 +515,7 @@ export async function syncMetaInsights(partial: Partial<SyncDeps> = {}): Promise
     const stopped = await failLevel({ level: 'account', fetchedAt: firstInstant(), pages: 0, durationMs: 0,
       payload: { entities: [], days: [] }, validatedPages: 0, reason: 'own_error', errorClass: 'own_error',
       message: FAILURE_MESSAGES.own_error, stop: true });
-    return finish(stopped ?? 'incompleta');
+    return finish(pickSyncResult(stopped ? [stopped, 'incompleta'] : ['incompleta']));
   }
 
   const metadata = new MetadataStore();
@@ -515,7 +549,7 @@ export async function syncMetaInsights(partial: Partial<SyncDeps> = {}): Promise
         const stopped = await failLevel({ level, fetchedAt: extraction.fetchedAt, pages: extraction.pages,
           durationMs: extraction.durationMs, payload: { entities: [], days: [] }, validatedPages: 0, reason: 'own_error',
           errorClass: 'own_error', message: FAILURE_MESSAGES.own_error, stop: true });
-        return finish(stopped ?? overallResult(completed));
+        return finish(pickSyncResult(stopped ? [stopped, overallResult(completed)] : [overallResult(completed)]));
       }
       continue;
     }
@@ -646,4 +680,35 @@ export function readMetaDailyCoverage(
 
 export function listCapturedEntities(connectionId: string, level: SyncLevel, deps: ReadDeps = {}): Promise<MetaCapturedEntity[]> {
   return rpcRows('list_meta_entities', { p_connection_id: connectionId, p_level: level }, capturedEntitySchema, deps);
+}
+
+export type MetaSyncView = {
+  connectionStatus: 'active' | 'needs_reauth';
+  canSync: boolean;
+  status: MetaSyncStatus;
+  level: SyncLevel;
+  entityRef: string | null;
+  entities: MetaCapturedEntity[];
+  coverage: MetaCoverageRow[];
+};
+
+/**
+ * Vista de la página, con JWT y RLS. Nivel y entidad se validan acá: una referencia que no
+ * figura entre las entidades visibles de esa conexión se descarta. Null sin conexión legible.
+ */
+export async function loadMetaSyncView(
+  query: { nivel?: string | string[]; entidad?: string | string[] },
+  partial: Partial<Pick<SyncDeps, 'tenant' | 'readConnection'>> & ReadDeps = {},
+): Promise<MetaSyncView | null> {
+  const ctx = await (partial.tenant ?? requireTenantContext)();
+  const connection = await (partial.readConnection ?? readConnectionRecord)(ctx);
+  if (!connection || (connection.status !== 'active' && connection.status !== 'needs_reauth')) return null;
+  const status = await readMetaSyncStatus(connection.id, partial);
+  if (!status) return null;
+  const level = levelSchema.safeParse(query.nivel).data ?? 'account';
+  const entities = await listCapturedEntities(connection.id, level, partial);
+  const entityRef = entities.find((entity) => entity.entity_ref === query.entidad)?.entity_ref ?? null;
+  const coverage = status.summary === null ? [] : await readMetaDailyCoverage({ connectionId: connection.id, level,
+    from: status.summary.window_from, to: status.summary.window_to, ...(entityRef ? { entityRef } : {}) }, partial);
+  return { connectionStatus: connection.status, canSync: connection.status === 'active', status, level, entityRef, entities, coverage };
 }

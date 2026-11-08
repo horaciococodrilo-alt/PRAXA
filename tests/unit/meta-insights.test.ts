@@ -1,4 +1,6 @@
 import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
@@ -9,8 +11,9 @@ import { WorkerApiError, type WorkerApi } from '@/modules/integrations/db/worker
 import { createMetaHttpClient, META_HTTP_TIMEOUT_MS, type MetaFetch } from '@/modules/integrations/meta/client';
 import type { SyncLevel } from '@/modules/integrations/meta/entities';
 import { normalizeAccountId } from '@/modules/integrations/meta/entities';
-import { DECIMAL_PATTERN, extractMetaLevel, localSyncWindow, outcomeForWriteError, parseInsightRow,
-  syncMetaInsights, type ExtractDeps, type LevelExtraction, type SyncDeps } from '@/modules/integrations/meta/insights';
+import { DECIMAL_PATTERN, DEFAULT_SYNC_LIMITS, extractMetaLevel, loadMetaSyncView, localSyncWindow, META_SYNC_MESSAGES,
+  META_SYNC_RESULTS, outcomeForWriteError, parseInsightRow, parseMetaSyncResult, pickSyncResult, syncMetaInsights, syncNotice,
+  type ExtractDeps, type LevelExtraction, type SyncDeps } from '@/modules/integrations/meta/insights';
 import type { IntegrationConnectionRecord } from '@/modules/integrations/contract';
 import type { SyncLimits } from '@/modules/integrations/repository/sync-calls';
 import type { TenantContext } from '@/modules/tenant/context';
@@ -651,5 +654,141 @@ describe('M16c-T-29: logs cerrados', () => {
     const result: LevelExtraction = await extract('account', meta());
     expect(Object.keys(result).sort()).toEqual(['calls', 'complete', 'days', 'durationMs', 'entities', 'errorClass', 'fetchedAt',
       'level', 'pages', 'reason', 'validatedPages']);
+  });
+});
+
+describe('M16c-T-28: parser, precedencia y textos de resultados', () => {
+  it('conserva los ocho resultados y sus textos exactos', () => {
+    expect(META_SYNC_MESSAGES).toEqual({
+      completa: { tone: 'ok', text: 'Sincronización completa.' },
+      parcial: { tone: 'info', text: 'Algunos niveles se actualizaron. Revisá la cobertura.' },
+      incompleta: { tone: 'error', text: 'La sincronización quedó incompleta. Conservamos la cobertura anterior.' },
+      en_curso: { tone: 'info', text: 'Ya hay una sincronización en curso.' },
+      requiere_reauth: { tone: 'error', text: 'Meta pidió volver a autorizar a Praxa. La sincronización se detuvo; revisá la cobertura y volvé a autorizar.' },
+      conexion_cambio: { tone: 'error', text: 'La conexión cambió durante la sincronización. Revisá su estado.' },
+      error: { tone: 'error', text: 'No pudimos sincronizar. Probá de nuevo más tarde.' },
+      no_confirmada: { tone: 'error', text: 'No pudimos confirmar el resultado de la sincronización. Revisá la cobertura antes de volver a sincronizar.' },
+    });
+    expect([...META_SYNC_RESULTS].sort()).toEqual(Object.keys(META_SYNC_MESSAGES).sort());
+  });
+
+  it('descarta valores repetidos, vacíos y desconocidos', () => {
+    expect(parseMetaSyncResult('completa')).toBe('completa');
+    for (const value of [undefined, '', 'COMPLETA', 'desconocido', ['completa'], ['completa', 'completa'], '<script>']) {
+      expect(parseMetaSyncResult(value as never)).toBeNull();
+    }
+  });
+
+  it('aplica la precedencia de la spec', () => {
+    expect(pickSyncResult(['parcial', 'en_curso', 'no_confirmada', 'conexion_cambio', 'requiere_reauth'])).toBe('requiere_reauth');
+    expect(pickSyncResult(['parcial', 'en_curso', 'no_confirmada', 'conexion_cambio'])).toBe('conexion_cambio');
+    expect(pickSyncResult(['parcial', 'en_curso', 'no_confirmada'])).toBe('no_confirmada');
+    expect(pickSyncResult(['parcial', 'en_curso'])).toBe('en_curso');
+    expect(pickSyncResult(['incompleta'])).toBe('incompleta');
+  });
+
+  it('una query de éxito no reemplaza el estado persistido', () => {
+    expect(syncNotice('completa', 'completed')).toEqual(META_SYNC_MESSAGES.completa);
+    for (const status of ['partial', 'failed', 'never', 'running', 'expired', 'connection_changed', null] as const) {
+      expect(syncNotice('completa', status)).toBeNull();
+    }
+    expect(syncNotice('parcial', 'partial')).toEqual(META_SYNC_MESSAGES.parcial);
+    expect(syncNotice('parcial', 'completed')).toBeNull();
+    expect(syncNotice('parcial', null)).toBeNull();
+    expect(syncNotice('error', 'completed')).toEqual(META_SYNC_MESSAGES.error);
+    expect(syncNotice(null, 'completed')).toBeNull();
+  });
+});
+
+describe('M16c-T-34: Q-04, perfil único', () => {
+  const VERCEL_SECONDS = 300;
+
+  it('la duración de página es un literal igual al límite efectivo', () => {
+    const page = readFileSync(resolve(process.cwd(), 'src/app/(app)/app/integraciones/page.tsx'), 'utf8');
+    expect(page).toMatch(new RegExp(`^export const maxDuration = ${VERCEL_SECONDS};$`, 'm'));
+  });
+
+  it('cumple la fórmula del lease y cabe en el límite también en el peor caso', () => {
+    const limits = DEFAULT_SYNC_LIMITS;
+    expect(limits.lookbackDays).toBe(28);
+    expect(limits.maxWindowDays).toBeGreaterThanOrEqual(limits.lookbackDays);
+    expect(limits.maxRetries).toBe(2);
+    expect(limits.retryDelayMs).toBe(500);
+    expect(limits.leaseSeconds).toBe(Math.ceil((limits.maxDurationMs + limits.finalizationReserveMs) / 1000));
+    // La reserva cubre dos intentos SQL (10 s de conexión + 15 s de consulta) más la respuesta.
+    const sqlAttempt = 25_000;
+    const response = 5_000;
+    expect(limits.finalizationReserveMs).toBeGreaterThanOrEqual(2 * sqlAttempt + response);
+    // Peor caso: la última llamada a Meta termina al agotar el presupuesto utilizable, la
+    // publicación usa dos intentos y el nivel siguiente registra su fallo con otros dos.
+    const lastMetaCallEnds = limits.maxDurationMs - limits.finalizationReserveMs;
+    const worst = lastMetaCallEnds + 2 * sqlAttempt + 2 * sqlAttempt + response;
+    expect(worst).toBeLessThan(VERCEL_SECONDS * 1000);
+    expect(limits.leaseSeconds).toBeLessThan(VERCEL_SECONDS);
+  });
+
+  it('el presupuesto empieza al entrar a la orquestación, antes de las lecturas previas', async () => {
+    const db = fakeDb();
+    const graph = meta();
+    let clock = 0;
+    const outcome = await syncMetaInsights(syncDeps(graph, db, { monotonicNow: () => clock, tenant: async () => { clock = 95_000; return CTX; } }));
+    expect(graph.seen).toEqual([]);
+    expect(outcome.result).toBe('incompleta');
+    expect(writes(db)[0].args[13]).toBe('duration_limit');
+  });
+});
+
+describe('M16c-T-27: vista de lectura por JWT', () => {
+  const REF = '11111111-1111-4111-8111-111111111111';
+  const entity = { entity_ref: REF, level: 'campaign', parent_ref: null, name: 'N', effective_status: null, objective: null,
+    metadata_fetched_at: '2026-10-03T12:00:00.000Z', captured_at: '2026-10-03T12:00:00.000Z' };
+  const never = { has_attempt: false, summary: null, effective_status: 'never', connection_changed: false };
+  const summary = { version: 1, credential_generation: 0, window_from: '2026-10-01', window_to: '2026-10-03', max_window_days: 28,
+    started_at: '2026-10-03T12:00:00.000Z', lease_expires_at: '2026-10-03T12:05:00.000Z', finished_at: null, status: 'completed',
+    levels: Object.fromEntries(['account', 'campaign', 'adset', 'ad'].map((name) => [name,
+      { status: 'complete', reason: 'complete', fetched_at: '2026-10-03T12:00:00.000Z', finished_at: '2026-10-03T12:00:01.000Z' }])) };
+
+  function supabase(status: unknown = { has_attempt: true, summary, effective_status: 'completed', connection_changed: false }) {
+    const calls: Array<{ fn: string; args: Record<string, unknown> }> = [];
+    return { calls, client: { rpc: async (fn: string, args: Record<string, unknown>) => {
+      calls.push({ fn, args });
+      if (fn === 'get_meta_sync_status') return { data: [status], error: null };
+      if (fn === 'list_meta_entities') return { data: args.p_level === 'campaign' ? [entity] : [], error: null };
+      return { data: [], error: null };
+    } } as never };
+  }
+
+  const load = (fake: ReturnType<typeof supabase>, query: { nivel?: unknown; entidad?: unknown }, record: IntegrationConnectionRecord | null = connectionRecord()) =>
+    loadMetaSyncView(query as never, { tenant: async () => CTX, readConnection: async () => record, supabase: fake.client });
+
+  it('sin conexión viva o en pendiente no devuelve vista', async () => {
+    expect(await load(supabase(), {}, null)).toBeNull();
+    expect(await load(supabase(), {}, connectionRecord({ status: 'pending_selection', external_account_id: null, currency: null, timezone: null, pending_expires_at: '2030-01-01T00:00:00.000Z' }))).toBeNull();
+  });
+
+  it('solo una conexión activa puede sincronizar; needs_reauth lee', async () => {
+    expect(await load(supabase(), {})).toMatchObject({ connectionStatus: 'active', canSync: true });
+    expect(await load(supabase(), {}, connectionRecord({ status: 'needs_reauth', last_error_class: 'authentication', last_error_message: 'x' })))
+      .toMatchObject({ connectionStatus: 'needs_reauth', canSync: false });
+  });
+
+  it('valida nivel y entidad en el servidor: una referencia ajena o adulterada no se usa', async () => {
+    const adulterated = supabase();
+    expect(await load(adulterated, { nivel: 'campaign', entidad: 'ffffffff-0000-4000-8000-000000000001' })).toMatchObject({ level: 'campaign', entityRef: null });
+    expect(adulterated.calls.find((call) => call.fn === 'get_meta_daily_coverage')?.args).not.toHaveProperty('p_entity_ref');
+
+    const valid = supabase();
+    expect(await load(valid, { nivel: 'campaign', entidad: REF })).toMatchObject({ level: 'campaign', entityRef: REF });
+    expect(valid.calls.find((call) => call.fn === 'get_meta_daily_coverage')?.args).toMatchObject({ p_entity_ref: REF, p_from: '2026-10-01', p_to: '2026-10-03' });
+
+    for (const nivel of ['otro', ['campaign', 'ad'], undefined]) {
+      expect(await load(supabase(), { nivel })).toMatchObject({ level: 'account', entityRef: null });
+    }
+  });
+
+  it('sin intento no consulta cobertura', async () => {
+    const fake = supabase(never);
+    expect(await load(fake, {})).toMatchObject({ coverage: [], status: never });
+    expect(fake.calls.some((call) => call.fn === 'get_meta_daily_coverage')).toBe(false);
   });
 });

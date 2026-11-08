@@ -26,6 +26,8 @@ vi.mock('@/modules/app-data', () => ({
 }));
 vi.mock('@/modules/integrations/lifecycle', () => ({ loadMetaCardState: lectura('loadMetaCardState') }));
 vi.mock('@/modules/integrations/actions', () => ({ confirmarCuentaMeta: vi.fn(), desconectarMeta: vi.fn() }));
+vi.mock('@/modules/integrations/meta/insights', () => ({ loadMetaSyncView: lectura('loadMetaSyncView'),
+  parseMetaSyncResult: () => null, syncNotice: () => null }));
 vi.mock('next/navigation', () => ({ usePathname: () => '/app' }));
 vi.mock('@/components/landing/fonts', () => ({ manrope: { variable: '' }, jetbrainsMono: { variable: '' } }));
 vi.mock('@/components/auth/recovery', () => ({ enviarEnlaceDeContrasena: vi.fn() }));

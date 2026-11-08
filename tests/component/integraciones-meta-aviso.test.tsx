@@ -24,6 +24,8 @@ vi.mock('@/modules/app-data', () => ({
 }));
 vi.mock('@/modules/integrations/lifecycle', () => ({ loadMetaCardState: async () => ({ kind: 'sin_conexion' }) }));
 vi.mock('@/modules/integrations/actions', () => ({ confirmarCuentaMeta: vi.fn(), desconectarMeta: vi.fn() }));
+vi.mock('@/modules/integrations/meta/insights', () => ({ loadMetaSyncView: async () => null,
+  parseMetaSyncResult: () => null, syncNotice: () => null }));
 
 const { default: IntegracionesPage } = await import('@/app/(app)/app/integraciones/page');
 const { META_OAUTH_MESSAGES } = await import('@/modules/integrations/meta/outcomes');

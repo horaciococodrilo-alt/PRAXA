@@ -53,6 +53,7 @@ Los identificadores F01–F29 se usan en los pasos. Ningún archivo de implement
 | F27 — `docs/FASES/FASE1/meta_first/sesiones/M16c.md` | Nuevo | Todos | Seguimiento de Parte II |
 | F28 — `docs/HALLAZGOS.md` | Modificado según evidencia | Todos | Seguimiento de Parte II |
 | F29 — `docs/PROJECT_STATE.md` | Modificado por estado o bloqueo | 0, 7, 12, 20 | Seguimiento de Parte II |
+| F30 — `tests/unit/meta-oauth.test.ts`; F31 — `tests/component/integraciones-meta-aviso.test.tsx`; F32 — `tests/component/app-paginas-sesion.test.tsx` | Modificados | 17 | D-M16c-06 (M16c-Q-02), decisión del usuario del 2026-11-08 |
 
 Los informes de auditoría, implementación y QA se generan mediante sus solicitudes correspondientes. No se crean specs, planes ni sesiones separados por etapa.
 

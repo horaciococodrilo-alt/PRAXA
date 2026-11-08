@@ -65,7 +65,6 @@ tests/
 
 Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 
-- `integrations/`: sincronización manual de Insights.
 - `chat/`: redacción, herramientas cerradas, adaptador del modelo, orquestador y guarda de
   afirmaciones numéricas.
 
@@ -83,8 +82,8 @@ Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 | `integrations/crypto` | Llavero versionado y cifrado AES-256-GCM con AAD de empresa, conexión y proveedor; material descifrado en envoltorio redactado | Existe |
 | `integrations/db` | Cliente PostgreSQL `server-only` del rol `praxa_integrations`, limitado a `worker_api`, con TLS verificado y errores redactados | Existe |
 | `integrations/repository` | Prepara operaciones reutilizables, valida K01 y respuestas, lee y recifra credenciales según versión y estado; ejecuta las operaciones del ciclo de vida por `worker_api`; lee la conexión viva de la empresa con el JWT del usuario | Existe |
-| `integrations/meta` | Versión de la Graph API y URLs en un solo lugar; cliente HTTP con timeout, clasificación de errores y ninguna credencial en las URLs de salida; OAuth, listado de cuentas delegadas, prueba de acceso a Insights, revocación y resultados cerrados | Existe; probado con Meta simulada |
-| `integrations` (resto) | Orquesta selección, reautorización, desconexión y purga perezosa; Server Actions de confirmación y desconexión. La sincronización manual queda prevista | Parcial |
+| `integrations/meta` | Versión de la Graph API y URLs en un solo lugar; cliente HTTP con timeout, clasificación de errores y ninguna credencial en las URLs de salida; OAuth, listado de cuentas delegadas, prueba de acceso a Insights, revocación y resultados cerrados; extracción de Insights en cuatro niveles, metadata de entidades y orquestación de la sincronización | Existe; probado con Meta simulada |
+| `integrations` (resto) | Orquesta selección, reautorización, desconexión y purga perezosa; Server Actions de confirmación, desconexión y sincronización manual | Existe |
 | `chat` | Consulta en lenguaje natural sobre métricas y resultados persistidos de Meta por nivel y entidad, con cifras verificadas; catálogo en §11 de la spec de la ruta | Previsto |
 
 La ruta `meta_first` no construye Tiendanube, GA4, reportes publicados ni base vectorial. Solo admite las medidas y tasas del catálogo de la spec de la ruta, sin cálculos autoritativos del modelo.
@@ -170,8 +169,9 @@ propia), comprueba por sus primeros bytes que el archivo sea de verdad un JPG o 
 guarda la ruta en los metadatos de Auth. Las pantallas la muestran con URLs firmadas de
 vida corta.
 
-Este camino lo usan las páginas de `/app` (a través de `app-data`), sus Server Actions y,
-previsto, la lectura de conexiones y cobertura y las herramientas del chat. La base conoce al
+Este camino lo usan las páginas de `/app` (a través de `app-data`), sus Server Actions, la
+lectura de conexiones, estado de sincronización y cobertura de Insights y, previstas, las
+herramientas del chat. La base conoce al
 usuario por el JWT.
 
 ### B. Camino privilegiado de integraciones (base existe; cliente previsto)
@@ -226,7 +226,8 @@ Navegador ──► tarjeta de integraciones ──► cuentas delegadas ──�
   a Insights y revocación de mejor esfuerzo, probados con Meta simulada. Las operaciones de
   Graph con secretos en parámetros internos viajan dentro de un lote `POST`; ninguna URL de
   salida lleva credenciales, códigos ni tokens.
-- Prevista: sincronización y lectura persistida de Insights por nivel y entidad, con snapshots independientes por nivel, metadata capturada y acciones tipadas. La cobertura completa de un nivel puede avanzar aunque otro falle; el resultado global conserva esa distinción. Los totales de cuenta provienen de su extracción propia. El chat consulta la base bajo RLS; no consulta Meta directamente.
+- Existen, probadas con Meta simulada: sincronización y lectura persistida de Insights por nivel y entidad, con snapshots independientes por nivel, metadata capturada y acciones tipadas. La cobertura completa de un nivel puede avanzar aunque otro falle; el resultado global conserva esa distinción. Los totales de cuenta provienen de su extracción propia. La lectura pasa por RPC `SECURITY INVOKER` sobre `meta_daily_coverage` y la conexión; los snapshots no son legibles por usuarios.
+- Previsto: el chat consulta la base bajo RLS; no consulta Meta directamente.
 
 ## Contexto declarado
 
@@ -272,8 +273,8 @@ antes que cualquier bloqueo de fila.** Así no hay ciclos entre las vías que us
   RETURNING` que valida y marca a la vez, sin cerrojo de empresa. El bloqueo de la fila
   serializa dos consumos y el segundo no encuentra fila. Separarlo en dos consultas
   reabriría la ventana de reutilización.
-- Previsto para la sincronización manual: una ejecución vigente por conexión, con
-  arrendamiento vencible y token de posesión; solo la ejecución vigente publica (CA-58,
+- Sincronización manual: una ejecución vigente por conexión, con arrendamiento vencible y
+  token de posesión; solo la ejecución vigente publica, falla o pide reautorización (CA-58,
   CA-59). Es un mecanismo propio de ese dominio: no se reutiliza la revisión del contexto.
 
 ## Operaciones largas y ausencia de workers
@@ -281,7 +282,7 @@ antes que cualquier bloqueo de fila.** Así no hay ciclos entre las vías que us
 La ruta no tiene workers, colas ni programación automática (spec, sección 2; D2). El nombre
 `worker_api` es heredado. Consecuencias estructurales:
 
-- La sincronización de Insights (prevista) es manual: una Server Action con límites de
+- La sincronización de Insights es manual: una Server Action con límites de
   ventana, páginas y duración por debajo del máximo del hosting (CA-56, Q-04).
 - La purga de conexiones pendientes o desconectadas es perezosa y reanudable: se
   ejecuta cuando el dueño vuelve a la página de integraciones o inicia una conexión.

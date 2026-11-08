@@ -228,6 +228,7 @@ Nuevos se identifican como tales. La expansión escribe esta spec, la propuesta 
 | src/app/(app)/app/integraciones/page.tsx; meta-tarjeta.tsx | Modificados | Presentación y controles. `meta-tarjeta.tsx` conserva su contrato: cualquier prop nueva es opcional y se mantienen sus textos y estructura actuales, para que `tests/component/integraciones-meta-tarjeta.test.tsx` pase sin cambios. Si no es posible, parar y registrar REQUIERE CAMBIO EN LA RUTA, porque ese archivo de prueba no está autorizado | II.11 .3 directorio |
 | src/app/(app)/app/integraciones/meta-sync-control.tsx | Nuevo propuesto | Pendiente/selección por referencia | II.11 .3 directorio |
 | tests/component/integraciones-meta-sync.test.tsx | Nuevo | Estados, campos, redacción y cobertura | II.11 .3 pruebas |
+| tests/unit/meta-oauth.test.ts; tests/component/integraciones-meta-aviso.test.tsx; tests/component/app-paginas-sesion.test.tsx | Modificados | T-24 con tres acciones y los módulos nuevos confinados al servidor; las dos suites de la página simulan `meta/insights`, con la lectura sujeta a la verificación de sesión | D-M16c-06; II.11 .3 |
 | docs/SECURITY.md; docs/ARCHITECTURE.md; docs/FASES/FASE1/M03a/acta-meta.md | Modificados solo si cambia propiedad/contenido | Marcar vigente probado; comunicación al dueño | II.11 previo documental/.3 |
 | docs/FASES/FASE1/M16c/spec.md | Actualizado ahora; Q-04 posterior | Spec única de las tres etapas | Ficha Parte I; II.11 .3 |
 | docs/FASES/FASE1/M16c/plan.md | Nuevo en una solicitud posterior | Plan único de las tres etapas, con puntos de control y de reanudación | Parte I, etapas obligatorias |
@@ -389,6 +390,29 @@ Seguimiento de [spec-audit-2.md](revisiones/spec-audit-2.md): A-01 se corrige me
 | D-M16c-03 | Orden de publicación: el código de M16c.1 y M16c.2 se integra en una rama propia y no llega a `main` hasta M16c.3, después de que el usuario aplique 0016 en `app`. Regla y verificación en «Intervenciones del usuario y acciones reservadas» | Usuario, elección explícita en este chat | 2026-11-07 |
 | D-M16c-04 | H-E1-117 conserva solo las hipótesis de OAuth de M16.1. La validación de campos de Insights que la sesión de M16.2 le asoció al cerrar G-VR01 pasa a H-E1-189. En .3 se contrasta cada hipótesis de H-E1-117 con la evidencia ya registrada del OAuth real de VR-01, sin pruebas nuevas contra Meta | Usuario, elección explícita en este chat | 2026-11-07 |
 | D-M16c-05 | M16c se ejecuta como microfase única en tres etapas: una spec, un plan, una corrida de `/microfase` y un solo gate, G-SYNC. G-SYNC-DB y G-SYNC-EXTRACT pasan a ser controles de etapa. Excepción puntual al límite de 8 horas de AGENTS.md, como en M16.2. Integrada en la ruta como enmienda | Usuario, elección y aprobación explícitas en este chat | 2026-11-07 |
+| D-M16c-06 | Se autorizan tres archivos de prueba fuera de la tabla original (M16c-Q-02, H-E1-195): se actualizan, no se esquivan. Integrada en II.11 y en el plan único | Usuario, elección explícita en este chat | 2026-11-08 |
+
+## Q-04 fijado
+
+Registrado en la etapa .3 según D-M16c-02. Son cotas técnicas, no volúmenes medidos. Fuente: `DEFAULT_SYNC_LIMITS` en `meta/insights.ts`.
+
+**Límite efectivo confirmado por el usuario el 2026-11-08:** 300 s, en plan Hobby con Fluid Compute activo; el campo «Default Max Duration» está vacío y muestra ese valor por defecto. El paso 18 comprueba además la duración de la versión desplegada, como exige el plan.
+
+| Límite | Valor | Justificación |
+|---|---|---|
+| `maxDuration` de la página | 300 s | Literal igual al límite efectivo. Cubre la Server Action |
+| `maxDurationMs` | 240 000 | Presupuesto total desde la entrada a la orquestación, con la reserva adentro |
+| `finalizationReserveMs` | 55 000 | Dos intentos SQL de 25 s (10 s de conexión + 15 s de consulta) más 5 s de respuesta |
+| `leaseSeconds` | 295 | `ceil((maxDurationMs + finalizationReserveMs) / 1000)` |
+| `lookbackDays`, `maxWindowDays` | 28 | CA-47b |
+| `maxPagesPerLevel`, `maxMetadataPages` | 20 cada uno | Con 100 filas por página, hasta 2000 filas y 2000 entidades leídas por nivel. Chocarlos deja incompleto el nivel (CA-56) |
+| `maxEntities` | 500 | Cada día de cobertura repite el catálogo: con 28 días y 300 bytes por entidad son unos 4 MB de `jsonb`, dentro de los 15 s de consulta de una publicación |
+| `maxPayloadBytes` | 2 000 000 | Acota la petición a `publish_snapshot`; se mide con margen del 25 %, porque SQL mide el texto de `jsonb` |
+| `maxRetries`, `retryDelayMs` | 2, 500 | Contrato de la spec: esperas de 500 y 1000 ms |
+
+**Peor caso calculado:** la última llamada a Meta termina a los 185 s (presupuesto menos reserva); la publicación usa dos intentos, hasta 235 s; el nivel siguiente registra su fallo con otros dos, hasta 285 s; la respuesta llega a los 290 s, por debajo de 300 s. La relectura de la conexión por JWT no tiene timeout propio: si se cuelga, la plataforma corta la función y el run queda sin resultado confirmado hasta vencer el lease.
+
+La duración de la sincronización real se registra en la sesión como referencia. Una cuenta sin actividad no mide la holgura frente a una cuenta con datos (M16c-H-04).
 
 ## Supuestos e hipótesis
 
@@ -407,6 +431,8 @@ Seguimiento de [spec-audit-2.md](revisiones/spec-audit-2.md): A-01 se corrige me
 ## Preguntas abiertas
 
 Ninguna pregunta abierta. **M16c-Q-01, resuelta el 2026-11-07:** requería cambio en la ruta. D-M16c-02 permite cerrar G-SYNC con 0 filas y fijar Q-04 sin volúmenes representativos. La ruta lo impedía: la spec de la ruta decía que Q-04 «se fija con mediciones» y «con lo medido en VR-01»; el plan repetía «con mediciones», pedía «fijar Q-04 con mediciones reales» y asignaba Q-04 «con datos de VR-01», y II.11 exigía validar campos reales y decía «G-SYNC pendiente si falta evidencia». Esos textos anteriores, con su ubicación, están en la tabla de cambios de la [propuesta](revisiones/propuesta-enmienda-gsync-1.md); las líneas actuales de la ruta ya tienen el texto corregido. El usuario aprobó la [propuesta de enmienda](revisiones/propuesta-enmienda-gsync-1.md) y quedó integrada en la ruta ([sesión](../meta_first/sesiones/enmienda-gsync-2026-11-07.md)). D-M16c-02 rige.
+
+**M16c-Q-02, resuelta el 2026-11-08 (D-M16c-06):** implementar M16c.3 rompía tres pruebas existentes cuyos archivos no estaban autorizados: `tests/unit/meta-oauth.test.ts` (T-24 fijaba dos exportaciones en `actions.ts`), `tests/component/integraciones-meta-aviso.test.tsx` y `tests/component/app-paginas-sesion.test.tsx` (importan la página real sin simular `server-only`). El usuario eligió actualizarlas en lugar de esquivarlas con código que solo existiría para las pruebas.
 
 Q-01/Q-02/Q-03 del borrador anterior están resueltas por la enmienda de II.11. Q-04 se fija en .3 según D-M16c-02, no con un número inventado ni una aprobación implícita. Las hipótesis anteriores tienen verificación y salida explícitas. Si aparece una contradicción nueva, registrar M16c-Q-NN con evidencia y opciones, detener el corte y no editar la ruta sin aprobación.
 
