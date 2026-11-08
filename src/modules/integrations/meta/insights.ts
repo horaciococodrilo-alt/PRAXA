@@ -664,6 +664,32 @@ Promise<z.output<Schema>[]> {
   return parsed.data;
 }
 
+/**
+ * Una RPC devuelve como mucho el máximo de filas de la Data API, sin error ni aviso. Se pide hasta
+ * agotar el total que informa la base, con el orden estable de cada función. Una lectura que no
+ * llega a ese total falla: nunca se muestra recortada como si estuviera completa (CA-46). La cota
+ * cubre `maxEntities` por 28 días de Q-04.
+ */
+const READ_PAGE_SIZE = 1000;
+const MAX_READ_ROWS = 20_000;
+
+async function rpcAllRows<Schema extends z.ZodType>(fn: string, args: Record<string, unknown>, schema: Schema, deps: ReadDeps):
+Promise<z.output<Schema>[]> {
+  const supabase = deps.supabase ?? (await createSupabaseServerClient());
+  const rows: z.output<Schema>[] = [];
+  let total: number | null = null;
+  for (;;) {
+    const { data, error, count } = await supabase.rpc(fn, args, { count: 'exact' }).range(rows.length, rows.length + READ_PAGE_SIZE - 1);
+    if (error || count === null || count > MAX_READ_ROWS || (total !== null && count !== total)) throw new MetaSyncReadError();
+    const parsed = z.array(schema).safeParse(data);
+    if (!parsed.success) throw new MetaSyncReadError();
+    total = count;
+    rows.push(...parsed.data);
+    if (rows.length === total) return rows;
+    if (parsed.data.length === 0 || rows.length > total) throw new MetaSyncReadError();
+  }
+}
+
 /** Null cuando la conexión no es visible o no está active ni needs_reauth. */
 export async function readMetaSyncStatus(connectionId: string, deps: ReadDeps = {}): Promise<MetaSyncStatus | null> {
   const rows = await rpcRows('get_meta_sync_status', { p_connection_id: connectionId }, syncStatusSchema, deps);
@@ -674,12 +700,12 @@ export function readMetaDailyCoverage(
   input: { connectionId: string; level: SyncLevel; from: string; to: string; entityRef?: string },
   deps: ReadDeps = {},
 ): Promise<MetaCoverageRow[]> {
-  return rpcRows('get_meta_daily_coverage', { p_connection_id: input.connectionId, p_level: input.level, p_from: input.from,
+  return rpcAllRows('get_meta_daily_coverage', { p_connection_id: input.connectionId, p_level: input.level, p_from: input.from,
     p_to: input.to, ...(input.entityRef ? { p_entity_ref: input.entityRef } : {}) }, coverageRowSchema, deps);
 }
 
 export function listCapturedEntities(connectionId: string, level: SyncLevel, deps: ReadDeps = {}): Promise<MetaCapturedEntity[]> {
-  return rpcRows('list_meta_entities', { p_connection_id: connectionId, p_level: level }, capturedEntitySchema, deps);
+  return rpcAllRows('list_meta_entities', { p_connection_id: connectionId, p_level: level }, capturedEntitySchema, deps);
 }
 
 export type MetaSyncView = {

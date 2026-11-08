@@ -140,6 +140,8 @@ export class MetadataStore {
   async loadEdge(kind: MetadataKind, reader: MetadataReader): Promise<void> {
     if (this.loaded.has(kind)) return;
     const seen = new Set<string>();
+    // Por lectura: releer en otro nivel un edge que falló a medias no es una repetición.
+    const read = new Set<string>();
     let after: string | undefined;
     for (;;) {
       if (reader.metadataPages() >= reader.maxPages) throw new LevelLimitError('page_limit');
@@ -150,8 +152,9 @@ export class MetadataStore {
       reader.pageReceived();
       const parsed = data.map((item) => parseRaw(kind, item, reader.accountId, at));
       assertNoDuplicates(parsed);
+      if (parsed.some((entity) => read.has(entity.external_id))) throw new InvalidMetaResponseError();
       reader.pageValidated();
-      for (const entity of parsed) this.put(kind, entity);
+      for (const entity of parsed) { read.add(entity.external_id); this.put(kind, entity); }
       if (next.done) break;
       if (reader.metadataPages() >= reader.maxPages) throw new LevelLimitError('page_limit');
       after = next.after;

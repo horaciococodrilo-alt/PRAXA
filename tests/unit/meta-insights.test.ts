@@ -10,9 +10,9 @@ import { SecretValue, sealCredential } from '@/modules/integrations/crypto/seal'
 import { WorkerApiError, type WorkerApi } from '@/modules/integrations/db/worker-api';
 import { createMetaHttpClient, META_HTTP_TIMEOUT_MS, type MetaFetch } from '@/modules/integrations/meta/client';
 import type { SyncLevel } from '@/modules/integrations/meta/entities';
-import { normalizeAccountId } from '@/modules/integrations/meta/entities';
-import { DECIMAL_PATTERN, DEFAULT_SYNC_LIMITS, extractMetaLevel, loadMetaSyncView, localSyncWindow, META_SYNC_MESSAGES,
-  META_SYNC_RESULTS, outcomeForWriteError, parseInsightRow, parseMetaSyncResult, pickSyncResult, syncMetaInsights, syncNotice,
+import { MetadataStore, normalizeAccountId } from '@/modules/integrations/meta/entities';
+import { DECIMAL_PATTERN, DEFAULT_SYNC_LIMITS, extractMetaLevel, listCapturedEntities, loadMetaSyncView, localSyncWindow, META_SYNC_MESSAGES,
+  META_SYNC_RESULTS, MetaSyncReadError, outcomeForWriteError, parseInsightRow, parseMetaSyncResult, pickSyncResult, syncMetaInsights, syncNotice,
   type ExtractDeps, type LevelExtraction, type SyncDeps } from '@/modules/integrations/meta/insights';
 import type { IntegrationConnectionRecord } from '@/modules/integrations/contract';
 import type { SyncLimits } from '@/modules/integrations/repository/sync-calls';
@@ -269,6 +269,25 @@ describe('M16c-T-12 y T-17: metadata, jerarquía y cuatro niveles', () => {
     const result = await extract(level, meta(routes));
     expect(result.complete).toBe(false);
     expect(result.reason).not.toBe('complete');
+  });
+
+  it.each([['idéntica', 'Primera'], ['distinta', 'Segunda']])('metadata %s repetida entre páginas deja el nivel incompleto', async (_label, name) => {
+    const graph = meta({ [`${ROOT}/campaigns`]: (_url, call) => call === 0
+      ? json({ data: [{ id: '10', name: 'Primera' }], paging: { next: 'x', cursors: { after: 'c1' } } })
+      : json({ data: [{ id: '10', name }] }) });
+    expect(await extract('campaign', graph)).toMatchObject({ complete: false, reason: 'invalid_response', errorClass: 'own_error' });
+  });
+
+  it('releer en otro nivel un edge que falló a medias no cuenta como repetición', async () => {
+    const adset = (id: string) => ({ id, campaign_id: '10', name: 'C' });
+    const graph = meta({ [`${ROOT}/campaigns`]: () => json({ data: [{ id: '10', name: 'N' }] }),
+      [`${ROOT}/adsets`]: (_url, call) => {
+        if (call === 0 || call === 2) return json({ data: [adset('20')], paging: { next: 'x', cursors: { after: `c${call}` } } });
+        return call === 1 ? json({ data: [{ id: 7 }] }) : json({ data: [adset('21')] });
+      } });
+    const metadata = new MetadataStore();
+    expect(await extract('account', graph, { metadata })).toMatchObject({ complete: false, reason: 'invalid_response' });
+    expect(await extract('campaign', graph, { metadata })).toMatchObject({ complete: true, reason: 'complete' });
   });
 
   it('una respuesta vacía completa sin inventar entidades', async () => {
@@ -750,11 +769,11 @@ describe('M16c-T-27: vista de lectura por JWT', () => {
 
   function supabase(status: unknown = { has_attempt: true, summary, effective_status: 'completed', connection_changed: false }) {
     const calls: Array<{ fn: string; args: Record<string, unknown> }> = [];
-    return { calls, client: { rpc: async (fn: string, args: Record<string, unknown>) => {
+    return { calls, client: { rpc: (fn: string, args: Record<string, unknown>) => {
       calls.push({ fn, args });
-      if (fn === 'get_meta_sync_status') return { data: [status], error: null };
-      if (fn === 'list_meta_entities') return { data: args.p_level === 'campaign' ? [entity] : [], error: null };
-      return { data: [], error: null };
+      const data = fn === 'get_meta_sync_status' ? [status] : fn === 'list_meta_entities' && args.p_level === 'campaign' ? [entity] : [];
+      return { range: async () => ({ data, error: null, count: data.length }),
+        then: (done: (value: unknown) => unknown) => Promise.resolve({ data, error: null }).then(done) };
     } } as never };
   }
 
@@ -784,6 +803,55 @@ describe('M16c-T-27: vista de lectura por JWT', () => {
     for (const nivel of ['otro', ['campaign', 'ad'], undefined]) {
       expect(await load(supabase(), { nivel })).toMatchObject({ level: 'account', entityRef: null });
     }
+  });
+
+  describe('lectura hasta agotar el total (CA-46)', () => {
+    /** La Data API corta cada petición en `serverMax` filas sin error e informa el total aparte. */
+    function paged(total: number, serverMax: number, over: (call: number) => Record<string, unknown> = () => ({})) {
+      const all = Array.from({ length: total }, (_, i) => ({ ...entity, entity_ref: `11111111-1111-4111-8111-${String(i).padStart(12, '0')}` }));
+      const ranges: Array<[number, number]> = [];
+      const client = { rpc: (_fn: string, _args: unknown, options?: { count?: string }) => ({ range: async (from: number, to: number) => {
+        const call = ranges.length;
+        ranges.push([from, to]);
+        return { data: all.slice(from, Math.min(to + 1, from + serverMax)), error: null, count: options?.count === 'exact' ? total : null, ...over(call) };
+      } }) } as never;
+      return { ranges, client };
+    }
+    const list = (fake: ReturnType<typeof paged>) => listCapturedEntities('ffffffff-0000-4000-8000-000000000001', 'campaign', { supabase: fake.client });
+
+    it('recorre todas las páginas, sin repetir ni perder filas', async () => {
+      const fake = paged(2500, 1000);
+      const rows = await list(fake);
+      expect(rows).toHaveLength(2500);
+      expect(new Set(rows.map((item) => item.entity_ref)).size).toBe(2500);
+      expect(fake.ranges.map(([from]) => from)).toEqual([0, 1000, 2000]);
+    });
+
+    it('un corte del servidor menor que el pedido no se confunde con el final', async () => {
+      expect(await list(paged(250, 100))).toHaveLength(250);
+    });
+
+    it('sin filas hace una sola petición', async () => {
+      const fake = paged(0, 1000);
+      expect(await list(fake)).toEqual([]);
+      expect(fake.ranges).toHaveLength(1);
+    });
+
+    it.each([
+      ['el total cambia entre páginas', paged(1500, 1000, (call) => (call === 1 ? { count: 1600 } : {}))],
+      ['una página viene vacía antes del total', paged(1500, 1000, (call) => (call === 1 ? { data: [] } : {}))],
+      ['falla una página posterior', paged(1500, 1000, (call) => (call === 1 ? { data: null, error: { message: 'x' } } : {}))],
+      ['no informa el total', paged(10, 1000, () => ({ count: null }))],
+      ['una fila es inválida', paged(10, 1000, () => ({ data: [{ entity_ref: 'x' }] }))],
+    ])('nunca devuelve una lectura incompleta: %s', async (_label, fake) => {
+      await expect(list(fake)).rejects.toBeInstanceOf(MetaSyncReadError);
+    });
+
+    it('un total por encima de la cota falla sin recorrer las páginas', async () => {
+      const fake = paged(20_001, 1000);
+      await expect(list(fake)).rejects.toBeInstanceOf(MetaSyncReadError);
+      expect(fake.ranges).toHaveLength(1);
+    });
   });
 
   it('sin intento no consulta cobertura', async () => {

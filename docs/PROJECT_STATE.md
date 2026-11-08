@@ -25,7 +25,7 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 
 ## Siguiente habilitada
 
-**M16c — VERIFICADO — PENDIENTE DE APROBACIÓN (2026-11-08): sincronización real completa en los cuatro niveles, con 0 filas (D-M16c-02), sobre `8e9e33f`. Faltan el commit del seguimiento, `/implementation-review M16c`, `/qa-review M16c` y la decisión del usuario sobre `G-SYNC`.** Spec y plan únicos aprobados, con hashes coincidentes con las últimas auditorías APROBABLE. Dependencia `G-VR01` aprobada (2026-11-05). Rama `mf/M16c`. Controles de base en verde; bloqueo de conectividad resuelto. Evidencia: [sesiones/M16c.md](FASES/FASE1/meta_first/sesiones/M16c.md). La conexión del dueño
+**M16c — BLOQUEADO (2026-11-08): correcciones de `implementation-review-1` hechas y suites en verde (`H-E1-198` a `H-E1-200`); falta que el usuario haga el commit y publique, sin `db:push`, y repetir la sincronización real. `G-SYNC` sin aprobar.** Spec y plan únicos aprobados, con hashes coincidentes con las últimas auditorías APROBABLE. Dependencia `G-VR01` aprobada (2026-11-05). Rama `mf/M16c`. Controles de base en verde; bloqueo de conectividad resuelto. Evidencia: [sesiones/M16c.md](FASES/FASE1/meta_first/sesiones/M16c.md). La conexión del dueño
 quedó activa; la cuenta no tiene actividad reciente, así que la validación de los campos de
 Insights y la fijación de Q-04 se hacen en `M16c` (ver [HALLAZGOS.md](HALLAZGOS.md)).
 
