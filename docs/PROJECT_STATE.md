@@ -25,7 +25,7 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 
 ## Siguiente habilitada
 
-**M16c — BLOQUEADO (2026-11-08), paso 7 de la etapa .1: `0016` aplicada al desechable y suites en verde; compatibilidad del SHA base acreditada; falta el commit de etapa del usuario.** Spec y plan únicos aprobados, con hashes coincidentes con las últimas auditorías APROBABLE. Dependencia `G-VR01` aprobada (2026-11-05). Rama `mf/M16c`. Controles de base en verde; bloqueo de conectividad resuelto. Evidencia: [sesiones/M16c.md](FASES/FASE1/meta_first/sesiones/M16c.md). La conexión del dueño
+**M16c — BLOQUEADO (2026-11-08), paso 12 de la etapa .2: control de etapa en verde; falta el commit del usuario. Control de la etapa .1 cerrado en `86c8a3b`.** Spec y plan únicos aprobados, con hashes coincidentes con las últimas auditorías APROBABLE. Dependencia `G-VR01` aprobada (2026-11-05). Rama `mf/M16c`. Controles de base en verde; bloqueo de conectividad resuelto. Evidencia: [sesiones/M16c.md](FASES/FASE1/meta_first/sesiones/M16c.md). La conexión del dueño
 quedó activa; la cuenta no tiene actividad reciente, así que la validación de los campos de
 Insights y la fijación de Q-04 se hacen en `M16c` (ver [HALLAZGOS.md](HALLAZGOS.md)).
 
