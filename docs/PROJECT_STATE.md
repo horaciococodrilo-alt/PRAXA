@@ -25,7 +25,7 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 
 ## Siguiente habilitada
 
-**M16c — BLOQUEADO (2026-11-08), paso 18 de la etapa .3: `0016` aplicada en `app`; falta integrar en `main` y hacer push, acciones del usuario. Commits de etapa `86c8a3b`, `35dc7ff` y `58f4cfb`.** Spec y plan únicos aprobados, con hashes coincidentes con las últimas auditorías APROBABLE. Dependencia `G-VR01` aprobada (2026-11-05). Rama `mf/M16c`. Controles de base en verde; bloqueo de conectividad resuelto. Evidencia: [sesiones/M16c.md](FASES/FASE1/meta_first/sesiones/M16c.md). La conexión del dueño
+**M16c — BLOQUEADO (2026-11-08): correcciones de `implementation-review-1` hechas y suites en verde (`H-E1-198` a `H-E1-200`); falta que el usuario haga el commit y publique, sin `db:push`, y repetir la sincronización real. `G-SYNC` sin aprobar.** Spec y plan únicos aprobados, con hashes coincidentes con las últimas auditorías APROBABLE. Dependencia `G-VR01` aprobada (2026-11-05). Rama `mf/M16c`. Controles de base en verde; bloqueo de conectividad resuelto. Evidencia: [sesiones/M16c.md](FASES/FASE1/meta_first/sesiones/M16c.md). La conexión del dueño
 quedó activa; la cuenta no tiene actividad reciente, así que la validación de los campos de
 Insights y la fijación de Q-04 se hacen en `M16c` (ver [HALLAZGOS.md](HALLAZGOS.md)).
 

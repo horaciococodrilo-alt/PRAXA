@@ -1,4 +1,4 @@
-import { randomBytes, randomInt, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -24,6 +24,7 @@ type Route = (url: URL) => Response | Promise<Response>;
 type Owner = { user: TestUser; ctx: TenantContext; connectionId: string; account: string };
 
 describe('M16c: sincronización con base desechable y Meta simulada', () => {
+  let attempts: typeof import('@/modules/integrations/repository/attempts');
   let insights: typeof import('@/modules/integrations/meta/insights');
   let client: typeof import('@/modules/integrations/meta/client');
   let connections: typeof import('@/modules/integrations/repository/connections');
@@ -39,8 +40,8 @@ describe('M16c: sincronización con base desechable y Meta simulada', () => {
     const blocked = blockedReason();
     if (blocked) throw new Error(blocked);
     if (!(await remoteProjectReachable())) throw new Error('El proyecto de pruebas no responde.');
-    [insights, client, connections, credentials, lifecycleCalls, syncCalls, keyrings] = await Promise.all([
-      import('@/modules/integrations/meta/insights'), import('@/modules/integrations/meta/client'),
+    [attempts, insights, client, connections, credentials, lifecycleCalls, syncCalls, keyrings] = await Promise.all([
+      import('@/modules/integrations/repository/attempts'), import('@/modules/integrations/meta/insights'), import('@/modules/integrations/meta/client'),
       import('@/modules/integrations/repository/connections'), import('@/modules/integrations/repository/credentials'),
       import('@/modules/integrations/repository/lifecycle-calls'), import('@/modules/integrations/repository/sync-calls'),
       import('@/modules/integrations/crypto/keyring'),
@@ -257,6 +258,48 @@ describe('M16c: sincronización con base desechable y Meta simulada', () => {
     expect(graph.seen.filter((entry) => entry.startsWith('insights'))).toHaveLength(1);
     expect(await read(owner)).toBeNull();
     expect(await lifecycleCalls.purgeConnection(owner.ctx, owner.connectionId, { workerApi: worker! })).toBe(false);
+  });
+
+  // H-E1-198: el corte de la Data API se ejercita de verdad, con más filas que su máximo.
+  it('M16c-T-02 la cobertura se lee entera aunque supere el máximo de filas de la Data API', async () => {
+    const owner = await active('volumen');
+    const campaigns = Array.from({ length: 40 }, (_, i) => ({ id: String(1000 + i), name: `Campaña ${i}` }));
+    const graph = meta(owner, { campaigns: () => json({ data: campaigns }) });
+    const limits = { ...LIMITS, lookbackDays: 28, maxWindowDays: 28 };
+    expect((await insights.syncMetaInsights(deps(owner, graph, { limits }))).result).toBe('completa');
+    const days = await coverage(owner, 'campaign', daysAgo(27), today());
+    expect(days).toHaveLength(40 * 28);
+    expect(new Set(days.map((day) => `${day.day}:${day.entity_ref}`)).size).toBe(40 * 28);
+    expect(days.at(-1)?.day).toBe(today());
+  }, 120_000);
+
+  // H-E1-200: el mismo reemplazo que hace `completeReauth`, con el rol real, mientras una llamada está en vuelo.
+  it.each([['adsets', 0], ['insights', 1]] as const)('M16c-T-23 reemplazo real de la credencial durante %s: sin llamadas nuevas ni publicación', async (edge, insightCalls) => {
+    const owner = await active(`reemplazo-${edge}`);
+    const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
+    const state = randomBytes(32).toString('base64url');
+    const nonce = randomBytes(32).toString('base64url');
+    await attempts.createOAuthAttempt(owner.ctx, { purpose: 'reauth', stateHash: sha256(state), bindingHash: sha256(nonce), returnPath: '/app/integraciones',
+      expiresAt: new Date(Date.now() + 5 * 60_000), expectedConnectionId: owner.connectionId }, { workerApi: worker! });
+    const consumed = await attempts.consumeOAuthAttempt(owner.ctx, { stateHash: sha256(state), bindingHash: sha256(nonce) }, { workerApi: worker! });
+    const keyring = keyrings.getCredentialKeyring();
+    const graph = meta(owner, { [edge]: async () => {
+      await credentials.replaceCredential(owner.ctx, { token: 'token-sint-nuevo', tokenType: 'system_user', issuedForAppId: 'app_sintetica',
+        grantedScopes: ['ads_read'], expiresAt: null, connectionId: owner.connectionId, attemptId: consumed.attemptId }, { workerApi: worker!, keyring });
+      return json({ data: [] });
+    } });
+
+    expect((await insights.syncMetaInsights(deps(owner, graph))).result).toBe('conexion_cambio');
+    expect(graph.seen.filter((entry) => entry.startsWith('insights'))).toHaveLength(insightCalls);
+    expect(graph.seen.at(-1)?.startsWith(edge)).toBe(true);
+
+    expect(await read(owner)).toMatchObject({ status: 'active', credential_generation: 1 });
+    const current = await credentials.readCredential(owner.ctx, owner.connectionId, { workerApi: worker!, keyring });
+    expect(current.token.reveal()).toBe('token-sint-nuevo');
+    const changed = await status(owner);
+    expect(changed).toMatchObject({ effective_status: 'connection_changed', connection_changed: true });
+    expect(changed?.summary?.levels.account.status).toBe('pending');
+    expect((await coverage(owner, 'account')).filter((day) => day.presence === 'con_datos')).toEqual([]);
   });
 
   it('M16c-T-23 desconexión en vuelo sin purga y reautorización: la escritura tardía se rechaza', async () => {
