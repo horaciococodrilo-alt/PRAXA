@@ -17,11 +17,13 @@ El usuario eligió cada opción en el chat del 2026-11-08, al resolver las pregu
 | D-M25a-14 | Autorizar `app-paginas-sesion.test.tsx` |
 | D-M25a-15 | Pie según el caso, el 2026-11-09 |
 | D-M25a-16 | Mismo aviso en la tarjeta de Inicio, el 2026-11-09 |
+| D-M25a-19 | Sumar acciones con atribución desconocida con advertencia, también en desgloses, el 2026-11-09. El asistente recomendaba no sumar |
+| D-M25a-20 | Sin empresa, el chat no funciona: se puede escribir y no pasa nada, el 2026-11-09 |
 
 ## Cambios realizados
 
 - `meta_first/plan.md`: línea de enmienda en el encabezado.
-- `meta_first/spec.md`: CA-38c, CA-50, CA-51, CA-52, CA-62 y CA-69.
+- `meta_first/spec.md`: CA-38c, CA-50, CA-51, CA-52, CA-62, CA-69 y la regla de suma de §11.
 
 ## Lo que no cambia
 
