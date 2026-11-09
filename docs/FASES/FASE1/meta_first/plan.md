@@ -17,6 +17,10 @@
 
 **Enmienda del chat (`H-E1-190`), aprobada por el usuario el 2026-11-08** ([propuesta](revisiones/propuesta-enmienda-chat-visual-1.md)): `M25a.1`, `M25a.2` y los cálculos y bloques visuales son una sola microfase, `M25a`, en tres etapas y sin el límite de 8 horas. `G-CHAT-BASE` y `G-VR02` pasan a ser controles de etapa; el gate único es `G-CHAT`. Migración única `0018` y pgTAP `15`. Afecta a I.2, I.3, I.4, I.5, II.11 a II.14, III.2, III.3 y a la spec de la ruta (DEC-24).
 
+**Enmienda correctiva H-E1-211, aprobada por el usuario el 2026-11-09** ([propuesta](../M25a/revisiones/propuesta-enmienda-0019.md)): después de aplicar `0018` al desechable, una prueba nueva reprodujo un defecto de `chat_ranking`: `composition.partial` puede perder la parcialidad de una entidad anterior. Por decisión del usuario, M25a.1 incorpora `0019_chat_ranking_composition.sql`, que reemplaza únicamente `public.chat_ranking` con la misma firma y grants. `0018` no se edita. Esta excepción sustituye «migración única `0018`» solo para M25a; no autoriza otra migración. La prueba roja contra `0018` y el ensayo de `0019` con rollback preceden al `db:push:test` de `0019` por el usuario. Tras aplicarla, se repiten `test:policies`, `test:app` y el control de etapa. En `app`, el usuario aplica `0018` y `0019`, en ese orden, antes de integrar el código en `main`.
+
+**Aprobación excepcional de H-E1-211 por el usuario (2026-11-09):** el usuario aprobó directamente la spec y el plan enmendados, sin `spec-audit-15` ni `plan-audit-3`. Es una excepción única al pipeline porque `0019` reemplaza solo `public.chat_ranking`; no modifica las auditorías de las otras etapas, no sienta precedente y no autoriza `0020`. **Hashes de contenido aprobados**, calculados con `git hash-object --stdin` sin la línea `**Estado:**` y con los finales de línea del árbol de trabajo: spec M25a `290f5e264be8c963e915bd540bc2814a028f392b`; plan M25a `a27ed3f4c5b6761b8db2056a6ad0879d0e61185a`. Los hashes previos y esta decisión constan en [sesión M25a](sesiones/M25a.md) y `docs/HALLAZGOS.md`.
+
 **Enmienda de la spec de M25a, aprobada por el usuario el 2026-11-08** ([sesión](sesiones/enmienda-spec-m25a-2026-11-08.md); D-M25a-01 a D-M25a-04, D-M25a-10, D-M25a-12, D-M25a-14 a D-M25a-16, D-M25a-19 y D-M25a-20 en `M25a/spec.md`): II.12, II.13 y II.13b autorizan además los archivos marcados con D-M25a-01, D-M25a-10, D-M25a-14 y D-M25a-16 en sus «Archivos previstos». CA-38c admite la excepción de `connection_not_active`, CA-62 suma `needs_clarification` y sus excepciones, CA-69 las refleja, CA-50 define `span` por fragmento citado, y CA-51 y CA-52 precisan qué se muestra cuando no hay datos ni cuenta. La etapa `.3` reemplaza los ceros de ejemplo de «Uso y costos» y de la tarjeta de Inicio por un aviso; medir el consumo real sigue fuera. §11 admite sumar acciones con atribución desconocida, con advertencia fija y sin cambiar la extracción, y CA-62 suma como excepción el mensaje de un usuario sin empresa.
 **Enmienda de la revocación en `SECURITY.md` (`H-E1-183`), aprobada por el usuario el 2026-11-05:** el paso 9c de II.10 incluye, además de los controles que pasan a vigentes, la corrección de un control que VR-01 mostró no disponible: la revocación en Meta del token del system user. Autoriza la fila «Filtración de las variables del runtime» de §4 de `SECURITY.md`. No cambia el orden de la ruta ni otros archivos. El texto enmendado es vigente.
 **Base:** spec `meta_first` v1.0 (decisiones DEC-01 a DEC-21), revisión del repositorio en `main@247cae8`, la sesión de revisión en la que se tomaron esas decisiones y las correcciones T01 a T16 de la revisión externa. En la versión aprobada no quedaban decisiones abiertas. Q-04 es un parámetro que se fija en `M16c` (spec, Q-04).
@@ -343,9 +347,9 @@ Las tres etapas se ejecutan en orden, en una sola corrida de `/microfase M16c` e
 | **Pruebas** | Unitarias, adversarias, `test:policies`, `test:app` y transcripciones reproducibles sintéticas. |
 | **Condición para avanzar** | `G-CHAT`. |
 | **Dependencias / habilita** | `G-SYNC` / `M28.3a` |
-| **Intervención requerida del usuario** | Crear la cuenta de DeepInfra y cargar la clave. Aprobar de nuevo el acta y comunicar el cambio al dueño antes de que el modelo reciba datos reales. Aplicar `0018` al desechable y a `app`, publicar y aprobar el gate. |
+| **Intervención requerida del usuario** | Crear la cuenta de DeepInfra y cargar la clave. Aprobar de nuevo el acta y comunicar el cambio al dueño antes de que el modelo reciba datos reales. Aplicar `0018` y luego `0019` al desechable y a `app`, publicar y aprobar el gate. |
 
-**Etapas obligatorias de M25a.** Rigen las reglas de corrida única de M16c: no se pasa de etapa con pruebas en rojo, cada etapa termina con un commit del usuario, la corrida se puede reanudar desde el último control registrado, y las revisiones cubren la microfase completa al final. `0018` llega a `app` antes de que el código llegue a `main`.
+**Etapas obligatorias de M25a.** Rigen las reglas de corrida única de M16c: no se pasa de etapa con pruebas en rojo, cada etapa termina con un commit del usuario, la corrida se puede reanudar desde el último control registrado, y las revisiones cubren la microfase completa al final. `0018` y luego `0019` llegan a `app` antes de que el código llegue a `main`.
 
 | Etapa | Contenido | Control al terminar |
 |---|---|---|
@@ -721,8 +725,10 @@ El catálogo y la semántica exactos viven en §11 de la spec (DEC-22); no se du
 | 8 | Pruebas de herramientas: período con días sin cobertura, totales parciales, captura parcial, días de distintas extracciones con rango de `fetched_at`, empresa ajena, período mayor al máximo llamado directo por la API, registro que llega después de una desconexión | `tests/unit/chat-tools.test.ts`, `tests/app/chat-tools.test.ts` | CA-38c, CA-51, CA-51b, CA-54 y CA-70 |
 | 9 | Seis cálculos en SQL según CA-48: comparar períodos, promedio diario, ranking, costo por resultado, participación y variación porcentual. Valores como texto; denominador cero o datos ausentes dan resultado no calculable | `supabase/migrations/0018_chat_queries.sql`, `src/modules/chat/tools/` | CA-48, CA-44b y CA-51b |
 | 10 | Herramienta de desgloses sobre `get_meta_breakdown`, con las reglas de DEC-23: sin cruzar edad o género con lugar, y sin reconciliar con los totales | `src/modules/chat/tools/` | CA-48 y CA-49 |
+| 11 | Corrección H-E1-211 tras aplicar `0018`: probar en pgTAP que una campaña parcial con mayor valor seguida de una completa mantiene `composition.partial=true` en el resultado. Reemplazar solo `public.chat_ranking` en `0019`, con firma y grants iguales; ensayar `0019` con rollback y medir el peor caso con `include_trend=false` y `true`, conservando valores y tendencias | `supabase/tests/15_chat_queries.test.sql`, `supabase/migrations/0019_chat_ranking_composition.sql`, `tests/app/chat-tools.test.ts` | Rojo contra `0018`; ensayo pgTAP y paridad verdes con rollback; 93 días × 500 anuncios bajo timeout del rol |
+| 12 | **Usuario:** aplicar `0019` al desechable con `npm run db:push:test` después de la guarda. El asistente comprueba historial y repite políticas, Data API y control completo antes del commit de .1 | Sin otro cambio SQL | `0018` y `0019` en historial; `test:policies`, `test:app` y `verify` verdes |
 
-**Control de etapa:** `npm run verify`, `npm run db:check:test`, `npm run test:policies` y `npm run test:app`, con `0018` aplicada al desechable por el usuario.
+**Control de etapa:** `npm run verify`, `npm run db:check:test`, `npm run test:policies` y `npm run test:app`, con `0018` y `0019` aplicadas en orden al desechable por el usuario.
 
 **Trampa conocida.** El texto de la pregunta nunca va a `console.log`. Los logs de ejecución de Vercel lo guardarían fuera del alcance de DEC-09 (CA-63).
 
@@ -767,7 +773,7 @@ El catálogo y la semántica exactos viven en §11 de la spec (DEC-22); no se du
 | 4 | Casos dudosos e historia acumulada | `src/modules/chat/orchestrator.ts`, `src/modules/chat/render.ts` | CA-72 y CA-73 |
 | 5 | Evaluación ampliada: congelar el conjunto con cálculos, desgloses, bloques y casos dudosos, y correrlo con los criterios de DEC-21 | `docs/FASES/FASE1/meta_first/vr-02.md` | VR-02 |
 
-**Cierre:** control completo, `/implementation-review` y `/qa-review` de la microfase, `db:push` de `0018` en `app` por el usuario, publicación, recorrido manual y `G-CHAT`.
+**Cierre:** control completo, `/implementation-review` y `/qa-review` de la microfase, `db:push` de `0018` y `0019` en orden en `app` por el usuario, publicación, recorrido manual y `G-CHAT`.
 
 ---
 
@@ -850,7 +856,7 @@ El detalle y los criterios de aceptación están en la spec v1.0.
 | `M16.2` | Antes del alta, correr el preflight local (`node --env-file=.env.local scripts/meta-preflight.mjs`) y copiar a la sesión la línea que imprime. Después del despliegue, la verificación VD-01: con la cuenta sintética, pulsar "Conectar" y comprobar en Network `Origin` coincidente y `303` hacia Meta, sin conceder acceso. Abrir el registro, acompañar el alta del dueño y su empresa, cerrar el registro. Coordinar la autorización y la confirmación de la cuenta |
 | `M16c`, etapa .3 | Comunicar el acta ampliada al dueño antes de la primera captura ampliada; coordinar sincronización real y publicación reservada |
 | `M25a.2` | Crear la cuenta de DeepInfra y cargar `DEEPINFRA_API_KEY` |
-| `M25a.3` | Aprobar de nuevo el acta y comunicar el cambio al dueño; `db:push` de `0018` en `app`, publicar y aprobar `G-CHAT` |
+| `M25a.3` | Aprobar de nuevo el acta y comunicar el cambio al dueño; `db:push` de `0018` y `0019` en orden en `app`, publicar y aprobar `G-CHAT` |
 | `M28.3a` | Coordinar la demostración. Pasar a Supabase Pro si el dueño lo va a usar sin acompañamiento |
 | Fin del piloto | Ejecutar los pasos de CA-67 que requieren dashboard y quitar al dueño como tester |
 | Para escalar (fuera de la ruta) | `M16d`: Business Verification, dominio y App Review |

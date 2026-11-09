@@ -2,7 +2,7 @@
 
 **Estado:** APROBADA
 
-Estados posibles: `BORRADOR` → `APROBADA`. Solo el usuario pasa una spec a `APROBADA`, y solo después de una auditoría APROBABLE.
+Estados posibles: `BORRADOR` → `APROBADA`. Solo el usuario pasa una spec a `APROBADA`; la regla general exige antes una auditoría APROBABLE. Para la enmienda H-E1-211, el usuario aprobó expresamente una excepción única sin nueva auditoría.
 **Hash de contenido.** Se calcula sin la línea de estado:
 
 ```bash
@@ -10,6 +10,8 @@ grep -v '^\*\*Estado:\*\*' docs/FASES/FASE1/M25a/spec.md | git hash-object --std
 ```
 
 M25a es una microfase única en tres etapas (`M25a.1`, `M25a.2` y `M25a.3`), con esta spec, un plan y una corrida de `/microfase M25a` en la rama `mf/M25a`. No hay specs ni planes por etapa. Aprobar esta spec no inicia M25a.
+
+**Enmienda H-E1-211:** el usuario aprobó el 2026-11-09 el alcance documental de `0019` ([propuesta](revisiones/propuesta-enmienda-0019.md)) y aprobó expresamente esta spec enmendada sin `spec-audit-15`. La excepción se limita a esta enmienda mínima: `0019` reemplaza solo `public.chat_ranking`; no altera las auditorías de otras etapas ni autoriza `0020`. La auditoría 14 y su hash corresponden a la versión previa.
 
 ## Fuentes
 
@@ -30,6 +32,7 @@ Que el dueño pregunte en lenguaje natural y reciba respuestas con cálculos y b
 **Etapa `M25a.1` (II.12).**
 
 1. Migración `0018`: `chat_query_records`, `private.chat_turn_leases`, `worker_api.begin_chat_turn`, `end_chat_turn`, `record_query` y `set_feedback`, reemplazo de `purge_connection`, lecturas SQL con el límite de período y seis cálculos.
+   La corrección H-E1-211 usa `0019` solo para reemplazar `public.chat_ranking`, sin editar `0018`.
 2. pgTAP `15` y extensión de `10_demo_closure`.
 3. Función única de redacción y sus pruebas.
 4. Catálogo cerrado de herramientas, ejecución con el JWT y bajo RLS, tipos de resultado y herramienta de desgloses.
@@ -46,7 +49,7 @@ Que el dueño pregunte en lenguaje natural y reciba respuestas con cálculos y b
 9. Antes de que el modelo reciba datos reales: actualizar acta, `SECURITY.md` y `ARCHITECTURE.md`.
 10. Los 19 bloques, con teléfono y lector de pantalla; casos dudosos e historia acumulada.
 11. Medición de CA-70 con varios bloques y evaluación ampliada.
-12. Cierre: revisiones, `0018` en `app` por el usuario, publicación, recorrido manual y `G-CHAT`.
+12. Cierre: revisiones, `0018` y `0019` en orden en `app` por el usuario, publicación, recorrido manual y `G-CHAT`.
 
 ## Fuera de alcance
 
@@ -126,7 +129,9 @@ Los nombres y rutas que siguen son **previstos**: los crea esta microfase. Las r
 
 Encabezado con la matriz de privilegios, como `0016:6-22`. Sin editar migraciones aplicadas (CB-03).
 
-**Una sola oportunidad.** `db-push` no reaplica una versión registrada (`scripts/db-push.mjs:9-12`). Si se editara `0018` después de aplicarla, el desechable seguiría con la versión vieja y las suites darían un resultado falso. Por eso, **antes de pedir `db:push:test`**, `0018` y pgTAP `15` se ensayan dentro de una transacción con rollback contra el desechable, con las mismas guardas de destino, como en M16c. En esa misma transacción se mide el peor caso de `chat_ranking` (`M25a-H-07`): fixture sintético de 93 días y 500 entidades, con `analyze`, bajo `authenticated` y con su `statement_timeout`, fijado con `set local` porque `set role` no lo aplica. `M25a-T-28` no entra en el ensayo: `test:app` usa la Data API, otra conexión que no ve lo que no se confirmó. Corre después del push. El ensayo no reemplaza a `test:policies`. Un defecto de SQL que aparezca después de ese push **frena la corrida**: no se edita `0018` y no se crea `0019`, que no está autorizada. Se le propone una salida al usuario.
+**Una sola oportunidad por migración.** `db-push` no reaplica una versión registrada (`scripts/db-push.mjs:9-12`). Si se editara `0018` después de aplicarla, el desechable seguiría con la versión vieja y las suites darían un resultado falso. Por eso, **antes de pedir el primer `db:push:test`**, `0018` y pgTAP `15` se ensayan dentro de una transacción con rollback contra el desechable, con las mismas guardas de destino, como en M16c. En esa misma transacción se mide el peor caso de `chat_ranking` (`M25a-H-07`): fixture sintético de 93 días y 500 entidades, con `analyze`, bajo `authenticated` y con su `statement_timeout`, fijado con `set local` porque `set role` no lo aplica. `M25a-T-28` no entra en el ensayo: `test:app` usa la Data API, otra conexión que no ve lo que no se confirmó. Corre después del push. El ensayo no reemplaza a `test:policies`.
+
+El defecto H-E1-211, descubierto después de aplicar `0018` al desechable, se corrige exclusivamente en `0019_chat_ranking_composition.sql`, autorizado por decisión del usuario y por la enmienda de la ruta. `0018` no se modifica. Antes de aplicar `0019`, pgTAP debe fallar contra `0018` y pasar en una transacción que aplique `0019` y termine con rollback; se miden ambas opciones de tendencia. Después del `db:push:test` del usuario, se repiten historial, `test:policies`, `test:app` y el control completo. Cualquier otro defecto SQL posterior vuelve a detener la corrida y requiere nueva decisión; no se crea `0020` automáticamente.
 
 **`public.chat_query_records`**
 
@@ -287,7 +292,7 @@ Reglas comunes:
 
 **Atribución de los desgloses.** `0017` no guarda atribución por fila, así que su `attribution_ref` es siempre `unknown`. No se hereda la de otra cobertura ni se editan `0016` o `0017`. Por la regla de arriba, `action_count` y `action_value` de un desglose se suman y siempre llevan la advertencia (D-M25a-19). Gasto, impresiones y clics no llevan atribución ni advertencia.
 
-**Rendimiento.** `meta_daily_coverage` guarda JSONB por día, así que `chat_ranking` en nivel `ad` con 93 días recorre mucho. Se mide en el ensayo de §2 y se confirma por la Data API con `M25a-T-28` (`M25a-H-07`).
+**Rendimiento.** `meta_daily_coverage` guarda JSONB por día, así que `chat_ranking` en nivel `ad` con 93 días recorre mucho. Se miden `include_trend=false` y `true` en el ensayo de §2 y se confirman por la Data API con `M25a-T-28` (`M25a-H-07`). `0019` calcula las tendencias por conjunto conservando valores y series, además de corregir `composition.partial`.
 
 ### 4. Herramientas en TypeScript (etapa .1)
 
@@ -637,7 +642,7 @@ Un `breakdown` toma los días más cercanos de su propio `extra`. En los demás 
    6. Al terminar el proceso, o con `--clean <identificador>` si se cortó antes, borra solo la cuenta que lleva ese identificador. Lo demás cae por cascada.
 
    Cubre los 19 bloques, teléfono, teclado y los dos temas. El modelo es el real, con datos sintéticos.
-2. **Real.** Con `0018` y la publicación hechas por el usuario: una pregunta en la aplicación sobre la cuenta conectada. Con 0 filas no valida valores ni tipos (DEC-24, `H-E1-189`).
+2. **Real.** Con `0018` y `0019` aplicadas en orden y la publicación hecha por el usuario: una pregunta en la aplicación sobre la cuenta conectada. Con 0 filas no valida valores ni tipos (DEC-24, `H-E1-189`).
 
 ### 13. CA-70: medición y ajuste (etapas .2 y .3)
 
@@ -664,6 +669,7 @@ La ruta pide medir si las llamadas y los tokens alcanzan para varios bloques, y 
 | Archivo | Nuevo o modificado | Para qué | Autorizado por |
 |---|---|---|---|
 | `supabase/migrations/0018_chat_queries.sql` | Nuevo | Tablas, `worker_api`, purga, lecturas y cálculos | II.12 pasos 1, 6 y 9; I.5 |
+| `supabase/migrations/0019_chat_ranking_composition.sql` | Nuevo | Reemplazo exclusivo de `public.chat_ranking`: composición acumulada y tendencia por conjunto | Enmienda H-E1-211 de la ruta, II.12 paso 11 |
 | `supabase/tests/15_chat_queries.test.sql` | Nuevo | Privilegios, aislamiento, CA-38c, límites y cálculos | II.12 paso 2 |
 | `supabase/tests/10_demo_closure.test.sql` | Modificado | Cierre con registros y arriendos | II.12 paso 2 (texto de la acción) |
 | `src/modules/chat/redaction.ts`; `tests/unit/chat-redaction.test.ts` | Nuevos | CA-66 | II.12 pasos 3 y 4 |
@@ -807,7 +813,7 @@ La ruta pide medir si las llamadas y los tokens alcanzan para varios bloques, y 
 | M25a-C-73 | Las proporciones de `share_of_total` suman exactamente 10000, `dona` no acepta un `ranking`, y `barras_apiladas` solo apila series compatibles, alineadas por día | CA-71, CA-44b |
 | M25a-C-74 | Después de `clarify`, «la segunda» llega a la herramienta correcta en la secuencia completa | CA-72; D-M25a-13 |
 | M25a-C-75 | `app-paginas-sesion.test.tsx` sigue verificando la sesión de todas las páginas, con `chat/page.tsx` incluida | CB-01; D-M25a-14 |
-| M25a-C-76 | `0018` y pgTAP `15` se ensayan con rollback antes de `db:push:test`, con la medición del peor caso de `chat_ranking`; un defecto de SQL posterior frena la corrida, sin editar `0018` ni crear `0019` | CB-03, III.9 |
+| M25a-C-76 | `0018` y pgTAP `15` se ensayaron con rollback antes del primer `db:push:test`. La excepción H-E1-211 exige rojo contra `0018`, ensayo de `0019` con rollback, medición del peor caso con y sin tendencia, aplicación de `0019` por el usuario y repetición de las suites. `0018` no se edita; otro defecto SQL posterior frena la corrida, sin crear `0020` automáticamente | CB-03, III.9; enmienda H-E1-211 |
 | M25a-C-77 | El recorrido sintético no arranca si alguna URL de prueba es de otro proyecto, y ni el arriendo ni el registro llegan a `app`. Etiqueta lo que crea y borra solo eso | CB-04, `SECURITY.md` §11 |
 | M25a-C-78 | Una llamada válida del esquema plano llega a cada una de las trece herramientas; una clave ajena no nula o una obligatoria nula dan `tool_error` | CA-48 |
 | M25a-C-79 | `answered_partial_coverage` depende solo de los valores citados o usados por la respuesta mostrada, con la composición de su fila cuando la tiene | CA-51b, CA-62 |
@@ -849,8 +855,8 @@ Comandos de `package.json`. `test:eval` es **previsto** (D-M25a-01). En Windows,
 | M25a-T-24 | C-22 | pgTAP | `npm run test:policies` | Total de cuenta distinto de la suma de campañas: gana `account` | Sí, TDD |
 | M25a-T-25 | C-23 | pgTAP | `npm run test:policies` | Tasas sobre bases, días incompletos excluidos; denominador cero `not_calculable`; alcance y frecuencia `not_supported` | Sí, TDD |
 | M25a-T-26 | C-24 | pgTAP | `npm run test:policies` | Otra variante no suma; dos atribuciones conocidas distintas dan `not_calculable`, en una suma y en una comparación; días `unknown`, y uno conocido con uno `unknown`, se suman con `attribution_ref = 'unknown'`. Dos conjuntos con las mismas ventanas dan la misma referencia, y uno con otras ventanas la cambia. Un conjunto con `[clic 7, vista 1]` y dos conjuntos con una ventana cada uno dan referencias distintas | Sí, TDD |
-| M25a-T-27 | C-25 | pgTAP | `npm run test:policies` | Seis cálculos: valor exacto, cero, ausente y parcial. Promedio de un conteo con decimales. `difference` es `b - a`. Dos períodos: `composition_a` y `composition_b` exactas, `composition` con la suma y fechas nulas. `chat_ranking`: `list_count` y `excluded_count` exactos; por acciones, entidades con ventanas iguales sin `attribution_mixed`, con ventanas distintas con `attribution_mixed`, y una entidad incompatible en `excluded_count`. `chat_share`: `metric = share`, `base_metric`, una tasa con `metric_not_additive`, y la parte conocida con el padre `unknown` da `unknown`. Sintéticos: 10 de gasto por día durante 7 días con una compra el primero da 70 de costo por resultado, y una campaña con 10 en 1 de 7 días, con la cuenta en 10 por día, da 14,285714 de participación; los dos, parciales. Composición de `chat_ranking` y `chat_action_types` en días, con entidades de días distintos. Dos campañas con filas en días disjuntos y cobertura completa: `days_with_value` cuenta los dos días, cada fila es parcial y el resultado también, sin ceros; lo mismo con dos tipos de acción | Sí, TDD |
-| M25a-T-28 | C-25 | app | `npm run test:app -- tests/app/chat-tools.test.ts` | Ranking con el peor caso sintético termina bajo el `statement_timeout`; desempate estable | Sí, TDD |
+| M25a-T-27 | C-25 | pgTAP | `npm run test:policies` | Seis cálculos: valor exacto, cero, ausente y parcial. Promedio de un conteo con decimales. `difference` es `b - a`. Dos períodos: `composition_a` y `composition_b` exactas, `composition` con la suma y fechas nulas. `chat_ranking`: `list_count` y `excluded_count` exactos; por acciones, entidades con ventanas iguales sin `attribution_mixed`, con ventanas distintas con `attribution_mixed`, y una entidad incompatible en `excluded_count`. `chat_share`: `metric = share`, `base_metric`, una tasa con `metric_not_additive`, y la parte conocida con el padre `unknown` da `unknown`. Sintéticos: 10 de gasto por día durante 7 días con una compra el primero da 70 de costo por resultado, y una campaña con 10 en 1 de 7 días, con la cuenta en 10 por día, da 14,285714 de participación; los dos, parciales. Composición de `chat_ranking` y `chat_action_types` en días, con entidades de días distintos. Dos campañas con filas en días disjuntos y cobertura completa: `days_with_value` cuenta los dos días, cada fila es parcial y el resultado también, sin ceros; lo mismo con dos tipos de acción. H-E1-211: campaña A con valor mayor y 1/2 días va primero; B con 2/2 días va última; `composition.partial` del **resultado** sigue en `true`, aunque B sea completa | Sí, TDD |
+| M25a-T-28 | C-25 | app | `npm run test:app -- tests/app/chat-tools.test.ts` | Ranking con 93 días, 500 anuncios y 20 entidades termina bajo el `statement_timeout` tanto con `include_trend=false` como con `true`; la tendencia conserva los valores y el desempate es estable | Sí, TDD |
 | M25a-T-29 | C-26 | unit | `npm run test:unit -- tests/unit/chat-tools.test.ts` | Sin herramienta de ROAS; `cost_per_result` sin tipo se rechaza | Sí, TDD |
 | M25a-T-30 | C-27 | pgTAP | `npm run test:policies` | Dimensiones, segmentos desconocidos, `region` sin acciones, sin alcance y `estimated`. Cada segmento aditivo con su valor `share`. Acciones de uno y de varios días con `unknown`. Más de 20 segmentos de una tasa: sin `otros` y con `segments_total`. Referencia ajena o de otro nivel: `not_found`. Composición en días de la dimensión. Dos segmentos con días disjuntos: cada uno parcial y el resultado también; `otros` parcial si lo es uno de sus segmentos | Sí, TDD |
 | M25a-T-31 | C-28 | app | `npm run test:app -- tests/app/chat-tools.test.ts` | `authenticated` ejecuta por Data API; `select` del registro da `42501` | Sí, TDD |
@@ -884,7 +890,7 @@ Comandos de `package.json`. `test:eval` es **previsto** (D-M25a-01). En Windows,
 | M25a-T-59 | C-54, C-55 | unit | `npm run test:unit -- tests/unit/chat-orchestrator.test.ts` | Con salidas sintéticas del modelo: valores por defecto visibles; `clarify` y una lectura elegida por el modelo se respetan, sin reglas por frase; cambio de formato; abstención con oferta. `answer` sin herramientas y con `connection_status` pasan. Cuenta sin entidad: `not_found` y respuesta con `coverage` | Sí, TDD |
 | M25a-T-60 | C-56 | manual | Revisión de `sesiones/M25a.md` y `limits.ts` | Medición y valor final con motivo, antes de congelar el conjunto ampliado | No aplica: medición |
 | M25a-T-61 | C-57 | manual (evaluación) | `npm run test:eval` | Conjunto ampliado cumple DEC-21 con el bloque | Sí: sin implementación no corre |
-| M25a-T-62 | C-58 | manual | Con `0018` y publicación por el usuario: pregunta real en la aplicación | Con 0 filas, «sin filas reportadas» y sin ceros. Sin montos ni IDs en la evidencia | No aplica: recorrido real |
+| M25a-T-62 | C-58 | manual | Con `0018` y `0019` en orden y publicación por el usuario: pregunta real en la aplicación | Con 0 filas, «sin filas reportadas» y sin ceros. Sin montos ni IDs en la evidencia | No aplica: recorrido real |
 | M25a-T-63 | C-59 | manual | Revisión del diff contra el Contrato documental | Solo propiedades; ningún TTL, función ni conteo | No aplica: documental |
 | M25a-T-64 | CB-01, CB-02 (parcial: secretos) | unit | `npm run verify` y las suites de cada etapa | Exit 0, incluida `no-secrets-in-tree` | No: guarda de regresión |
 | M25a-T-65 | C-60 | pgTAP | `npm run test:policies` | `15_chat_queries`: cada estado y resultado escribe o no según la excepción, y una desconexión descarta | Sí: sin la excepción no escribe |
@@ -904,9 +910,9 @@ Comandos de `package.json`. `test:eval` es **previsto** (D-M25a-01). En Windows,
 | M25a-T-79 | C-73 | unit | `npm run test:unit -- tests/unit/chat-render.test.ts` | `share_of_total` suma 10000 con restos; con total cero, proporciones en 0 y ausencias en `null`; `dona` con `ranking` rechazado; `barras_apiladas` con referencias conocidas distintas rechazado y con `stack_ratios` en `relative_to_max`. Dos entidades del mismo nivel con iguales métrica y período se apilan, alineadas por día, y un día ausente en una no suma ni da cero. Otra métrica de la misma unidad, como `spend` con `action_value`, otro período, otro nivel, otro tipo de acción y una serie repetida: rechazado | Sí, TDD |
 | M25a-T-80 | C-74 | unit | `npm run test:unit -- tests/unit/chat-orchestrator.test.ts` | Transcripción sintética de dos turnos: `clarify`, «la segunda», herramienta con la métrica ofrecida. El segundo turno recibe la aclaración. Si ofrece entidades, recibe los nombres sin marcadores; con un nombre con dígitos se descarta, y el modelo vuelve a preguntar | Sí, TDD |
 | M25a-T-81 | C-75 | component | `npm run test:component -- tests/component/app-paginas-sesion.test.tsx` | Todas las páginas, con `chat/page.tsx`, siguen exigiendo sesión | Sí: sin la simulación no resuelve `server-only` |
-| M25a-T-82 | CB-03 | manual | `git diff --name-status <base> -- supabase/migrations/` | Solo `A` de `0018`; ninguna modificada | No aplica: control del diff |
+| M25a-T-82 | CB-03 | manual | `git status --short -- supabase/migrations/` antes del commit; `git diff --name-status <base> -- supabase/migrations/` después | Solo `A` de `0018_chat_queries.sql` y `A` de `0019_chat_ranking_composition.sql`; ninguna migración existente modificada | No aplica: control del diff |
 | M25a-T-83 | CB-02, CB-04, CB-05, CB-06 | manual | Revisión de `sesiones/M25a.md` y del diff | Sin montos reales ni identificadores completos en el diff, que `no-secrets-in-tree` no detecta; `db:check:test` antes de cada suite; resultados reales y redactados; ninguna suite requerida omitida | No aplica: evidencia |
-| M25a-T-84 | C-76 | manual | Revisión de `sesiones/M25a.md` | Ensayo con rollback registrado antes del `db:push:test`, con la medición del peor caso; `T-28`, después del push | No aplica: orden de la corrida |
+| M25a-T-84 | C-76 | manual | Revisión de `sesiones/M25a.md` | Ensayos con rollback de `0018` y `0019` registrados antes de cada `db:push:test`; rojo de H-E1-211 contra `0018`, medición del peor caso con y sin tendencia; `T-28` por Data API después de aplicar `0019` | No aplica: orden de la corrida |
 | M25a-T-85 | C-77 | manual | `node scripts/chat-seed-test.mjs --serve`, con una URL de otro proyecto | Aborta sin escribir ni arrancar `next dev`. En una corrida válida, `--clean` con su identificador borra esa cuenta y no toca otra | No aplica: se comprueba al crear el script |
 | M25a-T-86 | C-78 | unit | `npm run test:unit -- tests/unit/chat-tools.test.ts` | Trece llamadas válidas desde el esquema plano; `breakdown` en `account` con `entity_ref` nulo; clave ajena y obligatoria nula dan `tool_error` | Sí, TDD |
 | M25a-T-87 | C-79 | unit | `npm run test:unit -- tests/unit/chat-orchestrator.test.ts` | Resultado parcial citado da `answered_partial_coverage`; parcial no usado da `answered`. Bloque de ranking con dos entidades de días disjuntos y cobertura completa: `answered_partial_coverage`. Una fila completa citada por `/values/N`, con otra fila parcial sin usar: `answered` | Sí, TDD |
@@ -927,7 +933,7 @@ Control de cada etapa, contra el desechable y sin omitir suites requeridas (CB-0
 
 | Etapa | Comandos |
 |---|---|
-| `.1` | Ensayo con rollback; `npm run verify`, `npm run db:check:test`, `npm run test:policies`, `npm run test:app`, con `0018` aplicada al desechable por el usuario |
+| `.1` | Ensayos con rollback de `0018` y `0019`; `npm run verify`, `npm run db:check:test`, `npm run test:policies`, `npm run test:app`, con ambas migraciones aplicadas en orden al desechable por el usuario |
 | `.2` | Los mismos, `npm run test:unit -- tests/unit/chat-adversarial.test.ts` y VR-02 con `npm run test:eval` |
 | `.3` | Los mismos, evaluación ampliada con `npm run test:eval` y recorrido manual |
 
@@ -938,12 +944,12 @@ La ficha de M25a exige «los mismos» en `.2`, incluido `db:check:test`, aunque 
 | Paso | Qué hace el usuario | Cómo se verifica después |
 |---|---|---|
 | Antes de la etapa .1 | Crea `mf/M25a` si la skill no puede | `git status --short --branch` |
-| Etapa .1 | `npm run db:push:test` de `0018`, después de la guarda y del ensayo con rollback | `db:check:test` y `test:policies` en verde |
+| Etapa .1 | `npm run db:push:test` de `0018` y luego de `0019`, cada una después de la guarda y su ensayo con rollback | Historial de ambas; `db:check:test`, `test:policies` y `test:app` en verde |
 | Cierre de cada etapa | Commit de la etapa en `mf/M25a` | `git log`; árbol limpio |
 | Etapa .2 | Crea la cuenta de DeepInfra y carga `DEEPINFRA_API_KEY` en `.env.local` y, antes de publicar, en Vercel. Nunca en el chat. Recomendado: fijar un tope de gasto si DeepInfra lo ofrece (`M25a-H-08`) | Presencia por nombre, sin leer el valor; `test:eval` |
 | Etapa .3, paso 1 | Aprueba de nuevo el acta y comunica el cambio al dueño | Blob en `PROJECT_STATE.md`; declaración en la sesión |
 | Etapa .3, recorrido sintético | Entra con la cuenta sintética y recorre los 19 bloques en el navegador | Declaración en la sesión; capturas redactadas |
-| Cierre | `db:push` de `0018` en `app`, **antes** de que el código llegue a `main` | `db:preview` e historial; recorrido |
+| Cierre | `db:push` de `0018` y `0019` en orden en `app`, **antes** de que el código llegue a `main` | `db:preview` e historial; recorrido |
 | Cierre | Push, integración y despliegue | Despliegue `READY` |
 | Cierre | Hace la pregunta real del recorrido, con su sesión | Evidencia redactada |
 | Cierre | Aprueba `G-CHAT` con la frase de `docs/PIPELINE.md` | `PROJECT_STATE.md` |
@@ -970,7 +976,7 @@ El asistente no ejecuta `db:push`, `db:push:test` (denegados en `.claude/setting
 - **Nombres de entidad.** Son texto libre del anunciante: pueden traer instrucciones, dígitos y datos personales. No se ejecutan, viajan como datos y se minimizan. Una cifra en un nombre se muestra como dato del proveedor, en un segmento `entity`, nunca como afirmación del modelo (§8).
 - **Registro después de desconectar.** Un voto o una respuesta en vuelo no puede resucitar datos (CA-38c). Los registros con conexión nula sobreviven a una desconexión hasta CA-67: el acta ya lo declara (`:81`).
 - **Cifras en `question_redacted`.** Puede conservar montos que escribió el dueño (CA-62). Las preguntas de contexto que van al modelo no los llevan: viajan como `[CIFRA]`.
-- **Migración antes del código.** `0018` llega a `app` antes que el código a `main`. Al revés, la acción falla con `42883`.
+- **Migración antes del código.** `0018` y `0019` llegan en orden a `app` antes que el código a `main`. Al revés, la acción falla con `42883`.
 - **Grandes volúmenes.** Las RPC `chat_*` corren bajo el `statement_timeout` de `authenticated`, con JSONB por día.
 - **Costo.** No hay tope de gasto en la ruta. El turno está acotado por CA-70.
 - **`preguntas_sugeridas` y `conclusiones` son las únicas vías de texto de un bloque.** La primera no admite texto del modelo; la segunda pasa la guarda.
@@ -1014,7 +1020,7 @@ El asistente no ejecuta `db:push`, `db:push:test` (denegados en `.claude/setting
 | M25a-H-04 | La respuesta informa `model`. La ficha no lo dice | VR-02 lo exige. Si falta, `reported_model_id` queda nulo y se frena: CA-53b lo pide |
 | M25a-H-05 | La página de privacidad de DeepInfra dice ahora que no registra el contenido, solo metadatos, mientras que DEC-15 y el acta declaran que se reserva registrar porciones. También muestra «Zero retention». **El acta sigue declarando el riesgo mayor** y cita la fecha de consulta (D-M25a-11) | Resuelto por D-M25a-11; se escribe al reaprobar el acta |
 | M25a-H-06 | Precio informado el 2026-11-08: USD 0,14 de entrada y 0,42 de salida por millón, con promoción. Con un dueño y CA-70, el costo es marginal | `sesiones/M25a.md` registra el uso real de las evaluaciones |
-| M25a-H-07 | `chat_ranking` en nivel `ad` con 93 días y 500 entidades termina bajo el `statement_timeout` de `authenticated`. No se midió | Se mide en el ensayo con rollback, antes del push (§2). Si no alcanza ahí, se optimiza en `0018`. `M25a-T-28` lo confirma por la Data API después del push. Si falla ahí, o si tampoco alcanza después de optimizar, se frena y se propone una opción al usuario: no se reduce el alcance sin su decisión |
+| M25a-H-07 | `chat_ranking` en nivel `ad` con 93 días y 500 entidades termina bajo el `statement_timeout` de `authenticated`, con y sin tendencia | Ambas variantes se miden en el ensayo con rollback antes de aplicar `0019` (§2); `0019` optimiza la tendencia por conjunto. `M25a-T-28` las confirma por la Data API después del push. Si falla, se frena y se propone una opción al usuario: no se reduce el alcance sin su decisión |
 | M25a-H-08 | DeepInfra ofrece tope de gasto | El usuario lo comprueba al crear la cuenta |
 | M25a-H-09 | Los campos reales de Meta coinciden con los simulados (`H-E1-189`), y las variantes coinciden con su contrato (`H-E1-194`) | Primera sincronización con filas. Si difieren, hallazgo nuevo y repetir VR-02 |
 | M25a-H-10 | La variante agregada `value` es la correcta para resultados con atribución unificada | Igual que `M25a-H-09` |
