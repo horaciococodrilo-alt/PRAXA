@@ -125,7 +125,7 @@ Los nombres y rutas que siguen son **previstos**: los crea esta microfase. Las r
 
 Encabezado con la matriz de privilegios, como `0016:6-22`. Sin editar migraciones aplicadas (CB-03).
 
-**Una sola oportunidad.** `db-push` no reaplica una versión registrada (`scripts/db-push.mjs:9-12`). Si se editara `0018` después de aplicarla, el desechable seguiría con la versión vieja y las suites darían un resultado falso. Por eso, **antes de pedir `db:push:test`**, `0018` y pgTAP `15` se ensayan dentro de una transacción con rollback contra el desechable, con las mismas guardas de destino, como en M16c. El ensayo no reemplaza a `test:policies`. Un defecto de SQL que aparezca después de ese push **frena la corrida**: no se edita `0018` y no se crea `0019`, que no está autorizada. Se le propone una salida al usuario.
+**Una sola oportunidad.** `db-push` no reaplica una versión registrada (`scripts/db-push.mjs:9-12`). Si se editara `0018` después de aplicarla, el desechable seguiría con la versión vieja y las suites darían un resultado falso. Por eso, **antes de pedir `db:push:test`**, `0018` y pgTAP `15` se ensayan dentro de una transacción con rollback contra el desechable, con las mismas guardas de destino, como en M16c. En esa misma transacción se mide el peor caso de `chat_ranking` (`M25a-H-07`): fixture sintético de 93 días y 500 entidades, con `analyze`, bajo `authenticated` y con su `statement_timeout`, fijado con `set local` porque `set role` no lo aplica. `M25a-T-28` no entra en el ensayo: `test:app` usa la Data API, otra conexión que no ve lo que no se confirmó. Corre después del push. El ensayo no reemplaza a `test:policies`. Un defecto de SQL que aparezca después de ese push **frena la corrida**: no se edita `0018` y no se crea `0019`, que no está autorizada. Se le propone una salida al usuario.
 
 **`public.chat_query_records`**
 
@@ -190,15 +190,19 @@ Helpers en `private`, INVOKER y con `EXECUTE` para `authenticated`:
                 "entity_ref": "uuid o null", "entity_name": "... o null", "parent_ref": "uuid o null",
                 "segment_primary": "... o null", "segment_secondary": "... o null",
                 "value": "texto con signo o null", "absence": "no_informado|sin_fila_reportada|no_observado|no_calculable o null",
+                "presence": "con_datos|sin_fila_reportada|no_observado o null",
                 "temporal_status": "abierto|cerrado o null", "captured_partial": false, "fetched_at": "... o null",
                 "composition": "objeto como el de abajo, o null" } ],
   "composition": { "days_total": 0, "days_with_value": 0, "days_metric_missing": 0, "days_no_row": 0,
                    "days_not_observed": 0, "days_open": 0, "days_captured_partial": 0,
-                   "fetched_at_min": "... o null", "fetched_at_max": "... o null", "partial": false },
+                   "fetched_at_min": "... o null", "fetched_at_max": "... o null",
+                   "observed_from": "fecha o null", "observed_to": "fecha o null", "partial": false },
   "extra": {} }
 ```
 
 En cada elemento de `values`, exactamente uno de `value` y `absence` es no nulo. `reason` es nulo si `status` es `ok`.
+
+**Presencia.** Un valor de un solo día (`day` no nulo) lleva `presence`, con la misma semántica de `0016:1893-1895`: `con_datos` con `absence = no_informado` es una fila sin esa métrica. Un agregado lleva `presence` nulo, porque puede mezclar días distintos, y el detalle está en `composition`.
 
 - **Por resultado, no por valor:** `level` (en `scope`) y `account_ref`, la cuenta enmascarada con `maskExternalAccountId`, que agrega el servidor. La guarda compara el claim contra esos dos.
 - **Un período o dos.** Las funciones de dos períodos llevan `scope.period` nulo y `period_a` y `period_b`. En `values`, `a` y `b` llevan su `period`; `difference` y `change` llevan `period` nulo y los dos. Un claim declara `period`, o `period_a` y `period_b`, y tiene que coincidir con el valor citado.
@@ -210,20 +214,21 @@ En cada elemento de `values`, exactamente uno de `value` y `absence` es no nulo.
 | `chat_compare_periods` | `a`, `b` y `difference`, esta última con signo y con `period_a` y `period_b` | `relation` (`a_greater`, `b_greater`, `equal`), `period_lengths_differ` |
 | `chat_percent_change` | `change`, con signo, unidad `percent`, `period_a` y `period_b` | `period_lengths_differ` |
 | `chat_ranking` | Uno por entidad, con `parent_ref` y `composition` propia, y uno `list_count` | `excluded_no_data` y, si se pide, `trends`: `{ entity_ref: [{ day, value, absence }] }` |
-| `chat_breakdown` | Uno por segmento, con su participación en `extra`, y uno `list_count` con el total de segmentos | `segments_total`, `estimated: true`, `shares` (`{ path_key, share }`, con `share` como texto) y `last_result` (`{ result, reason, attempted_at }`) |
+| `chat_breakdown` | Uno por segmento, uno `share` por segmento en aditivas, con unidad `percent` y el mismo `segment_primary` y `segment_secondary`, y uno `list_count` con el total de segmentos | `segments_total`, `estimated: true`, `nearest_before`, `nearest_after` y `last_result` (`{ result, reason, attempted_at }`) |
 | `chat_action_types` | Dos por tipo: `action_count` y `action_value`, con su `attribution_ref` | — |
-| `chat_coverage` | Vacío: la respuesta es la composición | `history_from` |
+| `chat_coverage` | Vacío: la respuesta es la composición | `history_from`, `history_to`, `nearest_before` y `nearest_after` |
 | `entities` (arma TypeScript) | Uno `list_count`, con el total de entidades | `entities`: `[{ entity_ref, level, parent_ref, name, effective_status, objective }]`, `total`, `truncated` |
 | `connection_status` (arma TypeScript) | Vacío | `connection_status`, `effective_sync_status`, `last_finished_at`. Sin cuenta completa ni credenciales |
 
 Ejemplos sintéticos, resumidos a los campos que distinguen a cada uno:
 
 ```json
-{ "path_key": "day", "metric": "spend", "unit": "money", "day": "2026-10-01", "value": "12.50", "absence": null }
-{ "path_key": "day", "metric": "spend", "unit": "money", "day": "2026-10-02", "value": null, "absence": "sin_fila_reportada" }
+{ "path_key": "day", "metric": "spend", "unit": "money", "day": "2026-10-01", "value": "12.50", "absence": null, "presence": "con_datos" }
+{ "path_key": "day", "metric": "spend", "unit": "money", "day": "2026-10-02", "value": null, "absence": "sin_fila_reportada", "presence": "sin_fila_reportada" }
 { "path_key": "entity", "metric": "clicks", "unit": "count", "entity_name": "Campaña sintética", "value": "40", "absence": null }
 { "path_key": "change", "metric": "spend", "unit": "percent", "value": "-12.500000", "absence": null }
 { "path_key": "segment", "metric": "spend", "unit": "money", "segment_primary": "25-34", "segment_secondary": "female", "value": "7.25", "absence": null }
+{ "path_key": "segment_share", "metric": "share", "unit": "percent", "segment_primary": "25-34", "segment_secondary": "female", "value": "40.000000", "absence": null }
 ```
 
 **Unidad y redondeo por métrica.** Es lo que aplica la guarda de CA-50 punto 3.
@@ -242,7 +247,7 @@ Ejemplos sintéticos, resumidos a los campos que distinguen a cada uno:
 Reglas comunes:
 
 - **Ausencia nunca es cero.** `sin_fila_reportada`, `no_observado` y `no_informado` no entran a sumas ni a promedios.
-- `partial` es verdadero si hay algún día sin valor de la métrica, sin fila, no observado, abierto o con captura parcial (CA-51b). `fetched_at_min` y `fetched_at_max` dan el rango (CA-51).
+- `partial` es verdadero si hay algún día sin valor de la métrica, sin fila, no observado, abierto o con captura parcial (CA-51b). `fetched_at_min` y `fetched_at_max` dan el rango (CA-51). `observed_from` y `observed_to` son el primer y el último día del período con cobertura. Un día observado sin filas cuenta como cubierto: se sincronizó.
 - **Tasas de período.** Se calculan solo con días donde numerador y denominador están informados, sumando bases: CTR `100 * clicks / impressions`, CPC `spend / clicks`, CPM `1000 * spend / impressions`. Los días excluidos cuentan en `days_metric_missing`. Sin días o denominador cero: `not_calculable`. Nunca se promedian tasas diarias.
 - **Precisión.** `numeric` sin convertir a float. Las divisiones salen con `round(x, 6)`, redondeo half away from zero. Sumas exactas. `decimal.ts` redondea igual: «half-up» significa sobre el valor absoluto, así que `-0,125` da `-0,13`.
 - **Alcance y frecuencia.** Solo en la serie diaria. En totales, promedios, cálculos y rankings dan `not_supported`.
@@ -253,7 +258,7 @@ Reglas comunes:
 | Función | Parámetros (además de `p_connection_id`) | Salida |
 |---|---|---|
 | `chat_action_types` | `p_entity_ref, p_from, p_to` | Tipos presentes, con conteo y valor del período por tipo y su `attribution_ref` |
-| `chat_coverage` | `p_level, p_from, p_to` | Composición del nivel, días por estado y `history_from`: primera fecha con cobertura de ese nivel (CA-73) |
+| `chat_coverage` | `p_level, p_from, p_to` | Composición del nivel, días por estado, `history_from` y `history_to`: primera y última fecha con cobertura de ese nivel (CA-73), y `nearest_before` y `nearest_after`: el día con cobertura más cercano antes y después del período (D-M25a-17) |
 | `chat_daily_series` | `p_entity_ref, p_metric, p_from, p_to, p_action_type` | Un valor por día, con ausencia explícita. Admite las nueve medidas de §11, `action_count` y `action_value` |
 | `chat_total` | `p_entity_ref, p_metric, p_from, p_to, p_action_type` | Total aditivo o tasa recalculada |
 | `chat_daily_average` | Iguales | Total dividido por `days_with_value`. Solo aditivas |
@@ -268,7 +273,7 @@ Reglas comunes:
 
 **Atribución de los desgloses.** `0017` no guarda atribución por fila, así que su `attribution_ref` es siempre `unknown`. No se hereda la de otra cobertura ni se editan `0016` o `0017`. Por la regla de arriba, `action_count` y `action_value` de un desglose solo se pueden dar **de un día**: con más de un día dan `not_calculable` por `attribution_incompatible`. Gasto, impresiones y clics no tienen esa restricción. Ampliarlo exigiría cambiar la extracción, y eso es otra decisión.
 
-**Rendimiento.** `meta_daily_coverage` guarda JSONB por día, así que `chat_ranking` en nivel `ad` con 93 días recorre mucho. Se mide en `test:app` con el peor caso sintético (`M25a-H-07`).
+**Rendimiento.** `meta_daily_coverage` guarda JSONB por día, así que `chat_ranking` en nivel `ad` con 93 días recorre mucho. Se mide en el ensayo de §2 y se confirma por la Data API con `M25a-T-28` (`M25a-H-07`).
 
 ### 4. Herramientas en TypeScript (etapa .1)
 
@@ -307,7 +312,7 @@ Reglas comunes:
 
 `src/modules/chat/tools/results.ts`: esquemas Zod estrictos de la forma común. El servidor agrega a cada resultado `tool_call_id` (`t1`, `t2`, ...), `account_ref` y `path` (`/values/N`) en cada valor. Todo valor presente es cadena validada con `signedDecimalText` (`^-?[0-9]+([.][0-9]+)?$`), propio de este archivo: el `decimalText` de `insights.ts` es local, admite `null` y no admite negativos, y una caída daría `tool_error`. **Ningún módulo del chat convierte una métrica a `number`**. `knownOr` se aplica como patrón (`value` o `absence`), con motivos propios, porque `unknownReasonSchema` describe otra cosa. `calculatedMetricEvidenceSchema` no se usa (CA-44b).
 
-`toModelView(result)` arma lo que ve el modelo. Conserva `tool_call_id`, `path`, métrica, unidad, moneda, valor o ausencia, período y atribución. Conserva también `level`, `entity_ref`, `action_type`, `account_ref`, `period_a`, `period_b`, `extra` salvo `last_result`, y los conteos de `composition`, que `coverage_count` obliga a citar. Quita `fetched_at`, `fetched_at_min`, `fetched_at_max`, `temporal_status` y `captured_partial`, que usa el pie. Junto a cada nombre de entidad agrega un alias sin dígitos, que es lo único con lo que el modelo puede mencionarla en el texto (§8). Los nombres de entidad viajan dentro de un campo de datos, nunca en las instrucciones.
+`toModelView(result)` arma lo que ve el modelo. Conserva `tool_call_id`, `path`, métrica, unidad, moneda, valor o ausencia, período y atribución. Conserva también `level`, `entity_ref`, `action_type`, `account_ref`, `period_a`, `period_b`, `extra` salvo `last_result`, `nearest_before` y `nearest_after`, y los conteos de `composition`, que `coverage_count` obliga a citar. Quita `fetched_at`, `fetched_at_min`, `fetched_at_max`, `observed_from`, `observed_to`, `presence`, `temporal_status` y `captured_partial`, que usan el pie y la presentación. Junto a cada nombre de entidad agrega un alias sin dígitos, que es lo único con lo que el modelo puede mencionarla en el texto (§8). Los nombres de entidad viajan dentro de un campo de datos, nunca en las instrucciones.
 
 **Mapeo de nombres.** §11 solo admite nombres de negocio con mapeo explícito y probado. `src/modules/chat/tools/action-labels.ts` mapea por igualdad exacta `purchase`, `lead`, `link_click` y `landing_page_view`, y muestra también el identificador. Los demás se muestran con su identificador. Nunca fusiona tipos. Con `H-E1-189` abierto, estos nombres no están validados con filas reales.
 
@@ -355,7 +360,7 @@ export const CHAT_LIMITS = { maxPeriodDays: 93, maxToolCallsPerTurn: 4, maxOutpu
 2. `begin_chat_turn`. `PX011`: aviso de consulta en curso (§11). Otro error: fallo de registro (§11), sin llamar al modelo.
 3. Lee la conexión con `readConnectionRecord`. Sin conexión `active`, no llama al modelo: `not_answered` con `connection_not_active`.
 4. Paso de elección, en bucle: el modelo devuelve `call_tools`, `answer`, `clarify` o `abstain`. El bucle hace falta porque `daily_series` necesita una referencia que `entities` da recién en la llamada anterior. Cada respuesta puede pedir varias llamadas, sin pasar el tope del turno. Si llega al tope, solo admite `answer`, `clarify` o `abstain`.
-5. El servidor ejecuta cada llamada con Zod. Un argumento inválido o una herramienta inexistente: `tool_error`, nunca se ejecuta. Si todos los resultados son `no_observado`: `no_coverage`, sin redactar respuesta.
+5. El servidor ejecuta cada llamada con Zod. Un argumento inválido o una herramienta inexistente: `tool_error`, nunca se ejecuta. Si todos los resultados son `no_observado`: `no_coverage`, sin redactar respuesta, con el texto fijo de §11.
 6. Paso de redacción: el modelo devuelve `text`, `claims` y `blocks` con los resultados del turno.
 7. La guarda valida. La presentación arma el DTO, que todavía no se devuelve.
 8. Registra. Se agotó el trabajo durante el modelo: `model_unavailable`; durante una herramienta: `tool_error`. En ambos casos se registra dentro de la reserva.
@@ -369,7 +374,7 @@ Si el registro agota la reserva, se trata como fallo de registro. Como `p_record
 
 ### 8. Salida y guarda (etapas .2 y .3)
 
-`src/modules/chat/output-schema.ts`. Respuesta: `text` (hasta 1500 caracteres), `claims`, `blocks`. Cada claim lleva `span`, `kind`, `tool_call_id`, `path`, `metric`, `unit`, `currency`, `account_ref`, `level`, `entity_ref`, `action_type`, `attribution_ref` y `period`. `span` es `{ quote, occurrence }` (D-M25a-04): el fragmento citado y su número de aparición en `text`. El servidor obtiene la posición exacta y rechaza si no aparece; con esa posición comprueba que cada candidato quede cubierto.
+`src/modules/chat/output-schema.ts`. Respuesta: `text` (hasta 1500 caracteres), `claims`, `blocks`. Cada claim lleva `span`, `kind`, `tool_call_id`, `path`, `metric`, `unit`, `currency`, `account_ref`, `level`, `entity_ref`, `action_type`, `attribution_ref` y `period`, o `period_a` y `period_b` en un valor de dos períodos (§3). `span` es `{ quote, occurrence }` (D-M25a-04): el fragmento citado y su número de aparición en `text`. El servidor obtiene la posición exacta y rechaza si no aparece; con esa posición comprueba que cada candidato quede cubierto.
 
 Campos según `kind`:
 
@@ -381,7 +386,16 @@ Campos según `kind`:
 | `qualitative_comparison` | `left_tool_call_id`, `left_path`, `right_tool_call_id`, `right_path` y `relation` (`greater`, `less`, `equal`) |
 | `user_provided` | Sin referencia |
 
-`blocks` es una lista de hasta `maxBlocksPerAnswer` objetos `{ type, sources: [{ tool_call_id, path_prefix }], options }`. Solo `barras` tiene `options`: `{ ordering: value_desc | value_asc | source }`. En los demás va vacío. Nunca contiene valores, títulos ni texto. Como en la elección, el esquema de redacción es plano, sin uniones (`M25a-H-02`): todos los campos de `kind` y de bloque están presentes, en nulo los que no aplican, y Zod por `kind` y por `type` valida después. `conclusiones` es la excepción: `items: [{ text, claims, provenance }]`, donde cada `span` se resuelve dentro del `text` de su ítem. `preguntas_sugeridas` usa `ids`, de un catálogo cerrado con texto fijo en `render.ts`: `ver_por_conjunto`, `comparar_periodo_anterior`, `ver_en_tabla`, `ver_por_edad_y_genero`, `ver_por_pais` y `ver_estado_de_los_datos`.
+`blocks` es una lista de hasta `maxBlocksPerAnswer` objetos `{ type, sources: [{ tool_call_id, path_prefix }], options }`. Solo `barras` tiene `options`: `{ ordering: value_desc | value_asc | source }`. En los demás va nulo. Nunca contiene valores, títulos ni texto. Como en la elección, el esquema de redacción es plano, sin uniones (`M25a-H-02`): todos los campos de `kind` y de bloque están presentes, en nulo los que no aplican, y Zod por `kind` y por `type` valida después. `conclusiones` es la excepción: `items: [{ text, claims, provenance }]`, donde cada `span` se resuelve dentro del `text` de su ítem. `preguntas_sugeridas` usa `ids`, de un catálogo cerrado con texto fijo en `render.ts`: `ver_por_conjunto`, `comparar_periodo_anterior`, `ver_en_tabla`, `ver_por_edad_y_genero`, `ver_por_pais` y `ver_estado_de_los_datos`.
+
+**Del esquema plano a cada variante.** `projectOutput(flat)`, en `output-schema.ts`, corre antes de la guarda y traduce cada claim según `kind` y cada bloque según `type`, en este orden:
+
+1. Una clave no nula que esa variante no usa: `guard_rejected`.
+2. Se conservan solo las claves de esa variante.
+3. Una obligatoria nula: `guard_rejected`. Pueden ser nulos `currency`, `entity_ref`, `action_type` y `attribution_ref` cuando no corresponden. `period` puede ser nulo solo junto con `period_a` y `period_b`, y al revés.
+4. Zod estricto por variante.
+
+En un bloque, `sources` es obligatorio salvo en `conclusiones` y `preguntas_sugeridas`, `items` es solo de `conclusiones` e `ids` solo de `preguntas_sugeridas`.
 
 `src/modules/chat/numeric-candidates.ts`: `findNumericCandidates(text)`, con posición y categoría, para las cinco familias de CA-50 punto 1. **Artículos.** `un`, `una`, `uno` y `primer`/`primera` son candidatos **por defecto**, porque «Hubo un clic» es una cifra. Solo dejan de serlo delante de un sustantivo de una lista cerrada que no se cuenta como métrica (`campaña`, `anuncio`, `conjunto`, `cuenta`, `período`, `gráfico`, `tabla`, `respuesta`), y nunca después de `solo`, `solamente` o `exactamente`. La lista se ajusta con casos sintéticos, nunca relajando la validación de valores (riesgo 13 de III.5).
 
@@ -392,7 +406,7 @@ Campos según `kind`:
 `src/modules/chat/guard.ts`: `validateAnswer(answer, turnResults, redactedQuestion)`, pura.
 
 - CA-50 puntos 1 a 7, en orden, sin atajos.
-- `observed_value`: `path` resuelve a un valor presente del turno, y todos los campos declarados coinciden. Una ausencia no se puede citar como cifra.
+- `observed_value`: `path` resuelve a un valor presente del turno, y todos los campos declarados coinciden. Una ausencia no se puede citar como cifra. En `difference` y `change`, `period` es nulo y `period_a` y `period_b` tienen que ser iguales a los del valor; en los demás, `period_a` y `period_b` son nulos.
 - **Normalización.** `src/modules/chat/decimal.ts`, con `BigInt`, sin `number`. Acepta es-AR, cifra sin separador de miles y signo negativo. La tabla de unidad y redondeo de §3 dice qué se acepta por métrica. Sin abreviaturas.
 - **Porcentaje:** solo CTR, participación y variación devueltos por una herramienta, con `unit = percent`.
 - `period_bound`: la fecha es el límite indicado del período del resultado citado. `coverage_count`: coincide con el campo indicado de `composition`.
@@ -404,15 +418,16 @@ Campos según `kind`:
 
 ### 9. Presentación y bloques (etapas .2 y .3)
 
-`src/modules/chat/render.ts`: `renderTurn(...)` devuelve `ChatTurnView`, un DTO estricto, con `kind` (`answer`, `clarification`, `abstention` o `notice`), `record_id` (`uuid` o `null`), `can_vote`, `blocks` y texto en segmentos: `plain`, `observed`, `entity` y `user_provided`, este último con la marca «según lo que mencionaste» (CA-50 punto 6). `can_vote` y `record_id` van juntos: solo un registro confirmado se puede votar, y un `record_id` no persistido nunca llega al navegador. Cada componente de bloque recibe como prop solo su parte del DTO. El servidor agrega el pie según el caso (CA-51, CA-52, D-M25a-15):
+`src/modules/chat/render.ts`: `renderTurn(...)` devuelve `ChatTurnView`, un DTO estricto, con `kind` (`answer`, `clarification`, `abstention` o `notice`), `record_id` (`uuid` o `null`), `can_vote`, `blocks` y texto en segmentos: `plain`, `observed`, `entity`, `label` y `user_provided`, este último con la marca «según lo que mencionaste» (CA-50 punto 6). `can_vote` y `record_id` van juntos: solo un registro confirmado se puede votar, y un `record_id` no persistido nunca llega al navegador. Cada componente de bloque recibe como prop solo su parte del DTO. El servidor agrega el pie según el caso (CA-51, CA-52, D-M25a-15):
 
 | Caso | Pie |
 |---|---|
-| `answer` | Completo: período, zona, composición de cobertura, rango de `fetched_at` y cuenta enmascarada |
-| `abstention` por `no_coverage` | Cuenta enmascarada, período y zona, porque el período existe |
-| `clarification` y otras `abstention`, con cuenta conectada (también en `needs_reauth`) | Solo la cuenta enmascarada |
+| `answer` | Completo: período, zona, composición de cobertura, rango de `fetched_at`, cuenta enmascarada y, si faltan días en las puntas del período, hasta dónde hay datos (§10) |
+| `clarification` y `abstention`, con cuenta conectada (también en `needs_reauth`) | Solo la cuenta enmascarada. Una abstención `no_coverage` nombra el período en su texto fijo (§11) |
 | Sin conexión o en `pending_selection` | Sin pie de datos: el texto fijo «Todavía no hay una cuenta conectada» |
-| Mensajes fijos sin registro y `notice` | Sin pie | Los totales parciales muestran la composición (CA-51b). `action_values` y resultados nunca se presentan como rentabilidad.
+| Mensajes fijos sin registro y `notice` | Sin pie |
+
+Los totales parciales muestran la composición (CA-51b). `action_values` y resultados nunca se presentan como rentabilidad.
 
 `src/components/chat/`: un componente por bloque, recibe solo datos del DTO. **El modelo elige tipo y referencias; no manda valores, títulos ni código.** Títulos y rótulos los arma el servidor.
 
@@ -433,7 +448,7 @@ Campos según `kind`:
 | `embudo` | .3 | `total` de un mismo `entity_ref` y período | Avisa que los pasos son conteos separados; un solo `action_type`; sin tasas de paso inventadas |
 | `calendario_calor` | .3 | `daily_series` | Día ausente con estilo propio, distinto del valor más bajo |
 | `desglose_tipo_resultado` | .3 | `action_types` con período | Identificador visible; sin fusionar tipos; no suma atribuciones distintas |
-| `estado_datos` | .3 | `coverage`, `connection_status` | Incluye `history_from` |
+| `estado_datos` | .3 | `coverage`, `connection_status` | Incluye `history_from` y `history_to` |
 | `conclusiones` | .3 | Ítems de texto con sus claims, misma guarda | Sin causas. Procedencia por ítem (`system_fact`, `calculated_metric`, `inference`); `inference` se rotula «Interpretación» (CA-55) |
 | `fuentes_metodologia` | .3 | Resultados del turno | Texto fijo con fórmulas de §11, herramientas y frescura. Sin referencias internas |
 | `preguntas_sugeridas` | .3 | Plantillas cerradas del servidor, elegidas por ID | El modelo no escribe el texto, así que no hay cifras que validar. Un clic copia al cuadro, como hoy (`chat.tsx:147-150`) |
@@ -446,7 +461,7 @@ type ChatTurnView = { kind: 'answer' | 'clarification' | 'abstention' | 'notice'
   retry_allowed: boolean; link_to_integrations: boolean };
 type Segment = { type: 'plain' | 'observed' | 'entity' | 'label' | 'user_provided'; text: string };
 type Footer = { account: string | null; period: string | null; defaulted: boolean; timezone: string | null;
-  coverage: string | null; freshness: string | null; no_account_text: string | null };
+  coverage: string | null; freshness: string | null; no_account_text: string | null; data_limits: string[] };
 type BlockView = { type: BlockType; title: string; series: { label: string; points: { x: string; text: string | null; ratio: number | null; absence: string | null }[] }[];
   table: { headers: string[]; rows: string[][] }; notes: string[]; aria_label: string;
   items?: { segments: Segment[]; provenance: string }[]; suggestions?: { id: string; text: string }[];
@@ -472,7 +487,10 @@ type BlockView = { type: BlockType; title: string; series: { label: string; poin
 | Pide otro formato | Elige otro bloque si la tabla de §9 lo admite. Si no sirve para esos datos, lo dice y usa uno compatible |
 | Pide algo que no tiene | `abstain`, con motivo `out_of_scope`, y **texto fijo del servidor** que dice qué no puede hacer y ofrece lo que sí puede mostrar |
 
-**Historia (CA-73).** `chat_coverage.history_from`. Si el período pedido arranca antes, la respuesta avisa desde qué fecha hay datos, sin carga histórica. Un período sin nada: `no_coverage`.
+**Historia (CA-73, D-M25a-17).** La historia se acumula sin carga histórica, y el chat dice hasta dónde tiene datos. Todas las fechas las pone el servidor, en formato `DD/MM/AAAA`.
+
+- **Período con parte de los datos.** Responde con lo que hay, como parcial. Si `observed_from` es posterior al inicio, `data_limits` suma «Tengo datos desde el {observed_from}». Si `observed_to` es anterior al final, suma «Tengo datos hasta el {observed_to}». Va una vez por período citado.
+- **Período sin nada.** `no_coverage`, con el texto fijo de §11.
 
 **Contexto entre turnos.** CA-72 obliga a preguntar y a entender la respuesta del dueño, y CA-50c prohíbe que un historial introduzca cifras. El modelo recibe hasta 3 preguntas anteriores de la sesión (D-M25a-07; `previous` en `preguntarChat` y `previousQuestions` en `CHAT_LIMITS`), y además la última aclaración pendiente, si la hubo (D-M25a-13; `pendingClarification`). Así entiende «la segunda». Las dos vienen del navegador: el servidor las redacta otra vez, las trata como no confiables y no las persiste. CA-66 conserva montos y fechas en la redacción, así que en las preguntas anteriores el servidor reemplaza además cada candidato numérico por `[CIFRA]`: «últimos 30 días» viaja como «últimos [CIFRA] días». Se conserva el contexto sin enviar la cifra, y si hace falta, el modelo pregunta o usa el valor por defecto. La aclaración se descarta si pasa de `maxClarificationChars` o si contiene un candidato numérico. No se envían respuestas ni cifras. Las cifras de un turno se validan solo contra resultados de ese turno.
 
@@ -503,8 +521,21 @@ Una respuesta mostrada siempre tiene su registro. Estas son las únicas excepcio
 | `guard_rejected` | «No pude verificar esta respuesta, así que prefiero no mostrarla. Probá reformulando la pregunta.» |
 | `tool_error` | «No pude leer tus datos. Probá de nuevo.» |
 | `model_unavailable` | «El asistente no está disponible. Tu pregunta sigue en el cuadro: probá de nuevo.» |
-| `no_coverage` | «No tengo datos de ese período.» Si hay historia, suma «Tengo datos desde {history_from}», con la fecha del servidor |
+| `no_coverage` | Ver abajo |
 | `connection_not_active` | Sin conexión o en `pending_selection`: «Todavía no hay una cuenta conectada.» En `needs_reauth`: «Meta pidió volver a autorizar a Praxa.» Los dos enlazan a Integraciones |
+
+**Texto de `no_coverage` (D-M25a-17).** Con un solo período en los resultados, «No tengo datos del {from} al {to}.», seguido de:
+
+| Datos alrededor del período | Segunda frase |
+|---|---|
+| Solo antes | «Tengo datos hasta el {nearest_before}.» |
+| Solo después | «Tengo datos desde el {nearest_after}.» |
+| A los dos lados | «Tengo datos hasta el {nearest_before} y de nuevo desde el {nearest_after}.» |
+| Ninguno | «Todavía no tengo datos de esta cuenta.», en lugar de las dos frases |
+
+Con dos períodos, o si el modelo se abstuvo sin consultar: «No tengo datos de ese período.», o «de esos períodos.», y «Mis datos van del {history_from} al {history_to}.». Sin historia, el mismo texto de «Ninguno».
+
+Un `breakdown` toma los días más cercanos de su propio `extra`, porque cada dimensión tiene su cobertura. En los demás casos, el servidor lee `chat_coverage` con el nivel y el período del resultado, o el nivel `account` y el período por defecto si no los hay. Esa lectura no cuenta en las llamadas del turno, no va a `tool_names` y compite contra el tiempo restante. Si falla o no llega, queda solo la primera frase y el motivo sigue siendo `no_coverage`.
 
 **Del registro.** `tool_names` guarda solo nombres del catálogo: uno inventado por el modelo da `tool_error` y no se guarda. `reported_model_id` sale de la última llamada al modelo que respondió, o queda nulo.
 
@@ -604,9 +635,9 @@ La ruta pide medir si las llamadas y los tokens alcanzan para varios bloques, y 
 | CA-50 | Salida `text` + `claims`, con detección de candidatos, `observed_value` exacto, normalización, comparaciones recalculadas, variaciones solo de herramienta, `user_provided` y rechazo con abstención |
 | CA-50b | Garantías determinísticas, lo no garantizado y las ocho pruebas obligatorias |
 | CA-50c | Los claims solo resuelven contra resultados del turno actual |
-| CA-51 | Toda respuesta declara período, zona, cobertura y frescura, con rango de `fetched_at` |
+| CA-51 | Toda respuesta con datos declara período, zona, cobertura y frescura, con rango de `fetched_at` |
 | CA-51b | Totales con días sin fila, no observados, abiertos o de captura parcial se presentan como parciales, con la composición |
-| CA-52 | La interfaz siempre muestra la cuenta truncada y el período |
+| CA-52 | La interfaz muestra la cuenta truncada siempre que haya una conectada y el período en toda respuesta con datos. Sin cuenta, lo dice con un texto fijo. Una aclaración o una abstención muestra solo lo que existe |
 | CA-53 | Identificador fijo; VR-02 se repite antes de la demo; con el modelo caído, mensaje claro, conserva la pregunta y permite reintentar |
 | CA-53b | V4.1 Flash en DeepInfra; esquema estricto, no `json_object`; Zod es autoridad final; se guarda modelo solicitado e informado |
 | CA-54 | Aislamiento frente a preguntas directas e instrucciones inyectadas |
@@ -651,7 +682,7 @@ La ruta pide medir si las llamadas y los tokens alcanzan para varios bloques, y 
 | M25a-C-15 | La conexión y la empresa solo salen del servidor; `execute.ts` no importa `getWorkerApi` | CA-49, DEC-04 |
 | M25a-C-16 | Una referencia ajena o inexistente da `not_found`, sin datos | CA-48, CA-54 |
 | M25a-C-17 | Ningún archivo de `src/modules/chat/` usa `Number(`, `parseFloat` ni `parseInt` sobre métricas; los valores se mantienen exactos fuera de la precisión de `number` | CA-44b |
-| M25a-C-18 | Cada resultado cumple el contrato de Diseño §3, con exactamente uno de valor o ausencia. Cada resultado trae cuenta y nivel. Cada valor trae referencia, métrica, unidad, moneda, entidad, tipo de acción y atribución cuando corresponden, período, presencia, estado temporal, captura parcial y frescura | II.12 paso 6, CA-44 |
+| M25a-C-18 | Cada resultado cumple el contrato de Diseño §3, con exactamente uno de valor o ausencia. Cada resultado trae cuenta y nivel. Cada valor trae referencia, métrica, unidad, moneda, entidad, tipo de acción y atribución cuando corresponden, período, estado temporal, captura parcial y frescura. Un valor de un día trae su presencia; un agregado la declara en `composition` | II.12 paso 6, CA-44, CA-46 |
 | M25a-C-19 | Más de 93 días, llamado directo por la API, falla en SQL en cada función; 93 días funcionan, también por encima de los 28 de `get_meta_daily_coverage` | CA-70 |
 | M25a-C-20 | Sin fila, no observado y no informado nunca aparecen como cero ni entran a sumas | CA-43, CA-51b, trampa II.11 |
 | M25a-C-21 | La composición y el rango de `fetched_at` son correctos con días de distintas extracciones y captura parcial | CA-51, CA-51b |
@@ -683,12 +714,12 @@ La ruta pide medir si las llamadas y los tokens alcanzan para varios bloques, y 
 | M25a-C-47 | VR-02 sobre el conjunto congelado cumple cada criterio de DEC-21, con identificador, fp8, salida estricta y modelo informado verificados; el hash del conjunto es anterior a la corrida | VR-02, DEC-21 |
 | M25a-C-48 | La etapa .3 no empieza sin VR-02 aprobada en la sesión | Ficha de M25a |
 | M25a-C-49 | Antes de cualquier dato real al modelo, acta y documentos están actualizados, el usuario aprobó el acta (blob registrado) y declaró la comunicación al dueño | II.13b paso 1, DEC-23 |
-| M25a-C-50 | El esquema del modelo no admite valores, títulos ni código en un bloque; tipo o referencia inválidos rechazan la respuesta | CA-71, DEC-24 |
+| M25a-C-50 | El esquema del modelo no admite valores, títulos ni código en un bloque; tipo o referencia inválidos rechazan la respuesta; una salida plana válida llega a su variante, y una clave ajena no nula la rechaza | CA-71, DEC-24 |
 | M25a-C-51 | Los 19 componentes muestran valores del servidor y distinguen faltante de cero | CA-71 |
 | M25a-C-52 | El embudo avisa y usa un solo tipo; las conclusiones pasan la guarda y no dan causas | CA-71 |
 | M25a-C-53 | Cada gráfico tiene descripción y tabla equivalente, y no depende solo del color; a 360 px la página no se desborda | II.13b paso 3 |
 | M25a-C-54 | Los cuatro casos dudosos se comportan como en Diseño §10, y el valor por defecto se muestra | CA-72 |
-| M25a-C-55 | El chat avisa desde qué fecha tiene datos | CA-73 |
+| M25a-C-55 | El chat dice hasta dónde tiene datos, con fechas del servidor: un período parcial lo declara junto a la respuesta, y uno sin datos da el texto de Diseño §11 según los datos que haya alrededor | CA-72, CA-73; D-M25a-17 |
 | M25a-C-56 | CA-70 quedó medido, con el valor final y su motivo registrados antes de la evaluación ampliada | CA-70 |
 | M25a-C-57 | La evaluación ampliada cumple DEC-21, incluido el bloque elegido, sobre su conjunto congelado | VR-02 |
 | M25a-C-58 | El recorrido manual cubre los 19 bloques con datos sintéticos en el desechable, y una pregunta real sobre `app` sin mostrar ceros inventados; con 0 filas queda declarado como riesgo temporal | DEC-24, `H-E1-189` |
@@ -709,7 +740,7 @@ La ruta pide medir si las llamadas y los tokens alcanzan para varios bloques, y 
 | M25a-C-73 | Las proporciones de `share_of_total` suman exactamente 10000, y `dona` no acepta un `ranking` | CA-71, CA-44b |
 | M25a-C-74 | Después de `clarify`, «la segunda» llega a la herramienta correcta en la secuencia completa | CA-72; D-M25a-13 |
 | M25a-C-75 | `app-paginas-sesion.test.tsx` sigue verificando la sesión de todas las páginas, con `chat/page.tsx` incluida | CB-01; D-M25a-14 |
-| M25a-C-76 | `0018` y pgTAP `15` se ensayan con rollback antes de `db:push:test`; un defecto de SQL posterior frena la corrida, sin editar `0018` ni crear `0019` | CB-03, III.9 |
+| M25a-C-76 | `0018` y pgTAP `15` se ensayan con rollback antes de `db:push:test`, con la medición del peor caso de `chat_ranking`; un defecto de SQL posterior frena la corrida, sin editar `0018` ni crear `0019` | CB-03, III.9 |
 | M25a-C-77 | El recorrido sintético no arranca si alguna URL de prueba es de otro proyecto, y ni el arriendo ni el registro llegan a `app` | CB-04 |
 | M25a-C-78 | Una llamada válida del esquema plano llega a cada una de las trece herramientas; una clave ajena no nula o una obligatoria nula dan `tool_error` | CA-48 |
 | M25a-C-79 | `answered_partial_coverage` depende solo de los resultados citados por la respuesta mostrada | CA-51b, CA-62 |
@@ -738,11 +769,11 @@ Comandos de `package.json`. `test:eval` es **previsto** (D-M25a-01). En Windows,
 | M25a-T-15 | C-16, C-28 | app | `npm run test:app -- tests/app/chat-tools.test.ts` | Con JWT de otra empresa: `not_found`, sin cifras | Sí, TDD |
 | M25a-T-16 | C-17 | unit | `npm run test:unit -- tests/unit/chat-tools.test.ts` | Búsqueda en `src/modules/chat/`, con `scale.ts` acotado; decimales fuera de precisión intactos | Sí, TDD |
 | M25a-T-17 | C-17 | app | `npm run test:app -- tests/app/chat-tools.test.ts` | SQL → Data API → TypeScript con enteros y decimales fuera de precisión, exactos | Sí, TDD |
-| M25a-T-18 | C-18 | unit | `npm run test:unit -- tests/unit/chat-tools.test.ts` | Esquema estricto exige cada campo y exactamente uno de valor o ausencia, con los cinco ejemplos sintéticos de Diseño §3; falta uno: `tool_error` | Sí, TDD |
+| M25a-T-18 | C-18 | unit | `npm run test:unit -- tests/unit/chat-tools.test.ts` | Esquema estricto exige cada campo y exactamente uno de valor o ausencia, con los seis ejemplos sintéticos de Diseño §3; `presence` obligatoria en un valor de un día y nula en un agregado; falta uno: `tool_error` | Sí, TDD |
 | M25a-T-19 | C-19 | pgTAP | `npm run test:policies` | Cada `chat_*` con 94 días da `22023` | Sí, TDD |
 | M25a-T-20 | C-19 | app | `npm run test:app -- tests/app/chat-tools.test.ts` | Período de 93 días con cobertura sintética de más de 28; 94 por la API fallan | Sí, TDD |
 | M25a-T-21 | C-19 | unit | `npm run test:unit -- tests/unit/chat-tools.test.ts` | `CHAT_LIMITS.maxPeriodDays` coincide con el valor de `0018`, leído del archivo | Sí, TDD |
-| M25a-T-22 | C-20, C-21 | pgTAP | `npm run test:policies` | Días sin fila, no observados, sin métrica, abiertos y parciales: composición exacta y nunca cero | Sí, TDD |
+| M25a-T-22 | C-20, C-21 | pgTAP | `npm run test:policies` | Días sin fila, no observados, sin métrica, abiertos y parciales: composición exacta y nunca cero. `chat_daily_series` da los tres valores de `presence`, y `con_datos` con `no_informado` en un día sin la métrica | Sí, TDD |
 | M25a-T-23 | C-21 | app | `npm run test:app -- tests/app/chat-tools.test.ts` | Días de dos extracciones: rango de `fetched_at`; captura parcial vista al día siguiente | Sí, TDD |
 | M25a-T-24 | C-22 | pgTAP | `npm run test:policies` | Total de cuenta distinto de la suma de campañas: gana `account` | Sí, TDD |
 | M25a-T-25 | C-23 | pgTAP | `npm run test:policies` | Tasas sobre bases, días incompletos excluidos; denominador cero `not_calculable`; alcance y frecuencia `not_supported` | Sí, TDD |
@@ -750,7 +781,7 @@ Comandos de `package.json`. `test:eval` es **previsto** (D-M25a-01). En Windows,
 | M25a-T-27 | C-25 | pgTAP | `npm run test:policies` | Seis cálculos: valor exacto, cero, ausente y parcial. Promedio de un conteo con decimales | Sí, TDD |
 | M25a-T-28 | C-25 | app | `npm run test:app -- tests/app/chat-tools.test.ts` | Ranking con el peor caso sintético termina bajo el `statement_timeout`; desempate estable | Sí, TDD |
 | M25a-T-29 | C-26 | unit | `npm run test:unit -- tests/unit/chat-tools.test.ts` | Sin herramienta de ROAS; `cost_per_result` sin tipo se rechaza | Sí, TDD |
-| M25a-T-30 | C-27 | pgTAP | `npm run test:policies` | Dimensiones, segmentos desconocidos, `region` sin acciones, sin alcance y `estimated`. Acciones de un día con `unknown`; de dos días, `not_calculable` | Sí, TDD |
+| M25a-T-30 | C-27 | pgTAP | `npm run test:policies` | Dimensiones, segmentos desconocidos, `region` sin acciones, sin alcance y `estimated`. Cada segmento aditivo con su valor `share`. Acciones de un día con `unknown`; de dos días, `not_calculable` | Sí, TDD |
 | M25a-T-31 | C-28 | app | `npm run test:app -- tests/app/chat-tools.test.ts` | `authenticated` ejecuta por Data API; `select` del registro da `42501` | Sí, TDD |
 | M25a-T-32 | C-03 | app | `npm run test:app -- tests/app/chat-tools.test.ts` | Cliente real del rol: registro que llega después de desconectar se descarta | Sí, TDD |
 | M25a-T-33 | C-29, C-31 | unit | `npm run test:unit -- tests/unit/chat-llm.test.ts` | Cuerpo exacto con `fetch` simulado; `length` y JSON inválido son `bad_output`; informado nulo sin respuesta | Sí, TDD |
@@ -760,11 +791,11 @@ Comandos de `package.json`. `test:eval` es **previsto** (D-M25a-01). En Windows,
 | M25a-T-37 | C-33 | app | `npm run test:app -- tests/app/chat-tools.test.ts` | Cliente real, dos llamadas concurrentes: un `chat_turn_in_progress`, y `end_chat_turn` libera | Sí, TDD |
 | M25a-T-38 | C-34 | unit | `npm run test:unit -- tests/unit/chat-guard.test.ts` | Tabla de candidatos por familia; «una campaña» no es candidato; «Hubo un clic» y «solo una campaña» sí. «Promo 2x1 2026» por marcador pasa como `entity`. «Gastaste 999 pesos» escrito sin marcador se rechaza; por marcador se muestra como `entity`, nunca como afirmación. Alias desconocido rechazado. «25-34», «65+», `..._7d` y un día del período: con marcador pasan como `label` y sin él se rechazan. «3 campañas» exige `observed_value` sobre `list_count`; sin él se rechaza | Sí, TDD |
 | M25a-T-39 | C-35 | unit | `npm run test:unit -- tests/unit/chat-guard.test.ts` | Cada campo distinto rechaza; es-AR, sin miles, half-up, «1,2 M» y «30 mil» rechazados. CPC de 0,37 como «$0» rechazado y `spend` a 0 decimales admitido. `-0,125` da `-0,13`, igual que SQL. Clics promedio «3,67» admitido | Sí, TDD |
-| M25a-T-40 | C-36 | unit | `npm run test:unit -- tests/unit/chat-guard.test.ts` | Relación falsa rechazada; «se duplicó» sin herramienta rechazado y con `percent_change` admitido. Un claim de `change` con otros `period_a` o `period_b` se rechaza | Sí, TDD |
+| M25a-T-40 | C-36 | unit | `npm run test:unit -- tests/unit/chat-guard.test.ts` | Relación falsa rechazada; «se duplicó» sin herramienta rechazado y con `percent_change` admitido. Un claim de `change` con otros `period_a` o `period_b`, o solo con `period`, se rechaza. El porcentaje de un segmento se admite con `observed_value` sobre su `share` | Sí, TDD |
 | M25a-T-41 | C-37 | unit | `npm run test:unit -- tests/unit/chat-guard.test.ts` | Cifra ausente de la pregunta rechazada; cifra del dueño como observada rechazada | Sí, TDD |
 | M25a-T-42 | C-38, C-39 | unit | `npm run test:unit -- tests/unit/chat-adversarial.test.ts` | Las pruebas obligatorias de CA-50b. Ninguna cifra rechazada en el DTO | Sí, TDD |
 | M25a-T-43 | C-38 | unit | `npm run test:unit -- tests/unit/chat-adversarial.test.ts` | Referencia a un resultado de otro turno o inyectado por el cliente: rechazada | Sí, TDD |
-| M25a-T-44 | C-40 | unit | `npm run test:unit -- tests/unit/chat-render.test.ts` | Pie completo; parcial con composición; cada fila de la tabla, con conexión nula, `pending_selection`, `needs_reauth`, `out_of_scope` y `clarify`; sin `act_` completo en el DTO serializado | Sí, TDD |
+| M25a-T-44 | C-40 | unit | `npm run test:unit -- tests/unit/chat-render.test.ts` | Pie completo; parcial con composición; cada fila de la tabla, con conexión nula, `pending_selection`, `needs_reauth`, `out_of_scope`, `clarify` y `no_coverage`, esta última solo con la cuenta; sin `act_` completo en el DTO serializado | Sí, TDD |
 | M25a-T-45 | C-41 | unit | `npm run test:unit -- tests/unit/chat-adversarial.test.ts` | `company_id` en la acción rechazado; K01 interno; un registro por intento. Las cuatro salidas las prueba `M25a-T-75` | Sí, TDD |
 | M25a-T-46 | C-42 | unit | `npm run test:unit -- tests/unit/chat-adversarial.test.ts` | Con espías de `console`, y sobre mensajes enviados y registro: un centinela sintético de la pregunta no aparece sin redactar | Sí, TDD |
 | M25a-T-47 | C-43 | component | `npm run test:component -- tests/component/chat-pantalla.test.tsx` | Aviso, voto en respuesta y abstención, modelo caído conserva y reintenta | Sí, TDD |
@@ -775,11 +806,11 @@ Comandos de `package.json`. `test:eval` es **previsto** (D-M25a-01). En Windows,
 | M25a-T-52 | C-47 | manual (evaluación) | `npm run test:eval` | Informe en `vr-02.md` que cumple cada criterio, con hash previo | Sí: sin implementación no corre |
 | M25a-T-53 | C-48 | manual | Revisión de `sesiones/M25a.md` | VR-02 aprobada antes del primer commit de la etapa .3 | No aplica: orden de la corrida |
 | M25a-T-54 | C-49 | manual | `git hash-object docs/FASES/FASE1/M03a/acta-meta.md` | Blob registrado, aprobación del usuario y comunicación declarada, antes de `db:push` y publicación | No aplica: documental |
-| M25a-T-55 | C-50 | unit | `npm run test:unit -- tests/unit/chat-guard.test.ts` | Bloque con `value`, título o tipo desconocido, `options` fuera de su tipo, referencia ajena o resultado incompatible: rechazado. `span` de un ítem de `conclusiones` resuelto dentro de ese ítem | Sí, TDD |
+| M25a-T-55 | C-50 | unit | `npm run test:unit -- tests/unit/chat-guard.test.ts` | Bloque con `value`, título o tipo desconocido, `options` fuera de su tipo, referencia ajena o resultado incompatible: rechazado. `projectOutput`: una salida plana válida por cada `kind` y por cada familia de bloque, y una clave ajena no nula o una obligatoria nula rechazadas. `span` de un ítem de `conclusiones` resuelto dentro de ese ítem | Sí, TDD |
 | M25a-T-56 | C-51, C-52 | component | `npm run test:component -- tests/component/chat-bloques.test.tsx` | Los 19, con faltantes en cada gráfico: marca propia, nunca «0». Aviso del embudo y conclusiones rotuladas | Sí, TDD |
 | M25a-T-57 | C-53 | component | `npm run test:component -- tests/component/chat-bloques.test.tsx` | `role="img"`, `aria-label` y «Ver datos» con los mismos textos | Sí, TDD |
 | M25a-T-58 | C-53, C-58 | manual | Recorrido en navegador a 360 px y con teclado, tema claro y oscuro | Sin desborde de página; foco visible; capturas redactadas | No aplica: visual |
-| M25a-T-59 | C-54, C-55 | unit | `npm run test:unit -- tests/unit/chat-orchestrator.test.ts` | Por defecto visible; pregunta general con resumen; sin métrica específica, sin entidad y comparación sin períodos van a `clarify`; cambio de formato; abstención con oferta; `history_from` avisado | Sí, TDD |
+| M25a-T-59 | C-54, C-55 | unit | `npm run test:unit -- tests/unit/chat-orchestrator.test.ts` | Por defecto visible; pregunta general con resumen; sin métrica específica, sin entidad y comparación sin períodos van a `clarify`; cambio de formato; abstención con oferta | Sí, TDD |
 | M25a-T-60 | C-56 | manual | Revisión de `sesiones/M25a.md` y `limits.ts` | Medición y valor final con motivo, antes de congelar el conjunto ampliado | No aplica: medición |
 | M25a-T-61 | C-57 | manual (evaluación) | `npm run test:eval` | Conjunto ampliado cumple DEC-21 con el bloque | Sí: sin implementación no corre |
 | M25a-T-62 | C-58 | manual | Con `0018` y publicación por el usuario: pregunta real en la aplicación | Con 0 filas, «sin filas reportadas» y sin ceros. Sin montos ni IDs en la evidencia | No aplica: recorrido real |
@@ -804,11 +835,13 @@ Comandos de `package.json`. `test:eval` es **previsto** (D-M25a-01). En Windows,
 | M25a-T-81 | C-75 | component | `npm run test:component -- tests/component/app-paginas-sesion.test.tsx` | Todas las páginas, con `chat/page.tsx`, siguen exigiendo sesión | Sí: sin la simulación no resuelve `server-only` |
 | M25a-T-82 | CB-03 | manual | `git diff --name-status <base> -- supabase/migrations/` | Solo `A` de `0018`; ninguna modificada | No aplica: control del diff |
 | M25a-T-83 | CB-02, CB-04, CB-05, CB-06 | manual | Revisión de `sesiones/M25a.md` y del diff | Sin montos reales ni identificadores completos en el diff, que `no-secrets-in-tree` no detecta; `db:check:test` antes de cada suite; resultados reales y redactados; ninguna suite requerida omitida | No aplica: evidencia |
-| M25a-T-84 | C-76 | manual | Revisión de `sesiones/M25a.md` | Ensayo con rollback registrado antes del `db:push:test`; `T-28` incluido | No aplica: orden de la corrida |
+| M25a-T-84 | C-76 | manual | Revisión de `sesiones/M25a.md` | Ensayo con rollback registrado antes del `db:push:test`, con la medición del peor caso; `T-28`, después del push | No aplica: orden de la corrida |
 | M25a-T-85 | C-77 | manual | `node scripts/chat-seed-test.mjs --serve`, con una URL de otro proyecto | Aborta sin escribir ni arrancar `next dev` | No aplica: se comprueba al crear el script |
 | M25a-T-86 | C-78 | unit | `npm run test:unit -- tests/unit/chat-tools.test.ts` | Trece llamadas válidas desde el esquema plano; `breakdown` en `account` con `entity_ref` nulo; clave ajena y obligatoria nula dan `tool_error` | Sí, TDD |
 | M25a-T-87 | C-79 | unit | `npm run test:unit -- tests/unit/chat-orchestrator.test.ts` | Resultado parcial citado da `answered_partial_coverage`; parcial no usado da `answered` | Sí, TDD |
 | M25a-T-88 | C-80 | unit | `npm run test:unit -- tests/unit/chat-orchestrator.test.ts` | Pregunta de espacios y campo inválido sin modelo ni registro; herramienta inventada fuera de `tool_names`; modelo informado de la última llamada | Sí, TDD |
+| M25a-T-89 | C-55 | unit | `npm run test:unit -- tests/unit/chat-orchestrator.test.ts` | Cada fila del texto de `no_coverage`, dos períodos y abstención sin consulta; `breakdown` con su `extra`; lectura fallida o lenta deja solo la primera frase, sin sumar a `tool_names`. Período parcial con `data_limits` en cada punta. Ninguna fecha sale del modelo | Sí, TDD |
+| M25a-T-90 | C-55 | pgTAP | `npm run test:policies` | Con un hueco, `observed_from`, `observed_to`, `nearest_before`, `nearest_after`, `history_from` e `history_to` exactos en `chat_coverage`; días más cercanos de cada dimensión en `chat_breakdown`; sin cobertura, todos nulos | Sí, TDD |
 
 Los criterios C-NN de la tabla remiten a `M25a-C-NN`.
 
@@ -882,6 +915,7 @@ El asistente no ejecuta `db:push`, `db:push:test` (denegados en `.claude/setting
 | D-M25a-14 | Se autoriza `tests/component/app-paginas-sesion.test.tsx`, como D-M16c-06 | La prueba importa todas las páginas y se rompería a mitad de la corrida | Usuario | 2026-11-08 |
 | D-M25a-15 | El pie depende del caso: respuesta con datos, completo; repregunta o abstención con cuenta conectada, solo la cuenta; sin cuenta, un texto fijo. CA-51 y CA-52 se precisan en la spec de la ruta | No se pueden mostrar datos que no existen, y una repregunta igual dice sobre qué cuenta habla | Usuario | 2026-11-09 |
 | D-M25a-16 | La tarjeta «Uso de la IA» de Inicio también muestra «Todavía no disponible». Entra en la enmienda de la ruta | El motivo de D-M25a-10 la alcanza: después de publicar mostraría «0 consultas» en la pantalla de entrada | Usuario | 2026-11-09 |
+| D-M25a-17 | Cuando un período no tiene datos, el chat dice hasta dónde los tiene, además de desde cuándo. Con un hueco, da el día más cercano de cada lado. El mensaje nombra el período, así que el pie sigue la regla de D-M25a-15: solo la cuenta | El dueño sabe qué días puede preguntar, y no hace falta una excepción en el pie. Amplía CA-73 sin contradecirlo | Usuario | 2026-11-09 |
 
 ## Supuestos e hipótesis
 
@@ -893,7 +927,7 @@ El asistente no ejecuta `db:push`, `db:push:test` (denegados en `.claude/setting
 | M25a-H-04 | La respuesta informa `model`. La ficha no lo dice | VR-02 lo exige. Si falta, `reported_model_id` queda nulo y se frena: CA-53b lo pide |
 | M25a-H-05 | La página de privacidad de DeepInfra dice ahora que no registra el contenido, solo metadatos, mientras que DEC-15 y el acta declaran que se reserva registrar porciones. También muestra «Zero retention». **El acta sigue declarando el riesgo mayor** y cita la fecha de consulta (D-M25a-11) | Resuelto por D-M25a-11; se escribe al reaprobar el acta |
 | M25a-H-06 | Precio informado el 2026-11-08: USD 0,14 de entrada y 0,42 de salida por millón, con promoción. Con un dueño y CA-70, el costo es marginal | `sesiones/M25a.md` registra el uso real de las evaluaciones |
-| M25a-H-07 | `chat_ranking` en nivel `ad` con 93 días y 500 entidades termina bajo el `statement_timeout` de `authenticated`. No se midió | `M25a-T-28` corre en el ensayo con rollback, antes del push. Si no alcanza ahí, se optimiza en `0018`. Después del push, o si tampoco alcanza, se frena y se propone una opción al usuario: no se reduce el alcance sin su decisión |
+| M25a-H-07 | `chat_ranking` en nivel `ad` con 93 días y 500 entidades termina bajo el `statement_timeout` de `authenticated`. No se midió | Se mide en el ensayo con rollback, antes del push (§2). Si no alcanza ahí, se optimiza en `0018`. `M25a-T-28` lo confirma por la Data API después del push. Si falla ahí, o si tampoco alcanza después de optimizar, se frena y se propone una opción al usuario: no se reduce el alcance sin su decisión |
 | M25a-H-08 | DeepInfra ofrece tope de gasto | El usuario lo comprueba al crear la cuenta |
 | M25a-H-09 | Los campos reales de Meta coinciden con los simulados (`H-E1-189`), y las variantes coinciden con su contrato (`H-E1-194`) | Primera sincronización con filas. Si difieren, hallazgo nuevo y repetir VR-02 |
 | M25a-H-10 | La variante agregada `value` es la correcta para resultados con atribución unificada | Igual que `M25a-H-09` |
@@ -927,3 +961,4 @@ Sin preguntas abiertas. Las respuestas están en «Decisiones de la microfase».
 | 2 | REQUIERE CAMBIOS | `e2d2fce9…` | `revisiones/spec-audit-2.md` |
 | 3 | REQUIERE CAMBIOS | `4be22633…` | `revisiones/spec-audit-3.md` |
 | 4 | REQUIERE CAMBIOS | `4be22633…` | `revisiones/spec-audit-4.md` |
+| 5 | REQUIERE CAMBIOS | `d380cb76…` | `revisiones/spec-audit-5.md` |
