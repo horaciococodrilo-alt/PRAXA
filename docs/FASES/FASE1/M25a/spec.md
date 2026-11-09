@@ -247,7 +247,7 @@ Ejemplos sintéticos, resumidos a los campos que distinguen a cada uno:
 Reglas comunes:
 
 - **Ausencia nunca es cero.** `sin_fila_reportada`, `no_observado` y `no_informado` no entran a sumas ni a promedios.
-- `partial` es verdadero si hay algún día sin valor de la métrica, sin fila, no observado, abierto o con captura parcial (CA-51b). `fetched_at_min` y `fetched_at_max` dan el rango (CA-51). `observed_from` y `observed_to` son el primer y el último día del período con cobertura. Un día observado sin filas cuenta como cubierto: se sincronizó.
+- `partial` es verdadero si hay algún día sin valor de la métrica, sin fila, no observado, abierto o con captura parcial (CA-51b). `fetched_at_min` y `fetched_at_max` dan el rango (CA-51). `observed_from` y `observed_to` son el primer y el último día del período con cobertura del nivel o, en un desglose, de la dimensión. No son de la entidad. Un día observado sin filas cuenta como cubierto: se sincronizó.
 - **Tasas de período.** Se calculan solo con días donde numerador y denominador están informados, sumando bases: CTR `100 * clicks / impressions`, CPC `spend / clicks`, CPM `1000 * spend / impressions`. Los días excluidos cuentan en `days_metric_missing`. Sin días o denominador cero: `not_calculable`. Nunca se promedian tasas diarias.
 - **Precisión.** `numeric` sin convertir a float. Las divisiones salen con `round(x, 6)`, redondeo half away from zero. Sumas exactas. `decimal.ts` redondea igual: «half-up» significa sobre el valor absoluto, así que `-0,125` da `-0,13`.
 - **Alcance y frecuencia.** Solo en la serie diaria. En totales, promedios, cálculos y rankings dan `not_supported`.
@@ -360,7 +360,7 @@ export const CHAT_LIMITS = { maxPeriodDays: 93, maxToolCallsPerTurn: 4, maxOutpu
 2. `begin_chat_turn`. `PX011`: aviso de consulta en curso (§11). Otro error: fallo de registro (§11), sin llamar al modelo.
 3. Lee la conexión con `readConnectionRecord`. Sin conexión `active`, no llama al modelo: `not_answered` con `connection_not_active`.
 4. Paso de elección, en bucle: el modelo devuelve `call_tools`, `answer`, `clarify` o `abstain`. El bucle hace falta porque `daily_series` necesita una referencia que `entities` da recién en la llamada anterior. Cada respuesta puede pedir varias llamadas, sin pasar el tope del turno. Si llega al tope, solo admite `answer`, `clarify` o `abstain`.
-5. El servidor ejecuta cada llamada con Zod. Un argumento inválido o una herramienta inexistente: `tool_error`, nunca se ejecuta. Si todos los resultados son `no_observado`: `no_coverage`, sin redactar respuesta, con el texto fijo de §11.
+5. El servidor ejecuta cada llamada con Zod. Un argumento inválido o una herramienta inexistente: `tool_error`, nunca se ejecuta. Si hay al menos una consulta con período y en todas `days_total` es mayor que cero e igual a `days_not_observed`: `no_coverage`, sin redactar respuesta, con el texto fijo de §11. `entities` y `connection_status` no cuentan, porque no consultan un período. Solo el servidor declara este motivo.
 6. Paso de redacción: el modelo devuelve `text`, `claims` y `blocks` con los resultados del turno.
 7. La guarda valida. La presentación arma el DTO, que todavía no se devuelve.
 8. Registra. Se agotó el trabajo durante el modelo: `model_unavailable`; durante una herramienta: `tool_error`. En ambos casos se registra dentro de la reserva.
@@ -368,23 +368,23 @@ export const CHAT_LIMITS = { maxPeriodDays: 93, maxToolCallsPerTurn: 4, maxOutpu
 
 Si el registro agota la reserva, se trata como fallo de registro. Como `p_record_id` es idempotente, una escritura que igual termina tarde no duplica nada: puede quedar un registro de una consulta que el dueño vio como fallida, y se declara.
 
-**Esquema de elección.** Objeto plano, con `action`, `calls`, `clarification_text` y `abstain_reason` (`out_of_scope` o `no_coverage`), donde los argumentos de cada llamada son un objeto con todas las claves posibles en nulo. No se usan uniones, porque DeepInfra no documenta qué subconjunto de JSON Schema admite su modo estricto (`M25a-H-02`). Zod por herramienta valida después.
+**Esquema de elección.** Objeto plano, con `action`, `calls`, `clarification_text` y `abstain_reason` (solo `out_of_scope`), donde los argumentos de cada llamada son un objeto con todas las claves posibles en nulo. No se usan uniones, porque DeepInfra no documenta qué subconjunto de JSON Schema admite su modo estricto (`M25a-H-02`). Zod por herramienta valida después. El modelo no puede declarar que faltan datos: para saberlo tiene que consultar (paso 5). Una salida con otro motivo no valida y da `guard_rejected`.
 
 **Prompt.** `src/modules/chat/prompt.ts`, sin datos de la empresa ni del dueño. Contexto: fecha de hoy en la zona de la cuenta, zona, moneda, `account_ref`, período por defecto, catálogo, reglas de §11, CA-55 y CA-72. Los nombres de entidad y la pregunta se presentan como datos no confiables.
 
 ### 8. Salida y guarda (etapas .2 y .3)
 
-`src/modules/chat/output-schema.ts`. Respuesta: `text` (hasta 1500 caracteres), `claims`, `blocks`. Cada claim lleva `span`, `kind`, `tool_call_id`, `path`, `metric`, `unit`, `currency`, `account_ref`, `level`, `entity_ref`, `action_type`, `attribution_ref` y `period`, o `period_a` y `period_b` en un valor de dos períodos (§3). `span` es `{ quote, occurrence }` (D-M25a-04): el fragmento citado y su número de aparición en `text`. El servidor obtiene la posición exacta y rechaza si no aparece; con esa posición comprueba que cada candidato quede cubierto.
+`src/modules/chat/output-schema.ts`. Respuesta: `text` (hasta 1500 caracteres), `claims`, `blocks`. El esquema plano de un claim tiene `span`, `kind`, `tool_call_id`, `path`, `metric`, `unit`, `currency`, `account_ref`, `level`, `entity_ref`, `action_type`, `attribution_ref` y `period`, o `period_a` y `period_b` en un valor de dos períodos (§3). Todo claim usa `span` y `kind`; los demás campos dependen del `kind`, según la tabla de abajo, y van en nulo si no aplican. `span` es `{ quote, occurrence }` (D-M25a-04): el fragmento citado y su número de aparición en `text`. El servidor obtiene la posición exacta y rechaza si no aparece; con esa posición comprueba que cada candidato quede cubierto.
 
 Campos según `kind`:
 
-| `kind` | Campos propios |
+| `kind` | Qué usa además de `span` y `kind` |
 |---|---|
-| `observed_value` | `tool_call_id`, `path` y los declarados |
-| `period_bound` | `tool_call_id` y `bound` (`from` o `to`). La fecha se escribe `DD/MM/AAAA` o `AAAA-MM-DD` |
+| `observed_value` | `tool_call_id`, `path` y los declarados: `metric`, `unit`, `currency`, `account_ref`, `level`, `entity_ref`, `action_type`, `attribution_ref` y el período |
+| `period_bound` | `tool_call_id` y `bound`: `from` o `to`, y en un resultado de dos períodos `a_from`, `a_to`, `b_from` o `b_to`. La fecha se escribe `DD/MM/AAAA` o `AAAA-MM-DD` |
 | `coverage_count` | `tool_call_id` y `field`, un conteo de días de `composition` |
 | `qualitative_comparison` | `left_tool_call_id`, `left_path`, `right_tool_call_id`, `right_path` y `relation` (`greater`, `less`, `equal`) |
-| `user_provided` | Sin referencia |
+| `user_provided` | Nada: sin referencia ni período. La cifra es del dueño y solo tiene que aparecer en su pregunta |
 
 `blocks` es una lista de hasta `maxBlocksPerAnswer` objetos `{ type, sources: [{ tool_call_id, path_prefix }], options }`. Solo `barras` tiene `options`: `{ ordering: value_desc | value_asc | source }`. En los demás va nulo. Nunca contiene valores, títulos ni texto. Como en la elección, el esquema de redacción es plano, sin uniones (`M25a-H-02`): todos los campos de `kind` y de bloque están presentes, en nulo los que no aplican, y Zod por `kind` y por `type` valida después. `conclusiones` es la excepción: `items: [{ text, claims, provenance }]`, donde cada `span` se resuelve dentro del `text` de su ítem. `preguntas_sugeridas` usa `ids`, de un catálogo cerrado con texto fijo en `render.ts`: `ver_por_conjunto`, `comparar_periodo_anterior`, `ver_en_tabla`, `ver_por_edad_y_genero`, `ver_por_pais` y `ver_estado_de_los_datos`.
 
@@ -392,7 +392,7 @@ Campos según `kind`:
 
 1. Una clave no nula que esa variante no usa: `guard_rejected`.
 2. Se conservan solo las claves de esa variante.
-3. Una obligatoria nula: `guard_rejected`. Pueden ser nulos `currency`, `entity_ref`, `action_type` y `attribution_ref` cuando no corresponden. `period` puede ser nulo solo junto con `period_a` y `period_b`, y al revés.
+3. Una obligatoria nula: `guard_rejected`. En `observed_value`, pueden ser nulos `currency`, `entity_ref`, `action_type` y `attribution_ref` cuando no corresponden, y `period` puede ser nulo solo junto con `period_a` y `period_b`, y al revés.
 4. Zod estricto por variante.
 
 En un bloque, `sources` es obligatorio salvo en `conclusiones` y `preguntas_sugeridas`, `items` es solo de `conclusiones` e `ids` solo de `preguntas_sugeridas`.
@@ -489,7 +489,7 @@ type BlockView = { type: BlockType; title: string; series: { label: string; poin
 
 **Historia (CA-73, D-M25a-17).** La historia se acumula sin carga histórica, y el chat dice hasta dónde tiene datos. Todas las fechas las pone el servidor, en formato `DD/MM/AAAA`.
 
-- **Período con parte de los datos.** Responde con lo que hay, como parcial. Si `observed_from` es posterior al inicio, `data_limits` suma «Tengo datos desde el {observed_from}». Si `observed_to` es anterior al final, suma «Tengo datos hasta el {observed_to}». Va una vez por período citado.
+- **Período con parte de los datos.** Responde con lo que hay, como parcial. Si `observed_from` es posterior al inicio, `data_limits` suma «{Alcance}, tengo datos desde el {observed_from}». Si `observed_to` es anterior al final, suma «{Alcance}, tengo datos hasta el {observed_to}». Va una vez por período y alcance citados. El alcance está en §11.
 - **Período sin nada.** `no_coverage`, con el texto fijo de §11.
 
 **Contexto entre turnos.** CA-72 obliga a preguntar y a entender la respuesta del dueño, y CA-50c prohíbe que un historial introduzca cifras. El modelo recibe hasta 3 preguntas anteriores de la sesión (D-M25a-07; `previous` en `preguntarChat` y `previousQuestions` en `CHAT_LIMITS`), y además la última aclaración pendiente, si la hubo (D-M25a-13; `pendingClarification`). Así entiende «la segunda». Las dos vienen del navegador: el servidor las redacta otra vez, las trata como no confiables y no las persiste. CA-66 conserva montos y fechas en la redacción, así que en las preguntas anteriores el servidor reemplaza además cada candidato numérico por `[CIFRA]`: «últimos 30 días» viaja como «últimos [CIFRA] días». Se conserva el contexto sin enviar la cifra, y si hace falta, el modelo pregunta o usa el valor por defecto. La aclaración se descarta si pasa de `maxClarificationChars` o si contiene un candidato numérico. No se envían respuestas ni cifras. Las cifras de un turno se validan solo contra resultados de ese turno.
@@ -528,14 +528,16 @@ Una respuesta mostrada siempre tiene su registro. Estas son las únicas excepcio
 
 | Datos alrededor del período | Segunda frase |
 |---|---|
-| Solo antes | «Tengo datos hasta el {nearest_before}.» |
-| Solo después | «Tengo datos desde el {nearest_after}.» |
-| A los dos lados | «Tengo datos hasta el {nearest_before} y de nuevo desde el {nearest_after}.» |
-| Ninguno | «Todavía no tengo datos de esta cuenta.», en lugar de las dos frases |
+| Solo antes | «{Alcance}, tengo datos hasta el {nearest_before}.» |
+| Solo después | «{Alcance}, tengo datos desde el {nearest_after}.» |
+| A los dos lados | «{Alcance}, tengo datos hasta el {nearest_before} y de nuevo desde el {nearest_after}.» |
+| Ninguno | «Todavía no tengo datos {alcance}.», en lugar de las dos frases |
 
-Con dos períodos, o si el modelo se abstuvo sin consultar: «No tengo datos de ese período.», o «de esos períodos.», y «Mis datos van del {history_from} al {history_to}.». Sin historia, el mismo texto de «Ninguno».
+Con dos períodos: «No tengo datos de esos períodos.» y «{Alcance}, mis datos van del {history_from} al {history_to}.». Sin historia, el mismo texto de «Ninguno». Con más de un alcance en los resultados, queda solo la primera frase.
 
-Un `breakdown` toma los días más cercanos de su propio `extra`, porque cada dimensión tiene su cobertura. En los demás casos, el servidor lee `chat_coverage` con el nivel y el período del resultado, o el nivel `account` y el período por defecto si no los hay. Esa lectura no cuenta en las llamadas del turno, no va a `tool_names` y compite contra el tiempo restante. Si falla o no llega, queda solo la primera frase y el motivo sigue siendo `no_coverage`.
+**Alcance.** La cobertura se registra por nivel y día (CA-43), y en un desglose por nivel, dimensión y día (`0017:165-177`), nunca por entidad. Por eso la fecha no dice nada de una campaña puntual, y el texto nombra a qué se refiere: `account` «de la cuenta», `campaign` «de las campañas», `adset` «de los conjuntos» y `ad` «de los anuncios». En un desglose, «de edad y género», «de los países» o «de las regiones», con «por campaña» si el nivel es `campaign`. Ejemplo: «De las campañas, tengo datos hasta el 28/10/2026.»
+
+Un `breakdown` toma los días más cercanos de su propio `extra`. En los demás casos, el servidor lee `chat_coverage` con el nivel y el período del resultado; con dos períodos, usa `period_a`. Esa lectura no cuenta en las llamadas del turno, no va a `tool_names` y compite contra el tiempo restante. Si falla o no llega, queda solo la primera frase y el motivo sigue siendo `no_coverage`.
 
 **Del registro.** `tool_names` guarda solo nombres del catálogo: uno inventado por el modelo da `tool_error` y no se guarda. `reported_model_id` sale de la última llamada al modelo que respondió, o queda nulo.
 
@@ -555,7 +557,7 @@ Un `breakdown` toma los días más cercanos de su propio `extra`, porque cada di
 
 `docs/FASES/FASE1/meta_first/vr-02.md`: conjuntos congelados, con el hash de cada uno registrado **antes** de correrlo, e informe contra cada criterio de DEC-21, con identificador y precisión. Sin datos reales.
 
-- **Conjunto base (.2).** Al menos 30 respondibles (herramienta, métrica, período y respuesta esperados) y 20 de abstención (fuera de alcance, sin cobertura, variación sin herramienta, otra empresa). Con menos de 20, una sola falla ya rompería el 95 %.
+- **Conjunto base (.2).** Al menos 30 respondibles (herramienta, métrica, período y respuesta esperados) y 20 de abstención (fuera de alcance, sin cobertura, que el servidor declara después de consultar, variación sin herramienta, otra empresa). Con menos de 20, una sola falla ya rompería el 95 %.
 - **Conjunto ampliado (.3).** Suma al menos 40: cada cálculo, cada dimensión con sus rótulos, cada uno de los 19 bloques y los cuatro casos dudosos. La exactitud incluye el bloque elegido. Mismos criterios.
 - **Motor.** Proyecto `eval` de Vitest y script `test:eval` (D-M25a-01), que corren el orquestador real contra DeepInfra y **resultados de herramientas sintéticos inyectados**, sin base. No entra en `verify`. Usa la clave de `.env.local` sin imprimirla.
 - **Transcripciones reproducibles** (ficha, «Pruebas»): fixtures sintéticos de salidas del modelo, reproducidos sin red en `tests/unit/chat-orchestrator.test.ts`.
@@ -700,8 +702,8 @@ La ruta pide medir si las llamadas y los tokens alcanzan para varios bloques, y 
 | M25a-C-33 | Dos turnos simultáneos del mismo usuario, desde instancias distintas: uno recibe `chat_turn_in_progress`, sin registro ni llamada al modelo; un arriendo vencido se libera | CA-70 |
 | M25a-C-34 | El detector encuentra las cinco familias de CA-50, marca «Hubo un clic» y no marca «una campaña». Un nombre de entidad solo se muestra por su marcador, como segmento `entity`; una cifra fuera de un marcador necesita claim | CA-50, CA-50b, riesgo 13 |
 | M25a-C-35 | `observed_value` exige coincidencia en todos los campos; la normalización sigue la tabla de Diseño §3: solo `spend` admite 0 decimales, y negativos y redondeo coinciden con SQL | CA-50 |
-| M25a-C-36 | Comparaciones recalculadas; variación y participación solo si las devolvió una herramienta de CA-48 | CA-50 puntos 4 y 5 |
-| M25a-C-37 | `user_provided` exige la cifra en la pregunta redactada del turno actual, y la UI la diferencia | CA-50 punto 6 |
+| M25a-C-36 | Comparaciones recalculadas; variación y participación solo si las devolvió una herramienta de CA-48; `period_bound` admite los límites de los dos períodos de una comparación | CA-50 puntos 4 y 5 |
+| M25a-C-37 | `user_provided` exige la cifra en la pregunta redactada del turno actual, sin referencia ni período, y la UI la diferencia | CA-50 punto 6 |
 | M25a-C-38 | Un historial manipulado no agrega cifras: nada resuelve fuera de los resultados del turno | CA-50c |
 | M25a-C-39 | Una respuesta rechazada se registra como `guard_rejected`, y el texto rechazado no está en el DTO | CA-50 punto 7 |
 | M25a-C-40 | Cada caso lleva el pie de la tabla de Diseño §9; una respuesta con datos lo lleva completo, y nunca aparece la cuenta completa | CA-51, CA-52, CA-40; D-M25a-15 |
@@ -719,7 +721,7 @@ La ruta pide medir si las llamadas y los tokens alcanzan para varios bloques, y 
 | M25a-C-52 | El embudo avisa y usa un solo tipo; las conclusiones pasan la guarda y no dan causas | CA-71 |
 | M25a-C-53 | Cada gráfico tiene descripción y tabla equivalente, y no depende solo del color; a 360 px la página no se desborda | II.13b paso 3 |
 | M25a-C-54 | Los cuatro casos dudosos se comportan como en Diseño §10, y el valor por defecto se muestra | CA-72 |
-| M25a-C-55 | El chat dice hasta dónde tiene datos, con fechas del servidor: un período parcial lo declara junto a la respuesta, y uno sin datos da el texto de Diseño §11 según los datos que haya alrededor | CA-72, CA-73; D-M25a-17 |
+| M25a-C-55 | El chat dice hasta dónde tiene datos, con fechas del servidor y nombrando el nivel o el desglose al que se refieren: un período parcial lo declara junto a la respuesta, y uno sin datos da el texto de Diseño §11 según los datos que haya alrededor | CA-43, CA-72, CA-73; D-M25a-17 |
 | M25a-C-56 | CA-70 quedó medido, con el valor final y su motivo registrados antes de la evaluación ampliada | CA-70 |
 | M25a-C-57 | La evaluación ampliada cumple DEC-21, incluido el bloque elegido, sobre su conjunto congelado | VR-02 |
 | M25a-C-58 | El recorrido manual cubre los 19 bloques con datos sintéticos en el desechable, y una pregunta real sobre `app` sin mostrar ceros inventados; con 0 filas queda declarado como riesgo temporal | DEC-24, `H-E1-189` |
@@ -745,6 +747,7 @@ La ruta pide medir si las llamadas y los tokens alcanzan para varios bloques, y 
 | M25a-C-78 | Una llamada válida del esquema plano llega a cada una de las trece herramientas; una clave ajena no nula o una obligatoria nula dan `tool_error` | CA-48 |
 | M25a-C-79 | `answered_partial_coverage` depende solo de los resultados citados por la respuesta mostrada | CA-51b, CA-62 |
 | M25a-C-80 | Una entrada inválida o vacía no llama al modelo ni registra; un nombre de herramienta inventado no llega al registro; `reported_model_id` es el de la última llamada que respondió | CA-62, CA-53b |
+| M25a-C-81 | Solo el servidor declara `no_coverage`, cuando todas las consultas con período del turno no tienen ningún día observado; el modelo no puede elegir ese motivo, y buscar antes una entidad no impide declararlo | CA-43, CA-72; Non-negotiable de estados autoritativos |
 
 ## Casos de prueba
 
@@ -791,8 +794,8 @@ Comandos de `package.json`. `test:eval` es **previsto** (D-M25a-01). En Windows,
 | M25a-T-37 | C-33 | app | `npm run test:app -- tests/app/chat-tools.test.ts` | Cliente real, dos llamadas concurrentes: un `chat_turn_in_progress`, y `end_chat_turn` libera | Sí, TDD |
 | M25a-T-38 | C-34 | unit | `npm run test:unit -- tests/unit/chat-guard.test.ts` | Tabla de candidatos por familia; «una campaña» no es candidato; «Hubo un clic» y «solo una campaña» sí. «Promo 2x1 2026» por marcador pasa como `entity`. «Gastaste 999 pesos» escrito sin marcador se rechaza; por marcador se muestra como `entity`, nunca como afirmación. Alias desconocido rechazado. «25-34», «65+», `..._7d` y un día del período: con marcador pasan como `label` y sin él se rechazan. «3 campañas» exige `observed_value` sobre `list_count`; sin él se rechaza | Sí, TDD |
 | M25a-T-39 | C-35 | unit | `npm run test:unit -- tests/unit/chat-guard.test.ts` | Cada campo distinto rechaza; es-AR, sin miles, half-up, «1,2 M» y «30 mil» rechazados. CPC de 0,37 como «$0» rechazado y `spend` a 0 decimales admitido. `-0,125` da `-0,13`, igual que SQL. Clics promedio «3,67» admitido | Sí, TDD |
-| M25a-T-40 | C-36 | unit | `npm run test:unit -- tests/unit/chat-guard.test.ts` | Relación falsa rechazada; «se duplicó» sin herramienta rechazado y con `percent_change` admitido. Un claim de `change` con otros `period_a` o `period_b`, o solo con `period`, se rechaza. El porcentaje de un segmento se admite con `observed_value` sobre su `share` | Sí, TDD |
-| M25a-T-41 | C-37 | unit | `npm run test:unit -- tests/unit/chat-guard.test.ts` | Cifra ausente de la pregunta rechazada; cifra del dueño como observada rechazada | Sí, TDD |
+| M25a-T-40 | C-36 | unit | `npm run test:unit -- tests/unit/chat-guard.test.ts` | Relación falsa rechazada; «se duplicó» sin herramienta rechazado y con `percent_change` admitido. Un claim de `change` con otros `period_a` o `period_b`, o solo con `period`, se rechaza. El porcentaje de un segmento se admite con `observed_value` sobre su `share`. Las cuatro fechas de una comparación se admiten con `period_bound`, y una cambiada se rechaza | Sí, TDD |
+| M25a-T-41 | C-37 | unit | `npm run test:unit -- tests/unit/chat-guard.test.ts` | Cifra ausente de la pregunta rechazada; cifra del dueño como observada rechazada. Una salida plana válida, con referencia y período nulos, se admite, también sin herramientas en el turno; con `period` no nulo se rechaza | Sí, TDD |
 | M25a-T-42 | C-38, C-39 | unit | `npm run test:unit -- tests/unit/chat-adversarial.test.ts` | Las pruebas obligatorias de CA-50b. Ninguna cifra rechazada en el DTO | Sí, TDD |
 | M25a-T-43 | C-38 | unit | `npm run test:unit -- tests/unit/chat-adversarial.test.ts` | Referencia a un resultado de otro turno o inyectado por el cliente: rechazada | Sí, TDD |
 | M25a-T-44 | C-40 | unit | `npm run test:unit -- tests/unit/chat-render.test.ts` | Pie completo; parcial con composición; cada fila de la tabla, con conexión nula, `pending_selection`, `needs_reauth`, `out_of_scope`, `clarify` y `no_coverage`, esta última solo con la cuenta; sin `act_` completo en el DTO serializado | Sí, TDD |
@@ -840,8 +843,9 @@ Comandos de `package.json`. `test:eval` es **previsto** (D-M25a-01). En Windows,
 | M25a-T-86 | C-78 | unit | `npm run test:unit -- tests/unit/chat-tools.test.ts` | Trece llamadas válidas desde el esquema plano; `breakdown` en `account` con `entity_ref` nulo; clave ajena y obligatoria nula dan `tool_error` | Sí, TDD |
 | M25a-T-87 | C-79 | unit | `npm run test:unit -- tests/unit/chat-orchestrator.test.ts` | Resultado parcial citado da `answered_partial_coverage`; parcial no usado da `answered` | Sí, TDD |
 | M25a-T-88 | C-80 | unit | `npm run test:unit -- tests/unit/chat-orchestrator.test.ts` | Pregunta de espacios y campo inválido sin modelo ni registro; herramienta inventada fuera de `tool_names`; modelo informado de la última llamada | Sí, TDD |
-| M25a-T-89 | C-55 | unit | `npm run test:unit -- tests/unit/chat-orchestrator.test.ts` | Cada fila del texto de `no_coverage`, dos períodos y abstención sin consulta; `breakdown` con su `extra`; lectura fallida o lenta deja solo la primera frase, sin sumar a `tool_names`. Período parcial con `data_limits` en cada punta. Ninguna fecha sale del modelo | Sí, TDD |
-| M25a-T-90 | C-55 | pgTAP | `npm run test:policies` | Con un hueco, `observed_from`, `observed_to`, `nearest_before`, `nearest_after`, `history_from` e `history_to` exactos en `chat_coverage`; días más cercanos de cada dimensión en `chat_breakdown`; sin cobertura, todos nulos | Sí, TDD |
+| M25a-T-89 | C-55 | unit | `npm run test:unit -- tests/unit/chat-orchestrator.test.ts` | Cada fila del texto de `no_coverage`, dos períodos y más de un alcance; el alcance de cada nivel y dimensión; `breakdown` con su `extra`; lectura fallida o lenta deja solo la primera frase, sin sumar a `tool_names`. Período parcial con `data_limits` en cada punta. Ninguna fecha sale del modelo | Sí, TDD |
+| M25a-T-90 | C-55 | pgTAP | `npm run test:policies` | Con un hueco, `observed_from`, `observed_to`, `nearest_before`, `nearest_after`, `history_from` e `history_to` exactos en `chat_coverage`; días más cercanos de cada dimensión en `chat_breakdown`; dos campañas con filas hasta días distintos dan las mismas fechas del nivel; sin cobertura, todos nulos | Sí, TDD |
+| M25a-T-91 | C-81 | unit | `npm run test:unit -- tests/unit/chat-orchestrator.test.ts` | `entities` y `total` sin días observados dan `no_coverage`. `abstain_reason = no_coverage` del modelo da `guard_rejected`, también con cobertura existente, sin decir que faltan datos. Una consulta con un día observado sin filas, o un `not_supported` con `days_total = 0`, no lo disparan | Sí, TDD |
 
 Los criterios C-NN de la tabla remiten a `M25a-C-NN`.
 
@@ -915,7 +919,7 @@ El asistente no ejecuta `db:push`, `db:push:test` (denegados en `.claude/setting
 | D-M25a-14 | Se autoriza `tests/component/app-paginas-sesion.test.tsx`, como D-M16c-06 | La prueba importa todas las páginas y se rompería a mitad de la corrida | Usuario | 2026-11-08 |
 | D-M25a-15 | El pie depende del caso: respuesta con datos, completo; repregunta o abstención con cuenta conectada, solo la cuenta; sin cuenta, un texto fijo. CA-51 y CA-52 se precisan en la spec de la ruta | No se pueden mostrar datos que no existen, y una repregunta igual dice sobre qué cuenta habla | Usuario | 2026-11-09 |
 | D-M25a-16 | La tarjeta «Uso de la IA» de Inicio también muestra «Todavía no disponible». Entra en la enmienda de la ruta | El motivo de D-M25a-10 la alcanza: después de publicar mostraría «0 consultas» en la pantalla de entrada | Usuario | 2026-11-09 |
-| D-M25a-17 | Cuando un período no tiene datos, el chat dice hasta dónde los tiene, además de desde cuándo. Con un hueco, da el día más cercano de cada lado. El mensaje nombra el período, así que el pie sigue la regla de D-M25a-15: solo la cuenta | El dueño sabe qué días puede preguntar, y no hace falta una excepción en el pie. Amplía CA-73 sin contradecirlo | Usuario | 2026-11-09 |
+| D-M25a-17 | Cuando un período no tiene datos, el chat dice hasta dónde los tiene, además de desde cuándo, y nombra a qué nivel o desglose se refiere esa fecha. Con un hueco, da el día más cercano de cada lado. El mensaje nombra el período, así que el pie sigue la regla de D-M25a-15: solo la cuenta | El dueño sabe qué días puede preguntar, sin creer que la fecha es de una campaña puntual, y no hace falta una excepción en el pie. Amplía CA-73 sin contradecirlo | Usuario | 2026-11-09 |
 
 ## Supuestos e hipótesis
 
@@ -962,3 +966,4 @@ Sin preguntas abiertas. Las respuestas están en «Decisiones de la microfase».
 | 3 | REQUIERE CAMBIOS | `4be22633…` | `revisiones/spec-audit-3.md` |
 | 4 | REQUIERE CAMBIOS | `4be22633…` | `revisiones/spec-audit-4.md` |
 | 5 | REQUIERE CAMBIOS | `d380cb76…` | `revisiones/spec-audit-5.md` |
+| 6 | REQUIERE CAMBIOS | `fef6a34e…` | `revisiones/spec-audit-6.md` |
