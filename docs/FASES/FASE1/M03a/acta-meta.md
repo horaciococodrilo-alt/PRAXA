@@ -2,6 +2,8 @@
 
 **Enmienda de alcance:** autorizada expresamente por el usuario el 2026-11-06 al pedir resolver e integrar los datos ampliados antes de M16c. La comunicación al dueño sobre el alcance ampliado se acredita antes de la primera sincronización ampliada; no se presume realizada por esta autorización.
 
+**Enmienda de desgloses (DEC-23):** aprobada por el usuario el 2026-11-08 (`H-E1-202`). La sincronización de ese día devolvió 0 filas, así que todavía no entraron datos reales de estas categorías.
+
 **Estado de aprobación histórica:** ver [`docs/PROJECT_STATE.md`](../../../PROJECT_STATE.md); la evidencia histórica está en la [sesión de M03a](../meta_first/sesiones/M03a.md).
 **Alcance:** piloto de la ruta `meta_first`, con un dueño, una empresa y una cuenta publicitaria de Meta (spec `meta_first`, sección 1).
 **Fuentes:** sección III.6 del [plan de la ruta](../meta_first/plan.md) (contenido mínimo), decisiones DEC-01 a DEC-22 y criterios citados de la [spec de la ruta](../meta_first/spec.md), y [`docs/SECURITY.md`](../../../SECURITY.md).
@@ -17,6 +19,7 @@ Ningún dato real entra al proyecto `app` antes de que el usuario apruebe esta a
 | Identificador de la cuenta publicitaria de Meta | Completo solo en la base (`integration_connections`) | Truncado en la interfaz, en las capturas y en la evidencia (CA-09b). Nunca aparece junto a datos de gasto (CA-40). Excepción declarada: la ruta de las peticiones de lectura a Meta de la cuenta, Insights y edges de metadata (ver los límites abajo) |
 | Identificador del negocio de Meta (`client_business_id`), moneda y zona horaria de la cuenta | Base (`integration_connections`) | Lectura bajo RLS, solo para los miembros de la empresa |
 | Datos diarios de rendimiento y resultados de Meta por cuenta, campaña, conjunto y anuncio; metadata de entidades y atribución | Base: snapshots, filas y cobertura, a partir de los cortes de M16c | Catálogo único y reglas en [§11 de la spec](../meta_first/spec.md#11-sincronización-manual-m16c). Valores exactos y snapshots inmutables; lectura bajo RLS, sin JSON crudo. Los IDs completos permanecen en la base; los nombres pueden contener texto libre del anunciante y se minimizan en salidas |
+| Desgloses diarios de Meta por edad y género, país y región, de cuenta y campaña: gasto, impresiones, clics y tasas, y acciones salvo en región | Base: snapshots, filas, cobertura y estado propios (DEC-23) | Son agregados de Meta, sin personas identificadas, y sus valores son estimados. Meta no documenta un mínimo por grupo: un grupo chico puede representar a pocas personas. Lectura bajo RLS, sin IDs externos. El modelo no los recibe |
 | Token de Meta (system user) | Base, esquema `private`, cifrado con AES-256-GCM | La base lo entrega cifrado solo por `worker_api` al rol propio; lo descifra el servidor con el llavero, que no vive en la base (DEC-03, DEC-04). No aparece en logs, errores ni URLs (CA-26) |
 | Intentos de autorización (OAuth) | Base | Se guardan solo los hashes del `state` y del nonce, nunca los valores. Se purgan de forma perezosa al vencer o consumirse (CA-38b) |
 | Registro por consulta del chat (a partir de `M25a.1`) | Base, sin lectura para `authenticated` | La pregunta se guarda **redactada** (CA-66), con los nombres de las herramientas llamadas, el resultado, el motivo si no respondió, la fecha, la latencia, el modelo solicitado y el informado, la conexión a la que se refiere (o nula si no hay conexión) y el voto «útil» o «no útil». No se guardan respuestas ni cifras de herramientas (CA-62). La pregunta nunca va a los logs (CA-63) |
@@ -39,6 +42,7 @@ Ningún dato real entra al proyecto `app` antes de que el usuario apruebe esta a
 Para la demostración del piloto con el dueño y para aprender qué pregunta y si las respuestas le sirven. En concreto:
 
 - los datos de Meta permiten mostrar rendimiento y resultados por nivel del catálogo de §11 y responder en el chat con procedencia y atribución; no se demuestra rentabilidad real con estos datos;
+- los desgloses permiten analizar el rendimiento por edad, género y lugar; todavía no se muestran en la interfaz ni en el chat;
 - el registro por consulta permite medir qué se pregunta, si se respondió y si fue útil (DEC-10, DEC-13);
 - la cuenta de Supabase Auth permite al dueño ingresar y recuperar el acceso; el perfil y el contexto de la empresa permiten configurar y describir su negocio en la app; la foto opcional se muestra como avatar.
 
@@ -72,7 +76,7 @@ Las regiones configuradas de Supabase y Vercel, y la región de envío de Resend
 |---|---|---|
 | Conexión pendiente sin confirmar | Vence a los 30 minutos y se purga en la siguiente visita o inicio, con intento de revocación en Meta. Hasta que el dueño vuelve, la credencial cifrada sigue en la base | DEC-17, CA-37b |
 | Intentos de autorización vencidos o consumidos | Se purgan de forma perezosa | CA-38b |
-| Datos de una conexión (credencial, snapshots, observaciones, ejecuciones y registros del chat de esa conexión) | Mientras la conexión está viva. Al desconectar se borran | DEC-09, CA-38 |
+| Datos de una conexión (credencial, snapshots, desgloses, observaciones, ejecuciones y registros del chat de esa conexión) | Mientras la conexión está viva. Al desconectar se borran | DEC-09, CA-38 |
 | Snapshots reemplazados | Se conservan mientras la conexión está viva, porque son la procedencia de las respuestas | CA-38b |
 | Registro por consulta del chat | Sin plazo propio. Los de una conexión se borran al desconectarla; los que no tienen conexión, solo al cerrar el piloto | DEC-12, CA-62, CA-65 |
 | Todo lo del dueño, y la cuenta y la empresa sintéticas | Hasta el fin del piloto, cuando se ejecuta el cierre | DEC-12, DEC-18, DEC-20, CA-67 |
@@ -120,6 +124,8 @@ Además, la pantalla del chat avisa que las preguntas se registran y para qué (
 El operador se compromete a mantener esta conversación antes del alta del dueño (confirmación del usuario del 2026-10-18). La confirmación del compromiso no acredita que la conversación ya haya ocurrido.
 
 Antes de la primera sincronización ampliada, el operador explica al dueño las nuevas categorías y niveles de datos y que el modelo recibirá los resultados pertinentes y, cuando corresponda, nombres de entidades. Registra esa comunicación y la conformidad del dueño sin datos personales ni cifras en la evidencia de M16c.3. La comunicación histórica sobre gasto e impresiones no acredita este paso nuevo.
+
+Lo mismo vale para los desgloses (DEC-23): el usuario declaró el 2026-11-08 la conformidad del dueño para estos datos, sin evidencia adjunta.
 
 ## 10. Aprobación
 

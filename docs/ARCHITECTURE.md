@@ -82,7 +82,7 @@ Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 | `integrations/crypto` | Llavero versionado y cifrado AES-256-GCM con AAD de empresa, conexión y proveedor; material descifrado en envoltorio redactado | Existe |
 | `integrations/db` | Cliente PostgreSQL `server-only` del rol `praxa_integrations`, limitado a `worker_api`, con TLS verificado y errores redactados | Existe |
 | `integrations/repository` | Prepara operaciones reutilizables, valida K01 y respuestas, lee y recifra credenciales según versión y estado; ejecuta las operaciones del ciclo de vida por `worker_api`; lee la conexión viva de la empresa con el JWT del usuario | Existe |
-| `integrations/meta` | Versión de la Graph API y URLs en un solo lugar; cliente HTTP con timeout, clasificación de errores y ninguna credencial en las URLs de salida; OAuth, listado de cuentas delegadas, prueba de acceso a Insights, revocación y resultados cerrados; extracción de Insights en cuatro niveles, metadata de entidades y orquestación de la sincronización | Existe; probado con Meta simulada |
+| `integrations/meta` | Versión de la Graph API y URLs en un solo lugar; cliente HTTP con timeout, clasificación de errores y ninguna credencial en las URLs de salida; OAuth, listado de cuentas delegadas, prueba de acceso a Insights, revocación y resultados cerrados; extracción de Insights en cuatro niveles y desgloses, metadata de entidades y orquestación de la sincronización | Existe; probado con Meta simulada |
 | `integrations` (resto) | Orquesta selección, reautorización, desconexión y purga perezosa; Server Actions de confirmación, desconexión y sincronización manual | Existe |
 | `chat` | Consulta en lenguaje natural sobre métricas y resultados persistidos de Meta por nivel y entidad, con cifras verificadas; catálogo en §11 de la spec de la ruta | Previsto |
 
@@ -170,7 +170,7 @@ guarda la ruta en los metadatos de Auth. Las pantallas la muestran con URLs firm
 vida corta.
 
 Este camino lo usan las páginas de `/app` (a través de `app-data`), sus Server Actions, la
-lectura de conexiones, estado de sincronización y cobertura de Insights y, previstas, las
+lectura de conexiones, estado de sincronización, cobertura y desgloses de Insights y, previstas, las
 herramientas del chat. La base conoce al
 usuario por el JWT.
 
@@ -227,6 +227,7 @@ Navegador ──► tarjeta de integraciones ──► cuentas delegadas ──�
   Graph con secretos en parámetros internos viajan dentro de un lote `POST`; ninguna URL de
   salida lleva credenciales, códigos ni tokens.
 - Existen, probadas con Meta simulada: sincronización y lectura persistida de Insights por nivel y entidad, con snapshots independientes por nivel, metadata capturada y acciones tipadas. La cobertura completa de un nivel puede avanzar aunque otro falle; el resultado global conserva esa distinción. Los totales de cuenta provienen de su extracción propia. La lectura pasa por RPC `SECURITY INVOKER` sobre `meta_daily_coverage` y la conexión; los snapshots no son legibles por usuarios.
+- Existen: desgloses por edad y género, país y región, de cuenta y campaña (DEC-23). Se extraen antes del último nivel, porque necesitan la posesión del run, con una parte acotada del tiempo. Tienen tablas, cobertura y estado propios: un fallo no cambia el resultado de los niveles. Se leen por RPC `SECURITY INVOKER`; todavía no los consume la interfaz ni el chat.
 - Previsto: el chat consulta la base bajo RLS; no consulta Meta directamente.
 
 ## Contexto declarado

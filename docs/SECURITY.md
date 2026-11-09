@@ -169,6 +169,10 @@ Garantías de la base, vigentes y probadas en pgTAP:
   legibles por usuarios. Solo la cobertura diaria tiene `SELECT`, bajo RLS, y es una proyección
   cerrada construida por SQL, sin IDs externos ni credenciales (CA-46). Una conexión
   desconectada no expone cobertura mientras se purga.
+- Los desgloses por edad y género, país y región (DEC-23) también se leen bajo RLS y con la
+  misma regla de conexión: filas, cobertura y estado, sin IDs externos; sus snapshots no son
+  legibles. Son agregados de Meta, sin personas identificadas, pero Meta no documenta un mínimo
+  por grupo: un grupo chico puede representar a pocas personas.
 - Una ejecución de sincronización escribe solo si conserva token, puntero, arrendamiento y
   generación, con la conexión activa, comprobados después de los bloqueos; lo mismo vale para
   registrar un fallo y para pedir reautorización (CA-58, CA-59).
@@ -301,7 +305,7 @@ Todo previsto. Invariantes que el diseño del chat tiene que sostener:
 
 Riesgo aceptado (DEC-15): el host del modelo no entrena ni guarda en disco, pero se reserva
 registrar porciones de solicitudes para depuración y seguridad; recibe la pregunta redactada
-y los resultados de herramientas sobre métricas, acciones y entidades del catálogo autorizado. Se minimizan por pregunta; nombres de campañas o anuncios son datos no confiables del proveedor y pueden contener texto libre. No se envía el snapshot completo por defecto ni se ejecutan instrucciones incluidas en nombres o metadata.
+y los resultados de herramientas sobre métricas, acciones y entidades del catálogo autorizado. Se minimizan por pregunta; nombres de campañas o anuncios son datos no confiables del proveedor y pueden contener texto libre. No se envía el snapshot completo por defecto ni se ejecutan instrucciones incluidas en nombres o metadata. Los desgloses por edad, género y lugar están fuera del catálogo del chat: el modelo no los recibe (DEC-23).
 
 ## 9. Datos, retención y borrado
 

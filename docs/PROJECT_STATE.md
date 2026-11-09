@@ -20,13 +20,13 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 | M06.3a — Cifrado, cliente acotado y documentación de la excepción | `G-CRYPTO` | 2026-10-02 (decisión del usuario; sin `/implementation-review` ni `/qa-review` con veredicto final sobre el HEAD cerrado — detalle en la sesión) | [sesiones/M06.3a.md](FASES/FASE1/meta_first/sesiones/M06.3a.md) |
 | M28.2a — Entorno del piloto | `G-ENTORNO` | 2026-10-11 (pasos manuales acreditados por declaración del usuario, sin capturas; detalle en la sesión) | [sesiones/M28.2a.md](FASES/FASE1/meta_first/sesiones/M28.2a.md) |
 | M16.1 — OAuth con Meta | `G-OAUTH` | 2026-10-14 (PR #23; despliegue y comprobaciones en producción acreditados por declaración del usuario, sin capturas; sin `/implementation-review` sobre las correcciones posteriores a la revisión; detalle en la sesión) | [sesiones/M16.1.md](FASES/FASE1/meta_first/sesiones/M16.1.md) |
-| M03a — Acta de datos reales de Meta y del chat | `G-ACTA-META` | 2026-10-18 (versión vigente aprobada explícitamente por el usuario; ampliación de M16c aprobada el 2026-11-08; blob Git `33d8cec71fa117e35a0cb9e180dcb4f0a4728180`) | [sesiones/M03a.md](FASES/FASE1/meta_first/sesiones/M03a.md) |
+| M03a — Acta de datos reales de Meta y del chat | `G-ACTA-META` | 2026-10-18 (versión vigente aprobada explícitamente por el usuario; ampliación de M16c aprobada el 2026-11-08 y desgloses aprobados el 2026-11-08; blob Git `c8140a161ddf97ae20d48efa9818446a6a92fe3d`) | [sesiones/M03a.md](FASES/FASE1/meta_first/sesiones/M03a.md) |
 | M16.2 — Selección de cuenta, ciclo de vida, alta del dueño y VR-01 | `G-VR01` | 2026-11-05 (pasos con el dueño acreditados por declaración del usuario; la confirmación final sin logs; cuenta sin actividad, con la validación de campos y Q-04 diferidas a `M16c`; detalle en la sesión) | [sesiones/M16.2.md](FASES/FASE1/meta_first/sesiones/M16.2.md) |
 | M16c — Sincronización manual ampliada de Meta Ads | `G-SYNC` | 2026-11-08 (aprobación explícita del usuario; cuatro niveles completos sobre la versión corregida; cuenta sin actividad, D-M16c-02) | [sesiones/M16c.md](FASES/FASE1/meta_first/sesiones/M16c.md) |
 
 ## Siguiente habilitada
 
-**M25a.1 — habilitada por `G-SYNC` aprobado (2026-11-08), aún no solicitada ni iniciada.** Sus spec, plan y gate se aprueban por separado. Antes de expandir su spec, queda pendiente la decisión de alcance `H-E1-190`. Secuencia restante: M25a.1 → M25a.2 → M28.3a.
+**M25a.1 — habilitada por `G-SYNC` aprobado (2026-11-08), aún no solicitada ni iniciada.** Sus spec, plan y gate se aprueban por separado. Antes de expandir su spec, queda pendiente aprobar la enmienda del chat (`H-E1-190`). Secuencia restante: M25a.1 → M25a.2 → M28.3a.
 
 ## Fuera de la ruta o pospuesto
 
@@ -52,7 +52,7 @@ enmienda de `avatars` del PR #20 y ratificó los cambios de Resend en `SECURITY.
 Las decisiones sobre `H-E1-04`, `H-E1-40`, `H-E1-76`, `H-E1-78`, `H-E1-81` y `H-E1-82` se
 tomaron el 2026-10-20; el detalle está en [HALLAZGOS.md](HALLAZGOS.md).
 
-Antes de expandir la spec de `M25a.1`, el usuario decide qué cuentas adicionales y qué gráficos tendrá el chat (`H-E1-190`).
+La decisión de `H-E1-190` está tomada: el usuario tiene pendiente aprobar la [enmienda del chat](FASES/FASE1/meta_first/revisiones/propuesta-enmienda-chat-visual-1.md), que junta `M25a.1`, `M25a.2` y los bloques en una microfase.
 
 ## Regla de actualización
 

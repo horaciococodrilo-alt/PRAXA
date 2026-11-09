@@ -16,7 +16,7 @@
 
 `v1.0 — APROBADA` — 2026-09-24 (aprobada por el usuario en `G-DOCS`, al cerrar `M04a`). Incorpora:
 
-- las decisiones DEC-01 a DEC-21 y la enmienda DEC-22 del 2026-11-06;
+- las decisiones DEC-01 a DEC-21 y las enmiendas DEC-22 del 2026-11-06 y DEC-23 del 2026-11-08;
 - las correcciones T01 a T16 de la revisión externa;
 - las correcciones técnicas de la revisión del repositorio.
 
@@ -72,6 +72,7 @@ Un usuario (el dueño), una empresa y una cuenta publicitaria conectada. El due�
 | DEC-20 | `M28.3a` se cierra al completar la demostración. CA-67 se ejecuta al finalizar el piloto, no al terminar la demo | Cerrada |
 | DEC-21 | Los umbrales propuestos para VR-02 se adoptan como criterios iniciales de aprobación | Cerrada |
 | DEC-22 | Insights diarios de cuenta, campaña, conjunto y anuncio, catálogo y reglas de agregación de §11; chat sobre datos persistidos y verificados. Aprobada por el usuario el 2026-11-06 | Cerrada |
+| DEC-23 | Desgloses diarios de edad y género, país y región, por cuenta y campaña, según §11. Fuera del catálogo del chat hasta la decisión de `H-E1-190`. Aprobada por el usuario el 2026-11-08 (`H-E1-202`) | Cerrada |
 
 ## 4. Prerrequisitos de Meta — pendientes de verificar
 
@@ -337,11 +338,13 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
 | Resultados | `actions` y `action_values`, proyectados a filas tipadas por `action_type`, con conteo y valor separados. Ambos pueden ser decimales; ningún conteo de acción se fuerza a entero. Se conservan los tipos devueltos con identificador validado y acotado, sin guardar JSON crudo. Un tipo desconocido no se traduce automáticamente a compras, leads ni mensajes. |
 | Entidades | IDs y nombres de campaña, conjunto y anuncio y sus relaciones; estado efectivo y objetivo de campaña mediante lecturas de metadata. Se congelan con la captura. El estado observado al sincronizar no acredita el estado histórico del día de la métrica. |
 | Procedencia | Moneda y zona confirmadas, nivel, entidad, campos solicitados, rango, configuración de atribución usada, `action_report_time`, captura, páginas, completitud, snapshot y ejecución. No convertir moneda. |
+| Desgloses (DEC-23) | `age,gender`, `country` y `region`, por `account` y `campaign`, con `spend`, `impressions`, `clicks`, `inline_link_clicks`, `ctr`, `cpc` y `cpm`. `actions` y `action_values` salvo en `region`, donde Meta no devuelve las de fuera de Meta. Sin `reach` ni `frequency`. Tablas, cobertura y estado propios, separados de los cuatro niveles. |
 
 - La extracción fija explícitamente `action_report_time=impression` y usa la atribución unificada del conjunto (`use_unified_attribution_setting=true`), conservando la configuración efectiva disponible por conjunto. Si Meta no permite acreditar esos parámetros para un resultado, su atribución se declara desconocida y no se combina con otras configuraciones como si fueran equivalentes. La compatibilidad exacta en la versión Graph y cuenta autorizadas se verifica con documentación oficial y sincronización real; no se presume por un probe vacío.
 - Un campo ausente o nulo es `no_informado`, distinto de cero explícito y de día sin fila. No invalida por sí solo campos válidos de la fila; un valor presente mal formado sí hace incompleta la extracción. Las variantes de atribución en arrays de acciones se conservan separadas; no sumar ventanas ni tipos de evento superpuestos.
 - `action_type` es un identificador del proveedor, de 1 a 128 caracteres alfanuméricos, punto o guion bajo; valores y claves fuera del contrato se rechazan o se descartan según sean datos malformados o campos extra. El chat consulta tipos presentes mediante catálogo del servidor y los referencia por su identificador. Solo usa nombres de negocio con mapeo explícito probado; jamás fusiona, por ejemplo, varios tipos de compra para inventar un total.
 - El total de cuenta se obtiene de `account`, no de la suma de otros niveles. El alcance y la frecuencia se ofrecen por día/entidad; no se calcula alcance o frecuencia de varios días o entidades con las filas diarias. Una solicitud de ese agregado recibe resultado no soportado. No se agrega una consulta directa a Meta desde el chat.
+- Los valores de los desgloses son estimados por Meta y conservan sus segmentos tal como llegan, incluidos los desconocidos. No reemplazan ni se reconcilian con los totales de los niveles, y no se cruzan edad o género con lugar. Un desglose fallido no cambia el resultado ni la cobertura de los niveles. No están en el catálogo de CA-48: el modelo no los recibe.
 - Para períodos y una misma entidad se suman solo métricas aditivas con unidad, moneda y atribución compatibles. CTR se calcula como `100 * clicks / impressions`; CPC como `spend / clicks`; CPM como `1000 * spend / impressions`. Denominador cero o datos necesarios ausentes producen resultado no calculable, nunca cero ni infinito. Las tasas de período se recalculan en SQL desde las bases cubiertas y se presentan parciales si falta cobertura. No se promedian tasas diarias. No se calculan ROAS, rentabilidad ni variaciones porcentuales en este corte.
 - **CA-44b** Toda medida, tasa y valor de acción se almacena con precisión exacta (`numeric`; los conteos base, `bigint`) y sale de SQL como texto, incluidos JSON y totales. TypeScript valida cadenas; nunca convierte a `number`. Prueba SQL → Data API → TypeScript con decimales y enteros fuera de precisión de `number`.
 
