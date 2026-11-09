@@ -465,9 +465,9 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
 
 ### Presentación y modelo
 
-- **CA-51** Toda respuesta declara período, zona horaria, cobertura (presencia, estado temporal y captura parcial) y frescura. Si los días provienen de extracciones distintas, se informa el rango de `fetched_at`, no solo la última sincronización.
+- **CA-51** Toda respuesta con datos declara período, zona horaria, cobertura (presencia, estado temporal y captura parcial) y frescura. Si los días provienen de extracciones distintas, se informa el rango de `fetched_at`, no solo la última sincronización.
 - **CA-51b** Los totales sobre períodos con días `sin_fila_reportada`, `no_observado`, `abierto` o con captura parcial se presentan como parciales, mostrando la composición.
-- **CA-52** La interfaz muestra siempre la cuenta (truncada) y el período.
+- **CA-52** La interfaz muestra la cuenta (truncada) siempre que haya una conectada, y el período en toda respuesta con datos. Sin cuenta conectada, lo dice con un texto fijo. Una aclaración o una abstención muestra solo lo que existe en ese momento (D-M25a-15).
 - **CA-53** *(P01)* El identificador de modelo es fijo. No equivale a un despliegue inmutable: el host puede cambiar la precisión o la forma de servir el modelo sin cambiar el identificador. Para el piloto se acepta esa limitación con dos mitigaciones: VR-02 se repite antes de la demo, y cada registro guarda el identificador informado por la respuesta (CA-53b). Con el modelo caído, el chat muestra un mensaje claro, conserva la pregunta en la sesión y permite reintentar sin volver a escribirla.
 - **CA-53b** *(modelo, DEC-14 y DEC-15)* DeepSeek V4.1 Flash, con sus pesos abiertos servidos por DeepInfra (DEC-16) bajo el identificador `deepseek-ai/DeepSeek-V4.1-Flash`. Según la ficha del modelo al 2026-09-23, se sirve en precisión fp8. No tiene un identificador fechado, a diferencia de `DeepSeek-V4-Flash-0731`.
   - La salida estructurada de CA-50 usa el mecanismo de esquema estricto del host: `response_format` de tipo `json_schema` con `strict`, o una herramienta en modo `strict`. El modo `json_object` no alcanza, porque garantiza JSON válido pero no el esquema.
@@ -488,7 +488,7 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
   - el identificador de modelo solicitado y el informado (CA-53b);
   - la conexión a la que se refiere, o nula si todavía no hay conexión. Sin conexión, el resultado es `not_answered` con motivo `connection_not_active`, y ese registro se borra por CA-67.
 
-  No se guardan respuestas, cifras de resultados de herramientas ni credenciales. La pregunta redactada sí puede conservar montos y fechas que escribió el dueño (CA-66). Cada reintento es un registro aparte. `record_query` cumple CA-38c. Excepciones: un turno rechazado por otro en curso no llegó a ser una consulta y no genera registro; una escritura descartada por CA-38c o un fallo al registrar tampoco lo dejan, y en esos dos casos **la respuesta no se muestra** (D-M25a-12).
+  No se guardan respuestas, cifras de resultados de herramientas ni credenciales. La pregunta redactada sí puede conservar montos y fechas que escribió el dueño (CA-66). Cada reintento es un registro aparte. `record_query` cumple CA-38c. Excepciones: un turno rechazado por otro en curso o una entrada inválida no llegaron a ser una consulta y no generan registro; una escritura descartada por CA-38c o un fallo al registrar tampoco lo dejan, y en esos dos casos **la respuesta no se muestra** (D-M25a-12).
 - **CA-66** *(redacción, DEC-11)* Una única función determinística redacta la pregunta antes de persistirla y antes de enviarla al modelo. El texto original no se persiste en ningún lado.
   - **Se reemplaza por un marcador:**
     - email → `[EMAIL]`;

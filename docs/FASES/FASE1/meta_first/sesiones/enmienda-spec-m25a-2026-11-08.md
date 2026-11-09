@@ -15,11 +15,13 @@ El usuario eligió cada opción en el chat del 2026-11-08, al resolver las pregu
 | D-M25a-10 | Aviso «Todavía no disponible» en «Uso y costos» |
 | D-M25a-12 | Si falla el registro, no mostrar la respuesta |
 | D-M25a-14 | Autorizar `app-paginas-sesion.test.tsx` |
+| D-M25a-15 | Pie según el caso, el 2026-11-09 |
+| D-M25a-16 | Mismo aviso en la tarjeta de Inicio, el 2026-11-09 |
 
 ## Cambios realizados
 
 - `meta_first/plan.md`: línea de enmienda en el encabezado.
-- `meta_first/spec.md`: CA-38c, CA-50, CA-62 y CA-69.
+- `meta_first/spec.md`: CA-38c, CA-50, CA-51, CA-52, CA-62 y CA-69.
 
 ## Lo que no cambia
 
