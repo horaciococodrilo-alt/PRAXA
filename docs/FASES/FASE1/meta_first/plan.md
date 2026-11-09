@@ -12,6 +12,8 @@
 **Enmienda M16.2 preparada y aprobada por el usuario el 2026-10-16:** ficha de `M16.2` (CA-38b en la UI y excepción puntual al límite de 8 horas confirmada por el usuario), ficha de `M16c` (parte persistente de `H-E1-22` y CA-39 en su criterio de aceptación), intervenciones de la ficha de `M16.2` y su fila de III.2 (preflight y verificación posterior al despliegue VD-01), II.10 (archivos y pruebas necesarios para D-M16.2-01, -02, -03, -05, -10), II.11 paso 9 (revocación y desconexión durante sincronización), y fila de verificación del ciclo de vida/sincronización de la §14 de [la spec de la ruta](spec.md). Revisión del diff: [enmienda-ruta-1.md](../M16.2/revisiones/enmienda-ruta-1.md), aprobable como conjunto. El usuario aprobó expresamente ambos documentos en el chat el 2026-10-16. **El texto enmendado es vigente.**
 **Enmienda de referencias (`H-E1-40`), aprobada por el usuario el 2026-10-20:** la ficha de `M03a` y el paso 3 de II.8 de [plan.md](plan.md), y la §15 de [la spec de la ruta](spec.md), nombran la sección «9. Datos, retención y borrado» de `SECURITY.md` en lugar de su antigua línea 181. No cambia el contenido de la ruta.
 **Enmienda de numeración 0015 (preparada y aprobada por el usuario el 2026-10-18):** la migración `0015` se usa para corregir `H-E1-124` (cerrojo de la fila del borrador en `activate_context_draft`), como corrección puntual fuera de la ruta, sin microfase ni gate nuevos. Las migraciones previstas de la ruta corren un número: Insights de `M16c` pasa a `0016` (pgTAP `13`) y el registro del chat de `M25a.1` pasa a `0017` (pgTAP `14`). Afecta a las fichas de `M16c` y `M25a.1`, a I.5, a `purge_connection` en II.4, y a II.11 y II.12. El usuario pidió continuar con la renumeración en el chat el 2026-10-18; el texto enmendado es vigente.
+
+**Enmienda de numeración 0017 (`H-E1-202`), aprobada por el usuario el 2026-11-08:** la migración `0017` y el pgTAP `14` se usan para los desgloses de Meta, sumados fuera de la ruta y sin microfase por decisión del usuario. El registro del chat de `M25a.1` pasa a `0018` y pgTAP `15`. `0017` no reemplaza `purge_connection`: sus tablas caen por FK en cascada, así que la reemplazan `0016` y `0018`. Afecta a la ficha de `M25a.1`, a I.5, a `purge_connection` en II.4, y a II.11 y II.12. Prevalece sobre la enmienda 0015 en esos números.
 **Enmienda de la revocación en `SECURITY.md` (`H-E1-183`), aprobada por el usuario el 2026-11-05:** el paso 9c de II.10 incluye, además de los controles que pasan a vigentes, la corrección de un control que VR-01 mostró no disponible: la revocación en Meta del token del system user. Autoriza la fila «Filtración de las variables del runtime» de §4 de `SECURITY.md`. No cambia el orden de la ruta ni otros archivos. El texto enmendado es vigente.
 **Base:** spec `meta_first` v1.0 (decisiones DEC-01 a DEC-21), revisión del repositorio en `main@247cae8`, la sesión de revisión en la que se tomaron esas decisiones y las correcciones T01 a T16 de la revisión externa. En la versión aprobada no quedaban decisiones abiertas. Q-04 es un parámetro que se fija en `M16c` (spec, Q-04).
 
@@ -332,7 +334,7 @@ Las tres etapas se ejecutan en orden, en una sola corrida de `/microfase M16c` e
 |---|---|
 | **ID** | `M25a.1` — ≤8 h |
 | **Objetivo** | Tener todo lo determinístico del chat antes de conectar el modelo. |
-| **Implementación requerida** | Migración `0017` con el registro por consulta (DEC-10, DEC-11, DEC-13). Redacción (CA-66). Herramientas cerradas con cálculo en SQL y valores como texto (CA-44b, CA-48, CA-49). Límites del chat (CA-70). Registro y voto por `worker_api` (CA-38c). |
+| **Implementación requerida** | Migración `0018` con el registro por consulta (DEC-10, DEC-11, DEC-13). Redacción (CA-66). Herramientas cerradas con cálculo en SQL y valores como texto (CA-44b, CA-48, CA-49). Límites del chat (CA-70). Registro y voto por `worker_api` (CA-38c). |
 | **Procedimiento del asistente** | Pruebas primero. |
 | **Evidencia de cierre** | Pruebas en verde. |
 | **Criterio de aceptación** | CA-48, CA-49, CA-61 a CA-66, CA-69 y CA-70. |
@@ -396,8 +398,8 @@ cambiar su alcance ni sus criterios:
   en la corrección puntual de `H-E1-124`, verificada por `tests/app/concurrency.test.ts` (sin
   pgTAP nuevo). Las migraciones previstas de la ruta corren un número más: la de Insights
   de M16c pasa a `0016` (pgTAP `13`) y la del registro
-  del chat de M25a.1 pasa a `0017` (pgTAP `14`). Lo mismo vale para
-  `purge_connection`: la reemplazan `0016` y `0017`.
+  del chat de M25a.1 pasa a `0018` (pgTAP `15`), porque `0017` y `14` quedaron para los
+  desgloses (`H-E1-202`). Lo mismo vale para `purge_connection`: la reemplazan `0016` y `0018`.
 
 ---
 
@@ -508,7 +510,7 @@ Las columnas de las tablas nuevas tienen que coincidir con los contratos K02 a K
 | `replace_credential` | Reautorización (CA-37c): solo si la generación actual es la esperada por el intento `reauth`; incrementa `credential_generation` |
 | `mark_needs_reauth` | Transición con la clase de error |
 | `begin_disconnect` | Pasa a `disconnected`, incrementa la generación y fija `purge_requested_at`. Primer paso de CA-38. Idempotente |
-| `purge_connection` | Idempotente. Borra la credencial y los datos de la conexión y, al final, la fila de la conexión. Paso 3 de CA-38. Las migraciones `0016` y `0017` la reemplazan con `create or replace` para sumar sus tablas |
+| `purge_connection` | Idempotente. Borra la credencial y los datos de la conexión y, al final, la fila de la conexión. Paso 3 de CA-38. Las migraciones `0016` y `0018` la reemplazan con `create or replace` para sumar sus tablas |
 | `list_pending_purges` | Conexiones de la empresa que hay que purgar: pendientes vencidas y `disconnected` con la purga sin terminar. La usa la purga perezosa y reanudable |
 | `count_credentials_by_key_version` y `rewrap_credential` | Rotación de claves (CA-25) |
 
@@ -688,7 +690,7 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 
 ## II.11 `M16c` — Sincronización manual ampliada
 
-El catálogo y la semántica exactos viven en §11 de la spec (DEC-22); no se duplica aquí la lista de campos. Conservar migración 0016 y pgTAP 13; M25a.1 conserva 0017/14.
+El catálogo y la semántica exactos viven en §11 de la spec (DEC-22); no se duplica aquí la lista de campos. Conservar migración 0016 y pgTAP 13; M25a.1 usa 0018/15.
 
 | Corte | Acción obligatoria | Archivos autorizados | Verificación |
 |---|---|---|---|
@@ -712,16 +714,16 @@ El catálogo y la semántica exactos viven en §11 de la spec (DEC-22); no se du
 
 | Paso | Acción | Archivos | Verificación |
 |---:|---|---|---|
-| 1 | Migración `0017`: `chat_query_records` con `company_id` (cascada), `connection_id` nulo si no hay conexión, `question_redacted` (hasta 500 caracteres), `tool_names text[]`, `outcome`, `reason`, `latency_ms`, `requested_model_id`, `reported_model_id` (nulo si el proveedor no respondió), `feedback` (nulo, `useful` o `not_useful`) y `created_at`. `revoke all`, `force row level security` y ningún grant para `authenticated`. Funciones `worker_api.record_query`, que cumple CA-38c, y `worker_api.set_feedback`, que verifica que el registro sea de la empresa. `create or replace` de `purge_connection` para borrar los registros al desconectar (DEC-09) | `supabase/migrations/0017_chat_queries.sql` | CA-38c, CA-62, CA-64, CA-65 y CA-69 |
-| 2 | pgTAP de privilegios y aislamiento del registro. Extender `10_demo_closure` | `supabase/tests/14_chat_queries.test.sql` | CA-64 y CA-67 |
+| 1 | Migración `0018`: `chat_query_records` con `company_id` (cascada), `connection_id` nulo si no hay conexión, `question_redacted` (hasta 500 caracteres), `tool_names text[]`, `outcome`, `reason`, `latency_ms`, `requested_model_id`, `reported_model_id` (nulo si el proveedor no respondió), `feedback` (nulo, `useful` o `not_useful`) y `created_at`. `revoke all`, `force row level security` y ningún grant para `authenticated`. Funciones `worker_api.record_query`, que cumple CA-38c, y `worker_api.set_feedback`, que verifica que el registro sea de la empresa. `create or replace` de `purge_connection` para borrar los registros al desconectar (DEC-09) | `supabase/migrations/0018_chat_queries.sql` | CA-38c, CA-62, CA-64, CA-65 y CA-69 |
+| 2 | pgTAP de privilegios y aislamiento del registro. Extender `10_demo_closure` | `supabase/tests/15_chat_queries.test.sql` | CA-64 y CA-67 |
 | 3 | Pruebas de redacción: cada patrón, montos con separador de miles que no se redactan, tarjetas que no pasan Luhn y quedan tal cual, idempotencia y longitud máxima | `tests/unit/chat-redaction.test.ts` | CA-66 |
 | 4 | Función única de redacción: email, teléfono internacional, CUIT/CUIL con guiones, tarjeta con Luhn, CBU/CVU de 22 dígitos, URL, cadena con forma de secreto, `act_` truncado | `src/modules/chat/redaction.ts` | CA-66 |
 | 5 | Catálogo cerrado con Zod: `entities(level)`, `action_types(entity_ref)`, `coverage(level, period)`, `daily_series(entity_ref, metric, period, action_type?)`, `total(entity_ref, metric, period, action_type?)` y `connection_status()`, sujetos al catálogo y reglas de §11. Tipos de acción y entidades solo desde referencias autorizadas por el servidor. Sin SQL, tablas ni `company_id` como argumentos | `src/modules/chat/tools/schema.ts` | CA-48 y CA-49 |
-| 6 | Ejecución con el JWT del usuario y bajo RLS. Los totales se calculan en SQL con `numeric` y salen como texto. Las funciones SQL que llama la API rechazan períodos más largos que el máximo de CA-70. Cada valor devuelto tiene un identificador de referencia, su métrica, unidad, moneda, cuenta, nivel, entidad, tipo de acción y atribución cuando correspondan, período, presencia, estado temporal, captura parcial y `fetched_at` | `src/modules/chat/tools/execute.ts` y funciones de lectura nuevas en `0017` (nunca editar 0016 aplicada) | CA-44, CA-44b, CA-49, CA-51, CA-51b y CA-70 |
+| 6 | Ejecución con el JWT del usuario y bajo RLS. Los totales se calculan en SQL con `numeric` y salen como texto. Las funciones SQL que llama la API rechazan períodos más largos que el máximo de CA-70. Cada valor devuelto tiene un identificador de referencia, su métrica, unidad, moneda, cuenta, nivel, entidad, tipo de acción y atribución cuando correspondan, período, presencia, estado temporal, captura parcial y `fetched_at` | `src/modules/chat/tools/execute.ts` y funciones de lectura nuevas en `0018` (nunca editar 0016 ni 0017 aplicadas) | CA-44, CA-44b, CA-49, CA-51, CA-51b y CA-70 |
 | 7 | Tipos de resultado apoyados en `periodSchema` y el patrón `knownOr` de reporting. **No** se usa `calculatedMetricEvidenceSchema` tal cual, porque su `value` es `number` y el gasto exige decimal exacto | `src/modules/chat/tools/results.ts` | Reutilización declarada en la spec |
 | 8 | Pruebas de herramientas: período con días sin cobertura, totales parciales, captura parcial, días de distintas extracciones con rango de `fetched_at`, empresa ajena, período mayor al máximo llamado directo por la API, registro que llega después de una desconexión | `tests/unit/chat-tools.test.ts`, `tests/app/chat-tools.test.ts` | CA-38c, CA-51, CA-51b, CA-54 y CA-70 |
 
-**Cierre:** `npm run verify`, `npm run test:policies`, `npm run test:app` y `db:push` de `0017` al proyecto `app` ejecutado por el usuario.
+**Cierre:** `npm run verify`, `npm run test:policies`, `npm run test:app` y `db:push` de `0018` al proyecto `app` ejecutado por el usuario.
 
 **Trampa conocida.** El texto de la pregunta nunca va a `console.log`. Los logs de ejecución de Vercel lo guardarían fuera del alcance de DEC-09 (CA-63).
 

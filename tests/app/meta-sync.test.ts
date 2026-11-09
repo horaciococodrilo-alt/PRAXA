@@ -92,7 +92,7 @@ describe('M16c: sincronización con base desechable y Meta simulada', () => {
   function deps(owner: Owner, graph: ReturnType<typeof meta>, over: Partial<SyncDeps> = {}): Partial<SyncDeps> {
     return { tenant: async () => owner.ctx, workerApi: () => worker!, keyring: () => keyrings.getCredentialKeyring(),
       readConnection: (ctx) => connections.readConnectionRecord(ctx, { supabase: owner.user.client }),
-      http: graph.http, log: () => {}, limits: LIMITS, ...over };
+      http: graph.http, log: () => {}, limits: LIMITS, breakdowns: [], ...over };
   }
 
   const read = (owner: Owner) => connections.readConnectionRecord(owner.ctx, { supabase: owner.user.client });
@@ -103,6 +103,58 @@ describe('M16c: sincronización con base desechable y Meta simulada', () => {
 
   const row = (owner: Owner, extra: Record<string, unknown> = {}) => ({ date_start: today(), date_stop: today(),
     account_id: owner.account.replace('act_', ''), account_name: 'Cuenta sint', ...extra });
+
+  it('H-E1-202 los desgloses llegan a la base y se leen con JWT, aislados por empresa', async () => {
+    const owner = await active('desglose'); const stranger = await company('desglose-b');
+    const graph = meta(owner, { campaigns: () => json({ data: [{ id: '4100', name: 'Campaña sint' }] }), insights: (url) => {
+      const level = url.searchParams.get('level');
+      const scope = level === 'account' ? {} : { campaign_id: '4100' };
+      if (level !== 'account' && level !== 'campaign') return json({ data: [] });
+      const segments: Record<string, Record<string, string>[]> = { 'age,gender': [{ age: '25-34', gender: 'female' }, { age: 'Unknown', gender: 'unknown' }],
+        country: [{ country: 'AR' }], region: [{ region: 'Córdoba Province' }] };
+      const breakdown = url.searchParams.get('breakdowns');
+      return json({ data: (breakdown ? segments[breakdown] : [{}]).map((segment) => row(owner, { spend: '9007199254740993.25', impressions: '10', ...scope, ...segment,
+        ...(breakdown === 'region' ? {} : { actions: [{ action_type: 'purchase', value: '2' }] }) })) });
+    } });
+    expect((await insights.syncMetaInsights(deps(owner, graph, { breakdowns: insights.DEFAULT_BREAKDOWN_TARGETS }))).result).toBe('completa');
+
+    const read = (dimension: 'age_gender' | 'country' | 'region', level: 'account' | 'campaign' = 'account', supabase = owner.user.client) =>
+      insights.readMetaBreakdown({ connectionId: owner.connectionId, level, dimension, from: daysAgo(2), to: today() }, { supabase });
+    const ages = (await read('age_gender')).filter((item) => item.entity_ref !== null);
+    expect(ages.map((item) => [item.segment_primary, item.segment_secondary])).toEqual([['25-34', 'female'], ['Unknown', 'unknown']]);
+    expect(ages[0]).toMatchObject({ spend: '9007199254740993.25', currency: 'USD', actions: [{ action_type: 'purchase', variant: 'value', count: '2', value: null }] });
+    const regions = (await read('region')).filter((item) => item.entity_ref !== null);
+    expect(regions[0]).toMatchObject({ segment_primary: 'Córdoba Province', segment_secondary: null, actions: [] });
+    const campaign = (await read('country', 'campaign')).filter((item) => item.entity_ref !== null);
+    const [entity] = await insights.listCapturedEntities(owner.connectionId, 'campaign', { supabase: owner.user.client });
+    expect(campaign[0].entity_ref).toBe(entity.entity_ref);
+    // Días cubiertos sin filas: se distinguen de los días sin cobertura.
+    expect(await read('country')).toHaveLength(3);
+
+    const status = await insights.readMetaBreakdownStatus(owner.connectionId, { supabase: owner.user.client });
+    expect(status).toHaveLength(6);
+    expect(status.every((item) => item.last_result === 'complete' && item.covered_days === 3)).toBe(true);
+    expect(await read('age_gender', 'account', stranger.user.client)).toEqual([]);
+    expect(await insights.readMetaBreakdownStatus(owner.connectionId, { supabase: stranger.user.client })).toEqual([]);
+  });
+
+  it('H-E1-202 un desglose en el máximo de filas se publica dentro del tiempo de la base', async () => {
+    const owner = await active('desglose-tope');
+    const graph = meta(owner, { insights: (url) => {
+      if (url.searchParams.get('level') !== 'account') return json({ data: [] });
+      if (!url.searchParams.get('breakdowns')) return json({ data: [row(owner, { spend: '1.50' })] });
+      const page = Number(url.searchParams.get('after') ?? 0);
+      return json({ data: Array.from({ length: 100 }, (_, index) => row(owner, { spend: '1.50', impressions: '10', clicks: '1', ctr: '10.5', cpc: '1.5', cpm: '150.5',
+        age: `a${page}`, gender: `g${index}` })), ...(page < 59 ? { paging: { next: 'https://graph.facebook.com/x', cursors: { after: String(page + 1) } } } : {}) });
+    } });
+    const target = { level: 'account', dimension: 'age_gender' } as const;
+    const limits = { ...LIMITS, maxDurationMs: 240_000, finalizationReserveMs: 55_000, leaseSeconds: 295 };
+    expect((await insights.syncMetaInsights(deps(owner, graph, { breakdowns: [target], limits }))).result).toBe('completa');
+    const [status] = await insights.readMetaBreakdownStatus(owner.connectionId, { supabase: owner.user.client });
+    expect(status).toMatchObject({ last_result: 'complete', last_reason: null });
+    const rows = await insights.readMetaBreakdown({ connectionId: owner.connectionId, ...target, from: daysAgo(2), to: today() }, { supabase: owner.user.client });
+    expect(rows.filter((item) => item.entity_ref !== null)).toHaveLength(6000);
+  }, 180_000);
 
   it('M16c-T-02 lectura aislada por JWT: propio con texto, ajeno y referencias adulteradas sin calendario', async () => {
     const owner = await active('aislada'); const stranger = await company('aislada-b');

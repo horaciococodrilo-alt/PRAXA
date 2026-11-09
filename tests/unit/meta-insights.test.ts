@@ -11,9 +11,10 @@ import { WorkerApiError, type WorkerApi } from '@/modules/integrations/db/worker
 import { createMetaHttpClient, META_HTTP_TIMEOUT_MS, type MetaFetch } from '@/modules/integrations/meta/client';
 import type { SyncLevel } from '@/modules/integrations/meta/entities';
 import { MetadataStore, normalizeAccountId } from '@/modules/integrations/meta/entities';
-import { DECIMAL_PATTERN, DEFAULT_SYNC_LIMITS, extractMetaLevel, listCapturedEntities, loadMetaSyncView, localSyncWindow, META_SYNC_MESSAGES,
-  META_SYNC_RESULTS, MetaSyncReadError, outcomeForWriteError, parseInsightRow, parseMetaSyncResult, pickSyncResult, syncMetaInsights, syncNotice,
-  type ExtractDeps, type LevelExtraction, type SyncDeps } from '@/modules/integrations/meta/insights';
+import { DECIMAL_PATTERN, DEFAULT_BREAKDOWN_LIMITS, DEFAULT_BREAKDOWN_TARGETS, DEFAULT_SYNC_LIMITS, extractMetaBreakdown, extractMetaLevel, listCapturedEntities,
+  loadMetaSyncView, localSyncWindow, META_SYNC_MESSAGES, META_SYNC_RESULTS, MetaSyncReadError, outcomeForWriteError, parseBreakdownRow, parseInsightRow,
+  parseMetaSyncResult, pickSyncResult, readMetaBreakdown, syncMetaInsights, syncNotice, type BreakdownLimits, type BreakdownTarget, type ExtractDeps, type LevelExtraction,
+  type MetaSyncLogEvent, type SyncDeps } from '@/modules/integrations/meta/insights';
 import type { IntegrationConnectionRecord } from '@/modules/integrations/contract';
 import type { SyncLimits } from '@/modules/integrations/repository/sync-calls';
 import type { TenantContext } from '@/modules/tenant/context';
@@ -487,7 +488,7 @@ function syncDeps(graph: ReturnType<typeof meta>, db: ReturnType<typeof fakeDb>,
   let clock = 0;
   return { tenant: async () => CTX, readConnection: async () => connectionRecord(), workerApi: () => db.workerApi, keyring: () => keyring,
     http: graph.http, monotonicNow: () => clock, wallNow: () => new Date('2026-10-03T12:00:01.000Z'),
-    sleep: async (ms) => { clock += ms; }, log: () => {}, limits: LIMITS, ...over };
+    sleep: async (ms) => { clock += ms; }, log: () => {}, limits: LIMITS, breakdowns: [], ...over };
 }
 
 const writes = (db: ReturnType<typeof fakeDb>) => db.calls.filter((call) => ['publish_snapshot', 'fail_sync_run'].includes(call.fn));
@@ -858,5 +859,299 @@ describe('M16c-T-27: vista de lectura por JWT', () => {
     const fake = supabase(never);
     expect(await load(fake, {})).toMatchObject({ coverage: [], status: never });
     expect(fake.calls.some((call) => call.fn === 'get_meta_daily_coverage')).toBe(false);
+  });
+});
+
+describe('H-E1-202: desgloses', () => {
+  const AGE: BreakdownTarget = { level: 'account', dimension: 'age_gender' };
+  const COUNTRY: BreakdownTarget = { level: 'campaign', dimension: 'country' };
+  const REGION: BreakdownTarget = { level: 'account', dimension: 'region' };
+  const BIG: BreakdownLimits = { maxPages: 3, maxPayloadBytes: 200_000, maxDurationMs: 60_000 };
+  const ageRow = (age: string, gender: string, extra: Record<string, unknown> = {}) => row('account', '', '2026-10-01', { age, gender, ...extra });
+  const pageWith = (rows: unknown[], after?: string) => json({ data: rows, ...(after ? { paging: { next: 'https://graph.facebook.com/x', cursors: { after } } } : {}) });
+  const extractBreakdown = (target: BreakdownTarget, graph: ReturnType<typeof meta>, limits = BIG, over: Partial<ExtractDeps> = {}) =>
+    extractMetaBreakdown(target, TOKEN, ROOT, WINDOW, LIMITS, limits, extractDeps(graph, over));
+
+  it('cubre cuenta y campaña en las tres dimensiones, con cotas iguales a las de SQL', () => {
+    expect(DEFAULT_BREAKDOWN_TARGETS).toHaveLength(6);
+    expect(new Set(DEFAULT_BREAKDOWN_TARGETS.map((target) => target.level))).toEqual(new Set(['account', 'campaign']));
+    expect(DEFAULT_BREAKDOWN_LIMITS.maxPages * 100).toBe(6000);
+    expect(DEFAULT_BREAKDOWN_LIMITS.maxPayloadBytes).toBe(5_000_000);
+  });
+
+  describe('fila', () => {
+    it('separa edad y género, y conserva métricas como texto y las acciones', () => {
+      expect(parseBreakdownRow(ageRow('25-34', 'female', { spend: '1.50', impressions: '9007199254740993', actions: [{ action_type: 'purchase', value: '2' }] }),
+        AGE, ROOT, WINDOW)).toEqual({ date: '2026-10-01', external_id: ROOT, segment_primary: '25-34', segment_secondary: 'female', spend: '1.50',
+        impressions: '9007199254740993', clicks: null, inline_link_clicks: null, ctr: null, cpc: null, cpm: null,
+        actions: [{ action_type: 'purchase', variant: 'value', count: '2', value: null }] });
+    });
+
+    it('conserva «unknown» como valor y no lo confunde con ausente', () => {
+      expect(parseBreakdownRow(ageRow('Unknown', 'unknown'), AGE, ROOT, WINDOW)).toMatchObject({ segment_primary: 'Unknown', segment_secondary: 'unknown' });
+    });
+
+    it('país y región tienen un solo segmento y admiten nombres con acento', () => {
+      expect(parseBreakdownRow(row('campaign', '10', '2026-10-01', { country: 'AR' }), COUNTRY, ROOT, WINDOW))
+        .toMatchObject({ external_id: '10', segment_primary: 'AR', segment_secondary: null });
+      expect(parseBreakdownRow(row('account', '', '2026-10-01', { region: 'Córdoba Province' }), REGION, ROOT, WINDOW).segment_primary).toBe('Córdoba Province');
+    });
+
+    it('región nunca devuelve acciones, aunque Meta las mande', () => {
+      expect(parseBreakdownRow(row('account', '', '2026-10-01', { region: 'X', actions: [{ action_type: 'purchase', value: '1' }] }), REGION, ROOT, WINDOW).actions).toEqual([]);
+    });
+
+    it.each([
+      ['edad ausente', { gender: 'male' }],
+      ['género ausente', { age: '25-34' }],
+      ['segmento vacío', { age: '', gender: 'male' }],
+      ['segmento numérico', { age: 25, gender: 'male' }],
+      ['carácter de control', { age: 'a\nb', gender: 'male' }],
+      ['más de 128 caracteres', { age: 'a'.repeat(129), gender: 'male' }],
+    ])('rechaza %s', (_label, extra) => {
+      expect(() => parseBreakdownRow(row('account', '', '2026-10-01', extra), AGE, ROOT, WINDOW)).toThrow();
+    });
+  });
+
+  describe('extracción', () => {
+    it('pide el desglose de Meta, sin alcance ni frecuencia', async () => {
+      const graph = meta();
+      await extractBreakdown(AGE, graph);
+      const query = graph.seen[0].searchParams;
+      expect(query.get('breakdowns')).toBe('age,gender');
+      expect(query.get('level')).toBe('account');
+      expect(query.get('time_increment')).toBe('1');
+      const fields = query.get('fields')!.split(',');
+      expect(fields).toEqual(expect.arrayContaining(['spend', 'impressions', 'clicks', 'inline_link_clicks', 'ctr', 'cpc', 'cpm', 'actions', 'action_values']));
+      expect(fields).not.toContain('reach');
+      expect(fields).not.toContain('frequency');
+    });
+
+    it('región no pide acciones; campaña pide su ID', async () => {
+      const graph = meta();
+      await extractBreakdown(REGION, graph);
+      await extractBreakdown(COUNTRY, graph);
+      const [region, country] = graph.seen.map((url) => url.searchParams.get('fields')!.split(','));
+      expect(graph.seen[0].searchParams.get('breakdowns')).toBe('region');
+      expect(region).not.toContain('actions');
+      expect(region).not.toContain('action_values');
+      expect(graph.seen[1].searchParams.get('breakdowns')).toBe('country');
+      expect(country).toEqual(expect.arrayContaining(['campaign_id', 'actions']));
+    });
+
+    it('sigue la paginación y junta todas las filas', async () => {
+      const graph = meta({ [`${ROOT}/insights`]: (url) => url.searchParams.get('after') === 'c1'
+        ? pageWith([ageRow('25-34', 'male')]) : pageWith([ageRow('25-34', 'female')], 'c1') });
+      const result = await extractBreakdown(AGE, graph);
+      expect(result).toMatchObject({ complete: true, reason: 'complete', pages: 2, calls: 2 });
+      expect(result.rows.map((item) => item.segment_secondary)).toEqual(['female', 'male']);
+    });
+
+    it('sin filas está completo: distingue «sin datos» de «falló»', async () => {
+      expect(await extractBreakdown(AGE, meta())).toMatchObject({ complete: true, rows: [], pages: 1 });
+    });
+
+    it.each([
+      ['fila repetida en una página', [ageRow('25-34', 'male'), ageRow('25-34', 'male')]],
+      ['fila sin segmento', [row('account', '', '2026-10-01')]],
+      ['fecha fuera de la ventana', [row('account', '', '2026-09-01', { age: '25-34', gender: 'male' })]],
+      ['cuenta ajena', [{ ...ageRow('25-34', 'male'), account_id: '999' }]],
+    ])('%s falla y no deja filas', async (_label, rows) => {
+      const result = await extractBreakdown(AGE, meta({ [`${ROOT}/insights`]: () => pageWith(rows) }));
+      expect(result).toMatchObject({ complete: false, reason: 'invalid_response', errorClass: 'own_error', rows: [] });
+    });
+
+    it('una fila repetida entre páginas también falla', async () => {
+      const graph = meta({ [`${ROOT}/insights`]: (url) => url.searchParams.get('after') === 'c1'
+        ? pageWith([ageRow('25-34', 'male')]) : pageWith([ageRow('25-34', 'male')], 'c1') });
+      expect(await extractBreakdown(AGE, graph)).toMatchObject({ complete: false, reason: 'invalid_response', rows: [] });
+    });
+
+    it('el tope de páginas deja la dimensión fallida, nunca recortada como completa', async () => {
+      const graph = meta({ [`${ROOT}/insights`]: (url, call) => pageWith([ageRow(`a${call}`, 'male')], `c${call}${url.pathname.length}`) });
+      expect(await extractBreakdown(AGE, graph, { ...BIG, maxPages: 2 })).toMatchObject({ complete: false, reason: 'page_limit', rows: [], pages: 2 });
+    });
+
+    it('el tope de tamaño también', async () => {
+      const graph = meta({ [`${ROOT}/insights`]: () => pageWith([ageRow('25-34', 'male')]) });
+      expect(await extractBreakdown(AGE, graph, { ...BIG, maxPayloadBytes: 10 })).toMatchObject({ complete: false, reason: 'page_limit', rows: [] });
+    });
+
+    it('un error de Meta queda clasificado', async () => {
+      expect(await extractBreakdown(AGE, meta({ [`${ROOT}/insights`]: () => graphError(4) })))
+        .toMatchObject({ complete: false, reason: 'meta_error', errorClass: 'rate_limit', rows: [] });
+    });
+
+    it('un error temporal se reintenta dentro del presupuesto', async () => {
+      const graph = meta({ [`${ROOT}/insights`]: (_url, call) => call === 0 ? graphError(2) : pageWith([]) });
+      expect(await extractBreakdown(AGE, graph)).toMatchObject({ complete: true, calls: 2 });
+    });
+
+    it('sin presupuesto no llama a Meta', async () => {
+      const graph = meta();
+      expect(await extractBreakdown(AGE, graph, BIG, { deadline: LIMITS.finalizationReserveMs }))
+        .toMatchObject({ complete: false, reason: 'duration_limit', calls: 0 });
+      expect(graph.seen).toEqual([]);
+    });
+  });
+
+  describe('lectura', () => {
+    const covered = { day: '2026-10-01', level: 'account', dimension: 'country', entity_ref: null, segment_primary: null, segment_secondary: null,
+      spend: null, impressions: null, clicks: null, inline_link_clicks: null, ctr: null, cpc: null, cpm: null, actions: null, currency: 'USD', timezone: 'UTC',
+      snapshot_id: '11111111-1111-4111-8111-000000000000', fetched_at: '2026-10-03T12:00:00.000Z', captured_before_day_end: false, temporal_status: 'cerrado' };
+    function client(total: number) {
+      const ranges: number[] = [];
+      return { ranges, supabase: { rpc: () => ({ range: async (from: number, to: number) => {
+        ranges.push(from);
+        return { data: Array.from({ length: Math.min(to + 1, total) - from }, () => covered), error: null, count: total };
+      } }) } as never };
+    }
+    const read = (fake: ReturnType<typeof client>) => readMetaBreakdown({ connectionId: 'ffffffff-0000-4000-8000-000000000001', level: 'account',
+      dimension: 'country', from: '2026-07-01', to: '2026-10-01' }, { supabase: fake.supabase });
+
+    it('admite más filas que las demás lecturas: 93 días pasan de cuatro capturas', async () => {
+      expect(await read(client(24_000))).toHaveLength(24_000);
+    });
+
+    it('por encima de su tope falla sin mostrar datos recortados', async () => {
+      const fake = client(30_001);
+      await expect(read(fake)).rejects.toBeInstanceOf(MetaSyncReadError);
+      expect(fake.ranges).toHaveLength(1);
+    });
+  });
+
+  describe('sincronización', () => {
+    const handlers = { publish_breakdown: (args: readonly unknown[]) => [{ snapshot_id: args[6], level: args[7], dimension: args[8] }],
+      record_breakdown_failure: (args: readonly unknown[]) => [{ level: args[6], dimension: args[7], result: 'failed' }] };
+    const order = (db: ReturnType<typeof fakeDb>) => db.calls.filter((call) => /publish|fail_sync|record_breakdown/.test(call.fn))
+      .map((call) => call.fn === 'publish_snapshot' || call.fn === 'fail_sync_run' ? `${call.fn}:${call.args[7]}`
+        : call.fn === 'publish_breakdown' ? `breakdown:${call.args[7]}:${call.args[8]}` : `failure:${call.args[6]}:${call.args[7]}:${call.args[8]}`);
+    const breakdownOnly = (route: Route): Route => (url, call) => url.searchParams.get('breakdowns') ? route(url, call) : json({ data: [] });
+    const CORE = ['publish_snapshot:account', 'publish_snapshot:campaign', 'publish_snapshot:adset'];
+
+    it('por defecto corre los seis, después de tres niveles y antes del último, con la misma posesión', async () => {
+      const db = fakeDb(handlers);
+      const graph = meta();
+      const { result } = await syncMetaInsights({ ...syncDeps(graph, db), breakdowns: undefined });
+      expect(result).toBe('completa');
+      const sequence = order(db);
+      expect(sequence.slice(0, 3)).toEqual(CORE);
+      expect(sequence.slice(3, 9)).toEqual(DEFAULT_BREAKDOWN_TARGETS.map((target) => `breakdown:${target.level}:${target.dimension}`));
+      expect(sequence.slice(9)).toEqual(['publish_snapshot:ad']);
+      const start = db.calls.find((call) => call.fn === 'start_sync_run')!;
+      const publish = db.calls.find((call) => call.fn === 'publish_breakdown')!;
+      expect(publish.args.slice(0, 6)).toEqual(start.args.slice(0, 6));
+    });
+
+    it('un fallo de Meta en un desglose queda registrado y no cambia el resultado', async () => {
+      const db = fakeDb(handlers);
+      const graph = meta({ [`${ROOT}/insights`]: breakdownOnly((url) => url.searchParams.get('breakdowns') === 'country' ? graphError(100) : pageWith([])) });
+      const log: MetaSyncLogEvent[] = [];
+      const { result } = await syncMetaInsights(syncDeps(graph, db, { breakdowns: [{ level: 'account', dimension: 'country' }, AGE], log: (event) => log.push(event) }));
+      expect(result).toBe('completa');
+      expect(order(db)).toEqual([...CORE, expect.stringMatching(/^failure:account:country:/), 'breakdown:account:age_gender', 'publish_snapshot:ad']);
+      expect(log.find((event) => event.dimension === 'country')).toMatchObject({ resultado: 'fallido', motivo: 'meta_error' });
+      expect(log.at(-1)).toMatchObject({ resultado: 'completa' });
+    });
+
+    it('un error de permisos en un desglose no marca la conexión para reautorizar', async () => {
+      const db = fakeDb(handlers);
+      const graph = meta({ [`${ROOT}/insights`]: breakdownOnly(() => graphError(200)) });
+      const { result } = await syncMetaInsights(syncDeps(graph, db, { breakdowns: [AGE, REGION] }));
+      expect(result).toBe('completa');
+      expect(db.calls.some((call) => call.fn === 'mark_needs_reauth')).toBe(false);
+      expect(order(db).filter((item) => item.startsWith('failure'))).toHaveLength(1);
+    });
+
+    it('un límite de frecuencia detiene los desgloses que faltan, y el último nivel igual corre', async () => {
+      const db = fakeDb(handlers);
+      const graph = meta({ [`${ROOT}/insights`]: breakdownOnly(() => graphError(4)) });
+      await syncMetaInsights(syncDeps(graph, db, { breakdowns: [AGE, REGION] }));
+      expect(graph.seen.filter((url) => url.searchParams.get('breakdowns')).length).toBe(1);
+      expect(order(db).at(-1)).toBe('publish_snapshot:ad');
+    });
+
+    it('una escritura rechazada queda como fallo propio y no cambia el resultado', async () => {
+      const db = fakeDb({ ...handlers, publish_breakdown: () => { throw new WorkerApiError('invalid_argument'); } });
+      const { result } = await syncMetaInsights(syncDeps(meta(), db, { breakdowns: [AGE] }));
+      expect(result).toBe('completa');
+      expect(order(db)).toEqual([...CORE, 'breakdown:account:age_gender', 'failure:account:age_gender:own_error', 'publish_snapshot:ad']);
+    });
+
+    it('si tampoco se puede registrar el fallo, el resultado sigue siendo el de los niveles', async () => {
+      const db = fakeDb({ ...handlers, publish_breakdown: () => { throw new WorkerApiError('invalid_argument'); },
+        record_breakdown_failure: () => { throw new WorkerApiError('unexpected'); } });
+      expect((await syncMetaInsights(syncDeps(meta(), db, { breakdowns: [AGE] }))).result).toBe('completa');
+    });
+
+    it('sin el nivel publicado no pide su desglose', async () => {
+      const db = fakeDb(handlers);
+      const graph = meta({ [`${ROOT}/insights`]: (url) => url.searchParams.get('level') === 'campaign' && !url.searchParams.get('breakdowns') ? graphError(1) : pageWith([]) });
+      const { result } = await syncMetaInsights(syncDeps(graph, db, { breakdowns: [COUNTRY, AGE] }));
+      expect(result).toBe('parcial');
+      expect(graph.seen.map((url) => url.searchParams.get('breakdowns')).filter(Boolean)).toEqual(['age,gender']);
+    });
+
+    it('si la conexión cambia durante un desglose, se corta y no se publica', async () => {
+      const db = fakeDb(handlers);
+      const graph = meta();
+      // Con `adset` publicado, la primera lectura del desglose ve otra generación.
+      const { result } = await syncMetaInsights(syncDeps(graph, db, { breakdowns: [AGE], readConnection: async () =>
+        connectionRecord(db.calls.some((call) => call.fn === 'publish_snapshot' && call.args[7] === 'adset') ? { credential_generation: 1 } : {}) }));
+      expect(result).toBe('conexion_cambio');
+      expect(graph.seen.some((url) => url.searchParams.get('breakdowns'))).toBe(false);
+      expect(db.calls.some((call) => call.fn === 'publish_breakdown')).toBe(false);
+      expect(order(db)).not.toContain('publish_snapshot:ad');
+    });
+
+    const COUNTRY_ACCOUNT: BreakdownTarget = { level: 'account', dimension: 'country' };
+
+    it('agota solo su propio presupuesto: el último nivel conserva tiempo', async () => {
+      const db = fakeDb(handlers);
+      let clock = 0;
+      const log: MetaSyncLogEvent[] = [];
+      const graph = meta({ [`${ROOT}/insights`]: (url) => { if (url.searchParams.get('breakdowns')) clock += 5000; return pageWith([]); } });
+      const { result } = await syncMetaInsights(syncDeps(graph, db, { monotonicNow: () => clock, log: (event) => log.push(event),
+        breakdowns: [AGE, REGION, COUNTRY_ACCOUNT], breakdownLimits: { ...BIG, maxDurationMs: 7000 } }));
+      expect(result).toBe('completa');
+      // El tercero no llegó a intentarse: queda en el log y su estado anterior sigue siendo cierto.
+      expect(order(db)).toEqual([...CORE, 'breakdown:account:age_gender', 'breakdown:account:region', 'publish_snapshot:ad']);
+      expect(graph.seen.filter((url) => url.searchParams.get('breakdowns') === 'country')).toEqual([]);
+      expect(log.find((event) => event.dimension === 'country')).toMatchObject({ resultado: 'fallido', motivo: 'duration_limit', llamadas: 0 });
+    });
+
+    it('con una cuenta lenta usa como mucho la mitad de lo que queda, y el último nivel se completa', async () => {
+      const db = fakeDb(handlers);
+      let clock = 0;
+      // 100 s de total y 10 de reserva: los tres niveles dejan 30 s útiles, y cada desglose tarda 10.
+      const graph = meta({ [`${ROOT}/insights`]: (url) => {
+        if (url.searchParams.get('breakdowns')) clock += 10_000;
+        else if (url.searchParams.get('level') === 'adset') clock = 60_000;
+        return pageWith([]);
+      } });
+      const { result } = await syncMetaInsights(syncDeps(graph, db, { monotonicNow: () => clock,
+        breakdowns: [AGE, REGION, COUNTRY_ACCOUNT, COUNTRY], breakdownLimits: { ...BIG, maxDurationMs: 60_000 } }));
+      expect(result).toBe('completa');
+      expect(graph.seen.filter((url) => url.searchParams.get('breakdowns'))).toHaveLength(2);
+      expect(order(db).at(-1)).toBe('publish_snapshot:ad');
+    });
+
+    it('sin tiempo útil no llama a Meta ni escribe, y el último nivel decide por su cuenta', async () => {
+      const db = fakeDb(handlers);
+      let clock = 0;
+      const graph = meta({ [`${ROOT}/insights`]: (url) => { if (url.searchParams.get('level') === 'adset') clock = 90_000; return pageWith([]); } });
+      await syncMetaInsights(syncDeps(graph, db, { monotonicNow: () => clock, breakdowns: [AGE] }));
+      expect(graph.seen.some((url) => url.searchParams.get('breakdowns'))).toBe(false);
+      expect(order(db).some((item) => item.startsWith('breakdown') || item.startsWith('failure'))).toBe(false);
+    });
+
+    it('el tiempo de las escrituras cuenta: una publicación lenta impide empezar el siguiente', async () => {
+      let clock = 0;
+      const db = fakeDb({ ...handlers, publish_breakdown: (args) => { clock += 8000; return handlers.publish_breakdown(args); } });
+      const graph = meta();
+      await syncMetaInsights(syncDeps(graph, db, { monotonicNow: () => clock, breakdowns: [AGE, REGION], breakdownLimits: { ...BIG, maxDurationMs: 7000 } }));
+      expect(graph.seen.map((url) => url.searchParams.get('breakdowns')).filter(Boolean)).toEqual(['age,gender']);
+      expect(order(db)).toEqual([...CORE, 'breakdown:account:age_gender', 'publish_snapshot:ad']);
+    });
   });
 });

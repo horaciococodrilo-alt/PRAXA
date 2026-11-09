@@ -251,9 +251,10 @@ select is_empty($$select * from pg_temp.new_table_privileges('service_role')$$,
 select results_eq(
   $$select p.tablename::text collate "default", p.cmd::text, p.roles::text[] collate "default"
       from pg_policies p
-     where p.schemaname = 'public' and p.tablename like 'meta\_%' order by 1$$,
+     where p.schemaname = 'public' and p.tablename like 'meta\_%'
+       and p.tablename not like 'meta\_breakdown\_%' order by 1$$,
   $$values ('meta_daily_coverage', 'SELECT', array['authenticated'])$$,
-  'T-01: la única política nueva es el SELECT de la cobertura');
+  'T-01: la única política nueva de 0016 es el SELECT de la cobertura');
 
 select results_eq(
   $$select p.proname::text collate "default", p.prosecdef, p.provolatile::text,

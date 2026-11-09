@@ -18,7 +18,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(28);
+select plan(32);
 
 -- ---------------------------------------------------------------------------
 -- Parte 1: empresa con contexto activo y reporte, sin integración
@@ -176,6 +176,16 @@ select 1 from worker_api.publish_snapshot(
       'ctr', null, 'cpc', null, 'cpm', null, 'frequency', null,
       'actions', '[{"action_type":"purchase","variant":"value","count":"1","value":"2.50"}]'::jsonb))));
 
+-- Desgloses: un snapshot con su fila, cobertura y estado (H-E1-202).
+select 1 from worker_api.publish_breakdown(
+  'aaaaaaaa-0000-4000-8000-000000000102', 'c0a00000-0000-4000-8000-000000000102',
+  'cc000000-0000-4000-8000-000000000102', 0, 'e0000000-0000-4000-8000-000000000102',
+  repeat('e', 64), '5b000000-0000-4000-8000-000000000102', 'account', 'country', clock_timestamp(), 1, 1,
+  jsonb_build_object('rows', jsonb_build_array(jsonb_build_object(
+    'date', current_date::text, 'external_id', 'act_90000102', 'segment_primary', 'AR', 'segment_secondary', null,
+    'spend', '1.50', 'impressions', '10', 'clicks', null, 'inline_link_clicks', null,
+    'ctr', null, 'cpc', null, 'cpm', null, 'actions', '[]'::jsonb))));
+
 -- H-E1-06: el usuario no se puede borrar antes que su empresa.
 select throws_ok(
   $$delete from auth.users where id = 'aaaaaaaa-0000-4000-8000-000000000102'$$,
@@ -268,6 +278,26 @@ select is(
   (select count(*)::int from public.meta_daily_coverage
     where company_id = 'c0a00000-0000-4000-8000-000000000102'),
   0, 'CIERRE 2: cero filas en meta_daily_coverage');
+
+select is(
+  (select count(*)::int from public.meta_breakdown_snapshots
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  0, 'CIERRE 2: cero filas en meta_breakdown_snapshots');
+
+select is(
+  (select count(*)::int from public.meta_breakdown_rows
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  0, 'CIERRE 2: cero filas en meta_breakdown_rows');
+
+select is(
+  (select count(*)::int from public.meta_breakdown_coverage
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  0, 'CIERRE 2: cero filas en meta_breakdown_coverage');
+
+select is(
+  (select count(*)::int from public.meta_breakdown_status
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  0, 'CIERRE 2: cero filas en meta_breakdown_status');
 
 select lives_ok(
   $$delete from auth.users where id = 'aaaaaaaa-0000-4000-8000-000000000102'$$,

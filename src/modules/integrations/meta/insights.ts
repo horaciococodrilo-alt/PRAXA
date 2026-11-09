@@ -15,7 +15,7 @@ import type { SecretValue } from '../crypto/seal';
 import { getWorkerApi, WorkerApiError, type WorkerApi } from '../db/worker-api';
 import { readConnectionRecord } from '../repository/connections';
 import { CredentialChangedError, readCredential } from '../repository/credentials';
-import { failSyncRun, publishSnapshot, startSyncRun, type SyncLimits } from '../repository/sync-calls';
+import { failSyncRun, publishBreakdown, publishSnapshot, recordBreakdownFailure, startSyncRun, type SyncLimits } from '../repository/sync-calls';
 import { graphUrl } from './api';
 import { createMetaHttpClient, META_HTTP_TIMEOUT_MS, type MetaHttpClient } from './client';
 import { InvalidMetaResponseError, isEntityId, LevelLimitError, MetadataStore, normalizeAccountId, pageOf, SYNC_LEVELS,
@@ -164,6 +164,31 @@ const LEVEL_KINDS: Record<SyncLevel, readonly MetadataKind[]> = {
 };
 const PARENT_KIND: Partial<Record<MetadataKind, MetadataKind>> = { adset: 'campaign', ad: 'adset' };
 
+type RetryBudget = Pick<ExtractDeps, 'http' | 'monotonicNow' | 'sleep' | 'deadline' | 'beforeCall'>;
+
+/** GET con reintentos dentro del presupuesto. Cada intento cuenta como una llamada. */
+function retryingGet(token: SecretValue, limits: SyncLimits, deps: RetryBudget, countCall: () => void) {
+  return async function get(url: URL): Promise<unknown> {
+    for (let attempt = 0; ; attempt += 1) {
+      await deps.beforeCall();
+      const available = deps.deadline - deps.monotonicNow() - limits.finalizationReserveMs;
+      if (available <= 0) throw new LevelLimitError('duration_limit');
+      countCall();
+      try {
+        return await deps.http(Math.min(META_HTTP_TIMEOUT_MS, available)).getJson(url, { bearer: token });
+      } catch (error) {
+        if (!(error instanceof MetaApiError) || (error.errorClass !== 'temporary' && error.errorClass !== 'transport') ||
+            attempt >= limits.maxRetries) throw error;
+        const wait = limits.retryDelayMs * (attempt + 1);
+        // Un reintento que no cabe no se espera: queda el error clasificado.
+        const left = deps.deadline - deps.monotonicNow() - limits.finalizationReserveMs;
+        if (wait >= left) throw error;
+        await deps.sleep(wait);
+      }
+    }
+  };
+}
+
 /** jsonb agrega espacios al serializar, y SQL mide ese texto: se deja un margen. */
 function payloadFits(entities: CapturedEntity[], days: InsightDay[], limits: SyncLimits): boolean {
   return Buffer.byteLength(JSON.stringify({ entities, days })) * 1.25 <= limits.maxPayloadBytes;
@@ -190,25 +215,7 @@ export async function extractMetaLevel(
   let rootName: string | null = null;
   const days = new Map<string, InsightDay>();
 
-  async function get(url: URL): Promise<unknown> {
-    for (let attempt = 0; ; attempt += 1) {
-      await deps.beforeCall();
-      const available = deps.deadline - deps.monotonicNow() - limits.finalizationReserveMs;
-      if (available <= 0) throw new LevelLimitError('duration_limit');
-      calls += 1;
-      try {
-        return await deps.http(Math.min(META_HTTP_TIMEOUT_MS, available)).getJson(url, { bearer: token });
-      } catch (error) {
-        if (!(error instanceof MetaApiError) || (error.errorClass !== 'temporary' && error.errorClass !== 'transport') ||
-            attempt >= limits.maxRetries) throw error;
-        const wait = limits.retryDelayMs * (attempt + 1);
-        // Un reintento que no cabe no se espera: queda el error clasificado.
-        const left = deps.deadline - deps.monotonicNow() - limits.finalizationReserveMs;
-        if (wait >= left) throw error;
-        await deps.sleep(wait);
-      }
-    }
-  }
+  const get = retryingGet(token, limits, deps, () => { calls += 1; });
 
   const reader: MetadataReader = { accountId, maxPages: limits.maxMetadataPages, get, instant,
     pageReceived: () => { pages += 1; if (countingMetadata) metadataPages += 1; },
@@ -312,6 +319,112 @@ export async function extractMetaLevel(
 }
 
 // ---------------------------------------------------------------------------
+// Desgloses (H-E1-202)
+// ---------------------------------------------------------------------------
+
+export const BREAKDOWN_DIMENSIONS = ['age_gender', 'country', 'region'] as const;
+export type BreakdownDimension = (typeof BREAKDOWN_DIMENSIONS)[number];
+export type BreakdownLevel = Extract<SyncLevel, 'account' | 'campaign'>;
+export type BreakdownTarget = { level: BreakdownLevel; dimension: BreakdownDimension };
+export type BreakdownLimits = { maxPages: number; maxPayloadBytes: number; maxDurationMs: number };
+
+/** Parámetro `breakdowns` de Meta. El orden fija qué valor es el segmento primario. */
+const DIMENSION_KEYS: Record<BreakdownDimension, readonly string[]> = { age_gender: ['age', 'gender'], country: ['country'], region: ['region'] };
+
+/**
+ * Sin `reach` ni `frequency`: no se suman, y Meta no documenta si los devuelve con estos desgloses.
+ * Un campo que rechazara haría perder la dimensión entera. `region` tampoco pide acciones: Meta no
+ * devuelve las de fuera de Meta, y las que quedaran parecerían el total de conversiones.
+ */
+const BREAKDOWN_FIELDS = ['spend', 'impressions', 'clicks', 'inline_link_clicks', 'ctr', 'cpc', 'cpm'] as const;
+const BREAKDOWN_ACTION_FIELDS = ['actions', 'action_values'] as const;
+
+/** Cuenta primero: es la vista más chica y la que más probablemente termine dentro del presupuesto. */
+export const DEFAULT_BREAKDOWN_TARGETS: readonly BreakdownTarget[] = (['account', 'campaign'] as const).flatMap((level) =>
+  BREAKDOWN_DIMENSIONS.map((dimension) => ({ level, dimension })));
+
+/**
+ * Cotas técnicas, no volúmenes medidos. 60 páginas de 100 filas son las 6000 que acepta
+ * `publish_breakdown`. `maxDurationMs` es un tope: la orquestación tampoco pasa de la mitad del
+ * tiempo útil que quede, para que el nivel `ad` no pierda el suyo.
+ */
+export const DEFAULT_BREAKDOWN_LIMITS: BreakdownLimits = { maxPages: 60, maxPayloadBytes: 5_000_000, maxDurationMs: 60_000 };
+
+export type BreakdownRow = { date: string; external_id: string; segment_primary: string; segment_secondary: string | null;
+  spend: DecimalText | null; impressions: string | null; clicks: string | null; inline_link_clicks: string | null;
+  ctr: DecimalText | null; cpc: DecimalText | null; cpm: DecimalText | null; actions: InsightAction[] };
+export type BreakdownExtraction = BreakdownTarget & { rows: BreakdownRow[]; pages: number; calls: number; fetchedAt: string;
+  durationMs: number; complete: boolean; errorClass: IntegrationErrorClass | null; reason: LevelReason };
+
+/** Texto del proveedor, no confiable: se acota y se conserva tal cual. Espejo de `meta_valid_segment`. */
+function segment(value: unknown): string {
+  if (typeof value !== 'string' || value.length < 1 || value.length > 128 || /[\u0000-\u001f\u007f]/.test(value)) throw new InvalidMetaResponseError();
+  return value;
+}
+
+export function parseBreakdownRow(raw: unknown, target: BreakdownTarget, root: string, window: SyncWindow): BreakdownRow {
+  const day = parseInsightRow(raw, target.level, root, window);
+  const record = raw as Record<string, unknown>;
+  const [primary, secondary] = DIMENSION_KEYS[target.dimension].map((key) => segment(record[key]));
+  return { date: day.date, external_id: day.external_id, segment_primary: primary, segment_secondary: secondary ?? null,
+    spend: day.spend, impressions: day.impressions, clicks: day.clicks, inline_link_clicks: day.inline_link_clicks,
+    ctr: day.ctr, cpc: day.cpc, cpm: day.cpm, actions: target.dimension === 'region' ? [] : day.actions };
+}
+
+export async function extractMetaBreakdown(
+  target: BreakdownTarget,
+  token: SecretValue,
+  accountId: string,
+  window: SyncWindow,
+  limits: SyncLimits,
+  breakdownLimits: BreakdownLimits,
+  deps: ExtractDeps,
+): Promise<BreakdownExtraction> {
+  const started = deps.monotonicNow();
+  const fetchedAt = new Date(Math.max(deps.wallNow().getTime(), deps.startedAt.getTime())).toISOString();
+  let pages = 0;
+  let calls = 0;
+  const rows = new Map<string, BreakdownRow>();
+  const get = retryingGet(token, limits, deps, () => { calls += 1; });
+  const finish = (complete: boolean, errorClass: IntegrationErrorClass | null, reason: LevelReason): BreakdownExtraction => ({
+    ...target, rows: complete ? [...rows.values()] : [], pages, calls, fetchedAt,
+    durationMs: Math.max(0, Math.round(deps.monotonicNow() - started)), complete, errorClass, reason });
+
+  try {
+    const fields = ['date_start', 'date_stop', 'account_id', ...(target.level === 'account' ? [] : [`${target.level}_id`]),
+      ...BREAKDOWN_FIELDS, ...(target.dimension === 'region' ? [] : BREAKDOWN_ACTION_FIELDS)].join(',');
+    const seen = new Set<string>();
+    let after: string | undefined;
+    for (;;) {
+      if (pages >= breakdownLimits.maxPages) throw new LevelLimitError('page_limit');
+      const body = await get(graphUrl(`${accountId}/insights`, { level: target.level, time_increment: '1', fields,
+        breakdowns: DIMENSION_KEYS[target.dimension].join(','),
+        time_range: JSON.stringify({ since: window.from, until: window.to }),
+        action_report_time: 'impression', use_unified_attribution_setting: 'true', limit: PAGE_SIZE,
+        ...(after === undefined ? {} : { after }) }));
+      const { data, next } = pageOf(body, seen);
+      pages += 1;
+      const parsed = data.map((item) => parseBreakdownRow(item, target, accountId, window));
+      const keys = parsed.map((row) => [row.external_id, row.date, row.segment_primary, row.segment_secondary ?? ''].join('\u0000'));
+      if (new Set(keys).size !== keys.length || keys.some((key) => rows.has(key))) throw new InvalidMetaResponseError();
+      parsed.forEach((row, index) => rows.set(keys[index], row));
+      if (next.done) break;
+      after = next.after;
+    }
+    if (Buffer.byteLength(JSON.stringify({ rows: [...rows.values()] })) * 1.25 > breakdownLimits.maxPayloadBytes) {
+      throw new LevelLimitError('page_limit');
+    }
+    return finish(true, null, 'complete');
+  } catch (error) {
+    if (error instanceof ConnectionChangedDuringSync) throw error;
+    if (error instanceof MetaApiError) return finish(false, error.errorClass, 'meta_error');
+    if (error instanceof LevelLimitError) return finish(false, 'own_error', error.reason);
+    if (error instanceof InvalidMetaResponseError) return finish(false, 'own_error', 'invalid_response');
+    return finish(false, 'own_error', 'own_error');
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Orquestación
 // ---------------------------------------------------------------------------
 
@@ -363,6 +476,7 @@ export function syncNotice(result: SyncResult | null, effective: MetaSyncStatus[
 export type MetaSyncLogEvent = {
   evento: 'meta_sync';
   level?: SyncLevel;
+  dimension?: BreakdownDimension;
   resultado: 'completo' | 'incompleto' | 'fallido' | SyncResult;
   clase?: IntegrationErrorClass;
   request_id: string;
@@ -386,6 +500,8 @@ export type SyncDeps = {
   sleep: (ms: number) => Promise<void>;
   log: (event: MetaSyncLogEvent) => void;
   limits: SyncLimits;
+  breakdowns: readonly BreakdownTarget[];
+  breakdownLimits: BreakdownLimits;
 };
 
 function resolveDeps(partial: Partial<SyncDeps> = {}): SyncDeps {
@@ -400,6 +516,8 @@ function resolveDeps(partial: Partial<SyncDeps> = {}): SyncDeps {
     sleep: partial.sleep ?? ((ms) => new Promise((resolve) => { setTimeout(resolve, ms); })),
     log: partial.log ?? ((event) => console.info(JSON.stringify(event))),
     limits: partial.limits ?? DEFAULT_SYNC_LIMITS,
+    breakdowns: partial.breakdowns ?? DEFAULT_BREAKDOWN_TARGETS,
+    breakdownLimits: partial.breakdownLimits ?? DEFAULT_BREAKDOWN_LIMITS,
   };
 }
 
@@ -519,8 +637,62 @@ export async function syncMetaInsights(partial: Partial<SyncDeps> = {}): Promise
   }
 
   const metadata = new MetadataStore();
+  const published = new Set<SyncLevel>();
+
+  /**
+   * Nunca decide el resultado de la sincronización: un fallo queda en su estado y en el log, y
+   * el nivel que sigue trata sus propios errores. Solo sube si cambió la conexión. Ver
+   * `meta_breakdown_status` en 0017.
+   */
+  const syncBreakdowns = async (): Promise<void> => {
+    const start = deps.monotonicNow();
+    const stopAt = start + Math.min(deps.breakdownLimits.maxDurationMs, (deadline - start - deps.limits.finalizationReserveMs) / 2);
+    for (const target of deps.breakdowns) {
+      if (!published.has(target.level)) continue;
+      // Sin intento no hay fallo que registrar: el estado anterior sigue siendo cierto. El reloj ya
+      // incluye las escrituras anteriores. Se excede como mucho en la última, que ya había empezado.
+      if (deps.monotonicNow() >= stopAt) {
+        deps.log({ evento: 'meta_sync', level: target.level, dimension: target.dimension, resultado: 'fallido', clase: 'own_error',
+          request_id: ctx.request_id, filas: 0, paginas: 0, llamadas: 0, completa: false, duracion_ms: 0, motivo: 'duration_limit' });
+        return;
+      }
+      const extraction = await extractMetaBreakdown(target, token, accountId, window, deps.limits, deps.breakdownLimits, { http: deps.http,
+        monotonicNow: deps.monotonicNow, wallNow: deps.wallNow, sleep: deps.sleep, startedAt, deadline: stopAt + deps.limits.finalizationReserveMs, beforeCall });
+      deps.log({ evento: 'meta_sync', level: target.level, dimension: target.dimension, resultado: extraction.complete ? 'completo' : 'fallido',
+        ...(extraction.errorClass ? { clase: extraction.errorClass } : {}), request_id: ctx.request_id, filas: extraction.rows.length,
+        paginas: extraction.pages, llamadas: extraction.calls, completa: extraction.complete,
+        duracion_ms: extraction.durationMs, motivo: extraction.reason });
+
+      const fail = (reason: Exclude<LevelReason, 'complete'>) => confirmed(() => recordBreakdownFailure(ctx, { ...ownership, ...target, reason,
+        attemptedAt: extraction.fetchedAt }, { workerApi }));
+      try {
+        if (extraction.complete) {
+          const input = { ...ownership, ...target, snapshotId: randomUUID(), fetchedAt: extraction.fetchedAt, pages: extraction.pages,
+            durationMs: extraction.durationMs, payload: { rows: extraction.rows } };
+          await confirmed(() => publishBreakdown(ctx, input, { workerApi }));
+        } else {
+          await fail(extraction.reason as Exclude<LevelReason, 'complete'>);
+        }
+      } catch {
+        // Tampoco una escritura fallida decide el resultado. Si la base rechazó el contenido, queda registrado.
+        deps.log({ evento: 'meta_sync', level: target.level, dimension: target.dimension, resultado: 'fallido', clase: 'own_error',
+          request_id: ctx.request_id, motivo: 'own_error' });
+        await fail('own_error').catch(() => {});
+      }
+
+      if (extraction.reason === 'duration_limit' || extraction.errorClass === 'rate_limit' ||
+          (extraction.errorClass !== null && connectionEffectFor(extraction.errorClass) === 'needs_reauth')) return;
+    }
+  };
+
   let completed = 0;
   for (const level of SYNC_LEVELS) {
+    // Antes del último nivel: publicarlo cierra el run, y el desglose necesita su posesión.
+    if (level === SYNC_LEVELS[SYNC_LEVELS.length - 1]) {
+      try { await syncBreakdowns(); }
+      catch { return finish('conexion_cambio'); }
+    }
+
     let extraction: LevelExtraction;
     try {
       extraction = await extractMetaLevel(level, token, accountId, window, deps.limits, { http: deps.http,
@@ -542,6 +714,7 @@ export async function syncMetaInsights(partial: Partial<SyncDeps> = {}): Promise
       try {
         await confirmed(() => publishSnapshot(ctx, snapshot, { workerApi }));
         completed += 1;
+        published.add(level);
       } catch (error) {
         if (!(error instanceof WorkerApiError && error.code === 'invalid_argument')) return finish(outcomeForWriteError(error));
         // SQL rechazó lo publicado: puede ser el reloj o un dato. No se corrige el contenido ni
@@ -672,15 +845,17 @@ Promise<z.output<Schema>[]> {
  */
 const READ_PAGE_SIZE = 1000;
 const MAX_READ_ROWS = 20_000;
+/** 93 días abarcan hasta cuatro ventanas de 28, con hasta 6000 filas cada una. */
+const MAX_BREAKDOWN_READ_ROWS = 30_000;
 
-async function rpcAllRows<Schema extends z.ZodType>(fn: string, args: Record<string, unknown>, schema: Schema, deps: ReadDeps):
+async function rpcAllRows<Schema extends z.ZodType>(fn: string, args: Record<string, unknown>, schema: Schema, deps: ReadDeps, maxRows = MAX_READ_ROWS):
 Promise<z.output<Schema>[]> {
   const supabase = deps.supabase ?? (await createSupabaseServerClient());
   const rows: z.output<Schema>[] = [];
   let total: number | null = null;
   for (;;) {
     const { data, error, count } = await supabase.rpc(fn, args, { count: 'exact' }).range(rows.length, rows.length + READ_PAGE_SIZE - 1);
-    if (error || count === null || count > MAX_READ_ROWS || (total !== null && count !== total)) throw new MetaSyncReadError();
+    if (error || count === null || count > maxRows || (total !== null && count !== total)) throw new MetaSyncReadError();
     const parsed = z.array(schema).safeParse(data);
     if (!parsed.success) throw new MetaSyncReadError();
     total = count;
@@ -706,6 +881,50 @@ export function readMetaDailyCoverage(
 
 export function listCapturedEntities(connectionId: string, level: SyncLevel, deps: ReadDeps = {}): Promise<MetaCapturedEntity[]> {
   return rpcAllRows('list_meta_entities', { p_connection_id: connectionId, p_level: level }, capturedEntitySchema, deps);
+}
+
+const breakdownRowSchema = z.strictObject({
+  day: z.iso.date(),
+  level: z.enum(['account', 'campaign']),
+  dimension: z.enum(BREAKDOWN_DIMENSIONS),
+  entity_ref: uuidSchema.nullable(),
+  segment_primary: z.string().nullable(),
+  segment_secondary: z.string().nullable(),
+  spend: decimalText, impressions: decimalText, clicks: decimalText, inline_link_clicks: decimalText,
+  ctr: decimalText, cpc: decimalText, cpm: decimalText,
+  actions: z.array(z.strictObject({ action_type: z.string(), variant: z.string(), count: decimalText, value: decimalText })).nullable(),
+  currency: z.string(),
+  timezone: z.string(),
+  snapshot_id: uuidSchema,
+  fetched_at: isoDateTimeSchema,
+  captured_before_day_end: z.boolean(),
+  temporal_status: z.enum(['abierto', 'cerrado']),
+});
+export type MetaBreakdownRow = z.infer<typeof breakdownRowSchema>;
+
+const breakdownStatusSchema = z.strictObject({
+  level: z.enum(['account', 'campaign']),
+  dimension: z.enum(BREAKDOWN_DIMENSIONS),
+  last_result: z.enum(['complete', 'failed']),
+  last_reason: z.enum(['page_limit', 'duration_limit', 'invalid_response', 'meta_error', 'own_error']).nullable(),
+  last_attempt_at: isoDateTimeSchema,
+  covered_from: z.iso.date().nullable(),
+  covered_to: z.iso.date().nullable(),
+  covered_days: z.number().int().min(0),
+});
+export type MetaBreakdownStatus = z.infer<typeof breakdownStatusSchema>;
+
+/** Un día cubierto sin filas trae entidad y segmentos en null; un día sin cobertura no trae nada. */
+export function readMetaBreakdown(
+  input: BreakdownTarget & { connectionId: string; from: string; to: string; entityRef?: string },
+  deps: ReadDeps = {},
+): Promise<MetaBreakdownRow[]> {
+  return rpcAllRows('get_meta_breakdown', { p_connection_id: input.connectionId, p_level: input.level, p_dimension: input.dimension,
+    p_from: input.from, p_to: input.to, ...(input.entityRef ? { p_entity_ref: input.entityRef } : {}) }, breakdownRowSchema, deps, MAX_BREAKDOWN_READ_ROWS);
+}
+
+export function readMetaBreakdownStatus(connectionId: string, deps: ReadDeps = {}): Promise<MetaBreakdownStatus[]> {
+  return rpcRows('get_meta_breakdown_status', { p_connection_id: connectionId }, breakdownStatusSchema, deps);
 }
 
 export type MetaSyncView = {

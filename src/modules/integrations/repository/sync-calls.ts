@@ -51,6 +51,19 @@ const failInputSchema = snapshotInputSchema.extend({
   errorMessage: redactedErrorMessageSchema, stopRemaining: z.boolean(),
 });
 
+const breakdownLevelSchema = z.enum(['account', 'campaign']);
+const breakdownDimensionSchema = z.enum(['age_gender', 'country', 'region']);
+
+/** Solo el envoltorio: `publish_breakdown` revalida cada fila en SQL. */
+const breakdownInputSchema = ownershipSchema.extend({
+  snapshotId: uuidSchema, level: breakdownLevelSchema, dimension: breakdownDimensionSchema, fetchedAt: isoDateTimeSchema,
+  pages: positiveSchema, durationMs: counterSchema, payload: z.strictObject({ rows: z.array(z.unknown()) }),
+});
+
+const breakdownFailureInputSchema = ownershipSchema.extend({
+  level: breakdownLevelSchema, dimension: breakdownDimensionSchema, reason: failureReasonSchema, attemptedAt: isoDateTimeSchema,
+});
+
 const recordInputSchema = z.strictObject({
   connectionId: uuidSchema, expectedGeneration: generationSchema, errorClass: generalErrorClassSchema,
   message: redactedErrorMessageSchema,
@@ -66,6 +79,8 @@ const failRowSchema = z.strictObject({
   run_id: uuidSchema, level: levelSchema, status: z.enum(['running', 'completed', 'partial', 'failed']),
   snapshot_result: z.enum(['incomplete', 'failed']),
 });
+const publishBreakdownRowSchema = z.strictObject({ snapshot_id: uuidSchema, level: breakdownLevelSchema, dimension: breakdownDimensionSchema });
+const breakdownFailureRowSchema = z.strictObject({ level: breakdownLevelSchema, dimension: breakdownDimensionSchema, result: z.literal('failed') });
 const recordRowSchema = z.strictObject({
   connection_id: uuidSchema, status: z.literal('active'), credential_generation: generationSchema,
 });
@@ -88,6 +103,8 @@ export type PublishSnapshotInput = z.input<typeof snapshotInputSchema>;
 export type FailSyncRunInput = z.input<typeof failInputSchema>;
 export type SyncLevel = z.infer<typeof levelSchema>;
 export type SyncFailureReason = z.infer<typeof failureReasonSchema>;
+export type PublishBreakdownInput = z.input<typeof breakdownInputSchema>;
+export type BreakdownFailureInput = z.input<typeof breakdownFailureInputSchema>;
 
 export async function startSyncRun(ctx: TenantContext, input: StartSyncRunInput, deps: Deps = {}):
 Promise<{ runId: string; credentialGeneration: number; startedAt: Date; leaseExpiresAt: Date }> {
@@ -120,6 +137,23 @@ Promise<{ runId: string; level: SyncLevel; status: z.infer<typeof failRowSchema>
     i.validatedPages, i.failureReason, i.errorClass, i.errorMessage, i.stopRemaining]));
   if (row.run_id !== i.runId || row.level !== i.level) throw new SyncResponseError();
   return { runId: row.run_id, level: row.level, status: row.status, snapshotResult: row.snapshot_result };
+}
+
+export async function publishBreakdown(ctx: TenantContext, input: PublishBreakdownInput, deps: Deps = {}): Promise<{ snapshotId: string }> {
+  const a = parsed(tenantContextSchema, ctx);
+  const i = parsed(breakdownInputSchema, input);
+  const row = one(publishBreakdownRowSchema, await api(deps).call('publish_breakdown', [a.user_id, a.company_id, i.connectionId,
+    i.expectedGeneration, i.runId, i.ownershipToken, i.snapshotId, i.level, i.dimension, i.fetchedAt, i.pages, i.durationMs, i.payload]));
+  if (row.snapshot_id !== i.snapshotId || row.level !== i.level || row.dimension !== i.dimension) throw new SyncResponseError();
+  return { snapshotId: row.snapshot_id };
+}
+
+export async function recordBreakdownFailure(ctx: TenantContext, input: BreakdownFailureInput, deps: Deps = {}): Promise<void> {
+  const a = parsed(tenantContextSchema, ctx);
+  const i = parsed(breakdownFailureInputSchema, input);
+  const row = one(breakdownFailureRowSchema, await api(deps).call('record_breakdown_failure', [a.user_id, a.company_id, i.connectionId,
+    i.expectedGeneration, i.runId, i.ownershipToken, i.level, i.dimension, i.reason, i.attemptedAt]));
+  if (row.level !== i.level || row.dimension !== i.dimension) throw new SyncResponseError();
 }
 
 export async function recordConnectionError(ctx: TenantContext, input: {

@@ -11,7 +11,7 @@ export type WorkerApiFunction =
   | 'get_credential' | 'confirm_connection' | 'replace_credential' | 'mark_needs_reauth'
   | 'begin_disconnect' | 'purge_connection' | 'list_pending_purges'
   | 'count_credentials_by_key_version' | 'rewrap_credential' | 'start_sync_run' | 'publish_snapshot'
-  | 'fail_sync_run' | 'record_connection_error';
+  | 'fail_sync_run' | 'record_connection_error' | 'publish_breakdown' | 'record_breakdown_failure';
 
 export interface Queryable {
   query<Row extends pg.QueryResultRow = pg.QueryResultRow>(
@@ -81,6 +81,8 @@ const SQL_CASTS: Record<WorkerApiFunction, readonly string[]> = {
   publish_snapshot: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'text', 'uuid', 'text', 'timestamptz', 'integer', 'integer', 'jsonb'],
   fail_sync_run: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'text', 'uuid', 'text', 'timestamptz', 'integer', 'integer', 'jsonb', 'integer', 'text', 'text', 'text', 'boolean'],
   record_connection_error: ['uuid', 'uuid', 'uuid', 'integer', 'text', 'text'],
+  publish_breakdown: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'text', 'uuid', 'text', 'text', 'timestamptz', 'integer', 'integer', 'jsonb'],
+  record_breakdown_failure: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'text', 'text', 'text', 'text', 'timestamptz'],
 };
 
 const SQL: Record<WorkerApiFunction, string> = Object.fromEntries(
