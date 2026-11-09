@@ -288,7 +288,7 @@ Reglas para las funciones y el rol:
   3. `purge_connection`, idempotente. En una transacción borra la credencial, los snapshots, los días, la cobertura, las ejecuciones y los registros de consulta de la conexión, y al final la fila de la conexión (DEC-09).
 
   Si el proceso se corta después del paso 1, la purga se reanuda al abrir la página de integraciones, al repetir la desconexión o al iniciar una conexión nueva: cualquier conexión `disconnected` de la empresa vuelve a los pasos 2 y 3. Destruir la copia local no desinstala la app en Meta. Por eso la UI indica cómo quitarla desde las apps conectadas del negocio.
-- **CA-38c** *(escrituras en vuelo)* Una operación que empezó antes de la desconexión y termina después no puede reinsertar datos. `publish_snapshot` (CA-59) y `record_query` (CA-62) verifican, en la misma transacción en la que escriben, que la conexión exista, esté `active` y conserve la generación con la que empezaron. Si no se cumple, descartan la escritura.
+- **CA-38c** *(escrituras en vuelo)* Una operación que empezó antes de la desconexión y termina después no puede reinsertar datos. `publish_snapshot` (CA-59) y `record_query` (CA-62) verifican, en la misma transacción en la que escriben, que la conexión exista, esté `active` y conserve la generación con la que empezaron. Si no se cumple, descartan la escritura. Única excepción: `record_query` admite una conexión en `needs_reauth` o `pending_selection`, con la generación esperada, solo para `not_answered` con `connection_not_active`. Una conexión `disconnected` o inexistente siempre se descarta.
 - **CA-38b** *(retención, DEC-09)* Reglas asociadas:
   - Borrar la cuenta de PRAXA borra en cascada todo lo de la empresa.
   - Los intentos OAuth vencidos o consumidos se purgan de forma perezosa.
@@ -414,7 +414,7 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
 
 - **CA-50** *(salida estructurada con afirmaciones verificadas)* El modelo redacta en lenguaje natural y puede incluir cifras. Su salida estructurada tiene dos partes: `text` y `claims`.
   - Cada afirmación numérica de `text` sobre los datos del negocio tiene un `claim` que la vincula a un resultado de herramienta del turno actual.
-  - Un claim contiene: `span` (posición exacta en el texto), `kind`, `tool_call_id` con la ruta del valor dentro del resultado, y los campos declarados `metric`, `unit`, `currency` (cuando corresponde), `account_ref`, `level`, `entity_ref`, `action_type` y `attribution_ref` (cuando corresponden), y `period`.
+  - Un claim contiene: `span` (el fragmento citado y su número de aparición en el texto; el servidor obtiene la posición exacta y rechaza si no aparece), `kind`, `tool_call_id` con la ruta del valor dentro del resultado, y los campos declarados `metric`, `unit`, `currency` (cuando corresponde), `account_ref`, `level`, `entity_ref`, `action_type` y `attribution_ref` (cuando corresponden), y `period`.
   - Tipos de claim:
     - `observed_value`: un valor devuelto por una herramienta;
     - `period_bound`: una fecha límite del período consultado;
@@ -483,12 +483,12 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
   - la pregunta, redactada según CA-66;
   - los nombres de las herramientas llamadas, sin sus resultados ni argumentos que contengan identificadores;
   - el resultado: `answered`, `answered_partial_coverage` o `not_answered`;
-  - si no respondió, un motivo de una lista cerrada: `out_of_scope`, `no_coverage`, `connection_not_active`, `guard_rejected`, `model_unavailable` o `tool_error`;
+  - si no respondió, un motivo de una lista cerrada: `out_of_scope`, `no_coverage`, `connection_not_active`, `guard_rejected`, `model_unavailable`, `tool_error` o `needs_clarification`;
   - la fecha y la latencia;
   - el identificador de modelo solicitado y el informado (CA-53b);
   - la conexión a la que se refiere, o nula si todavía no hay conexión. Sin conexión, el resultado es `not_answered` con motivo `connection_not_active`, y ese registro se borra por CA-67.
 
-  No se guardan respuestas, cifras de resultados de herramientas ni credenciales. La pregunta redactada sí puede conservar montos y fechas que escribió el dueño (CA-66). Cada reintento es un registro aparte. `record_query` cumple CA-38c.
+  No se guardan respuestas, cifras de resultados de herramientas ni credenciales. La pregunta redactada sí puede conservar montos y fechas que escribió el dueño (CA-66). Cada reintento es un registro aparte. `record_query` cumple CA-38c. Excepciones: un turno rechazado por otro en curso no llegó a ser una consulta y no genera registro; una escritura descartada por CA-38c o un fallo al registrar tampoco lo dejan, y en esos dos casos **la respuesta no se muestra** (D-M25a-12).
 - **CA-66** *(redacción, DEC-11)* Una única función determinística redacta la pregunta antes de persistirla y antes de enviarla al modelo. El texto original no se persiste en ningún lado.
   - **Se reemplaza por un marcador:**
     - email → `[EMAIL]`;
@@ -503,7 +503,7 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
   - **Longitud máxima configurable.** Valor inicial propuesto: 500 caracteres, a confirmar en la implementación.
   - **Límites declarados:** un DNI suelto no se distingue de un monto en formato argentino, por lo que no se redacta. Nombres, direcciones y otros datos en forma libre tampoco se detectan. Esos casos quedan cubiertos solo por el aviso de CA-65.
   - **Pruebas con casos sintéticos:** cada patrón se redacta; los montos con separador de miles no se redactan; los números de tarjeta que no pasan Luhn no se redactan; la función es idempotente.
-- **CA-69** *(utilidad, DEC-13)* Cada respuesta mostrada, incluidas las abstenciones, ofrece dos botones: "útil" y "no útil".
+- **CA-69** *(utilidad, DEC-13)* Cada respuesta mostrada, incluidas las abstenciones, ofrece dos botones: "útil" y "no útil". Solo quedan sin botones los mensajes fijos sin registro de CA-62: no hay registro donde guardar el voto.
   - El valor se guarda en el registro de esa consulta como `useful` o `not_useful`, o queda nulo si el dueño no marca nada. No admite texto libre.
   - Se escribe mediante una Server Action que construye K01 y llama a `worker_api` con el identificador opaco del registro. La función verifica que el registro pertenezca a la empresa.
   - Si el dueño marca más de una vez, queda el último valor.
