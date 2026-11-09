@@ -14,6 +14,8 @@
 **Enmienda de numeración 0015 (preparada y aprobada por el usuario el 2026-10-18):** la migración `0015` se usa para corregir `H-E1-124` (cerrojo de la fila del borrador en `activate_context_draft`), como corrección puntual fuera de la ruta, sin microfase ni gate nuevos. Las migraciones previstas de la ruta corren un número: Insights de `M16c` pasa a `0016` (pgTAP `13`) y el registro del chat de `M25a.1` pasa a `0017` (pgTAP `14`). Afecta a las fichas de `M16c` y `M25a.1`, a I.5, a `purge_connection` en II.4, y a II.11 y II.12. El usuario pidió continuar con la renumeración en el chat el 2026-10-18; el texto enmendado es vigente.
 
 **Enmienda de numeración 0017 (`H-E1-202`), aprobada por el usuario el 2026-11-08:** la migración `0017` y el pgTAP `14` se usan para los desgloses de Meta, sumados fuera de la ruta y sin microfase por decisión del usuario. El registro del chat de `M25a.1` pasa a `0018` y pgTAP `15`. `0017` no reemplaza `purge_connection`: sus tablas caen por FK en cascada, así que la reemplazan `0016` y `0018`. Afecta a la ficha de `M25a.1`, a I.5, a `purge_connection` en II.4, y a II.11 y II.12. Prevalece sobre la enmienda 0015 en esos números.
+
+**Enmienda del chat (`H-E1-190`), aprobada por el usuario el 2026-11-08** ([propuesta](revisiones/propuesta-enmienda-chat-visual-1.md)): `M25a.1`, `M25a.2` y los cálculos y bloques visuales son una sola microfase, `M25a`, en tres etapas y sin el límite de 8 horas. `G-CHAT-BASE` y `G-VR02` pasan a ser controles de etapa; el gate único es `G-CHAT`. Migración única `0018` y pgTAP `15`. Afecta a I.2, I.3, I.4, I.5, II.11 a II.14, III.2, III.3 y a la spec de la ruta (DEC-24).
 **Enmienda de la revocación en `SECURITY.md` (`H-E1-183`), aprobada por el usuario el 2026-11-05:** el paso 9c de II.10 incluye, además de los controles que pasan a vigentes, la corrección de un control que VR-01 mostró no disponible: la revocación en Meta del token del system user. Autoriza la fila «Filtración de las variables del runtime» de §4 de `SECURITY.md`. No cambia el orden de la ruta ni otros archivos. El texto enmendado es vigente.
 **Base:** spec `meta_first` v1.0 (decisiones DEC-01 a DEC-21), revisión del repositorio en `main@247cae8`, la sesión de revisión en la que se tomaron esas decisiones y las correcciones T01 a T16 de la revisión externa. En la versión aprobada no quedaban decisiones abiertas. Q-04 es un parámetro que se fija en `M16c` (spec, Q-04).
 
@@ -52,7 +54,7 @@ Antes de `M04a`, `AGENTS.md` ponía a `docs/ROADMAP.md` por encima de la spec y 
 | `M16b` | Sin cambios | Fuera de la ruta |
 | — | `M16c` — Insights diarios | Nueva |
 | — | `M16d` — App Review y Business Verification | Nueva, **fuera de la ruta**: hace falta recién para escalar |
-| `M25.1` a `M25.5` — Chat | `M25a.1`, `M25a.2` | Chat sobre el catálogo de §11 con entidades, atribución y cifras verificadas |
+| `M25.1` a `M25.5` — Chat | `M25a` | Chat sobre el catálogo de §11 con entidades, atribución, cifras verificadas, cálculos y bloques visuales |
 | `M28.2` — Despliegue | `M28.2a` — Entorno del piloto | Adelanta un despliegue mínimo |
 | `M28.3` — Guion de demostración | `M28.3a` — Demo con el dueño y cierre | Nueva |
 
@@ -83,9 +85,8 @@ flowchart LR
   H["M03a Acta"] --> J
   I --> J["M16.2 Ciclo de vida, alta del dueño y VR-01"]
   J --> K["M16c Insights"]
-  K --> L["M25a.1 Chat: registro, redacción, herramientas"]
-  L --> M["M25a.2 Chat: modelo, guarda, UI + VR-02"]
-  M --> N["M28.3a Demo y cierre"]
+  K --> L["M25a Chat completo: herramientas, modelo, VR-02 y bloques"]
+  L --> N["M28.3a Demo y cierre"]
   O["M16d App Review — fuera de la ruta"] -.-> N
 ```
 
@@ -106,9 +107,8 @@ flowchart LR
 | `G-ACTA-META` | `M03a` | Primer dato real: alta y autorización del dueño en `M16.2` |
 | `G-OAUTH` | `M16.1` | `M16.2` |
 | `G-VR01` | `M16.2` | `M16c` |
-| `G-SYNC` | `M16c` | `M25a.1` |
-| `G-CHAT-BASE` | `M25a.1` | `M25a.2` |
-| `G-VR02` | `M25a.2` | `M28.3a` |
+| `G-SYNC` | `M16c` | `M25a` |
+| `G-CHAT` | `M25a` | `M28.3a` |
 | `G-DEMO` | `M28.3a`, al completar la demostración | Cierre de la ruta. El piloto sigue hasta su fin, y entonces se ejecuta CA-67 (DEC-20) |
 
 ## I.4 Microfases
@@ -307,7 +307,7 @@ Plantilla del ROADMAP v2.3. El detalle de los pasos está en la Parte II. Los CA
 | **Criterio de aceptación** | CA-41 a CA-47b, CA-44b, CA-56 a CA-60 y CA-39 (registro persistente de la clase de los errores que no llevan a `needs_reauth`, `H-E1-22`). |
 | **Pruebas** | Unitarias, `test:policies` y `test:app`. |
 | **Condición para avanzar** | `G-SYNC`. |
-| **Dependencias / habilita** | `G-VR01` / `M25a.1` |
+| **Dependencias / habilita** | `G-VR01` / `M25a` |
 | **Intervención requerida del usuario** | Comunicar al dueño el acta ampliada antes de la primera sincronización ampliada y coordinarla; push, despliegue y migraciones reservados según III.2. |
 
 #### Etapas obligatorias de M16c (DEC-22)
@@ -324,39 +324,34 @@ Las tres etapas se ejecutan en orden, en una sola corrida de `/microfase M16c` e
 |---|---|---|---|---|---|
 | M16c.1 | Persistencia del catálogo de §11: migración nueva 0016, ACL/RLS, metadata, acciones, snapshots por nivel, cobertura, posesión, funciones, precisión, purga y H-E1-22/27/35/36; adaptador cerrado y persistencia en lifecycle | Pruebas sintéticas primero; verify, policies y app. Especificar firmas/errores y estructuras antes de SQL | Control de etapa en `sesiones/M16c.md`; CA-39/41-46/58-59/68 y pruebas de integridad/carreras aplicables | G-VR01; spec y plan de M16c aprobados / etapa .2 | Aplicar 0016 al desechable después de la guarda |
 | M16c.2 | Extractor de los cuatro niveles, metadata y acciones, validación, paginación, presupuesto y publicación por nivel. Sin nuevas migraciones ni UI | Meta simulada y base desechable; verify, policies y app; precisión, errores, ausencia y desconexión en vuelo | Control de etapa en `sesiones/M16c.md`; CA-41-47b/56-60 | Control de la etapa .1 / etapa .3 | Configuración externa solo si falta; no datos reales nuevos |
-| M16c.3 | Acción y UI por nivel/entidad, frescura, resultados parciales, revisión de controles que pasan a vigentes, validación real y Q-04 | verify, policies, app y sincronización real redactada; sin fixtures en app | `sesiones/M16c.md` con evidencia consolidada; todos los CA de M16c; `G-SYNC` | Control de la etapa .2 / M25a.1 | Comunicar ampliación al dueño, push/despliegue/db:push, coordinar sincronización y aprobar gate |
+| M16c.3 | Acción y UI por nivel/entidad, frescura, resultados parciales, revisión de controles que pasan a vigentes, validación real y Q-04 | verify, policies, app y sincronización real redactada; sin fixtures en app | `sesiones/M16c.md` con evidencia consolidada; todos los CA de M16c; `G-SYNC` | Control de la etapa .2 / M25a | Comunicar ampliación al dueño, push/despliegue/db:push, coordinar sincronización y aprobar gate |
 
 `M16c/spec.md` es la spec única de las tres etapas y `M16c/plan.md` su plan único; no se preparan specs ni planes por etapa. su borrador anterior de dos métricas no se ejecuta. Esta enmienda autoriza la revisión del acta M03a, los documentos transversales por propiedades y los ajustes de archivos de II.11; no aprueba las futuras specs ni gates de implementación.
 
-### M25a.1 — Chat: registro por consulta, redacción y herramientas
+### M25a — Chat completo: herramientas, modelo, cálculos y bloques
 
 | Campo | Contenido |
 |---|---|
-| **ID** | `M25a.1` — ≤8 h |
-| **Objetivo** | Tener todo lo determinístico del chat antes de conectar el modelo. |
-| **Implementación requerida** | Migración `0018` con el registro por consulta (DEC-10, DEC-11, DEC-13). Redacción (CA-66). Herramientas cerradas con cálculo en SQL y valores como texto (CA-44b, CA-48, CA-49). Límites del chat (CA-70). Registro y voto por `worker_api` (CA-38c). |
-| **Procedimiento del asistente** | Pruebas primero. |
-| **Evidencia de cierre** | Pruebas en verde. |
-| **Criterio de aceptación** | CA-48, CA-49, CA-61 a CA-66, CA-69 y CA-70. |
-| **Pruebas** | Unitarias y `test:policies`. |
-| **Condición para avanzar** | `G-CHAT-BASE`. |
-| **Dependencias / habilita** | `G-SYNC` / `M25a.2` |
-| **Intervención requerida del usuario** | Ninguna. |
+| **ID** | `M25a` — microfase única en tres etapas (`M25a.1`, `M25a.2` y `M25a.3`), con una spec, un plan y una corrida; excepción al límite de 8 horas de `AGENTS.md`, aprobada por el usuario el 2026-11-08 (DEC-24) |
+| **Objetivo** | Que el dueño pregunte en lenguaje natural y reciba respuestas con cálculos y bloques visuales, con cifras vinculadas y verificadas contra resultados de herramientas (DEC-19, DEC-24). |
+| **Implementación requerida** | Etapas de abajo y II.12, II.13 y II.13b. |
+| **Procedimiento del asistente** | Pruebas primero. Pruebas obligatorias de CA-50b con fixtures sintéticos. Congelar cada conjunto de evaluación antes de correrlo, con los criterios de DEC-21. |
+| **Evidencia de cierre** | `sesiones/M25a.md`: controles de etapa en verde, informe de VR-02 y de la evaluación ampliada, y recorrido manual. |
+| **Criterio de aceptación** | CA-48 a CA-55, CA-61 a CA-66, CA-69 a CA-73 y VR-02 aprobada con los criterios de DEC-21. Con la cuenta sin actividad, se admite el cierre con datos sintéticos y un recorrido real con 0 filas, como riesgo temporal (DEC-24). |
+| **Pruebas** | Unitarias, adversarias, `test:policies`, `test:app` y transcripciones reproducibles sintéticas. |
+| **Condición para avanzar** | `G-CHAT`. |
+| **Dependencias / habilita** | `G-SYNC` / `M28.3a` |
+| **Intervención requerida del usuario** | Crear la cuenta de DeepInfra y cargar la clave. Aprobar de nuevo el acta y comunicar el cambio al dueño antes de que el modelo reciba datos reales. Aplicar `0018` al desechable y a `app`, publicar y aprobar el gate. |
 
-### M25a.2 — Chat: modelo, afirmaciones verificadas, UI y VR-02
+**Etapas obligatorias de M25a.** Rigen las reglas de corrida única de M16c: no se pasa de etapa con pruebas en rojo, cada etapa termina con un commit del usuario, la corrida se puede reanudar desde el último control registrado, y las revisiones cubren la microfase completa al final. `0018` llega a `app` antes de que el código llegue a `main`.
 
-| Campo | Contenido |
-|---|---|
-| **ID** | `M25a.2` — ≤8 h |
-| **Objetivo** | Que el dueño reciba respuestas en lenguaje natural cuyas cifras están vinculadas y verificadas contra resultados de herramientas (DEC-19). |
-| **Implementación requerida** | Adaptador de DeepInfra (DEC-16) con esquema estricto. Orquestador. Salida `text` + `claims` y validación del servidor (CA-50, CA-50b, CA-50c). UI con período, zona, cobertura, frescura, aviso de registro, botones de utilidad y reintento (CA-51 a CA-55). Acceso al chat en la navegación. |
-| **Procedimiento del asistente** | Pruebas obligatorias de CA-50b con fixtures sintéticos. Congelar el conjunto de evaluación antes de correr VR-02, con los umbrales de DEC-21. |
-| **Evidencia de cierre** | Pruebas en verde e informe de VR-02 contra sus criterios. |
-| **Criterio de aceptación** | CA-50 a CA-55 y VR-02 aprobada con los umbrales de DEC-21. |
-| **Pruebas** | Unitarias adversarias y transcripciones reproducibles sintéticas. |
-| **Condición para avanzar** | `G-VR02`. Si VR-02 falla, primero se diagnostica la causa. Cambiar de host es el último recurso y exige actualizar configuración, pruebas y `M03a`, además de `llm.ts`. |
-| **Dependencias / habilita** | `G-CHAT-BASE` / `M28.3a` |
-| **Intervención requerida del usuario** | Crear la cuenta de DeepInfra y cargar la clave. |
+| Etapa | Contenido | Control al terminar |
+|---|---|---|
+| `M25a.1` | Registro por consulta, redacción, herramientas, seis cálculos y desgloses | `verify`, `db:check:test`, `test:policies` y `test:app` |
+| `M25a.2` | Modelo, verificación de cifras y pantalla del chat con bloques básicos | Los mismos, suite adversaria y VR-02 con los criterios de DEC-21 |
+| `M25a.3` | Los 19 bloques, casos dudosos, teléfono y accesibilidad, y evaluación ampliada | Los mismos y recorrido manual en la aplicación |
+
+**VR-02 es una parada obligatoria:** la etapa `.3` no empieza si no pasó. Si falla, primero se diagnostica la causa. Cambiar de host es el último recurso y exige actualizar configuración, pruebas y `M03a`, además de `llm.ts`.
 
 ### M28.3a — Demo con el dueño y cierre del piloto
 
@@ -370,7 +365,7 @@ Las tres etapas se ejecutan en orden, en una sola corrida de `/microfase M16c` e
 | **Criterio de aceptación** | El dueño completó el recorrido con su propio login. Al finalizar el piloto, y después de los pasos locales de CA-67, no quedan filas de la empresa ni objetos en su carpeta de `avatars`, y el usuario está eliminado. La gestión ante Resend está documentada sin presentar una solicitud pendiente como borrado confirmado. |
 | **Pruebas** | La lista de verificación; `tests/app/closure-storage.test.ts` en el proyecto desechable para el borrado de fotos por Storage API. |
 | **Condición para avanzar** | `G-DEMO` al completar la demostración. |
-| **Dependencias / habilita** | `G-VR02` / — |
+| **Dependencias / habilita** | `G-CHAT` / — |
 | **Intervención requerida del usuario** | Coordinar con el dueño, ejecutar los pasos de CA-67 que requieren dashboard, quitar al dueño como tester y solicitar a Resend el borrado anticipado de los mensajes afectados si aún los conserva. |
 
 ### M16d — App Review y Business Verification (fuera de la ruta)
@@ -398,7 +393,7 @@ cambiar su alcance ni sus criterios:
   en la corrección puntual de `H-E1-124`, verificada por `tests/app/concurrency.test.ts` (sin
   pgTAP nuevo). Las migraciones previstas de la ruta corren un número más: la de Insights
   de M16c pasa a `0016` (pgTAP `13`) y la del registro
-  del chat de M25a.1 pasa a `0018` (pgTAP `15`), porque `0017` y `14` quedaron para los
+  del chat de M25a pasa a `0018` (pgTAP `15`), porque `0017` y `14` quedaron para los
   desgloses (`H-E1-202`). Lo mismo vale para `purge_connection`: la reemplazan `0016` y `0018`.
 
 ---
@@ -690,7 +685,7 @@ Se redacta en paralelo desde el principio. Tiene que estar aprobada antes del pr
 
 ## II.11 `M16c` — Sincronización manual ampliada
 
-El catálogo y la semántica exactos viven en §11 de la spec (DEC-22); no se duplica aquí la lista de campos. Conservar migración 0016 y pgTAP 13; M25a.1 usa 0018/15.
+El catálogo y la semántica exactos viven en §11 de la spec (DEC-22); no se duplica aquí la lista de campos. Conservar migración 0016 y pgTAP 13; M25a usa 0018/15.
 
 | Corte | Acción obligatoria | Archivos autorizados | Verificación |
 |---|---|---|---|
@@ -710,7 +705,7 @@ El catálogo y la semántica exactos viven en §11 de la spec (DEC-22); no se du
 
 ---
 
-## II.12 `M25a.1` — Chat: registro, redacción y herramientas
+## II.12 `M25a.1` — Etapa 1: registro, redacción, herramientas y cálculos
 
 | Paso | Acción | Archivos | Verificación |
 |---:|---|---|---|
@@ -722,14 +717,16 @@ El catálogo y la semántica exactos viven en §11 de la spec (DEC-22); no se du
 | 6 | Ejecución con el JWT del usuario y bajo RLS. Los totales se calculan en SQL con `numeric` y salen como texto. Las funciones SQL que llama la API rechazan períodos más largos que el máximo de CA-70. Cada valor devuelto tiene un identificador de referencia, su métrica, unidad, moneda, cuenta, nivel, entidad, tipo de acción y atribución cuando correspondan, período, presencia, estado temporal, captura parcial y `fetched_at` | `src/modules/chat/tools/execute.ts` y funciones de lectura nuevas en `0018` (nunca editar 0016 ni 0017 aplicadas) | CA-44, CA-44b, CA-49, CA-51, CA-51b y CA-70 |
 | 7 | Tipos de resultado apoyados en `periodSchema` y el patrón `knownOr` de reporting. **No** se usa `calculatedMetricEvidenceSchema` tal cual, porque su `value` es `number` y el gasto exige decimal exacto | `src/modules/chat/tools/results.ts` | Reutilización declarada en la spec |
 | 8 | Pruebas de herramientas: período con días sin cobertura, totales parciales, captura parcial, días de distintas extracciones con rango de `fetched_at`, empresa ajena, período mayor al máximo llamado directo por la API, registro que llega después de una desconexión | `tests/unit/chat-tools.test.ts`, `tests/app/chat-tools.test.ts` | CA-38c, CA-51, CA-51b, CA-54 y CA-70 |
+| 9 | Seis cálculos en SQL según CA-48: comparar períodos, promedio diario, ranking, costo por resultado, participación y variación porcentual. Valores como texto; denominador cero o datos ausentes dan resultado no calculable | `supabase/migrations/0018_chat_queries.sql`, `src/modules/chat/tools/` | CA-48, CA-44b y CA-51b |
+| 10 | Herramienta de desgloses sobre `get_meta_breakdown`, con las reglas de DEC-23: sin cruzar edad o género con lugar, y sin reconciliar con los totales | `src/modules/chat/tools/` | CA-48 y CA-49 |
 
-**Cierre:** `npm run verify`, `npm run test:policies`, `npm run test:app` y `db:push` de `0018` al proyecto `app` ejecutado por el usuario.
+**Control de etapa:** `npm run verify`, `npm run db:check:test`, `npm run test:policies` y `npm run test:app`, con `0018` aplicada al desechable por el usuario.
 
 **Trampa conocida.** El texto de la pregunta nunca va a `console.log`. Los logs de ejecución de Vercel lo guardarían fuera del alcance de DEC-09 (CA-63).
 
 ---
 
-## II.13 `M25a.2` — Chat: modelo, afirmaciones verificadas, UI y VR-02
+## II.13 `M25a.2` — Etapa 2: modelo, afirmaciones verificadas, pantalla y VR-02
 
 | Paso | Acción | Archivos | Verificación |
 |---:|---|---|---|
@@ -744,7 +741,7 @@ El catálogo y la semántica exactos viven en §11 de la spec (DEC-22); no se du
 | 9 | Pruebas obligatorias de CA-50b con fixtures sintéticos: cifra inventada; cifra correcta atribuida a otra métrica; y a otro período; comparación sin respaldo; "se duplicó"; cantidad en palabras sin claim; cifra del dueño presentada como observada; herramienta equivocada (evaluación, no guarda); más aislamiento, SQL en la pregunta, modelo caído y salida sin esquema | `tests/unit/chat-guard.test.ts`, `tests/unit/chat-adversarial.test.ts` | CA-50b, CA-53 y CA-54 |
 | 10 | **VR-02:** congelar el conjunto de evaluación (respondibles con herramienta, métrica, período y respuesta esperados; y preguntas que exigen abstención) con los umbrales de DEC-21. Correr sobre DeepInfra. Informar contra cada criterio, junto con el identificador y la precisión | `docs/FASES/FASE1/meta_first/vr-02.md` | VR-02 |
 
-**Cierre:** `npm run verify` y VR-02 aprobada.
+**Control de etapa:** `npm run verify`, `npm run test:policies`, `npm run test:app` y VR-02 aprobada. La etapa 3 no empieza sin VR-02.
 
 **Trampa conocida.** Que un número aparezca en algún resultado de herramienta no alcanza: tiene que estar atado a su métrica, cuenta, período, unidad y fuente. Esto es lo que separa la ruta del RAG que el proyecto prohíbe.
 
@@ -758,12 +755,26 @@ El catálogo y la semántica exactos viven en §11 de la spec (DEC-22); no se du
 
 ---
 
+## II.13b `M25a.3` — Etapa 3: bloques, casos dudosos y cierre
+
+| Paso | Acción | Archivos | Verificación |
+|---:|---|---|---|
+| 1 | Antes de que el modelo reciba datos reales: actualizar acta, `SECURITY.md` y `ARCHITECTURE.md` con los desgloses minimizados por pregunta y los flujos nuevos. El usuario aprueba el acta y comunica el cambio al dueño | Esos documentos | Aprobación registrada |
+| 2 | Catálogo cerrado de bloques en la salida del modelo: el modelo elige tipo y referencias, nunca valores. Medir CA-70 con varios bloques y ajustar si no alcanza | `src/modules/chat/output-schema.ts`, `src/modules/chat/guard.ts` | CA-50, CA-70 y CA-71 |
+| 3 | Componentes de los 19 bloques, con valores del servidor, días faltantes marcados y vista en teléfono y con lector de pantalla | `src/components/chat/` | CA-71 |
+| 4 | Casos dudosos e historia acumulada | `src/modules/chat/orchestrator.ts`, `src/modules/chat/render.ts` | CA-72 y CA-73 |
+| 5 | Evaluación ampliada: congelar el conjunto con cálculos, desgloses, bloques y casos dudosos, y correrlo con los criterios de DEC-21 | `docs/FASES/FASE1/meta_first/vr-02.md` | VR-02 |
+
+**Cierre:** control completo, `/implementation-review` y `/qa-review` de la microfase, `db:push` de `0018` en `app` por el usuario, publicación, recorrido manual y `G-CHAT`.
+
+---
+
 ## II.14 `M28.3a` — Demo con el dueño y cierre
 
 | Paso | Quién | Acción | Verificación |
 |---:|---|---|---|
 | 1 | Asistente | Guion de la demo y lista de verificación, sin datos reales | `docs/FASES/FASE1/meta_first/demo.md` |
-| 2 | Usuario | Confirmar `G-VR02`, que el dueño sigue siendo tester y que tiene control total de su portfolio | Checklist |
+| 2 | Usuario | Confirmar `G-CHAT`, que el dueño sigue siendo tester y que tiene control total de su portfolio | Checklist |
 | 3 | Dueño | Iniciar sesión con el usuario creado en `M16.2` (no hay alta nueva) | Login sobre el dominio |
 | 4 | Dueño | Verificar la conexión o reconectarla si quedó en `needs_reauth` | Conexión `active` |
 | 5 | Dueño | Sincronizar y consultar el chat | Respuestas con período, zona, cobertura y frescura |
@@ -837,6 +848,7 @@ El detalle y los criterios de aceptación están en la spec v1.0.
 | `M16.2` | Antes del alta, correr el preflight local (`node --env-file=.env.local scripts/meta-preflight.mjs`) y copiar a la sesión la línea que imprime. Después del despliegue, la verificación VD-01: con la cuenta sintética, pulsar "Conectar" y comprobar en Network `Origin` coincidente y `303` hacia Meta, sin conceder acceso. Abrir el registro, acompañar el alta del dueño y su empresa, cerrar el registro. Coordinar la autorización y la confirmación de la cuenta |
 | `M16c`, etapa .3 | Comunicar el acta ampliada al dueño antes de la primera captura ampliada; coordinar sincronización real y publicación reservada |
 | `M25a.2` | Crear la cuenta de DeepInfra y cargar `DEEPINFRA_API_KEY` |
+| `M25a.3` | Aprobar de nuevo el acta y comunicar el cambio al dueño; `db:push` de `0018` en `app`, publicar y aprobar `G-CHAT` |
 | `M28.3a` | Coordinar la demostración. Pasar a Supabase Pro si el dueño lo va a usar sin acompañamiento |
 | Fin del piloto | Ejecutar los pasos de CA-67 que requieren dashboard y quitar al dueño como tester |
 | Para escalar (fuera de la ruta) | `M16d`: Business Verification, dominio y App Review |
@@ -862,6 +874,7 @@ Ninguna clave se pega en el chat.
 | `M16c`, etapa .3 | `test:policies`, `test:app`; sincronización real de cuatro niveles y Q-04 |
 | `M25a.1` | `test:policies`, `test:app` |
 | `M25a.2` | Suite adversaria; VR-02 |
+| `M25a.3` | `test:policies`, `test:app`; evaluación ampliada; recorrido manual |
 | `M28.3a` | Checklists de la demo y del cierre |
 
 Toda evidencia registra los comandos y sus resultados reales. Nada se declara probado si no se ejecutó (CB-05). Un gate no se aprueba si una prueba requerida se omitió por falta de configuración (CB-06).
@@ -951,8 +964,7 @@ IDs sugeridos. Si chocan con los existentes, se sigue la numeración vigente.
 | `M16.1` | El flujo completo contra Meta simulada, en pruebas |
 | `M16.2` | El dueño registrado conecta su cuenta real, con moneda y zona, y puede desconectarla |
 | `M16c` | Gasto e impresiones por día, con los huecos y los días abiertos marcados |
-| `M25a.1` | Nada visible nuevo |
-| `M25a.2` | El chat |
+| `M25a` | El chat completo, con cálculos y bloques, al publicar con `G-CHAT` |
 | `M28.3a` | La demostración con el dueño. El piloto sigue hasta su fin |
 
 Si hay que elegir qué llega primero a una demostración, son `M16.1` y `M16.2`: prueban el conector.

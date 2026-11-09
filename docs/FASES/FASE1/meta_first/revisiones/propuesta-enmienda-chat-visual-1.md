@@ -1,6 +1,6 @@
 # Propuesta de enmienda de la ruta: el chat completo en una sola microfase
 
-**Estado:** BORRADOR, pendiente de aprobación del usuario. Todavía no cambia la ruta.  
+**Estado:** APROBADA por el usuario e integrada el 2026-11-08 ([sesión](../sesiones/enmienda-chat-2026-11-08.md)), con los dos puntos asumidos. Las líneas citadas son las anteriores a la integración.  
 **Fecha:** 2026-11-08.  
 **Origen:** decisiones del usuario sobre `H-E1-190`: «Opción A ampliada, con los 19 bloques y las reglas de casos dudosos, sumando edad, género y lugar al chat», y «m25a.1 .2 y m25b juntas en una microfase».
 

@@ -26,7 +26,7 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 
 ## Siguiente habilitada
 
-**M25a.1 — habilitada por `G-SYNC` aprobado (2026-11-08), aún no solicitada ni iniciada.** Sus spec, plan y gate se aprueban por separado. Antes de expandir su spec, queda pendiente aprobar la enmienda del chat (`H-E1-190`). Secuencia restante: M25a.1 → M25a.2 → M28.3a.
+**M25a — habilitada por `G-SYNC` aprobado (2026-11-08), aún no solicitada ni iniciada.** Una sola microfase con el chat completo; su spec, su plan y `G-CHAT` se aprueban por separado. Secuencia restante: M25a → M28.3a.
 
 ## Fuera de la ruta o pospuesto
 
@@ -52,7 +52,7 @@ enmienda de `avatars` del PR #20 y ratificó los cambios de Resend en `SECURITY.
 Las decisiones sobre `H-E1-04`, `H-E1-40`, `H-E1-76`, `H-E1-78`, `H-E1-81` y `H-E1-82` se
 tomaron el 2026-10-20; el detalle está en [HALLAZGOS.md](HALLAZGOS.md).
 
-La decisión de `H-E1-190` está tomada: el usuario tiene pendiente aprobar la [enmienda del chat](FASES/FASE1/meta_first/revisiones/propuesta-enmienda-chat-visual-1.md), que junta `M25a.1`, `M25a.2` y los bloques en una microfase.
+La decisión de `H-E1-190` se tomó el 2026-11-08 y la [enmienda del chat](FASES/FASE1/meta_first/revisiones/propuesta-enmienda-chat-visual-1.md) está integrada en la ruta.
 
 ## Regla de actualización
 

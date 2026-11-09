@@ -16,7 +16,7 @@
 
 `v1.0 — APROBADA` — 2026-09-24 (aprobada por el usuario en `G-DOCS`, al cerrar `M04a`). Incorpora:
 
-- las decisiones DEC-01 a DEC-21 y las enmiendas DEC-22 del 2026-11-06 y DEC-23 del 2026-11-08;
+- las decisiones DEC-01 a DEC-21 y las enmiendas DEC-22 del 2026-11-06, y DEC-23 y DEC-24 del 2026-11-08;
 - las correcciones T01 a T16 de la revisión externa;
 - las correcciones técnicas de la revisión del repositorio.
 
@@ -43,7 +43,7 @@ Un usuario (el dueño), una empresa y una cuenta publicitaria conectada. El due�
 - Más de una cuenta conectada por empresa. Más de un proveedor.
 - Workers, colas, reintentos en segundo plano, programación automática. El esquema `worker_api` es un nombre heredado del ROADMAP v2.3 y no implica construir un worker.
 - Tiendanube, GA4, reportes publicados (`reliability`, `catalog`).
-- Benchmarks, recomendaciones de presupuesto, explicación causal del rendimiento y evaluación de rentabilidad. Solo se admiten las métricas y tasas del contrato de §11; el modelo no calcula cifras autoritativas.
+- Benchmarks, recomendaciones de presupuesto, explicación causal del rendimiento y evaluación de rentabilidad. Solo se admiten las métricas y tasas del contrato de §11 y los cálculos de CA-48; el modelo no calcula cifras autoritativas.
 - Base vectorial o RAG.
 
 ## 3. Registro de decisiones
@@ -72,7 +72,8 @@ Un usuario (el dueño), una empresa y una cuenta publicitaria conectada. El due�
 | DEC-20 | `M28.3a` se cierra al completar la demostración. CA-67 se ejecuta al finalizar el piloto, no al terminar la demo | Cerrada |
 | DEC-21 | Los umbrales propuestos para VR-02 se adoptan como criterios iniciales de aprobación | Cerrada |
 | DEC-22 | Insights diarios de cuenta, campaña, conjunto y anuncio, catálogo y reglas de agregación de §11; chat sobre datos persistidos y verificados. Aprobada por el usuario el 2026-11-06 | Cerrada |
-| DEC-23 | Desgloses diarios de edad y género, país y región, por cuenta y campaña, según §11. Fuera del catálogo del chat hasta la decisión de `H-E1-190`. Aprobada por el usuario el 2026-11-08 (`H-E1-202`) | Cerrada |
+| DEC-23 | Desgloses diarios de edad y género, país y región, por cuenta y campaña, según §11. Entran al catálogo del chat con DEC-24. Aprobada por el usuario el 2026-11-08 (`H-E1-202`) | Cerrada |
+| DEC-24 | Chat con opción A ampliada: la IA elige de un catálogo cerrado, el servidor calcula y la app dibuja. Seis cálculos, desgloses, 19 bloques y casos dudosos (CA-48, CA-71 a CA-73), en una sola microfase `M25a`. Si la cuenta sigue sin actividad, `G-CHAT` se cierra con datos sintéticos y un recorrido real con 0 filas, como riesgo temporal. Aprobada por el usuario el 2026-11-08 (`H-E1-190`) | Cerrada |
 
 ## 4. Prerrequisitos de Meta — pendientes de verificar
 
@@ -344,8 +345,8 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
 - Un campo ausente o nulo es `no_informado`, distinto de cero explícito y de día sin fila. No invalida por sí solo campos válidos de la fila; un valor presente mal formado sí hace incompleta la extracción. Las variantes de atribución en arrays de acciones se conservan separadas; no sumar ventanas ni tipos de evento superpuestos.
 - `action_type` es un identificador del proveedor, de 1 a 128 caracteres alfanuméricos, punto o guion bajo; valores y claves fuera del contrato se rechazan o se descartan según sean datos malformados o campos extra. El chat consulta tipos presentes mediante catálogo del servidor y los referencia por su identificador. Solo usa nombres de negocio con mapeo explícito probado; jamás fusiona, por ejemplo, varios tipos de compra para inventar un total.
 - El total de cuenta se obtiene de `account`, no de la suma de otros niveles. El alcance y la frecuencia se ofrecen por día/entidad; no se calcula alcance o frecuencia de varios días o entidades con las filas diarias. Una solicitud de ese agregado recibe resultado no soportado. No se agrega una consulta directa a Meta desde el chat.
-- Los valores de los desgloses son estimados por Meta y conservan sus segmentos tal como llegan, incluidos los desconocidos. No reemplazan ni se reconcilian con los totales de los niveles, y no se cruzan edad o género con lugar. Un desglose fallido no cambia el resultado ni la cobertura de los niveles. No están en el catálogo de CA-48: el modelo no los recibe.
-- Para períodos y una misma entidad se suman solo métricas aditivas con unidad, moneda y atribución compatibles. CTR se calcula como `100 * clicks / impressions`; CPC como `spend / clicks`; CPM como `1000 * spend / impressions`. Denominador cero o datos necesarios ausentes producen resultado no calculable, nunca cero ni infinito. Las tasas de período se recalculan en SQL desde las bases cubiertas y se presentan parciales si falta cobertura. No se promedian tasas diarias. No se calculan ROAS, rentabilidad ni variaciones porcentuales en este corte.
+- Los valores de los desgloses son estimados por Meta y conservan sus segmentos tal como llegan, incluidos los desconocidos. No reemplazan ni se reconcilian con los totales de los niveles, y no se cruzan edad o género con lugar. Un desglose fallido no cambia el resultado ni la cobertura de los niveles. Entran en CA-48 por DEC-24: antes de que el modelo reciba datos reales, el usuario aprueba el acta de nuevo y el dueño conoce el cambio.
+- Para períodos y una misma entidad se suman solo métricas aditivas con unidad, moneda y atribución compatibles. CTR se calcula como `100 * clicks / impressions`; CPC como `spend / clicks`; CPM como `1000 * spend / impressions`. Denominador cero o datos necesarios ausentes producen resultado no calculable, nunca cero ni infinito. Las tasas de período se recalculan en SQL desde las bases cubiertas y se presentan parciales si falta cobertura. No se promedian tasas diarias. No se calculan ROAS ni rentabilidad. Las variaciones porcentuales y la participación las calcula SQL según CA-48, nunca el modelo.
 - **CA-44b** Toda medida, tasa y valor de acción se almacena con precisión exacta (`numeric`; los conteos base, `bigint`) y sale de SQL como texto, incluidos JSON y totales. TypeScript valida cadenas; nunca convierte a `number`. Prueba SQL → Data API → TypeScript con decimales y enteros fuera de precisión de `number`.
 
 ### Snapshots y cobertura (DEC-05, DEC-22)
@@ -382,7 +383,9 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
   - cobertura de un período y nivel;
   - serie diaria del catálogo de §11 para una entidad autorizada;
   - total o tasa de período únicamente según las reglas de §11;
-  - estado de la conexión.
+  - estado de la conexión;
+  - seis cálculos en SQL (DEC-24): comparar períodos, promedio diario, ranking, costo por resultado, participación y variación porcentual. Usan solo métricas aditivas o tasas recalculadas según §11; nunca alcance ni frecuencia de varios días. El costo por resultado usa un único tipo de acción. Un denominador cero o datos ausentes dan resultado no calculable, y una cobertura incompleta se presenta como parcial;
+  - desgloses de edad y género, país y región, con las reglas de §11.
 
   Referencias de entidades opacas, resueltas por el servidor dentro de la conexión autorizada; no IDs externos elegidos libremente. Parámetros y resultados incluyen nivel, entidad, tipo de acción y atribución cuando correspondan.
 
@@ -395,7 +398,17 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
   - un turno en curso por usuario;
   - duración total del turno: 60 s, por debajo del máximo configurado en Vercel.
 
+  `M25a` mide si las llamadas y los tokens alcanzan para una respuesta de varios bloques, y los ajusta si no.
+
   Se aplican en el servidor. El límite de período se aplica también dentro de las funciones SQL que la API puede llamar, porque `periodSchema` solo verifica fechas y orden.
+- **CA-71** *(bloques, DEC-24)* Catálogo cerrado de 19 bloques, elegidos por el modelo por tipo y referencias, nunca por valores ni por código:
+  - básicos: tarjeta, líneas, barras, barras agrupadas, dona y tabla;
+  - análisis: resumen con variación, período contra período, barras apiladas, ranking, tabla con mini tendencia, tabla desplegable, embudo, calendario de calor y desglose por tipo de resultado;
+  - contexto: estado de los datos, conclusiones, fuentes y metodología, y preguntas sugeridas.
+
+  Los valores salen del servidor. Un día sin datos se marca como faltante, nunca como cero. Un embudo avisa que sus pasos son conteos separados y usa un solo tipo de resultado. Las conclusiones no dan causas.
+- **CA-72** *(casos dudosos, DEC-24)* Si falta un dato, como el período, usa un valor por defecto y lo muestra. Si la pregunta admite sentidos muy distintos, pregunta antes de responder. Si pide otro formato, lo cambia cuando sirve para esos datos. Si pide algo que no tiene, lo dice y ofrece lo que sí puede mostrar.
+- **CA-73** *(historia, DEC-24)* La historia se acumula sincronizando, sin carga histórica. El chat avisa desde qué fecha tiene datos. No se califica un gasto como «estable».
 
 ### Afirmaciones numéricas (DEC-19)
 
@@ -423,9 +436,9 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
      - Gasto: valor exacto, o redondeado a 0 o 2 decimales con redondeo half-up.
      - Conteos base: entero exacto, con o sin agrupación de miles.
      - Otras medidas decimales del catálogo: exactas o redondeadas half-up a dos decimales por el servidor; unidad y tipo de acción/atribución coinciden con la herramienta. CTR conserva unidad porcentual. La representación no convierte la métrica a number.
-     - No se aceptan abreviaturas ("1,2 M", "30 mil"). Se acepta porcentaje únicamente para CTR devuelto por una herramienta del catálogo de §11, con unidad y valor verificados.
+     - No se aceptan abreviaturas ("1,2 M", "30 mil"). Se acepta porcentaje únicamente para CTR, participación y variación devueltos por una herramienta de CA-48, con unidad y valor verificados.
   4. **`qualitative_comparison`.** Referencia dos `observed_value` y la relación declarada. El servidor calcula la relación, y tiene que coincidir con la declarada.
-  5. **Variaciones y ratios cuantitativos.** Solo se aceptan las tasas de §11 cuando una herramienta las devuelve y se verifican con su unidad, entidad, período y fuente. Variaciones como "se duplicó" o "subió un 20 %" siguen rechazadas. Una operación no soportada no se presenta como calculada.
+  5. **Variaciones y ratios cuantitativos.** Solo se aceptan las tasas de §11 cuando una herramienta las devuelve y se verifican con su unidad, entidad, período y fuente. Una variación o una participación solo se acepta si la devolvió una herramienta de CA-48 para esos períodos y entidades. Sin esa herramienta, "se duplicó" o "subió un 20 %" siguen rechazadas. Una operación no soportada no se presenta como calculada.
   6. **`user_provided`.** La cifra tiene que aparecer en la pregunta redactada del turno. La UI la muestra diferenciada de las cifras observadas en Meta, por ejemplo "según lo que mencionaste".
   7. **Rechazo.** Si algo no valida, la respuesta no se muestra como un hecho: se registra como `guard_rejected` y el dueño ve una abstención controlada.
 - **CA-50b** *(qué se garantiza y qué se prueba)*
@@ -517,6 +530,8 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
   - el identificador y la precisión coinciden con CA-53b;
   - la salida estricta funciona con el esquema de CA-50;
   - la respuesta informa el identificador de modelo.
+
+  Antes de cerrar `M25a`, se congela un conjunto ampliado con cálculos, desgloses, bloques y casos dudosos, y se corre con los mismos criterios. La exactitud incluye el bloque elegido.
 
   Si VR-02 falla, primero se diagnostica la causa: prompt, esquema, herramientas, esfuerzo de razonamiento o modelo. Cambiar de host es el último recurso y no es gratis: además de `llm.ts`, exige actualizar la configuración, las pruebas y `M03a`.
 - **Declaración en `M03a`** (P01): DeepInfra como host, con centros de datos en EE. UU. y sin entrenamiento sobre los datos. Retención: no guarda entradas en disco, pero se reserva registrar porciones chicas de las solicitudes para depuración o seguridad. También hay que declarar que la pregunta viaja redactada (DEC-11) y que viajan resultados pertinentes del catálogo de §11 y nombres de entidades cuando sean necesarios para responder.
