@@ -50,6 +50,9 @@ vi.mock('@/lib/supabase/client', () => ({
 vi.mock('@/modules/company/actions', () => ({
   guardarPerfilEmpresa: (...args: unknown[]) => guardarPerfilEmpresa(...args),
 }));
+vi.mock('@/modules/chat/actions', () => ({
+  preguntarChat: vi.fn(), votarRespuesta: vi.fn(),
+}));
 
 describe('AppShell', () => {
   it('marca la sección actual y lleva avatar y fila de usuario a Mi perfil', () => {
@@ -291,9 +294,9 @@ describe('Chat', () => {
     const user = userEvent.setup();
     render(<Chat iniciales="GM" conectadas={[]} />);
 
-    await user.click(screen.getByRole('button', { name: '¿Por qué bajó el ROAS esta semana?' }));
+    await user.click(screen.getByRole('button', { name: '¿Cuánto gasté en los últimos siete días?' }));
 
-    expect(screen.getByRole('textbox', { name: 'Tu pregunta' })).toHaveValue('¿Por qué bajó el ROAS esta semana?');
+    expect(screen.getByRole('textbox', { name: 'Tu pregunta' })).toHaveValue('¿Cuánto gasté en los últimos siete días?');
     expect(screen.queryByRole('log')).not.toBeInTheDocument();
   });
 
@@ -307,15 +310,11 @@ describe('Chat', () => {
     expect(within(fuentes).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Meta Ads']);
   });
 
-  it('el globo de buscar en internet se activa y desactiva', async () => {
-    const user = userEvent.setup();
+  it('retira internet, adjuntos y sugerencias excluidas', () => {
     render(<Chat iniciales="GM" conectadas={[]} />);
-    const globo = screen.getByRole('button', { name: 'Buscar en internet' });
-    expect(globo).toHaveAttribute('aria-pressed', 'false');
-    await user.click(globo);
-    expect(globo).toHaveAttribute('aria-pressed', 'true');
-    await user.click(globo);
-    expect(globo).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: 'Buscar en internet' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Adjuntar' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/ROAS|¿Por qué/)).not.toBeInTheDocument();
   });
 
   it('solo espacios no se envía', async () => {
@@ -325,11 +324,9 @@ describe('Chat', () => {
     expect(screen.queryByRole('log')).not.toBeInTheDocument();
   });
 
-  it('con `pensando` muestra "Buscando en internet..." después de la pregunta', async () => {
-    const user = userEvent.setup();
-    render(<Chat iniciales="GM" conectadas={[]} pensando />);
-    await user.type(screen.getByRole('textbox', { name: 'Tu pregunta' }), 'Hola{Enter}');
-    expect(screen.getByRole('status')).toHaveTextContent('Buscando en internet...');
+  it('no afirma que está buscando en internet', () => {
+    render(<Chat iniciales="GM" conectadas={[]} />);
+    expect(screen.queryByText(/Buscando en internet/)).not.toBeInTheDocument();
   });
 });
 

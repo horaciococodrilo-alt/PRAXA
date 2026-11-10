@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { chatLevelSchema, chatMetricSchema, chatPeriodSchema } from './schema';
+import type { ToolName } from './schema';
 
 const signedDecimalText = z.string().regex(/^-?[0-9]+([.][0-9]+)?$/);
 const nullableDate = z.iso.date().nullable();
@@ -105,17 +106,19 @@ export class ToolResultError extends Error {
   constructor() { super('Resultado de herramienta inválido.'); }
 }
 
-export type ToolResult = z.infer<typeof resultSchema> & {
+export type ToolResult = Omit<z.infer<typeof resultSchema>, 'values'> & {
   tool_call_id: string;
+  tool_name: ToolName | null;
   account_ref: string | null;
   values: (z.infer<typeof valueSchema> & { path: string; tool_call_id: string; account_ref: string | null })[];
 };
 
-export function parseToolResult(raw: unknown, toolCallId: string, accountRef: string | null): ToolResult {
+export function parseToolResult(raw: unknown, toolCallId: string, accountRef: string | null,
+  toolName: ToolName | null = null): ToolResult {
   const parsed = resultSchema.safeParse(raw);
   if (!parsed.success || !/^t[1-6]$/.test(toolCallId)) throw new ToolResultError();
   return {
-    ...parsed.data, tool_call_id: toolCallId, account_ref: accountRef,
+    ...parsed.data, tool_call_id: toolCallId, tool_name: toolName, account_ref: accountRef,
     values: parsed.data.values.map((value, index) => ({ ...value, path: `/values/${index}`,
       tool_call_id: toolCallId, account_ref: accountRef })),
   };
@@ -131,21 +134,71 @@ function modelComposition(composition: z.infer<typeof compositionSchema> | null)
 }
 
 /** Solo la prueba de la guarda ve la evidencia completa. El modelo recibe esta vista. */
-export function toModelView(result: ToolResult) {
+type MarkerKind = 'ENTIDAD' | 'SEGMENTO' | 'ACCION' | 'DIA' | 'FECHA';
+export type ModelMarkers = Map<string, { kind: MarkerKind; text: string }>;
+
+function markerFor(markers: ModelMarkers, kind: MarkerKind, text: string | null): string | null {
+  if (!text) return null;
+  for (const [marker, item] of markers) {
+    if (item.kind === kind && item.text === text) return marker;
+  }
+  const count = [...markers.values()].filter((item) => item.kind === kind).length;
+  let n = count;
+  let letters = '';
+  do { letters = String.fromCharCode(65 + n % 26) + letters; n = Math.floor(n / 26) - 1; } while (n >= 0);
+  const marker = `⟦${kind}_${letters}⟧`;
+  markers.set(marker, { kind, text });
+  return marker;
+}
+
+export function modelMarkers(results: ToolResult[]): ModelMarkers {
+  const markers: ModelMarkers = new Map();
+  const displayDate = (date: string) => {
+    const [year, month, day] = date.slice(0, 10).split('-');
+    return `${day}/${month}/${year}`;
+  };
+  for (const result of results) {
+    markerFor(markers, 'ENTIDAD', result.scope.entity_name);
+    for (const value of result.values) {
+      markerFor(markers, 'ENTIDAD', value.entity_name);
+      markerFor(markers, 'SEGMENTO', value.segment_primary);
+      markerFor(markers, 'SEGMENTO', value.segment_secondary);
+      markerFor(markers, 'ACCION', value.action_type);
+      markerFor(markers, 'DIA', value.day ? displayDate(value.day) : null);
+    }
+    const entities = result.extra.entities;
+    if (Array.isArray(entities)) for (const entry of entities) {
+      if (entry && typeof entry === 'object' &&
+          (('entity_name' in entry && typeof entry.entity_name === 'string') ||
+            ('name' in entry && typeof entry.name === 'string'))) {
+        markerFor(markers, 'ENTIDAD',
+          'entity_name' in entry && typeof entry.entity_name === 'string' ?
+            entry.entity_name : (entry as { name: string }).name);
+      }
+    }
+    for (const key of ['history_from', 'history_to', 'last_finished_at']) {
+      const date = result.extra[key];
+      if (typeof date === 'string') markerFor(markers, 'FECHA', displayDate(date));
+    }
+  }
+  return markers;
+}
+
+export function toModelView(result: ToolResult, markers: ModelMarkers = modelMarkers([result])) {
   const extra = { ...result.extra };
   for (const key of ['trends', 'last_result', 'nearest_before', 'nearest_after']) delete extra[key];
-  const aliases = new Map<string, string>();
-  const aliasFor = (entityRef: string | null) => {
-    if (!entityRef) return null;
-    if (!aliases.has(entityRef)) {
-      let n = aliases.size;
-      let letters = '';
-      do { letters = String.fromCharCode(65 + n % 26) + letters; n = Math.floor(n / 26) - 1; } while (n >= 0);
-      aliases.set(entityRef, `Entidad ${letters}`);
-    }
-    return aliases.get(entityRef)!;
+  const aliasFor = (entityName: string | null) => markerFor(markers, 'ENTIDAD', entityName);
+  const displayDate = (date: string) => {
+    const [year, month, day] = date.slice(0, 10).split('-');
+    return `${day}/${month}/${year}`;
   };
   const visibleExtra = { ...extra };
+  for (const key of ['history_from', 'history_to', 'last_finished_at']) {
+    const date = visibleExtra[key];
+    if (typeof date === 'string') {
+      visibleExtra[`${key}_alias`] = markerFor(markers, 'FECHA', displayDate(date));
+    }
+  }
   for (const key of ['composition_a', 'composition_b']) {
     if (!(key in visibleExtra)) continue;
     const parsed = compositionSchema.nullable().safeParse(visibleExtra[key]);
@@ -157,20 +210,25 @@ export function toModelView(result: ToolResult) {
       if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return entry;
       const entity = entry as Record<string, unknown>;
       return { ...entity, entity_alias: aliasFor(
-        typeof entity.entity_ref === 'string' ? entity.entity_ref : null) };
+        typeof entity.entity_name === 'string' ? entity.entity_name :
+          typeof entity.name === 'string' ? entity.name : null) };
     });
   }
   return {
     status: result.status, reason: result.reason, tool_call_id: result.tool_call_id,
     account_ref: result.account_ref, scope: { ...result.scope,
-      entity_alias: aliasFor(result.scope.entity_ref) },
+      entity_alias: aliasFor(result.scope.entity_name) },
     values: result.values.map((value) => {
       const visible: Record<string, unknown> = { ...value };
       for (const key of ['fetched_at', 'presence', 'temporal_status', 'captured_partial']) {
         delete visible[key];
       }
       visible.composition = value.composition === null ? null : { partial: value.composition.partial };
-      visible.entity_alias = aliasFor(value.entity_ref);
+      visible.entity_alias = aliasFor(value.entity_name);
+      visible.segment_primary_alias = markerFor(markers, 'SEGMENTO', value.segment_primary);
+      visible.segment_secondary_alias = markerFor(markers, 'SEGMENTO', value.segment_secondary);
+      visible.action_alias = markerFor(markers, 'ACCION', value.action_type);
+      visible.day_alias = markerFor(markers, 'DIA', value.day ? displayDate(value.day) : null);
       return visible;
     }),
     composition: modelComposition(result.composition), extra: visibleExtra,

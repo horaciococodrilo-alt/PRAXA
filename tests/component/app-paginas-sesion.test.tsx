@@ -14,10 +14,14 @@ const SIN_SESION = new Error('SIN_SESION');
 const requireAppSession = vi.fn();
 const lecturas = vi.fn();
 const lectura = (nombre: string) => () => (lecturas(nombre), Promise.resolve(null));
+const tenant = vi.fn();
+const connection = vi.fn();
 
 vi.mock('@/modules/app-data', () => ({
   requireAppSession: (ruta: string) => requireAppSession(ruta),
-  getUsuario: lectura('getUsuario'),
+  getUsuario: () => { lecturas('getUsuario'); return Promise.resolve({
+    nombre: 'Persona', apellido: null, email: 'synthetic@example.test',
+  }); },
   getEmpresa: lectura('getEmpresa'),
   getIntegraciones: lectura('getIntegraciones'),
   getUso: lectura('getUso'),
@@ -25,6 +29,10 @@ vi.mock('@/modules/app-data', () => ({
   configuracionPendiente: () => false,
 }));
 vi.mock('@/modules/integrations/lifecycle', () => ({ loadMetaCardState: lectura('loadMetaCardState') }));
+vi.mock('@/modules/tenant/context', () => ({ requireTenantContext: () => tenant() }));
+vi.mock('@/modules/integrations/repository/connections', () => ({
+  readConnectionRecord: (...args: unknown[]) => connection(...args),
+}));
 vi.mock('@/modules/integrations/actions', () => ({ confirmarCuentaMeta: vi.fn(), desconectarMeta: vi.fn() }));
 vi.mock('@/modules/integrations/meta/insights', () => ({ loadMetaSyncView: lectura('loadMetaSyncView'),
   parseMetaSyncResult: () => null, syncNotice: () => null }));
@@ -37,6 +45,7 @@ vi.mock('@/modules/identity/actions', () => ({
   eliminarFotoPerfil: vi.fn(),
 }));
 vi.mock('@/modules/company/actions', () => ({ guardarPerfilEmpresa: vi.fn() }));
+vi.mock('@/modules/chat/actions', () => ({ preguntarChat: vi.fn(), votarRespuesta: vi.fn() }));
 vi.mock('@/lib/supabase/client', () => ({ createSupabaseBrowserClient: vi.fn() }));
 
 const RAIZ = join(process.cwd(), 'src', 'app', '(app)', 'app');
@@ -79,5 +88,34 @@ describe('verificación de sesión en cada página de /app', () => {
     await expect(Pagina()).rejects.toBe(SIN_SESION);
     expect(requireAppSession).toHaveBeenCalledWith(r);
     expect(lecturas).not.toHaveBeenCalled();
+  });
+
+  it('chat resuelve empresa y conexión en el servidor después de la sesión', async () => {
+    requireAppSession.mockResolvedValueOnce(undefined);
+    const context = { user_id: 'a0000000-0000-4000-8000-000000000001',
+      company_id: 'c0000000-0000-4000-8000-000000000001' };
+    tenant.mockResolvedValueOnce(context);
+    connection.mockResolvedValueOnce({ status: 'active' });
+    const { default: ChatPage, maxDuration } = await import('@/app/(app)/app/chat/page');
+    const element = await ChatPage();
+    expect(maxDuration).toBe(75);
+    expect(element.props).toMatchObject({ tieneEmpresa: true, conexionActiva: true });
+    expect(connection).toHaveBeenCalledWith(context);
+    expect(requireAppSession).toHaveBeenCalledWith('/app/chat');
+  });
+
+  it('chat degrada a flags falsos cuando falla K01 o la lectura de conexión', async () => {
+    const { default: ChatPage } = await import('@/app/(app)/app/chat/page');
+    requireAppSession.mockResolvedValue(undefined);
+    tenant.mockRejectedValueOnce(new Error('synthetic'));
+    const withoutCompany = await ChatPage();
+    expect(withoutCompany.props).toMatchObject({ tieneEmpresa: false,
+      conexionActiva: false });
+    expect(connection).not.toHaveBeenCalled();
+    tenant.mockResolvedValueOnce({ company_id: 'synthetic' });
+    connection.mockRejectedValueOnce(new Error('synthetic'));
+    const noConnection = await ChatPage();
+    expect(noConnection.props).toMatchObject({ tieneEmpresa: true,
+      conexionActiva: false });
   });
 });

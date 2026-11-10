@@ -26,7 +26,7 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 
 ## Siguiente habilitada
 
-**M25a — EN CURSO, control de .1 verde; commit del paso 7 pendiente del usuario** en `mf/M25a`, habilitada por `G-SYNC` aprobado (2026-11-08). `0018` y `0019` figuran aplicadas en el desechable; `test:policies`, `test:app` y `verify` pasaron. Spec, plan y Parte I enmendados aprobados directamente por decisión excepcional del usuario, sin nuevas auditorías de esta enmienda. No empezar .2 hasta recibir el hash del commit. `G-CHAT` sigue pendiente. Evidencia en [sesiones/M25a.md](FASES/FASE1/meta_first/sesiones/M25a.md). Secuencia restante: M25a → M28.3a.
+**M25a — EN CURSO, etapa .2** en `mf/M25a`, habilitada por `G-SYNC` aprobado (2026-11-08). La etapa .1 quedó cerrada por el commit del usuario `a1102fc10a49e7e7dfff5f04f18b1aa0b1ccf412`. El control técnico de .2 y VR-02 base están aprobados; falta el commit de la etapa reservado al usuario y comprobar después el árbol limpio. `.3` no está habilitada todavía. `G-CHAT` sigue pendiente. Evidencia en [sesiones/M25a.md](FASES/FASE1/meta_first/sesiones/M25a.md). Secuencia restante: M25a → M28.3a.
 
 ## Fuera de la ruta o pospuesto
 

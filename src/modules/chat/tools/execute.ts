@@ -111,7 +111,7 @@ function rpcArgs(call: ProjectedToolCall, connectionId: string): Record<string, 
 }
 
 export async function executeTool(call: ProjectedToolCall, ctx: TurnContext, toolCallId: string,
-  deps: ToolDeps = {}): Promise<ToolResult> {
+  deps: ToolDeps = {}, signal?: AbortSignal): Promise<ToolResult> {
   const accountRef = ctx.connection?.external_account_id
     ? maskExternalAccountId(ctx.connection.external_account_id) : null;
   try {
@@ -123,7 +123,7 @@ export async function executeTool(call: ProjectedToolCall, ctx: TurnContext, too
           connection_status: ctx.connection?.status ?? null,
           effective_sync_status: sync?.effective_status ?? null,
           last_finished_at: sync?.summary?.finished_at ?? null,
-        } }, toolCallId, accountRef);
+        } }, toolCallId, accountRef, call.name);
     }
     if (!ctx.connection || !['active', 'needs_reauth'].includes(ctx.connection.status)) {
       throw new ToolExecutionError();
@@ -139,14 +139,15 @@ export async function executeTool(call: ProjectedToolCall, ctx: TurnContext, too
       return parseToolResult({ status: 'ok', reason: null, scope: baseScope(ctx, level, call),
         values: [value('list_count', 'list_count', String(all.length))], composition: null,
         extra: { entities: visible, total: all.length,
-          truncated: all.length > CHAT_LIMITS.modelEntitiesLimit } }, toolCallId, accountRef);
+          truncated: all.length > CHAT_LIMITS.modelEntitiesLimit } }, toolCallId, accountRef, call.name);
     }
     const fn = `chat_${call.name}`;
     const args = rpcArgs(call, ctx.connection.id);
     let raw: unknown;
     if (deps.rpc) raw = await deps.rpc(fn, args);
     else {
-      const { data, error } = await (await client(deps)).rpc(fn, args);
+      const request = (await client(deps)).rpc(fn, args);
+      const { data, error } = await (signal ? request.abortSignal(signal) : request);
       if (error) throw new ToolExecutionError();
       raw = data;
     }
@@ -155,9 +156,12 @@ export async function executeTool(call: ProjectedToolCall, ctx: TurnContext, too
     if (!record.scope || typeof record.scope !== 'object' || Array.isArray(record.scope)) {
       throw new ToolExecutionError();
     }
-    return parseToolResult({ ...record, scope: { ...(record.scope as object),
+    return parseToolResult({ ...record,
+      extra: call.name === 'breakdown' ? { ...(record.extra as object),
+        dimension: call.args.dimension } : record.extra,
+      scope: { ...(record.scope as object),
       period_defaulted: call.periodDefaulted, entity_defaulted: call.entityDefaulted } },
-    toolCallId, accountRef);
+    toolCallId, accountRef, call.name);
   } catch (error) {
     if (error instanceof ToolExecutionError) throw error;
     throw new ToolExecutionError();
