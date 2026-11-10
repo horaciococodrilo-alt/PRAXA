@@ -26,7 +26,7 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 
 ## Siguiente habilitada
 
-**M25a — EN CURSO, etapa .2** en `mf/M25a`, habilitada por `G-SYNC` aprobado (2026-11-08). La etapa .1 quedó cerrada por el commit del usuario `a1102fc10a49e7e7dfff5f04f18b1aa0b1ccf412`. El control técnico de .2 y VR-02 base están aprobados; falta el commit de la etapa reservado al usuario y comprobar después el árbol limpio. `.3` no está habilitada todavía. `G-CHAT` sigue pendiente. Evidencia en [sesiones/M25a.md](FASES/FASE1/meta_first/sesiones/M25a.md). Secuencia restante: M25a → M28.3a.
+**M25a — EN CURSO, etapa .3; paso 16 cumplido, paso 17 habilitado y no iniciado** en `mf/M25a`, por `G-SYNC` aprobado (2026-11-08). La etapa .1 quedó cerrada por el commit del usuario `a1102fc10a49e7e7dfff5f04f18b1aa0b1ccf412`; la .2, por el commit del usuario `6f60dcac5f2317e819495e45dc1d44ba2bbaa7d4` tras el control técnico y VR-02 base aprobados. El usuario aprobó la ampliación del acta de datos y declaró la comunicación al dueño; evidencia en [sesiones/M25a.md](FASES/FASE1/meta_first/sesiones/M25a.md). `G-CHAT` sigue pendiente. Secuencia restante: M25a → M28.3a.
 
 ## Fuera de la ruta o pospuesto
 

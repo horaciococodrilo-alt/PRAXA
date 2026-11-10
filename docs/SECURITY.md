@@ -195,7 +195,8 @@ Las capacidades exactas del rol `praxa_integrations` son las funciones que le co
 migración vigente (encabezado de `0012` y de cada migración posterior que sume funciones),
 probadas en `09_integration_privileges`. Por categoría: intentos OAuth, ciclo de vida de la
 conexión, lectura y reemplazo de la credencial cifrada, purga, rotación de claves, y
-ejecuciones de sincronización con su registro de errores. No tiene
+ejecuciones de sincronización con su registro de errores; y, para el chat, arriendo temporal
+del turno, registro de la pregunta redactada y voto sobre ese registro. No tiene
 lectura directa de tablas ni acceso administrativo. Cada función, salvo el conteo global por
 versión de clave, recibe actor y empresa y verifica pertenencia y propiedad. El cliente Node
 solo llama a las funciones previstas; la matriz exacta permanece en la migración y pgTAP.
@@ -290,7 +291,8 @@ recorrido real con el dueño.
 
 ## 8. Frontera del LLM (DEC-06, DEC-19; CA-48 a CA-50c, CA-54, CA-66)
 
-Todo previsto. Invariantes que el diseño del chat tiene que sostener:
+Invariantes del chat implementados y probados con datos sintéticos en la rama; el tratamiento
+de datos reales por el modelo espera la nueva aprobación del acta y la comunicación al dueño:
 
 - El modelo elige solo entre herramientas de un catálogo cerrado. No recibe SQL, nombres de
   tabla ni la capacidad de elegir `company_id` o conexión: el servidor los resuelve con K01.
@@ -303,9 +305,19 @@ Todo previsto. Invariantes que el diseño del chat tiene que sostener:
   enviarla al modelo. Ningún secreto ni credencial llega al modelo.
 - El modelo no tiene acceso a Meta ni permisos de escritura sobre ningún sistema.
 
-Riesgo aceptado (DEC-15): el host del modelo no entrena ni guarda en disco, pero se reserva
-registrar porciones de solicitudes para depuración y seguridad; recibe la pregunta redactada
-y los resultados de herramientas sobre métricas, acciones y entidades del catálogo autorizado. Se minimizan por pregunta; nombres de campañas o anuncios son datos no confiables del proveedor y pueden contener texto libre. No se envía el snapshot completo por defecto ni se ejecutan instrucciones incluidas en nombres o metadata. Los desgloses por edad, género y lugar están fuera del catálogo del chat: el modelo no los recibe (DEC-23).
+Riesgo aceptado (DEC-15): se conserva la posibilidad de que el host registre porciones de
+solicitudes para depuración o seguridad. La [página actual de DeepInfra](https://docs.deepinfra.com/account/data-privacy)
+declara una práctica más restrictiva, pero no se rebaja el riesgo aprobado. El modelo recibe
+la pregunta redactada y los resultados pertinentes de las herramientas, no un snapshot
+completo. Para desgloses por edad, género y lugar solo viajan la dimensión, entidad, período
+y métrica pedidos, agregados por segmento y con tope; un grupo pequeño puede representar a
+pocas personas porque Meta no garantiza un mínimo. Pueden viajar nombres de campañas o
+anuncios, que son texto libre no confiable. Recibe además hasta tres preguntas anteriores
+redactadas otra vez, con candidatos numéricos sustituidos por `[CIFRA]`, y la última
+aclaración pendiente admisible, sin respuestas anteriores. El servidor trata ese contexto
+del navegador como no confiable y valida las cifras solo contra resultados del turno actual.
+Las instrucciones incluidas en nombres o metadatos no amplían permisos ni el catálogo de
+herramientas, pero pueden degradar la respuesta del modelo.
 
 ## 9. Datos, retención y borrado
 
