@@ -1,6 +1,6 @@
 export const CHAT_LIMITS = {
   maxPeriodDays: 93,
-  maxToolCallsPerTurn: 4,
+  maxToolCallsPerTurn: 6,
   maxOutputTokensPerCall: 2400,
   turnDeadlineMs: 60_000,
   finalizationReserveMs: 10_000,

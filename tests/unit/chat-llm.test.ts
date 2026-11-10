@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { CHAT_MODEL_ID, ChatModelError, requestChatModel } from '@/modules/chat/llm';
+import { choiceSchema } from '@/modules/chat/output-schema';
 
 vi.mock('server-only', () => ({}));
 
@@ -11,7 +12,14 @@ function completion(content: unknown, finishReason = 'stop', model: unknown = CH
 
 const choice = { action: 'abstain', calls: [], clarification_text: null,
   abstain_reason: 'out_of_scope' };
-const answer = { text: 'No puedo responder esa consulta.', claims: [], blocks: [] };
+const answer = { text: 'No puedo responder esa consulta.', blocks: [] };
+const toolCall = { name: 'total', args: { level: null, entity_ref: null,
+  metric: 'spend', period: { from: '2026-02-01', to: '2026-02-02' },
+  period_a: null, period_b: null, action_type: null, order: null,
+  limit: null, include_trend: null, dimension: null } };
+const flatChoice = (action: string, fields: Record<string, unknown> = {}) => ({
+  action, calls: [], clarification_text: null, abstain_reason: null, ...fields,
+});
 
 describe('M25a-T-33/T-34: adaptador DeepInfra', () => {
   it('envía modelo fijo, esquema estricto y límite, y valida ambas salidas', async () => {
@@ -56,6 +64,71 @@ describe('M25a-T-33/T-34: adaptador DeepInfra', () => {
         fetchImpl: vi.fn(async () => Response.json(response)) }))
         .rejects.toMatchObject({ reason: 'bad_output', message: 'Salida del modelo inválida.' });
     }
+  });
+
+  it('normaliza answer con llamadas válidas sin inventarlas ni admitir llamadas vacías', async () => {
+    const args = { level: null, entity_ref: null, metric: 'spend',
+      period: { from: '2026-02-01', to: '2026-02-02' },
+      period_a: null, period_b: null, action_type: null, order: null,
+      limit: null, include_trend: null, dimension: null };
+    const raw = { action: 'answer', calls: [{ name: 'total', args }],
+      clarification_text: null, abstain_reason: null };
+    const selected = await requestChatModel({ phase: 'choice', messages: [],
+      apiKey: 'clave-falsa', fetchImpl: vi.fn(async () =>
+        Response.json(completion(JSON.stringify(raw)))) });
+    expect(selected.output).toEqual({ ...raw, action: 'call_tools' });
+    expect(choiceSchema.parse({ ...raw, calls: [] }).action).toBe('answer');
+    expect(choiceSchema.safeParse({ ...raw, action: 'call_tools', calls: [] }).success)
+      .toBe(false);
+    expect(choiceSchema.safeParse({ ...raw, calls: [{ name: 'total',
+      args: { ...args, metric: 7 } }] }).success).toBe(false);
+  });
+
+  it.each([
+    ['answer con aclaración sobrante', flatChoice('answer', {
+      clarification_text: 'Aclaración sobrante' }), flatChoice('answer')],
+    ['answer con motivo sobrante', flatChoice('answer', {
+      abstain_reason: 'out_of_scope' }), flatChoice('answer')],
+    ['answer con llamadas y otros campos sobrantes', flatChoice('answer', {
+      calls: [toolCall], clarification_text: 'Aclaración sobrante',
+      abstain_reason: 'out_of_scope' }), flatChoice('call_tools', { calls: [toolCall] })],
+    ['call_tools con aclaración y motivo sobrantes', flatChoice('call_tools', {
+      calls: [toolCall], clarification_text: 'Aclaración sobrante',
+      abstain_reason: 'out_of_scope' }), flatChoice('call_tools', { calls: [toolCall] })],
+    ['clarify con llamadas y motivo sobrantes', flatChoice('clarify', {
+      calls: [toolCall], clarification_text: '¿Qué dimensión?',
+      abstain_reason: 'out_of_scope' }), flatChoice('clarify', {
+      clarification_text: '¿Qué dimensión?' })],
+    ['abstain con llamadas y aclaración sobrantes', flatChoice('abstain', {
+      calls: [toolCall], clarification_text: 'Aclaración sobrante',
+      abstain_reason: 'out_of_scope' }), flatChoice('abstain', {
+      abstain_reason: 'out_of_scope' })],
+    ['clarify con motivo sobrante', flatChoice('clarify', {
+      clarification_text: '¿Qué dimensión?', abstain_reason: 'out_of_scope' }),
+    flatChoice('clarify', { clarification_text: '¿Qué dimensión?' })],
+    ['abstain con aclaración sobrante', flatChoice('abstain', {
+      clarification_text: 'Aclaración sobrante', abstain_reason: 'out_of_scope' }),
+    flatChoice('abstain', { abstain_reason: 'out_of_scope' })],
+  ])('normaliza %s', (_name, raw, expected) => {
+    expect(choiceSchema.parse(raw)).toEqual(expected);
+  });
+
+  it.each([
+    ['clarify sin texto', flatChoice('clarify', { calls: [toolCall] })],
+    ['call_tools sin llamadas', flatChoice('call_tools', {
+      clarification_text: 'Aclaración sobrante' })],
+    ['abstain sin motivo', flatChoice('abstain')],
+    ['acción fuera del enum', flatChoice('desconocida')],
+    ['motivo fuera del enum', flatChoice('answer', { abstain_reason: 'otro' })],
+    ['herramienta fuera del enum', flatChoice('call_tools', { calls: [{
+      ...toolCall, name: 'desconocida' }] })],
+    ['más de seis llamadas', flatChoice('call_tools', {
+      calls: Array.from({ length: 7 }, () => toolCall) })],
+    ['propiedad extra', { ...flatChoice('answer'), extra: true }],
+    ['argumento extra', flatChoice('call_tools', { calls: [{ ...toolCall,
+      args: { ...toolCall.args, extra: true } }] })],
+  ])('mantiene rechazo de %s', (_name, raw) => {
+    expect(choiceSchema.safeParse(raw).success).toBe(false);
   });
 
   it('clasifica falta de clave, HTTP y aborto como unavailable sin filtrar contenido', async () => {

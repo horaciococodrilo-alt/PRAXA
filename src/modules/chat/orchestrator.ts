@@ -10,15 +10,14 @@ import { requireTenantContext } from '@/modules/tenant/context';
 import { CHAT_DEFAULT_PERIOD_DAYS, CHAT_LIMITS } from './limits';
 import { CHAT_MODEL_ID, ChatModelError, requestChatModel,
   type ChatMessage } from './llm';
-import { findNumericCandidates } from './numeric-candidates';
 import { choiceMessages, answerMessages } from './prompt';
 import { redactQuestion } from './redaction';
 import { renderTurn, type ChatTurnView } from './render';
-import { validateAnswer } from './guard';
-import type { FlatChatAnswer, ChatChoice } from './output-schema';
+import { projectOutput, type FlatChatAnswer, type ChatChoice } from './output-schema';
 import type { ToolResult } from './tools/results';
-import type { ProjectedToolCall } from './tools/schema';
-import { executeTool, resolveToolCall, type TurnContext } from './tools/execute';
+import { ToolEntityNotFoundError, type ProjectedToolCall } from './tools/schema';
+import { executeTool, missingAccountEntityResult, resolveToolCall,
+  type TurnContext } from './tools/execute';
 import { maskExternalAccountId } from '@/modules/integrations/contract';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -31,7 +30,7 @@ export type RecordPayload = Readonly<{ recordId: string; connectionId: string | 
   generation: number | null; question: string; toolNames: string[];
   outcome: 'answered' | 'answered_partial_coverage' | 'not_answered';
   reason: string | null; latencyMs: number; requestedModelId: string;
-  reportedModelId: string | null }>;
+  reportedModelId: string | null; correctionCount: number }>;
 type ModelReply<T> = { output: T; reportedModelId: string | null };
 
 export type ChatDependencies = Readonly<{
@@ -56,7 +55,8 @@ export type ChatDependencies = Readonly<{
   wallTime: () => Date;
   uuid: () => string;
   log: (entry: { request_id: string; outcome: string; reason: string | null;
-    latency_ms: number; tool_count: number; lease_released: boolean }) => void;
+    latency_ms: number; tool_count: number; correction_count: number;
+    lease_released: boolean; detail: string | null }) => void;
 }>;
 
 export function createChatDependencies(): ChatDependencies {
@@ -142,26 +142,14 @@ export function defaultPeriod(now: Date, timezone: string): { from: string; to: 
   return { from: iso(-CHAT_DEFAULT_PERIOD_DAYS), to: iso(-1) };
 }
 
-function hideCandidates(text: string): string {
-  const datesHidden = text.replace(/\b\d{1,2}[/-]\d{1,2}[/-]\d{4}\b/gu, '[CIFRA]');
-  const matches = findNumericCandidates(datesHidden);
-  let result = datesHidden;
-  for (const match of matches.reverse()) {
-    result = result.slice(0, match.start) + '[CIFRA]' + result.slice(match.end);
-  }
-  return result;
-}
-
 export function prepareHistory(previous: string[] = [],
   pendingClarification?: string): { previous: string[]; pendingClarification: string | null } {
   const questions = previous.slice(-CHAT_LIMITS.previousQuestions)
-    .filter((item) => typeof item === 'string')
-    .map((item) => hideCandidates(redactQuestion(item)));
+    .filter((item) => typeof item === 'string');
   const pending = typeof pendingClarification === 'string' &&
     pendingClarification.length <= CHAT_LIMITS.maxClarificationChars ?
-      redactQuestion(pendingClarification) : null;
-  return { previous: questions, pendingClarification: pending &&
-    findNumericCandidates(pending).length === 0 ? pending : null };
+      pendingClarification : null;
+  return { previous: questions, pendingClarification: pending };
 }
 
 function noCoverage(results: ToolResult[]): boolean {
@@ -175,7 +163,9 @@ function noCoverage(results: ToolResult[]): boolean {
 
 async function enrichNoCoverage(results: ToolResult[], connection: ChatConnection,
   deps: ChatDependencies, deadline: number): Promise<void> {
-  const scoped = results.filter((result) => result.scope.level &&
+  const scoped = results.filter((result) => result.status !== 'not_found' &&
+    !['entities', 'connection_status'].includes(result.tool_name ?? '') &&
+    result.scope.level &&
     (result.scope.period || result.scope.period_a));
   const scopes = new Set(scoped.map((result) =>
     `${result.scope.level}:${result.tool_name === 'breakdown' ?
@@ -196,12 +186,9 @@ async function enrichNoCoverage(results: ToolResult[], connection: ChatConnectio
   } catch { target.extra.coverage_lookup_failed = true; }
 }
 
-function partialAnswer(answer: ReturnType<typeof validateAnswer>,
+function partialAnswer(answer: ReturnType<typeof projectOutput>,
   results: ToolResult[]): boolean {
   const paths = new Set<string>();
-  for (const claim of answer.claims) {
-    if (claim.kind === 'observed_value') paths.add(`${claim.tool_call_id}:${claim.path}`);
-  }
   for (const block of answer.blocks) {
     for (const source of (block.sources ?? []) as { tool_call_id: string; path_prefix: string }[]) {
       const result = results.find((item) => item.tool_call_id === source.tool_call_id);
@@ -218,7 +205,7 @@ function partialAnswer(answer: ReturnType<typeof validateAnswer>,
 }
 
 type Finish = { kind: ChatTurnView['kind']; reason?: string;
-  answer?: ReturnType<typeof validateAnswer>; text?: string };
+  answer?: ReturnType<typeof projectOutput>; text?: string };
 
 export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Promise<ChatTurnView> {
   const start = deps.now();
@@ -233,9 +220,12 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
   let outcome = 'not_answered';
   let reason: string | null = null;
   let reportedModelId: string | null = null;
+  const correctionCount = 0;
+  let detail: string | null = null;
   const results: ToolResult[] = [];
   const toolNames: string[] = [];
-  const question = typeof input.question === 'string' ? redactQuestion(input.question.trim()) : '';
+  // Al modelo viaja la pregunta tal cual; el registro persistido sigue redactado.
+  const question = typeof input.question === 'string' ? input.question.trim() : '';
   const finish = async (result: Finish): Promise<ChatTurnView> => {
     reason = result.reason ?? null;
     outcome = result.kind === 'answer' ?
@@ -252,6 +242,7 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
         accountRef: connection?.external_account_id ?? null,
         connectionStatus: connection?.status ?? null, recordId });
     } catch {
+      detail = 'render_failed';
       reason = 'guard_rejected';
       outcome = 'not_answered';
       prepared = renderTurn({ kind: 'abstention', reason, results: [],
@@ -261,9 +252,9 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
       const written = await within(() => deps.record(ctx!, {
         recordId, connectionId: connection?.id ?? null,
         generation: connection?.credential_generation ?? null,
-        question, toolNames, outcome: outcome as RecordPayload['outcome'],
+        question: redactQuestion(question), toolNames, outcome: outcome as RecordPayload['outcome'],
         reason, latencyMs: Math.max(0, Math.round(deps.now() - start)),
-        requestedModelId: CHAT_MODEL_ID, reportedModelId,
+        requestedModelId: CHAT_MODEL_ID, reportedModelId, correctionCount,
       }), deadline, deps.now);
       if (!written) {
         reason = 'connection_changed';
@@ -327,7 +318,9 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
           choiceMessages(promptContext, results), remaining, signal),
         workDeadline, deps.now);
         reportedModelId = decision.reportedModelId;
-      } catch (error) { return finish({ kind: 'abstention', reason:
+      } catch (error) {
+        if (error instanceof ChatModelError && error.reason === 'bad_output') detail = 'choice_bad_output';
+        return finish({ kind: 'abstention', reason:
         error instanceof ChatModelError && error.reason === 'bad_output' ?
           'guard_rejected' : 'model_unavailable' }); }
       const selected = decision.output;
@@ -341,7 +334,17 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
           try {
             resolved = await within((signal) => deps.resolve(call.name,
               call.args, current, defaults, signal), workDeadline, deps.now);
-          } catch { return finish({ kind: 'abstention', reason: 'tool_error' }); }
+          } catch (error) {
+            if (error instanceof ToolEntityNotFoundError) {
+              try {
+                results.push(missingAccountEntityResult(call.name, call.args,
+                  current, defaults, `t${toolNames.length + 1}`));
+                toolNames.push(call.name);
+                continue;
+              } catch { /* Una llamada inválida no se presenta como entidad ausente. */ }
+            }
+            return finish({ kind: 'abstention', reason: 'tool_error' });
+          }
           try {
             const value = await within((signal) => deps.execute(resolved, current,
               `t${toolNames.length + 1}`, signal), workDeadline, deps.now);
@@ -358,9 +361,6 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
         return finish({ kind: 'abstention', reason: 'out_of_scope' });
       }
       if (selected.action === 'clarify') {
-        try { validateAnswer({ text: selected.clarification_text ?? '',
-          claims: [], blocks: [] }, results, question); }
-        catch { return finish({ kind: 'abstention', reason: 'guard_rejected' }); }
         return finish({ kind: 'clarification', reason: 'needs_clarification',
           text: selected.clarification_text ?? '' });
       }
@@ -379,13 +379,13 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
           answerMessages(promptContext, results), remaining, signal),
         workDeadline, deps.now);
         reportedModelId = drafted.reportedModelId;
-      } catch (error) { return finish({ kind: 'abstention', reason:
+      } catch (error) {
+        if (error instanceof ChatModelError && error.reason === 'bad_output') detail = 'answer_bad_output';
+        return finish({ kind: 'abstention', reason:
         error instanceof ChatModelError && error.reason === 'bad_output' ?
           'guard_rejected' : 'model_unavailable' }); }
-      try {
-        return finish({ kind: 'answer', answer: validateAnswer(drafted.output,
-          results, question) });
-      } catch { return finish({ kind: 'abstention', reason: 'guard_rejected' }); }
+      try { return finish({ kind: 'answer', answer: projectOutput(drafted.output) }); }
+      catch { detail = 'projection_failed'; return finish({ kind: 'abstention', reason: 'guard_rejected' }); }
     }
   } finally {
     if (leased && ctx) {
@@ -394,6 +394,7 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
     }
     deps.log({ request_id: ctx?.request_id ?? turnId, outcome, reason,
       latency_ms: Math.max(0, Math.round(deps.now() - start)),
-      tool_count: toolNames.length, lease_released: leaseReleased });
+      tool_count: toolNames.length, correction_count: correctionCount,
+      lease_released: leaseReleased, detail });
   }
 }

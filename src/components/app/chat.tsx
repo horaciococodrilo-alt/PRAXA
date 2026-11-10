@@ -133,12 +133,14 @@ export function Chat({ iniciales, conectadas, tieneEmpresa = false,
           <p className={c.answerText}>{message.view.segments.map((segment, index) =>
             <span key={index} data-kind={segment.type}>{segment.text}</span>)}</p>
           {message.view.blocks.map((block, index) =>
-            <BasicBlock key={`${message.id}-${index}`} block={block} />)}
+            <BasicBlock key={`${message.id}-${index}`} block={block}
+              onSuggestion={(text) => { setTexto(text); ta.current?.focus(); }} />)}
           {message.view.footer ? <div className={c.footer}>
             {message.view.footer.account ? <p>Cuenta {message.view.footer.account}</p> : null}
             {message.view.footer.period ? <p>Período: {message.view.footer.period}
               {message.view.footer.defaulted ? ' (por defecto)' : ''}</p> : null}
             {message.view.footer.coverage ? <p>Cobertura: {message.view.footer.coverage}</p> : null}
+            {message.view.footer.timezone ? <p>Zona horaria: {message.view.footer.timezone}</p> : null}
             {message.view.footer.freshness ? <p>Actualización: {message.view.footer.freshness}</p> : null}
             {message.view.footer.data_limits.map((limit) => <p key={limit}>{limit}</p>)}
           </div> : null}

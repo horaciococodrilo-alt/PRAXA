@@ -21,8 +21,7 @@ export type ChatTurnView = Readonly<{ kind: 'answer' | 'clarification' | 'absten
   retry_allowed: boolean; link_to_integrations: boolean }>;
 
 export type RenderInput = Readonly<{ kind: ChatTurnView['kind'];
-  answer?: { text: string; claims: Record<string, unknown>[];
-    blocks: Record<string, unknown>[] }; text?: string; results: ToolResult[];
+  answer?: { text: string; blocks: Record<string, unknown>[] }; text?: string; results: ToolResult[];
   accountRef: string | null; recordId: string | null; reason?: string;
   connectionStatus?: string | null }>;
 
@@ -31,13 +30,14 @@ const INCOMPATIBLE = 'No puedo sumar estos resultados: Meta los contó con confi
 const MIXED = 'Estos resultados usan ventanas de atribución distintas: la comparación es orientativa.';
 const BREAKDOWN = 'Los desgloses son estimados por Meta y no se reconcilian con los totales.';
 const FAILED_BREAKDOWN = 'El último intento de actualizar este desglose falló: estos datos pueden estar desactualizados.';
+const OPINION = 'El texto es una lectura del asistente y no está verificado; los números y gráficos salen de tus datos.';
 const PARTIAL = 'Algunas filas no tienen datos todos los días del período: sus totales son parciales.';
 
 const FIXED: Record<string, string> = {
   guard_rejected: 'No pude verificar esta respuesta, así que prefiero no mostrarla. Probá reformulando la pregunta.',
   tool_error: 'No pude leer tus datos. Probá de nuevo.',
   model_unavailable: 'El asistente no está disponible. Tu pregunta sigue en el cuadro: probá de nuevo.',
-  out_of_scope: 'Eso no lo puedo responder con estos datos. Puedo mostrarte gasto, impresiones, clics y resultados de tus campañas, por día o por período, y desgloses por edad, género o lugar.',
+  out_of_scope: 'Con eso no te puedo ayudar: PRAXA solo lee tus datos de Meta y no responde temas ajenos a tu publicidad. Sí puedo mostrarte y comentar cómo van tus campañas: gasto, impresiones, clics y resultados, por día o período, y desgloses por edad, género o lugar.',
   connection_not_active: 'Todavía no hay una cuenta conectada.',
   record_failed: 'No pudimos completar la consulta. Probá de nuevo.',
   connection_changed: 'La conexión cambió mientras respondíamos.',
@@ -48,13 +48,63 @@ const FIXED: Record<string, string> = {
 const TITLES: Record<string, string> = {
   tarjeta: 'Dato', lineas: 'Evolución diaria', barras: 'Barras',
   barras_agrupadas: 'Comparación', dona: 'Participación', tabla: 'Datos',
+  resumen_variacion: 'Variación', periodo_contra_periodo: 'Períodos comparados',
+  barras_apiladas: 'Barras apiladas', ranking: 'Ranking',
+  tabla_tendencia: 'Tendencia del ranking', tabla_desplegable: 'Detalle por nivel',
+  embudo: 'Embudo', calendario_calor: 'Calendario de datos',
+  desglose_tipo_resultado: 'Tipos de resultado', estado_datos: 'Estado de los datos',
+  conclusiones: 'Conclusiones', fuentes_metodologia: 'Fuentes y metodología',
+  preguntas_sugeridas: 'Preguntas sugeridas',
 };
 const ROWS: Record<string, readonly string[]> = {
   lineas: ['day'], barras: ['day', 'entity', 'segment'],
   barras_agrupadas: ['a', 'b', 'segment'], dona: ['segment'],
   ranking: ['entity'], tabla_tendencia: ['entity'],
   tabla_desplegable: ['entity'],
+  resumen_variacion: ['change'], periodo_contra_periodo: ['a', 'b', 'difference'],
+  barras_apiladas: ['day'], embudo: ['total'], calendario_calor: ['day'],
+  desglose_tipo_resultado: ['action_count', 'action_value'],
+  estado_datos: [], fuentes_metodologia: [], conclusiones: [],
+  preguntas_sugeridas: [],
 };
+const SUGGESTIONS: Record<string, string> = {
+  ver_por_conjunto: 'Ver por conjunto', comparar_periodo_anterior: 'Comparar con el período anterior',
+  ver_en_tabla: 'Ver en tabla', ver_por_edad_y_genero: 'Ver por edad y género',
+  ver_por_pais: 'Ver por país', ver_estado_de_los_datos: 'Ver estado de los datos',
+};
+const TOOL_LABELS: Record<string, string> = {
+  entities: 'Entidades', action_types: 'Tipos de resultado', coverage: 'Cobertura',
+  daily_series: 'Serie diaria', total: 'Total',
+  connection_status: 'Estado de conexión', compare_periods: 'Comparación de períodos',
+  daily_average: 'Promedio diario', ranking: 'Ranking',
+  cost_per_result: 'Costo por resultado', share: 'Participación',
+  percent_change: 'Variación porcentual', breakdown: 'Desglose',
+};
+const METRIC_METHODS: Record<string, string> = {
+  ctr: 'CTR = 100 × clics / impresiones; solo días con ambas bases informadas.',
+  cpc: 'CPC = gasto / clics; solo días con ambas bases informadas.',
+  cpm: 'CPM = 1000 × gasto / impresiones; solo días con ambas bases informadas.',
+  cost_per_result: 'Costo por resultado = gasto informado / resultados informados.',
+  share: 'Participación = 100 × parte informada / total informado del padre.',
+  daily_average: 'Promedio diario = total informado / días con valor.',
+  change: 'Variación = 100 × (período B − período A) / período A.',
+};
+
+const METRIC_LABELS: Record<string, string> = {
+  spend: 'Gasto', impressions: 'Impresiones', reach: 'Alcance', clicks: 'Clics',
+  inline_link_clicks: 'Clics en enlaces', ctr: 'CTR', cpc: 'CPC', cpm: 'CPM',
+  frequency: 'Frecuencia', action_count: 'Resultados', action_value: 'Valor de resultados',
+};
+
+function metricLabel(value: ToolResult['values'][number]): string {
+  const base = METRIC_LABELS[value.metric] ?? value.metric;
+  return value.action_type ? `${base} (${value.action_type})` : base;
+}
+
+function freshnessDisplay(iso: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/u.exec(iso);
+  return match ? `${match[3]}/${match[2]}/${match[1]} ${match[4]}:${match[5]} UTC` : iso;
+}
 
 function dateDisplay(iso: string): string {
   const [year, month, day] = iso.slice(0, 10).split('-');
@@ -83,8 +133,7 @@ function scopePhrase(result: ToolResult): string {
       level === 'ad' ? 'de los anuncios' : 'de la cuenta';
 }
 
-function segments(text: string, claims: Record<string, unknown>[],
-  results: ToolResult[]): Segment[] {
+function segments(text: string, results: ToolResult[]): Segment[] {
   const markers = modelMarkers(results);
   const tokens: { start: number; end: number; type: Segment['type']; text: string }[] = [];
   for (const match of text.matchAll(/⟦[^⟦⟧]+⟧/gu)) {
@@ -92,20 +141,6 @@ function segments(text: string, claims: Record<string, unknown>[],
     if (!item) continue;
     tokens.push({ start: match.index, end: match.index + match[0].length,
       type: item.kind === 'ENTIDAD' ? 'entity' : 'label', text: item.text });
-  }
-  for (const claim of claims) {
-    const span = claim.span as { quote: string; occurrence: number };
-    let start = -1;
-    let cursor = 0;
-    for (let index = 0; index < span.occurrence; index += 1) {
-      start = text.indexOf(span.quote, cursor);
-      cursor = start + span.quote.length;
-    }
-    if (start < 0) continue;
-    tokens.push({ start, end: start + span.quote.length,
-      type: claim.kind === 'user_provided' ? 'user_provided' : 'observed',
-      text: claim.kind === 'user_provided' ?
-        `${span.quote} (según lo que mencionaste)` : span.quote });
   }
   tokens.sort((a, b) => a.start - b.start || b.end - a.end);
   const parts: Segment[] = [];
@@ -122,11 +157,6 @@ function segments(text: string, claims: Record<string, unknown>[],
 
 function citedResults(input: RenderInput): ToolResult[] {
   const ids = new Set<string>();
-  for (const claim of input.answer?.claims ?? []) {
-    for (const key of ['tool_call_id', 'left_tool_call_id', 'right_tool_call_id']) {
-      if (typeof claim[key] === 'string') ids.add(claim[key]);
-    }
-  }
   for (const block of input.answer?.blocks ?? []) {
     for (const source of (block.sources ?? []) as { tool_call_id: string }[]) {
       ids.add(source.tool_call_id);
@@ -153,21 +183,26 @@ function extraComposition(value: unknown): { days_with_value: number;
         observed_from?: string | null; observed_to?: string | null } : null;
 }
 
-function dataLimits(results: ToolResult[], claims: Record<string, unknown>[],
-  blocks: Record<string, unknown>[]): string[] {
+function dataLimits(results: ToolResult[], blocks: Record<string, unknown>[]): string[] {
   const warnings: string[] = [];
-  const usedPaths = new Set(claims.filter((claim) => claim.kind === 'observed_value')
-    .map((claim) => `${claim.tool_call_id}:${claim.path}`));
+  const usedPaths = new Set<string>();
   for (const block of blocks) {
+    const blockValues: ToolResult['values'] = [];
     for (const source of (block.sources ?? []) as { tool_call_id: string; path_prefix: string }[]) {
       const result = results.find((item) => item.tool_call_id === source.tool_call_id);
       if (!result) continue;
       for (const value of result.values) {
         if (source.path_prefix === '/values' || source.path_prefix === value.path) {
           usedPaths.add(`${result.tool_call_id}:${value.path}`);
+          blockValues.push(value);
         }
       }
     }
+    const known = blockValues.filter((value) => value.entity_ref &&
+      value.attribution_ref && value.attribution_ref !== 'unknown');
+    if (known.some((left) => known.some((right) =>
+      left.entity_ref !== right.entity_ref &&
+      left.attribution_ref !== right.attribution_ref))) warnings.push(MIXED);
   }
   if (results.some((result) => result.values.some((value) =>
     value.attribution_ref === 'unknown' &&
@@ -176,17 +211,6 @@ function dataLimits(results: ToolResult[], claims: Record<string, unknown>[],
     warnings.push(INCOMPATIBLE);
   }
   if (results.some((result) => result.extra.attribution_mixed === true)) warnings.push(MIXED);
-  for (const claim of claims) {
-    if (claim.kind !== 'qualitative_comparison') continue;
-    const left = results.find((result) => result.tool_call_id === claim.left_tool_call_id)
-      ?.values.find((value) => value.path === claim.left_path);
-    const right = results.find((result) => result.tool_call_id === claim.right_tool_call_id)
-      ?.values.find((value) => value.path === claim.right_path);
-    if (left && right && left.entity_ref !== right.entity_ref &&
-        left.attribution_ref && right.attribution_ref &&
-        left.attribution_ref !== 'unknown' && right.attribution_ref !== 'unknown' &&
-        left.attribution_ref !== right.attribution_ref) warnings.push(MIXED);
-  }
   if (results.some((result) => result.tool_name === 'breakdown')) {
     warnings.push(BREAKDOWN);
     const failed = results.some((result) => result.tool_name === 'breakdown' &&
@@ -250,8 +274,8 @@ function footer(input: RenderInput): Footer | null {
       fetched.push(result.extra.last_finished_at);
     }
   }
-  const limits = full ? dataLimits(selected, input.answer?.claims ?? [],
-    input.answer?.blocks ?? []) : [];
+  const limits = full ? [...dataLimits(selected, input.answer?.blocks ?? []),
+    ...(input.answer?.text.trim() ? [OPINION] : [])] : [];
   const defaulted = selected.some((result) => result.scope.period_defaulted);
   const entityDefaulted = selected.some((result) => result.scope.entity_defaulted);
   let coverageText = coverage.length ? unique(coverage).join('; ') : null;
@@ -262,14 +286,26 @@ function footer(input: RenderInput): Footer | null {
     defaulted, entity_defaulted: entityDefaulted,
     timezone: periods.length ? selected.find((result) => result.scope.timezone)?.scope.timezone ?? null : null,
     coverage: coverageText,
-    freshness: fetched.length ? fetched.length === 1 ? fetched[0] :
-      `${fetched[0]} a ${fetched.at(-1)}` : null,
+    freshness: fetched.length ? fetched.length === 1 ? freshnessDisplay(fetched[0]) :
+      `${freshnessDisplay(fetched[0])} a ${freshnessDisplay(fetched.at(-1)!)}` : null,
     no_account_text: null, data_limits: limits };
 }
 
 function rowLabel(value: ToolResult['values'][number]): string {
   if (value.day) return dateDisplay(value.day);
-  return value.entity_name ?? value.segment_primary ?? value.action_type ?? value.path_key;
+  if (value.path_key === 'entity') return value.entity_name ?? 'Entidad';
+  if (value.path_key === 'segment' || value.path_key === 'segment_share') {
+    return [value.segment_primary, value.segment_secondary].filter(Boolean).join(' · ') || 'Segmento';
+  }
+  if (value.path_key === 'action_count' || value.path_key === 'action_value') {
+    return `${value.action_type ?? 'Acción'} · ${value.path_key === 'action_count' ?
+      'Cantidad' : 'Valor'}`;
+  }
+  if (value.path_key === 'a') return 'Período A';
+  if (value.path_key === 'b') return 'Período B';
+  if (value.path_key === 'difference') return 'Diferencia';
+  if (value.path_key === 'total') return metricLabel(value);
+  return value.entity_name ?? value.path_key;
 }
 function rowText(value: ToolResult['values'][number]): string {
   if (value.value === null) return value.absence === 'sin_fila_reportada' ?
@@ -301,13 +337,15 @@ function selectedValues(block: Record<string, unknown>, result: ToolResult) {
 }
 
 function noCoverageText(results: ToolResult[]): string {
-  const periods = results.flatMap((result) => [result.scope.period, result.scope.period_a,
+  const queried = results.filter((result) => result.status !== 'not_found' &&
+    !['entities', 'connection_status'].includes(result.tool_name ?? ''));
+  const periods = queried.flatMap((result) => [result.scope.period, result.scope.period_a,
     result.scope.period_b]).filter((period): period is NonNullable<typeof period> => !!period);
   const uniquePeriods = unique(periods.map((period) => `${period.from}:${period.to}`));
-  const first = results.find((result) => result.scope.level !== null &&
+  const first = queried.find((result) => result.scope.level !== null &&
     (result.scope.period || result.scope.period_a));
   const scope = first ? scopePhrase(first) : 'de la cuenta';
-  const scopes = new Set(results.filter((result) => result.scope.level !== null &&
+  const scopes = new Set(queried.filter((result) => result.scope.level !== null &&
     (result.scope.period || result.scope.period_a)).map((result) =>
     `${result.scope.level}:${result.tool_name === 'breakdown' ?
       String(result.extra.dimension ?? '') : ''}`));
@@ -338,9 +376,116 @@ function noCoverageText(results: ToolResult[]): string {
 function renderBlock(block: Record<string, unknown>, results: ToolResult[]): BlockView {
   const type = String(block.type);
   const sources = block.sources as { tool_call_id: string; path_prefix: string }[];
-  const selected = sources.map((source) => results.find((item) =>
-    item.tool_call_id === source.tool_call_id)).filter((item): item is ToolResult => !!item);
+  const selected = [...new Set(sources.map((source) => results.find((item) =>
+    item.tool_call_id === source.tool_call_id)).filter((item): item is ToolResult => !!item))];
+  const title = TITLES[type] ?? 'Datos';
+  if (type === 'conclusiones') {
+    const rawItems = block.items as { text: string }[];
+    const items = rawItems.map((item) => ({
+      segments: segments(item.text, results), provenance: 'Interpretación',
+    }));
+    return { type, title, items, series: [], table: { headers: ['Conclusión', 'Procedencia'],
+      rows: items.map((item) => [item.segments.map((part) => part.text).join(''),
+        item.provenance]) }, notes: [], aria_label: title };
+  }
+  if (type === 'preguntas_sugeridas') {
+    const suggestions = (block.ids as string[]).map((id) => ({
+      id, text: SUGGESTIONS[id] })).filter((item) => item.text);
+    return { type, title, suggestions, series: [],
+      table: { headers: ['Pregunta'], rows: suggestions.map((item) => [item.text]) },
+      notes: [], aria_label: title };
+  }
+  if (type === 'estado_datos' || type === 'fuentes_metodologia') {
+    const rows = selected.flatMap((result) => {
+      if (type === 'fuentes_metodologia') return [[TOOL_LABELS[result.tool_name ?? ''] ?? 'Consulta',
+        result.composition?.fetched_at_max ?
+          dateDisplay(result.composition.fetched_at_max) : 'Sin fecha de captura']];
+      const history = ['history_from', 'history_to'].flatMap((key) =>
+        typeof result.extra[key] === 'string' ?
+          [[key === 'history_from' ? 'Desde' : 'Hasta',
+            dateDisplay(result.extra[key] as string)]] : []);
+      const connection = result.tool_name === 'connection_status' ? [
+        ...(typeof result.extra.connection_status === 'string' ?
+          [['Conexión', result.extra.connection_status === 'active' ? 'Activa' :
+            'Requiere atención']] : []),
+        ...(typeof result.extra.last_finished_at === 'string' ?
+          [['Última sincronización', dateDisplay(result.extra.last_finished_at)]] : []),
+      ] : [];
+      return [...history, ...connection, ...(result.composition ?
+        [['Cobertura', `${result.composition.days_with_value} de ${result.composition.days_total} días con valor`]] : [])];
+    });
+    if (type === 'fuentes_metodologia') {
+      const methods = unique(selected.flatMap((result) => result.values.flatMap((value) =>
+        [value.metric, value.path_key].map((key) => METRIC_METHODS[key]).filter(
+          (method): method is string => !!method))));
+      rows.push(...methods.map((method) => ['Cálculo', method]));
+    }
+    return { type, title, series: [], table: { headers: ['Dato', 'Detalle'], rows },
+      notes: dataLimits(selected, [block]), aria_label: title };
+  }
+  if (type === 'barras_apiladas') {
+    const days = [...new Set(selected.flatMap((result) => result.values
+      .filter((value) => value.path_key === 'day' && value.day).map((value) => value.day!)))].sort();
+    const bySeries = selected.map((result) => days.map((day) => result.values.find((value) =>
+      value.path_key === 'day' && value.day === day)));
+    const totals = days.map((_, index) => {
+      const present = bySeries.map((series) => series[index]?.value ?? null)
+        .filter((value): value is string => value !== null);
+      return present.length ? addDecimals(present) : null;
+    });
+    const ratios = relativeToMax(totals);
+    const dayShares = days.map((_, index) => shareOfTotal(bySeries.map((item) =>
+      item[index]?.value ?? null)));
+    const series = selected.map((result, seriesIndex) => ({
+      label: result.scope.entity_name ?? result.values[0]?.entity_name ?? 'Entidad',
+      points: days.map((day, index) => ({ x: dateDisplay(day),
+        text: bySeries[seriesIndex][index]?.value ?? null,
+        ratio: dayShares[index][seriesIndex],
+        absence: bySeries[seriesIndex][index]?.absence ?? 'sin_fila_reportada' })),
+    }));
+    const rows = days.map((day, index) => [dateDisplay(day),
+      ...bySeries.map((item) => item[index] ? rowText(item[index]!) : 'Sin fila reportada'),
+      totals[index] ?? 'No observado']);
+    return { type, title, series, stack_ratios: ratios.map((ratio) => ratio ?? 0),
+      table: { headers: ['Día', ...series.map((item) => item.label), 'Total'], rows },
+      notes: dataLimits(selected, [block]), aria_label: `${title}: ${rows.length} días` };
+  }
   let values = selected.flatMap((result) => selectedValues(block, result));
+  if (type === 'tabla_tendencia') {
+    const ranked = selected[0];
+    const rawTrends = ranked.extra.trends;
+    const hasTrends = !!rawTrends && typeof rawTrends === 'object' && !Array.isArray(rawTrends);
+    const trends = (hasTrends ? rawTrends : {}) as Record<string, {
+      day: string; value: string | null; absence: string | null }[]>;
+    const series = values.map((value) => {
+      const days = trends[value.entity_ref!] ?? [];
+      const ratios = relativeToMax(days.map((day) => day.value));
+      return { label: rowLabel(value), points: days.map((day, index) => ({
+        x: dateDisplay(day.day), text: day.value,
+        ratio: ratios[index], absence: day.absence })) };
+    });
+    const excluded = ranked.values.find((value) => value.path_key === 'excluded_count');
+    return { type, title, series, table: { headers: ['Entidad', 'Valor'],
+      rows: values.map((value) => [rowLabel(value), rowText(value)]) },
+    notes: [...dataLimits(selected, [block]), ...(hasTrends ? [] :
+      ['No hay tendencia disponible para esta consulta: se muestra solo el ranking.']),
+    ...(excluded?.value ?
+      [`${excluded.value} entidades excluidas por falta de datos.`] : [])],
+    aria_label: `${title}: ${values.length} entidades` };
+  }
+  let children: BlockView['children'];
+  if (type === 'tabla_desplegable') {
+    const parentResult = selected[0];
+    const childResult = selected[1];
+    const parents = selectedValues(block, parentResult);
+    const childValues = selectedValues(block, childResult);
+    children = parents.filter((parent) => childValues.some((child) =>
+      child.parent_ref === parent.entity_ref)).map((parent) => ({
+        parent: rowLabel(parent), rows: childValues.filter((child) =>
+          child.parent_ref === parent.entity_ref).map((child) =>
+          [rowLabel(child), rowText(child)]) }));
+    values = parents;
+  }
   let donutShares: string[] = [];
   if (type === 'dona') {
     values = values.filter((value) => value.path_key === 'segment' && value.value !== null)
@@ -369,12 +514,27 @@ function renderBlock(block: Record<string, unknown>, results: ToolResult[]): Blo
   const rows = values.map((value, index) => type === 'dona' ?
     [rowLabel(value), rowText(value), `${donutShares[index]}%`] :
     [rowLabel(value), rowText(value)]);
-  const notes = dataLimits(selected, [], [block]);
-  return { type, title: TITLES[type] ?? 'Datos',
+  const notes = dataLimits(selected, [block]);
+  if (type === 'embudo') notes.push('Los pasos son conteos separados; no son tasas de paso.');
+  if (type === 'periodo_contra_periodo' && selected[0]?.scope.period_a &&
+      selected[0]?.scope.period_b) {
+    const a = selected[0].scope.period_a;
+    const b = selected[0].scope.period_b;
+    const lengthA = Date.parse(a.to) - Date.parse(a.from);
+    const lengthB = Date.parse(b.to) - Date.parse(b.from);
+    if (lengthA !== lengthB) notes.push('Los períodos tienen distinta duración.');
+  }
+  if (['ranking', 'tabla_tendencia', 'tabla_desplegable'].includes(type)) {
+    const excluded = selected.flatMap((result) => result.values)
+      .find((value) => value.path_key === 'excluded_count');
+    if (excluded?.value) notes.push(`${excluded.value} entidades excluidas por falta de datos.`);
+  }
+  if (!rows.length) notes.push('No hay datos para mostrar en este bloque con esta consulta.');
+  return { type, title, children,
     series: [{ label: type === 'dona' ? 'Participación' : 'Valores', points }],
     table: { headers: type === 'dona' ? ['Elemento', 'Valor', 'Participación'] :
       ['Elemento', 'Valor'], rows }, notes,
-    aria_label: `${TITLES[type] ?? 'Datos'}: ${rows.length} filas` };
+    aria_label: `${title}: ${rows.length} filas` };
 }
 
 export function renderTurn(input: RenderInput): ChatTurnView {
@@ -387,8 +547,8 @@ export function renderTurn(input: RenderInput): ChatTurnView {
   const blocks = input.kind === 'answer' ? (input.answer?.blocks ?? []).map((block) =>
     renderBlock(block, input.results)) : [];
   const visibleSegments = input.kind === 'answer' ?
-    segments(text, input.answer?.claims ?? [], input.results) :
-    input.kind === 'clarification' ? segments(text, [], input.results) :
+    segments(text, input.results) :
+    input.kind === 'clarification' ? segments(text, input.results) :
       [{ type: 'plain' as const, text }];
   const recordId = input.kind === 'notice' ? null : input.recordId;
   return { kind: input.kind, record_id: recordId,

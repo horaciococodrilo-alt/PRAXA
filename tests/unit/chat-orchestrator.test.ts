@@ -5,9 +5,10 @@ import { runChatTurn, defaultPeriod, prepareHistory,
 import { NoCompanyError } from '@/modules/company/service';
 import { UnauthorizedError } from '@/modules/identity/session';
 import { WorkerApiError } from '@/modules/integrations/db/worker-api';
+import { ToolEntityNotFoundError } from '@/modules/chat/tools/schema';
 import { parseToolResult } from '@/modules/chat/tools/results';
 import { ChatModelError } from '@/modules/chat/llm';
-import type { ChatChoice, FlatChatAnswer } from '@/modules/chat/output-schema';
+import { choiceSchema, type ChatChoice, type FlatChatAnswer } from '@/modules/chat/output-schema';
 import type { TenantContext } from '@/modules/tenant/context';
 import { answerMessages, choiceMessages } from '@/modules/chat/prompt';
 
@@ -43,7 +44,7 @@ function choice(action: 'answer' | 'call_tools' | 'clarify' | 'abstain',
     '¿Qué campaña?' : null, abstain_reason: action === 'abstain' ?
     'out_of_scope' : null } as ChatChoice;
 }
-const output = { text: 'Dato', claims: [], blocks: [] } as FlatChatAnswer;
+const output = { text: 'Dato', blocks: [] } as FlatChatAnswer;
 
 function harness() {
   const events: string[] = [];
@@ -89,8 +90,98 @@ describe('M25a-T-35/59/66/69/70/73/75/80/87–89/91/94: turno', () => {
       pendingClarification: null, today: '2026-01-15', timezone: 'UTC',
       currency: 'USD', accountRef: '…0151',
       defaultPeriod: { from: '2026-01-08', to: '2026-01-14' } }, []);
-    expect(answerPrompt[0].content).toContain('No repitas las fechas del período en text');
+    expect(answerPrompt[0].content).toContain('Los valores, fechas, estados y límites completos los presentan los bloques');
     expect(answerPrompt[0].content).toContain('Para daily_series no enumeres días ni valores en text');
+  });
+  it('el prompt declara los valores válidos de order y limit de ranking', () => {
+    const prompt = choiceMessages({ question: 'Ranking', previous: [],
+      pendingClarification: null, today: '2026-01-15', timezone: 'UTC',
+      currency: 'USD', accountRef: '…0151', defaultPeriod: period }, [])[0].content;
+    expect(prompt).toContain('order es exactamente "asc" o "desc"');
+    expect(prompt).toContain('limit es un entero de 1 a 20 o null');
+  });
+  it('las preguntas sobre origen y cálculo de los datos no son out_of_scope', () => {
+    const prompt = choiceMessages({ question: 'Fuentes', previous: [],
+      pendingClarification: null, today: '2026-01-15', timezone: 'UTC',
+      currency: 'USD', accountRef: '…0151', defaultPeriod: period }, [])[0].content;
+    expect(prompt).toContain('de dónde salen los datos');
+    expect(prompt).toContain('fuentes_metodologia');
+  });
+  it('H-E1-230: opina con datos las preguntas de rendimiento y se abstiene de lo ajeno a Meta', () => {
+    const ctx = { question: 'Consulta', previous: [], pendingClarification: null,
+      today: '2026-01-15', timezone: 'UTC', currency: 'USD', accountRef: '…0151',
+      defaultPeriod: period };
+    const choosing = choiceMessages(ctx, [])[0].content;
+    expect(choosing).toContain('por qué le va bien o mal');
+    expect(choosing).toContain('no te abstengas');
+    expect(choosing).toContain('clima, deportes, impuestos');
+    expect(choosing).not.toMatch(/causas, ROAS, rentabilidad o pronósticos, abstain/u);
+    expect(answerMessages(ctx, [])[0].content).toContain('tu interpretación y opinión');
+  });
+  it('T-59 da criterios de interpretación sin elegir por frases en el servidor', () => {
+    const system = choiceMessages({ question: 'Consulta general', previous: [],
+      pendingClarification: null, today: '2026-01-15', timezone: 'UTC',
+      currency: 'USD', accountRef: '…0151', defaultPeriod: period }, [])[0].content;
+    expect(system).toContain('pregunta general');
+    expect(system).toContain('interpretaciones materialmente distintas');
+    expect(system).toContain('cambio de formato');
+    expect(system).toContain('días observados sin filas');
+    expect(system).toContain('hueco');
+  });
+  it('el prompt distingue respuesta y aclaración', () => {
+    const ctx = { question: 'Consulta sintética', previous: [],
+      pendingClarification: null, today: '2026-02-03', timezone: 'UTC',
+      currency: 'USD', accountRef: '…0151', defaultPeriod: period };
+    const choosing = choiceMessages(ctx, [])[0].content;
+    const drafting = answerMessages(ctx, [])[0].content;
+    expect(choosing).toContain('Respondé sin aclarar');
+    expect(choosing).toContain('Aclarar solo');
+    expect(drafting).toContain('Redactá solo con los resultados de este turno');
+  });
+  it('permite escribir cifras copiadas de los resultados sin pedir claims', () => {
+    const drafting = answerMessages({ question: 'Consulta sintética', previous: [],
+      pendingClarification: null, today: '2026-02-03', timezone: 'UTC',
+      currency: 'USD', accountRef: '…0151', defaultPeriod: period }, [])[0].content;
+    expect(drafting).toContain('copiala tal cual de los resultados');
+    expect(drafting).not.toMatch(/claim|span.quote/u);
+  });
+  it('paso 21 orienta redacción breve y aclaración acotada', () => {
+    const ctx = { question: 'Consulta sintética', previous: [],
+      pendingClarification: null, today: '2026-02-03', timezone: 'UTC',
+      currency: 'USD', accountRef: '…0151', defaultPeriod: period };
+    const choosing = choiceMessages(ctx, [])[0].content;
+    const drafting = answerMessages(ctx, [])[0].content;
+    expect(choosing).toContain('máximo 300 caracteres');
+    expect(choosing).not.toContain('[CIFRA]');
+    expect(drafting).toContain('en español y breve');
+  });
+  it('paso 21 explicita argumentos obligatorios y elección de familias de bloques', () => {
+    const ctx = { question: 'Consulta sintética', previous: [],
+      pendingClarification: null, today: '2026-02-03', timezone: 'UTC',
+      currency: 'USD', accountRef: '…0151', defaultPeriod: period };
+    const choosing = choiceMessages(ctx, [])[0].content;
+    const drafting = answerMessages(ctx, [])[0].content;
+    expect(choosing).toContain('breakdown exige dimension');
+    expect(choosing).toContain('coverage exige level');
+    expect(choosing).toContain('tabla_desplegable necesita dos ranking');
+    expect(drafting).toContain('barras_apiladas varias daily_series');
+    expect(drafting).toContain('barras simples muestran una serie');
+  });
+  it('ejecuta las llamadas normalizadas antes de redactar', async () => {
+    const { dep } = harness();
+    const args = { level: null, entity_ref: null, metric: 'spend', period,
+      period_a: null, period_b: null, action_type: null, order: null,
+      limit: null, include_trend: null, dimension: null };
+    dep.choose.mockResolvedValueOnce({ output: choiceSchema.parse({
+      action: 'answer', calls: [{ name: 'total', args }],
+      clarification_text: null, abstain_reason: null }),
+    reportedModelId: 'choice' }).mockResolvedValueOnce({
+      output: choice('answer'), reportedModelId: 'choice' });
+    const view = await runChatTurn({ question: 'Consulta sintética' }, dep);
+    expect(view.kind).toBe('answer');
+    expect(dep.execute).toHaveBeenCalledTimes(1);
+    expect(dep.answer).toHaveBeenCalledTimes(1);
+    expect(dep.record.mock.calls[0][1].toolNames).toEqual(['total']);
   });
   it('registra antes del DTO, libera arriendo y usa el último modelo informado', async () => {
     const { dep, events } = harness();
@@ -177,15 +268,18 @@ describe('M25a-T-35/59/66/69/70/73/75/80/87–89/91/94: turno', () => {
     expect(dep.record).not.toHaveBeenCalled();
   });
 
-  it('período por defecto cubre siete días cerrados y la historia no aporta cifras', () => {
+  it('período por defecto cubre siete días cerrados y la historia viaja tal cual', () => {
     expect(defaultPeriod(new Date('2026-11-09T12:00:00Z'), 'UTC'))
       .toEqual({ from: '2026-11-02', to: '2026-11-08' });
+    expect(defaultPeriod(new Date('2026-11-09T01:00:00Z'), 'America/Argentina/Buenos_Aires'))
+      .toEqual({ from: '2026-11-01', to: '2026-11-07' });
     expect(prepareHistory(['anterior 1', 'gasté $30 el 01/01/2026',
       'pregunta tres', 'pregunta cuatro'], '¿La segunda?'))
-      .toMatchObject({ previous: ['gasté $[CIFRA] el [CIFRA]',
-        'pregunta [CIFRA]', 'pregunta [CIFRA]'],
+      .toMatchObject({ previous: ['gasté $30 el 01/01/2026',
+        'pregunta tres', 'pregunta cuatro'],
         pendingClarification: '¿La segunda?' });
-    expect(prepareHistory([], '¿El 01/01/2026?').pendingClarification).toBeNull();
+    expect(prepareHistory([], '¿El 01/01/2026?').pendingClarification)
+      .toBe('¿El 01/01/2026?');
   });
 
   it('bad_output da guard_rejected y transporte da model_unavailable', async () => {
@@ -198,6 +292,40 @@ describe('M25a-T-35/59/66/69/70/73/75/80/87–89/91/94: turno', () => {
     const view = await runChatTurn({ question: 'Hola' }, unavailable.dep);
     expect(unavailable.dep.record.mock.calls[0][1].reason).toBe('model_unavailable');
     expect(view.retry_allowed).toBe(true);
+  });
+
+  it('el texto del modelo se muestra tal cual, con una sola llamada de redacción', async () => {
+    const { dep } = harness();
+    dep.choose.mockResolvedValueOnce({ output: choice('call_tools',
+      [{ name: 'total', args: {} }]), reportedModelId: 'choice' })
+      .mockResolvedValueOnce({ output: choice('answer'), reportedModelId: 'choice' });
+    dep.answer.mockResolvedValueOnce({ output: { ...output, text: 'Fueron 10 el 01/01/2026.' },
+      reportedModelId: 'first' });
+    const view = await runChatTurn({ question: 'Consulta sintética' }, dep);
+    expect(view.kind).toBe('answer');
+    expect(view.segments.map((segment) => segment.text).join('')).toBe('Fueron 10 el 01/01/2026.');
+    expect(dep.answer).toHaveBeenCalledTimes(1);
+    expect(dep.record.mock.calls[0][1]).toMatchObject({
+      reportedModelId: 'first', correctionCount: 0 });
+  });
+
+  it('el log distingue por qué se rechazó una redacción, sin incluir contenido', async () => {
+    const { dep } = harness();
+    dep.answer.mockRejectedValueOnce(new ChatModelError('bad_output'));
+    await runChatTurn({ question: 'Consulta sintética' }, dep);
+    expect(dep.log.mock.calls[0][0]).toMatchObject({ reason: 'guard_rejected',
+      detail: 'answer_bad_output' });
+  });
+
+  it('transporte y salida fuera de esquema en redacción abstienen sin reintento', async () => {
+    for (const reason of ['bad_output', 'unavailable'] as const) {
+      const { dep } = harness();
+      dep.answer.mockRejectedValueOnce(new ChatModelError(reason));
+      const view = await runChatTurn({ question: 'Consulta sintética' }, dep);
+      expect(view.kind).toBe('abstention');
+      expect(dep.answer).toHaveBeenCalledTimes(1);
+      expect(dep.record.mock.calls[0][1]).toMatchObject({ correctionCount: 0 });
+    }
   });
 
   it('clarify resuelve el marcador del turno y guarda la pregunta visible', async () => {
@@ -250,10 +378,10 @@ describe('M25a-T-35/59/66/69/70/73/75/80/87–89/91/94: turno', () => {
     expect(dep.record.mock.calls[0][1].outcome).toBe('answered');
   });
 
-  it('rechaza la quinta herramienta sin ejecutarla y propaga not_found al modelo', async () => {
+  it('rechaza la séptima herramienta sin ejecutarla y propaga not_found al modelo', async () => {
     const { dep } = harness();
     dep.choose.mockResolvedValueOnce({ output: choice('call_tools',
-      Array.from({ length: 5 }, () => ({ name: 'total', args: {} }))),
+      Array.from({ length: 7 }, () => ({ name: 'total', args: {} }))),
     reportedModelId: 'choice' });
     await runChatTurn({ question: 'Hola' }, dep);
     expect(dep.execute).not.toHaveBeenCalled();
@@ -284,10 +412,10 @@ describe('M25a-T-35/59/66/69/70/73/75/80/87–89/91/94: turno', () => {
     expect(view.can_vote).toBe(true);
   });
 
-  it('los logs y el registro excluyen un centinela redactable de la pregunta', async () => {
+  it('la pregunta viaja tal cual al modelo; el registro y los logs excluyen un centinela redactable', async () => {
     const { dep } = harness();
     await runChatTurn({ question: 'Hola correo piloto@example.com' }, dep);
-    expect(JSON.stringify(dep.choose.mock.calls)).not.toContain('piloto@example.com');
+    expect(JSON.stringify(dep.choose.mock.calls)).toContain('piloto@example.com');
     expect(JSON.stringify(dep.record.mock.calls)).not.toContain('piloto@example.com');
     expect(JSON.stringify(dep.log.mock.calls)).not.toContain('piloto@example.com');
     expect(dep.log.mock.calls[0][0]).toMatchObject({ outcome: 'answered',
@@ -411,6 +539,25 @@ describe('M25a-T-35/59/66/69/70/73/75/80/87–89/91/94: turno', () => {
     expect(dep.record.mock.calls[0][1].reason).toBe('no_coverage');
   });
 
+  it('T-89 un desglose usa sus fechas propias sin lectura auxiliar', async () => {
+    const { dep } = harness();
+    dep.resolve.mockResolvedValueOnce({ name: 'breakdown', args: {},
+      periodDefaulted: false, entityDefaulted: false } as never);
+    dep.choose.mockResolvedValueOnce({ output: choice('call_tools', [
+      { name: 'breakdown', args: {} }]), reportedModelId: 'choice' })
+      .mockResolvedValueOnce({ output: choice('answer'), reportedModelId: 'choice' });
+    dep.execute.mockResolvedValueOnce({ ...toolResult, tool_name: 'breakdown',
+      values: [], composition: { ...composition, days_with_value: 0,
+        days_not_observed: 2 }, extra: { dimension: 'country',
+        nearest_before: '2025-12-31', nearest_after: '2026-01-03' } });
+    const view = await runChatTurn({ question: 'Países' }, dep);
+    expect(view.segments[0].text).toContain('de los países por campaña');
+    expect(view.segments[0].text).toContain('31/12/2025');
+    expect(view.segments[0].text).toContain('03/01/2026');
+    expect(dep.readCoverage).not.toHaveBeenCalled();
+    expect(dep.record.mock.calls[0][1].toolNames).toEqual(['breakdown']);
+  });
+
   it('con más de un alcance no agrega fechas auxiliares al no_coverage', async () => {
     const { dep } = harness();
     dep.choose.mockResolvedValueOnce({ output: choice('call_tools',
@@ -437,5 +584,229 @@ describe('M25a-T-35/59/66/69/70/73/75/80/87–89/91/94: turno', () => {
     expect(dep.resolve).toHaveBeenCalledWith('total', {}, expect.any(Object),
       { from: '2026-11-02', to: '2026-11-08' }, expect.any(AbortSignal));
     expect(view.footer?.defaulted).toBe(true);
+  });
+
+  it('T-80 continúa una aclaración con la métrica elegida por el modelo', async () => {
+    const first = harness();
+    first.dep.choose.mockResolvedValueOnce({ output: { ...choice('clarify'),
+      clarification_text: '¿Gasto o clics?' }, reportedModelId: 'choice' });
+    const clarification = await runChatTurn({ question: '¿Cómo voy?' }, first.dep);
+    expect(clarification).toMatchObject({ kind: 'clarification',
+      pending_clarification: '¿Gasto o clics?' });
+    const second = harness();
+    second.dep.choose.mockResolvedValueOnce({ output: choice('call_tools', [
+      { name: 'total', args: { metric: 'clicks', entity_ref: null, period: null } }]),
+    reportedModelId: 'choice' }).mockResolvedValueOnce({
+      output: choice('answer'), reportedModelId: 'choice' });
+    const view = await runChatTurn({ question: 'La segunda',
+      previous: ['¿Cómo voy?'],
+      pendingClarification: clarification.pending_clarification! }, second.dep);
+    expect(view.kind).toBe('answer');
+    const sentMessages = (second.dep.choose.mock.calls as unknown as
+      [Array<{ content: string }>][])[0][0];
+    const sent = JSON.parse(sentMessages[1].content);
+    expect(sent).toMatchObject({ question: 'La segunda',
+      previous: ['¿Cómo voy?'], pending_clarification: '¿Gasto o clics?' });
+    expect(sent).not.toHaveProperty('answers');
+    expect(second.dep.resolve).toHaveBeenCalledWith('total',
+      { metric: 'clicks', entity_ref: null, period: null },
+      expect.any(Object), expect.any(Object), expect.any(AbortSignal));
+  });
+
+  it('T-69 la historia y la aclaración pendiente viajan tal cual y respetan el tope', async () => {
+    expect(prepareHistory(['Gasté 30 ayer'], '¿Promo 2x1 o Campaña?'))
+      .toEqual({ previous: ['Gasté 30 ayer'], pendingClarification: '¿Promo 2x1 o Campaña?' });
+    expect(prepareHistory([], 'x'.repeat(301)).pendingClarification).toBeNull();
+  });
+
+  it('T-91 cuenta sin entidad continúa con cobertura y el servidor declara no_coverage', async () => {
+    const { dep } = harness();
+    dep.choose.mockResolvedValueOnce({ output: choice('call_tools', [
+      { name: 'total', args: { entity_ref: null, metric: 'spend', period } }]),
+    reportedModelId: 'choice' }).mockResolvedValueOnce({
+      output: choice('call_tools', [{ name: 'coverage', args: { level: 'account', period } }]),
+      reportedModelId: 'choice' }).mockResolvedValueOnce({
+      output: choice('answer'), reportedModelId: 'choice' });
+    dep.resolve.mockRejectedValueOnce(new ToolEntityNotFoundError())
+      .mockResolvedValueOnce({ name: 'coverage', args: { level: 'account', period },
+        periodDefaulted: false, entityDefaulted: false } as never);
+    dep.execute.mockResolvedValueOnce(parseToolResult({ status: 'ok', reason: null,
+      scope: { ...toolResult.scope, level: 'account', entity_ref: null,
+        entity_name: null }, values: [], composition: { ...composition,
+        days_with_value: 0, days_not_observed: 2 }, extra: {} },
+    't2', '…0151', 'coverage'));
+    const view = await runChatTurn({ question: 'Gasto' }, dep);
+    expect(view.kind).toBe('abstention');
+    expect(dep.choose).toHaveBeenCalledTimes(3);
+    expect(dep.execute).toHaveBeenCalledTimes(1);
+    expect(dep.record.mock.calls[0][1]).toMatchObject({ reason: 'no_coverage',
+      toolNames: ['total', 'coverage'] });
+  });
+
+  it('T-59 acepta respuesta sin herramientas, estado de conexión y cambio de formato', async () => {
+    const direct = harness();
+    expect((await runChatTurn({ question: 'Estado general' }, direct.dep)).kind)
+      .toBe('answer');
+    expect(direct.dep.execute).not.toHaveBeenCalled();
+
+    const status = harness();
+    status.dep.choose.mockResolvedValueOnce({ output: choice('call_tools', [
+      { name: 'connection_status', args: {} }]), reportedModelId: 'choice' })
+      .mockResolvedValueOnce({ output: choice('answer'), reportedModelId: 'choice' });
+    status.dep.resolve.mockResolvedValueOnce({ name: 'connection_status', args: {},
+      periodDefaulted: false, entityDefaulted: false } as never);
+    status.dep.execute.mockResolvedValueOnce(parseToolResult({ status: 'ok',
+      reason: null, scope: { ...toolResult.scope, period: null }, values: [],
+      composition: null, extra: { connection_status: 'active' } },
+    't1', '…0151', 'connection_status'));
+    expect((await runChatTurn({ question: 'Conexión' }, status.dep)).kind).toBe('answer');
+
+    const format = harness();
+    format.dep.choose.mockResolvedValueOnce({ output: choice('call_tools', [
+      { name: 'total', args: {} }]), reportedModelId: 'choice' })
+      .mockResolvedValueOnce({ output: choice('answer'), reportedModelId: 'choice' });
+    format.dep.answer.mockResolvedValueOnce({ output: { ...output,
+      blocks: [{ type: 'tabla', sources: [{ tool_call_id: 't1',
+        path_prefix: '/values' }], options: null, items: null, ids: null }] },
+    reportedModelId: 'final' });
+    const shown = await runChatTurn({ question: 'Mostralo en tabla' }, format.dep);
+    expect(shown.blocks[0].type).toBe('tabla');
+    expect(shown.blocks[0].table.rows[0][1]).toContain('10');
+  });
+
+  it('T-91 solo declara no_coverage si todas las consultas efectivas carecen de días', async () => {
+    const observed = harness();
+    observed.dep.choose.mockResolvedValueOnce({ output: choice('call_tools', [
+      { name: 'total', args: {} }]), reportedModelId: 'choice' })
+      .mockResolvedValueOnce({ output: choice('answer'), reportedModelId: 'choice' });
+    observed.dep.execute.mockResolvedValueOnce({ ...toolResult, values: [],
+      composition: { ...composition, days_with_value: 0, days_no_row: 1,
+        days_not_observed: 1 } });
+    expect((await runChatTurn({ question: 'Gasto' }, observed.dep)).kind).toBe('answer');
+    expect(observed.dep.answer).toHaveBeenCalledTimes(1);
+
+    const twoRounds = harness();
+    twoRounds.dep.choose.mockResolvedValueOnce({ output: choice('call_tools', [
+      { name: 'total', args: {} }]), reportedModelId: 'choice' })
+      .mockResolvedValueOnce({ output: choice('call_tools', [
+        { name: 'total', args: {} }]), reportedModelId: 'choice' })
+      .mockResolvedValueOnce({ output: choice('answer'), reportedModelId: 'choice' });
+    twoRounds.dep.execute.mockResolvedValueOnce({ ...toolResult, values: [],
+      composition: { ...composition, days_with_value: 0, days_not_observed: 2 } })
+      .mockResolvedValueOnce({ ...toolResult, tool_call_id: 't2',
+        scope: { ...toolResult.scope, period: { from: '2026-02-01', to: '2026-02-02' } } });
+    expect((await runChatTurn({ question: 'Comparar' }, twoRounds.dep)).kind).toBe('answer');
+    expect(twoRounds.dep.record.mock.calls[0][1].reason).toBeNull();
+  });
+
+  it('T-89 lectura auxiliar lenta deja solo la frase del período', async () => {
+    const { dep } = harness();
+    let clock = 0;
+    dep.now.mockImplementation(() => clock);
+    dep.choose.mockResolvedValueOnce({ output: choice('call_tools', [
+      { name: 'total', args: {} }]), reportedModelId: 'choice' })
+      .mockResolvedValueOnce({ output: choice('answer'), reportedModelId: 'choice' });
+    dep.execute.mockResolvedValueOnce({ ...toolResult, values: [],
+      composition: { ...composition, days_with_value: 0, days_not_observed: 2 } });
+    dep.readCoverage.mockImplementationOnce(async () => { clock = 50_001;
+      return { nearest_before: '2025-12-31', nearest_after: '2026-01-03' }; });
+    const view = await runChatTurn({ question: 'Gasto' }, dep);
+    expect(view.segments[0].text).toBe('No tengo datos del 01/01/2026 al 02/01/2026.');
+    expect(dep.record.mock.calls[0][1].reason).toBe('no_coverage');
+    expect(dep.record.mock.calls[0][1].toolNames).toEqual(['total']);
+  });
+
+  it('T-89 dos períodos usan rango histórico del servidor', async () => {
+    const { dep } = harness();
+    const otherPeriod = { from: '2026-02-01', to: '2026-02-02' };
+    dep.choose.mockResolvedValueOnce({ output: choice('call_tools', [
+      { name: 'compare_periods', args: {} }]), reportedModelId: 'choice' })
+      .mockResolvedValueOnce({ output: choice('answer'), reportedModelId: 'choice' });
+    dep.execute.mockResolvedValueOnce({ ...toolResult, values: [],
+      tool_name: 'compare_periods', scope: { ...toolResult.scope,
+        period: null, period_a: period, period_b: otherPeriod },
+      extra: {},
+      composition: { ...composition, days_with_value: 0, days_not_observed: 2 } });
+    dep.readCoverage.mockResolvedValueOnce({ history_from: '2025-12-01',
+      history_to: '2026-03-01' } as never);
+    const shown = await runChatTurn({ question: 'Comparación' }, dep);
+    expect(shown.segments[0].text).toContain('mis datos van del 01/12/2025 al 01/03/2026');
+    expect(dep.readCoverage).toHaveBeenCalledWith(connectionId, 'campaign', period,
+      expect.any(AbortSignal));
+  });
+
+  it('T-91 abstención o aclaración tras un período vacío conserva el motivo elegido', async () => {
+    for (const final of ['clarify', 'abstain'] as const) {
+      const { dep } = harness();
+      dep.choose.mockResolvedValueOnce({ output: choice('call_tools', [
+        { name: 'total', args: {} }]), reportedModelId: 'choice' })
+        .mockResolvedValueOnce({ output: choice(final), reportedModelId: 'choice' });
+      dep.execute.mockResolvedValueOnce({ ...toolResult, values: [],
+        composition: { ...composition, days_with_value: 0, days_not_observed: 2 } });
+      const shown = await runChatTurn({ question: 'Consulta' }, dep);
+      expect(shown.kind).toBe(final === 'clarify' ? 'clarification' : 'abstention');
+      expect(dep.record.mock.calls[0][1].reason).toBe(final === 'clarify' ?
+        'needs_clarification' : 'out_of_scope');
+      expect(dep.readCoverage).not.toHaveBeenCalled();
+    }
+  });
+
+  it('T-91 catálogo previo no impide no_coverage y un not_supported sin días no lo provoca', async () => {
+    const catalog = harness();
+    catalog.dep.choose.mockResolvedValueOnce({ output: choice('call_tools', [
+      { name: 'entities', args: {} }, { name: 'total', args: {} }]),
+    reportedModelId: 'choice' }).mockResolvedValueOnce({
+      output: choice('answer'), reportedModelId: 'choice' });
+    catalog.dep.execute.mockResolvedValueOnce({ ...toolResult,
+      tool_name: 'entities', scope: { ...toolResult.scope, period: null },
+      values: [], composition: null, extra: {} })
+      .mockResolvedValueOnce({ ...toolResult, tool_call_id: 't2',
+        values: [], extra: {}, composition: { ...composition,
+          days_with_value: 0, days_not_observed: 2 } });
+    expect((await runChatTurn({ question: 'Gasto' }, catalog.dep)).kind)
+      .toBe('abstention');
+    expect(catalog.dep.record.mock.calls[0][1].reason).toBe('no_coverage');
+
+    const unsupported = harness();
+    unsupported.dep.choose.mockResolvedValueOnce({ output: choice('call_tools', [
+      { name: 'total', args: {} }]), reportedModelId: 'choice' })
+      .mockResolvedValueOnce({ output: choice('answer'), reportedModelId: 'choice' });
+    unsupported.dep.execute.mockResolvedValueOnce({ ...toolResult,
+      status: 'not_supported', reason: 'metric_not_additive', values: [], extra: {},
+      composition: { ...composition, days_total: 0, days_with_value: 0,
+        days_not_observed: 0, observed_from: null, observed_to: null } });
+    expect((await runChatTurn({ question: 'Gasto' }, unsupported.dep)).kind).toBe('answer');
+    expect(unsupported.dep.record.mock.calls[0][1].reason).toBeNull();
+  });
+
+  it('T-91 el modelo no puede declarar no_coverage aun con cobertura previa', async () => {
+    const { dep } = harness();
+    dep.choose.mockResolvedValueOnce({ output: choice('call_tools', [
+      { name: 'coverage', args: {} }]), reportedModelId: 'choice' })
+      .mockResolvedValueOnce({ output: { ...choice('abstain'),
+        abstain_reason: 'no_coverage' } as unknown as ChatChoice,
+      reportedModelId: 'choice' });
+    dep.execute.mockResolvedValueOnce({ ...toolResult, tool_name: 'coverage',
+      values: [], extra: {} });
+    const view = await runChatTurn({ question: 'Gasto' }, dep);
+    expect(view.kind).toBe('abstention');
+    expect(dep.record.mock.calls[0][1].reason).toBe('guard_rejected');
+    expect(view.segments[0].text).not.toContain('No tengo datos');
+  });
+
+  it('T-60 permite cinco lecturas de un embudo dentro del máximo aprobado', async () => {
+    const { dep } = harness();
+    dep.resolve.mockResolvedValueOnce({ name: 'entities', args: {},
+      periodDefaulted: false, entityDefaulted: false } as never);
+    dep.choose.mockResolvedValueOnce({ output: choice('call_tools', [
+      { name: 'entities', args: {} },
+      ...Array.from({ length: 4 }, () => ({ name: 'total', args: {} })),
+    ]), reportedModelId: 'choice' })
+      .mockResolvedValueOnce({ output: choice('answer'), reportedModelId: 'choice' });
+    const view = await runChatTurn({ question: 'Embudo sintético' }, dep);
+    expect(view.kind).toBe('answer');
+    expect(dep.record.mock.calls[0][1].toolNames).toEqual([
+      'entities', 'total', 'total', 'total', 'total']);
+    expect(dep.log.mock.calls[0][0].tool_count).toBe(5);
   });
 });

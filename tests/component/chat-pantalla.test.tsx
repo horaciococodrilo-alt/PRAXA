@@ -47,6 +47,22 @@ describe('M25a-T-47/48/68/95: pantalla de chat', () => {
     expect(sessionStorage.length).toBe(0);
   });
 
+  it('una pregunta sugerida copia el texto fijo al cuadro y recupera el foco', async () => {
+    const user = userEvent.setup();
+    preguntarChat.mockResolvedValueOnce({ ...answer, blocks: [{
+      type: 'preguntas_sugeridas', title: 'Preguntas sugeridas',
+      aria_label: 'Preguntas sugeridas', series: [], notes: [],
+      table: { headers: ['Pregunta'], rows: [['Ver en tabla']] },
+      suggestions: [{ id: 'ver_en_tabla', text: 'Ver en tabla' }],
+    }] });
+    render(<Chat iniciales="GM" conectadas={[]} tieneEmpresa conexionActiva />);
+    await user.type(screen.getByRole('textbox', { name: 'Tu pregunta' }), 'Consulta{Enter}');
+    await screen.findByText('Dato sintético');
+    await user.click(screen.getByRole('button', { name: 'Ver en tabla' }));
+    expect(screen.getByRole('textbox', { name: 'Tu pregunta' })).toHaveValue('Ver en tabla');
+    expect(screen.getByRole('textbox', { name: 'Tu pregunta' })).toHaveFocus();
+  });
+
   it('voto fallido no queda marcado y muestra texto fijo', async () => {
     const user = userEvent.setup();
     votarRespuesta.mockResolvedValueOnce({ ok: false });

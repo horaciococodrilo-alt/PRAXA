@@ -5,7 +5,8 @@ import type { MetaCapturedEntity, MetaSyncStatus } from '@/modules/integrations/
 
 import { CHAT_LIMITS } from '../limits';
 import { parseToolResult, type ToolResult } from './results';
-import { projectToolArgs, ToolEntityNotFoundError, TOOL_NAMES, type ProjectedToolCall,
+import { projectToolArgs, ToolArgumentError, ToolEntityNotFoundError, TOOL_NAMES,
+  type ProjectedToolCall,
   type ToolName } from './schema';
 
 type Period = { from: string; to: string };
@@ -68,6 +69,29 @@ export async function resolveToolCall(name: string, flat: Record<string, unknown
     accountEntityRef = account[0]?.entity_ref ?? null;
   }
   return projectToolArgs(name, flat, { period, accountEntityRef });
+}
+
+const SYNTHETIC_ENTITY_REF = '00000000-0000-4000-8000-000000000000';
+
+/** La cuenta sin entidad capturada se informa al modelo sin consultar métricas ni inventar ceros. */
+export function missingAccountEntityResult(name: string, flat: Record<string, unknown>,
+  ctx: TurnContext, defaultPeriod: Period, toolCallId: string): ToolResult {
+  const projected = projectToolArgs(name, flat, { period: defaultPeriod,
+    accountEntityRef: SYNTHETIC_ENTITY_REF });
+  if (!projected.entityDefaulted) throw new ToolArgumentError();
+  const args = projected.args;
+  const single = args.period as Period | undefined;
+  const first = args.period_a as Period | undefined;
+  const second = args.period_b as Period | undefined;
+  return parseToolResult({ status: 'not_found', reason: 'entity_not_found',
+    scope: { level: 'account', entity_ref: null, entity_name: null,
+      period: single ?? null, period_a: first ?? null, period_b: second ?? null,
+      period_defaulted: projected.periodDefaulted, entity_defaulted: true,
+      timezone: ctx.connection?.timezone ?? null,
+      currency: ctx.connection?.currency ?? null },
+    values: [], composition: null, extra: {} }, toolCallId,
+  ctx.connection?.external_account_id ?
+    maskExternalAccountId(ctx.connection.external_account_id) : null, projected.name);
 }
 
 function value(pathKey: 'list_count', metric: 'list_count', text: string) {

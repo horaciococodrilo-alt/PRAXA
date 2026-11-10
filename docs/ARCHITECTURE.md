@@ -65,8 +65,8 @@ tests/
 
 Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 
-- `chat/`: redacción, herramientas cerradas, adaptador del modelo, orquestador y guarda de
-  afirmaciones numéricas.
+- `chat/`: redacción del registro, herramientas cerradas, adaptador del modelo y orquestador.
+  Sin guarda de afirmaciones numéricas (`H-E1-228`).
 
 ## Módulos y responsabilidades
 
@@ -294,14 +294,13 @@ La ruta no tiene workers, colas ni programación automática (spec, sección 2; 
 ## Chat (previsto)
 
 ```
-Server Action del chat ──► K01 ──► límites del turno ──► redacción de la pregunta
+Server Action del chat ──► K01 ──► límites del turno
   ──► arriendo temporal por usuario y empresa, por camino B
   ──► modelo: elige herramienta y argumentos (salida estricta)
   ──► servidor: ejecuta herramientas con el JWT del usuario, bajo RLS; cálculos en SQL
-  ──► modelo: redacta `text` + `claims` + referencias de bloques
-  ──► guarda del servidor: valida cifras, citas y referencias del turno
-  ──► servidor: presenta segmentos y bloques con datos verificados, o abstención
-  ──► registro de la consulta por camino B antes de devolver la respuesta
+  ──► modelo: redacta `text` + referencias de bloques (el texto no se verifica)
+  ──► servidor: presenta el texto y bloques con datos de las herramientas, o abstención
+  ──► registro de la consulta (pregunta redactada) por camino B antes de devolver la respuesta
   ──► liberación del arriendo; el voto posterior usa camino B
 ```
 

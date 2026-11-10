@@ -6,7 +6,8 @@ import { CHAT_LIMITS } from '@/modules/chat/limits';
 import { projectToolArgs, TOOL_NAMES, ToolArgumentError, ToolEntityNotFoundError } from '@/modules/chat/tools/schema';
 import { parseToolResult, toModelView, ToolResultError } from '@/modules/chat/tools/results';
 import { actionLabel } from '@/modules/chat/tools/action-labels';
-import { executeTool, resolveToolCall, ToolExecutionError } from '@/modules/chat/tools/execute';
+import { executeTool, missingAccountEntityResult, resolveToolCall,
+  ToolExecutionError } from '@/modules/chat/tools/execute';
 
 vi.mock('server-only', () => ({}));
 
@@ -76,6 +77,11 @@ describe('M25a — catálogo de herramientas', () => {
     expect(call.args).toMatchObject({ entity_ref: entity, period });
     expect(call.periodDefaulted).toBe(true);
     expect(call.entityDefaulted).toBe(true);
+    expect(projectToolArgs('total', { entity_ref: entity, metric: 'spend', period }, defaults)
+      .periodDefaulted).toBe(false);
+    expect(() => projectToolArgs('compare_periods', {
+      entity_ref: entity, metric: 'spend', period_a: null, period_b: null,
+    }, defaults)).toThrow(ToolArgumentError);
     expect(() => projectToolArgs('total', { metric: 'spend' }, { period, accountEntityRef: null }))
       .toThrow(ToolEntityNotFoundError);
   });
@@ -98,6 +104,24 @@ describe('M25a — catálogo de herramientas', () => {
     }
     expect(() => projectToolArgs('share', { ...valid.share, entity_ref: null }, defaults))
       .toThrow(ToolArgumentError);
+  });
+
+  it('T-92 entidad de cuenta ausente da not_found validado sin RPC de métricas', async () => {
+    const ctx = { connection: { id: entity, status: 'active' as const,
+      external_account_id: 'act_0000000000151', timezone: 'UTC', currency: 'USD' } };
+    const listEntities = vi.fn(async () => []);
+    const rpc = vi.fn();
+    const args = { entity_ref: null, metric: 'spend', period: null };
+    await expect(resolveToolCall('total', args, ctx, period, { listEntities, rpc }))
+      .rejects.toThrow(ToolEntityNotFoundError);
+    expect(listEntities).toHaveBeenCalledWith(entity, 'account');
+    expect(rpc).not.toHaveBeenCalled();
+    const missing = missingAccountEntityResult('total', args, ctx, period, 't1');
+    expect(missing).toMatchObject({ status: 'not_found', reason: 'entity_not_found',
+      values: [], scope: { level: 'account', period, period_defaulted: true,
+        entity_defaulted: true } });
+    expect(() => missingAccountEntityResult('total', { ...args, sql: 'select 1' },
+      ctx, period, 't1')).toThrow(ToolArgumentError);
   });
 
   it('el límite de período coincide con la migración y no existe ROAS en el catálogo', () => {

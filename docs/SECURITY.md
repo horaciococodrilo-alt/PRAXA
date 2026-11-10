@@ -46,8 +46,9 @@ nada hasta que exista.
    del usuario por sí misma: recibe actor y empresa del servidor.
 4. **Servidor Next → Meta (Graph API).** Meta es la fuente de los datos y emisora del token.
    Sus respuestas se validan; sus errores se redactan antes de guardarse o mostrarse.
-5. **Servidor Next → proveedor del modelo (DeepInfra).** Recibe la pregunta redactada y
-   resultados de herramientas; su salida es no confiable hasta que el servidor la valida.
+5. **Servidor Next → proveedor del modelo (DeepInfra).** Recibe la pregunta del dueño **tal cual**
+   (sin redacción), las preguntas previas y resultados de herramientas; su salida es no confiable
+   y **no se verifica** (`H-E1-228`).
 6. **Entorno de ejecución (Vercel) y panel de Supabase.** Quien los controla controla todo
    lo anterior. Están fuera del modelo de amenazas que la aplicación puede mitigar.
 7. **Entorno de pruebas → proyecto desechable.** Las pruebas destructivas nunca cruzan hacia
@@ -98,8 +99,10 @@ spec, con decisión del usuario.
   la app ni código aparece en una URL de salida hacia un proveedor.
 - **INV-07 — Solo lectura sobre sistemas externos.** PRAXA no escribe en Meta. El único
   permiso objetivo es `ads_read`.
-- **INV-08 — El LLM no es autoridad.** Ningún número, estado ni política que ve el dueño sale
-  del modelo sin verificación determinística del servidor.
+- **INV-08 — El LLM no es autoridad (modificada por `H-E1-228`).** Los números, estados y
+  políticas de los bloques y del pie los produce el servidor desde las herramientas. El texto
+  libre y las conclusiones que redacta el modelo **no se verifican**: pueden contener cifras o
+  afirmaciones erróneas. Decisión expresa del usuario y riesgo aceptado.
 - **INV-09 — Membresías inmutables para el usuario.** Nadie se otorga ni modifica membresías
   desde la aplicación.
 - **INV-10 — Pruebas aisladas.** Ninguna prueba se ejecuta contra el proyecto de la
@@ -121,7 +124,7 @@ spec, con decisión del usuario.
 | Logs o errores que filtren secretos o identificadores | INV-06; errores de `worker_api` con mensajes fijos, sin `DETAIL` ni valores; clase de error + mensaje redactado en la conexión (CA-09); identificador de cuenta truncado fuera de la base (CA-40); la pregunta del chat nunca va a logs (CA-63) | Base, errores redactados del cliente del rol y recorrido del árbol vigentes. Cliente HTTP de Meta vigente: errores con texto fijo por clase y sin texto del proveedor, y ninguna URL de salida con credenciales, códigos ni tokens. El listado y la prueba de acceso registran solo conteos, clases y presencia de campos, sin valores de métricas ni identificadores de cuentas | La redacción por patrones no detecta datos personales en forma libre (CA-66). Los logs de la plataforma de hosting registran la consulta de las peticiones entrantes (sección 12) |
 | Pruebas destructivas contra el proyecto equivocado | Sección 11 | Guardas vigentes para pruebas SQL, de aplicación y del rol | Requiere configurar el proyecto desechable y su URL de rol; una guarda de destino no sustituye la prueba de conexión |
 | Prompt o pregunta maliciosa hacia el LLM | Catálogo cerrado de herramientas; el modelo no elige empresa, tabla ni SQL; las herramientas leen con el JWT del usuario bajo RLS (sección 8) | Previsto | La inyección puede degradar la respuesta; no puede ampliar el alcance de los datos |
-| Cifras o estados inventados por el LLM | Salida estructurada `text` + `claims`, verificación del servidor antes de mostrar; abstención controlada si no valida (sección 8) | Previsto | No garantiza que la herramienta elegida sea la correcta ni que el texto sin cifras sea fiel (CA-50b); eso lo mide VR-02 |
+| Cifras o estados inventados por el LLM | Los bloques y el pie los arma el servidor desde las herramientas; el texto libre y las conclusiones del modelo **no se verifican** (`H-E1-228`) | Vigente, sin verificación del texto | El texto del modelo puede presentar una cifra falsa como hecho. Riesgo aceptado por el usuario; la exactitud la mide VR-02 |
 
 Fuera del modelo: un compromiso completo del servidor, de la cuenta de Vercel, del panel de
 Supabase o de la cuenta de Meta del dueño. La aplicación no puede defenderse de quien ya
@@ -298,24 +301,23 @@ de datos reales por el modelo espera la nueva aprobación del acta y la comunica
   tabla ni la capacidad de elegir `company_id` o conexión: el servidor los resuelve con K01.
 - Las herramientas se ejecutan en el servidor con el JWT del usuario, bajo RLS. Los cálculos
   autoritativos ocurren en SQL o en código determinístico.
-- Toda afirmación numérica del texto se vincula a un resultado de herramienta del turno
-  actual y el servidor la verifica antes de mostrarla. Si no valida, el dueño ve una
-  abstención controlada, no la respuesta.
-- La pregunta se redacta con una función determinística antes de persistirla y antes de
-  enviarla al modelo. Ningún secreto ni credencial llega al modelo.
+- Las cifras de los bloques y del pie salen de resultados de herramientas del turno. El texto
+  que redacta el modelo no se verifica ni se vincula a un resultado (`H-E1-228`).
+- La pregunta se redacta con una función determinística antes de persistirla y de registrarla,
+  **no** antes de enviarla al modelo: lo que el dueño escriba en el chat, incluido un secreto,
+  una tarjeta o un correo, llega al proveedor (`H-E1-228`).
 - El modelo no tiene acceso a Meta ni permisos de escritura sobre ningún sistema.
 
 Riesgo aceptado (DEC-15): se conserva la posibilidad de que el host registre porciones de
 solicitudes para depuración o seguridad. La [página actual de DeepInfra](https://docs.deepinfra.com/account/data-privacy)
 declara una práctica más restrictiva, pero no se rebaja el riesgo aprobado. El modelo recibe
-la pregunta redactada y los resultados pertinentes de las herramientas, no un snapshot
+la pregunta tal cual y los resultados pertinentes de las herramientas, no un snapshot
 completo. Para desgloses por edad, género y lugar solo viajan la dimensión, entidad, período
 y métrica pedidos, agregados por segmento y con tope; un grupo pequeño puede representar a
 pocas personas porque Meta no garantiza un mínimo. Pueden viajar nombres de campañas o
 anuncios, que son texto libre no confiable. Recibe además hasta tres preguntas anteriores
-redactadas otra vez, con candidatos numéricos sustituidos por `[CIFRA]`, y la última
-aclaración pendiente admisible, sin respuestas anteriores. El servidor trata ese contexto
-del navegador como no confiable y valida las cifras solo contra resultados del turno actual.
+y la última aclaración pendiente admisible, también tal cual y sin respuestas anteriores. El
+servidor trata ese contexto del navegador como no confiable.
 Las instrucciones incluidas en nombres o metadatos no amplían permisos ni el catálogo de
 herramientas, pero pueden degradar la respuesta del modelo.
 
