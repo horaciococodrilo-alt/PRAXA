@@ -43,6 +43,7 @@ src/
     company/                empresa, pertenencia, alta idempotente y perfil (rubro, país, moneda)
     tenant/                 K01 TenantContext: actor + empresa, solo en el servidor
     app-data/               datos de las pantallas de `/app`: contrato, lecturas reales y mock
+    anomalies/              contrato, aritmética exacta, motor puro, adaptador y demo de anomalías
     reporting/contract/     contrato versionado del reporte (sin generación)
     integrations/contract/  contratos K02–K04: intento OAuth, conexión, credencial
     integrations/crypto/    llavero y cifrado autenticado de credenciales
@@ -77,6 +78,7 @@ Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 | `tenant` | Construye K01 (`user_id`, `company_id`, `role`, `request_id`) dentro del servidor. Es la única entrada de actor y empresa al camino privilegiado | Existe; lo consumen las rutas del OAuth con Meta |
 | Contexto declarado | Objetivos, problemas y sistemas de la empresa, versionados e inmutables una vez activos | Existe solo en la base (tablas y funciones). Sin código ni pantalla que lo cargue: se quitaron con el onboarding |
 | `app-data` | Única fuente de datos de las pantallas de `/app`. Lee lo real bajo RLS (usuario, empresa, existencia de un diagnóstico y conexión activa de Meta) y devuelve mock en cero para lo que no tiene backend (otras integraciones, uso de la IA) | Existe |
+| `anomalies` | Detecta cambios de CTR, CPC, CPM, gasto y CPA de compra en cuenta y campañas. El contrato y el motor son puros y reutilizables; `load.ts` resuelve tenant y cobertura persistida en servidor; `demo.ts` aporta un fixture sintético que nunca se mezcla con datos reales | Existe |
 | `reporting/contract` | Esquema del reporte y su evidencia tipada por procedencia | Existe; sin generación |
 | `integrations/contract` | Contratos Zod de intento OAuth, conexión (registro interno y DTO público separados) y credencial cifrada | Existe |
 | `integrations/crypto` | Llavero versionado y cifrado AES-256-GCM con AAD de empresa, conexión y proveedor; material descifrado en envoltorio redactado | Existe |
@@ -231,6 +233,25 @@ Navegador ──► tarjeta de integraciones ──► cuentas delegadas ──�
 - Existen, probadas con Meta simulada: sincronización y lectura persistida de Insights por nivel y entidad, con snapshots independientes por nivel, metadata capturada y acciones tipadas. La cobertura completa de un nivel puede avanzar aunque otro falle; el resultado global conserva esa distinción. Los totales de cuenta provienen de su extracción propia. La lectura pasa por RPC `SECURITY INVOKER` sobre `meta_daily_coverage` y la conexión; los snapshots no son legibles por usuarios.
 - Existen: desgloses por edad y género, país y región, de cuenta y campaña (DEC-23). Se extraen antes del último nivel, porque necesitan la posesión del run, con una parte acotada del tiempo. Tienen tablas, cobertura y estado propios: un fallo no cambia el resultado de los niveles. Se leen por RPC `SECURITY INVOKER`; las herramientas del chat pueden consultar sus agregados, aunque la pantalla aún no presenta los bloques completos.
 - El chat consulta la base bajo RLS con el JWT del usuario; no consulta Meta directamente. Su registro, voto y arriendo temporal usan el camino privilegiado.
+
+### D. Detector de anomalías de Meta (existe)
+
+La página protegida `/app/anomalias` usa exclusivamente Insights ya persistidos. No consulta ni
+modifica Meta y no usa un modelo de lenguaje.
+
+```
+/app/anomalias ──► sesión ──► anomalies/load.ts ──► K01 + conexión visible
+                ──► estado y cobertura account/campaign bajo RLS
+                ──► anomalies/detect.ts (motor puro, decimal exacto)
+                ──► resultado versionado con períodos, severidad y evidencia
+```
+
+El motor compara los últimos siete días cerrados con los siete anteriores y aplica gates por
+regla. CPA solo se evalúa cuando las compras son explícitas, hay volumen suficiente y la
+atribución conocida es idéntica en las catorce filas. Su interfaz pública vive en
+`src/modules/anomalies/index.ts`, de modo que diagnóstico puede consumirla en una integración
+posterior sin que el detector dependa de diagnóstico. `?ejemplo=1` elige un fixture fijo antes
+de construir tenant o leer cobertura; la pantalla lo rotula como simulado.
 
 ## Contexto declarado
 

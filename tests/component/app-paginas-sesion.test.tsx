@@ -17,6 +17,7 @@ const lectura = (nombre: string) => () => (lecturas(nombre), Promise.resolve(nul
 const tenant = vi.fn();
 const connection = vi.fn();
 
+vi.mock('server-only', () => ({}));
 vi.mock('@/modules/app-data', () => ({
   requireAppSession: (ruta: string) => requireAppSession(ruta),
   getUsuario: () => { lecturas('getUsuario'); return Promise.resolve({
@@ -29,6 +30,7 @@ vi.mock('@/modules/app-data', () => ({
   configuracionPendiente: () => false,
 }));
 vi.mock('@/modules/integrations/lifecycle', () => ({ loadMetaCardState: lectura('loadMetaCardState') }));
+vi.mock('@/modules/anomalies/load', () => ({ loadMetaAnomalyView: lectura('loadMetaAnomalyView') }));
 vi.mock('@/modules/tenant/context', () => ({ requireTenantContext: () => tenant() }));
 vi.mock('@/modules/integrations/repository/connections', () => ({
   readConnectionRecord: (...args: unknown[]) => connection(...args),
@@ -70,9 +72,10 @@ describe('verificación de sesión en cada página de /app', () => {
     requireAppSession.mockRejectedValue(SIN_SESION);
   });
 
-  it('encuentra las siete pantallas', () => {
+  it('encuentra las ocho pantallas', () => {
     expect(PAGINAS.map(([r]) => r).sort()).toEqual([
       '/app',
+      '/app/anomalias',
       '/app/chat',
       '/app/configuracion',
       '/app/diagnostico',
@@ -83,9 +86,11 @@ describe('verificación de sesión en cada página de /app', () => {
   });
 
   it.each(PAGINAS)('%s verifica la sesión con su ruta antes de leer datos', async (r, archivo) => {
-    const { default: Pagina } = (await import(/* @vite-ignore */ archivo)) as { default: () => Promise<unknown> };
+    const { default: Pagina } = (await import(/* @vite-ignore */ archivo)) as {
+      default: (props: { searchParams: Promise<Record<string, string>> }) => Promise<unknown>;
+    };
 
-    await expect(Pagina()).rejects.toBe(SIN_SESION);
+    await expect(Pagina({ searchParams: Promise.resolve({}) })).rejects.toBe(SIN_SESION);
     expect(requireAppSession).toHaveBeenCalledWith(r);
     expect(lecturas).not.toHaveBeenCalled();
   });

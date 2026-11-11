@@ -9,6 +9,7 @@ import { jetbrainsMono, manrope } from '@/components/landing/fonts';
 
 import s from './app.module.css';
 import {
+  IconAlerta,
   IconBarras,
   IconBase,
   IconChat,
@@ -21,11 +22,12 @@ import {
 import { TEMA_PRIMER_PINTADO, useTemaGuardado } from './tema';
 import { Avatar, Img, StatusChip } from './ui';
 
-type Pagina = 'inicio' | 'chat' | 'diagnostico' | 'uso' | 'integraciones' | 'configuracion' | 'perfil';
+type Pagina = 'inicio' | 'chat' | 'anomalias' | 'diagnostico' | 'uso' | 'integraciones' | 'configuracion' | 'perfil';
 
 const PAGINAS: Record<string, Pagina> = {
   '/app': 'inicio',
   '/app/chat': 'chat',
+  '/app/anomalias': 'anomalias',
   '/app/diagnostico': 'diagnostico',
   '/app/uso-y-costos': 'uso',
   '/app/integraciones': 'integraciones',
@@ -37,6 +39,7 @@ const PAGINAS: Record<string, Pagina> = {
 const NAV = [
   { href: '/app', label: 'Inicio', icon: <IconInicio /> },
   { href: '/app/chat', label: 'Chat', icon: <IconChat /> },
+  { href: '/app/anomalias', label: 'Anomalías', icon: <IconAlerta /> },
   { href: '/app/diagnostico', label: 'Diagnóstico', icon: <IconBarras /> },
   { href: '/app/uso-y-costos', label: 'Uso y costos', icon: <IconBase /> },
   { href: '/app/integraciones', label: 'Integraciones', icon: <IconEnlace /> },
