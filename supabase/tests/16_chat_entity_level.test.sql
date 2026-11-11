@@ -1,7 +1,7 @@
 -- M25a (H-E1-231): nivel propio de la entidad y tipos de resultado con días sin fila. Datos sintéticos.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(8);
+select plan(9);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                         email_confirmed_at, created_at, updated_at)
@@ -48,7 +48,8 @@ select 1 from worker_api.publish_snapshot(
       'ctr',null,'cpc',null,'cpm',null,'frequency',null,
       'actions','[{"action_type":"purchase","variant":"value","count":"2","value":"6.00"}]'::jsonb))));
 
--- Cobertura de anuncios del día -1, más reciente: lista también la campaña 201.
+-- Cobertura de anuncios de la misma ventana (-2 y -1): lista también la campaña 201.
+-- publish_snapshot escribe cobertura del nivel para todos los días de la ventana.
 select 1 from worker_api.publish_snapshot(
   'aaaaaaaa-0000-4000-8000-000000000161','c0a00000-0000-4000-8000-000000000161',
   'cc000000-0000-4000-8000-000000000161',0,
@@ -77,7 +78,7 @@ select 1 from worker_api.publish_snapshot(
       'ctr',null,'cpc',null,'cpm',null,'frequency',null,
       'actions','[]'::jsonb))));
 
--- Sin la corrección, la campaña se buscaba entre las filas de anuncios (cobertura más reciente).
+-- Sin la corrección, la campaña podía buscarse entre las filas de anuncios.
 select is((select (public.chat_total(
   'cc000000-0000-4000-8000-000000000161',entity_ref,'spend',current_date-2,current_date-1,null)
   #>> '{values,0,value}') from public.meta_entities where connection_id =
@@ -92,7 +93,12 @@ select is((select (public.chat_total(
   'cc000000-0000-4000-8000-000000000161',entity_ref,'spend',current_date-2,current_date-1,null)
   #>> '{composition,days_not_observed}') from public.meta_entities where connection_id =
   'cc000000-0000-4000-8000-000000000161' and level='campaign' and external_id='201'),
-  '1','H-E1-231: el día sin cobertura de campañas no se observó');
+  '0','H-E1-231: la cobertura se escribe para toda la ventana, así que ningún día queda sin observar');
+select is((select (public.chat_total(
+  'cc000000-0000-4000-8000-000000000161',entity_ref,'spend',current_date-2,current_date-1,null)
+  #>> '{composition,days_no_row}') from public.meta_entities where connection_id =
+  'cc000000-0000-4000-8000-000000000161' and level='campaign' and external_id='201'),
+  '1','H-E1-231: el día -1 está cubierto pero la campaña no tiene fila');
 
 -- Tipos de resultado: la primera fecha pedida (-3) no tiene cobertura.
 select is((select (public.chat_action_types(
