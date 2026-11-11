@@ -6,6 +6,7 @@ export const CHAT_LIMITS = {
   finalizationReserveMs: 10_000,
   modelCallTimeoutMs: 20_000,
   turnLeaseSeconds: 90,
+  leaseReleaseTimeoutMs: 5_000,
   maxQuestionChars: 500,
   maxBlocksPerAnswer: 4,
   previousQuestions: 3,

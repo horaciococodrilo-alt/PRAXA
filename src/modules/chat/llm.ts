@@ -96,7 +96,8 @@ export async function requestChatModel(options: RequestOptions): Promise<ModelRe
   const usage = parsed.data.usage;
   return {
     output: validated.data, requestedModelId: CHAT_MODEL_ID,
-    reportedModelId: parsed.data.model ?? null,
+    // Campo informativo: record_query exige 1..128 caracteres, así que se normaliza en vez de fallar.
+    reportedModelId: parsed.data.model ? parsed.data.model.slice(0, 128) : null,
     usage: usage ? { promptTokens: usage.prompt_tokens,
       completionTokens: usage.completion_tokens, totalTokens: usage.total_tokens } : null,
   };

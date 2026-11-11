@@ -9,6 +9,62 @@ import styles from './basic-block.module.css';
 const GRAPH_TYPES = new Set(['lineas', 'barras', 'barras_agrupadas', 'dona',
   'barras_apiladas', 'calendario_calor', 'tabla_tendencia', 'ranking', 'embudo']);
 
+type Point = BlockView['series'][number]['points'][number];
+
+const BAR_TYPES = new Set(['barras', 'barras_agrupadas']);
+
+function pointText(point: Point): string {
+  return point.text ?? (point.absence === 'sin_fila_reportada' ? 'Sin fila reportada' :
+    point.absence === 'no_informado' ? 'No informado' :
+      point.absence === 'no_calculable' ? 'No calculable' : 'No observado');
+}
+
+function BarRow({ point, label, alt }: { point: Point; label: string; alt: boolean }) {
+  return (
+    <div className={styles.hbar}>
+      <span className={styles.hbarLabel}>{label}</span>
+      <span className={styles.hbarTrack} aria-hidden="true">
+        {point.ratio !== null ? <span className={alt ? styles.hbarFillAlt : styles.hbarFill}
+          style={{ width: `${point.ratio / 100}%` }} /> : null}
+      </span>
+      <span className={styles.hbarValue}>{pointText(point)}</span>
+    </div>
+  );
+}
+
+/** Barras horizontales: etiqueta, barra proporcional y valor. Las agrupadas llevan leyenda. */
+function HorizontalBars({ points, grouped }: { points: Point[]; grouped: boolean }) {
+  if (!grouped || !points.some((point) => point.member)) {
+    return <div className={styles.hbars} data-chart-type="barras">
+      {points.map((point, index) => <BarRow key={`${point.x}-${index}`} point={point}
+        label={point.x} alt={false} />)}
+    </div>;
+  }
+  const members = [...new Set(points.map((point) => point.member ?? point.x))];
+  const groups = new Map<string, Point[]>();
+  for (const point of points) {
+    const key = point.group ?? '';
+    groups.set(key, [...(groups.get(key) ?? []), point]);
+  }
+  return (
+    <div className={styles.hbars} data-chart-type="barras_agrupadas">
+      {members.length > 1 ? <ul className={styles.legend}>
+        {members.map((member, index) => <li key={member}>
+          <span className={index % 2 ? styles.swatchAlt : styles.swatch} aria-hidden="true" />
+          {member}</li>)}
+      </ul> : null}
+      {[...groups.entries()].map(([group, items]) => <div className={styles.hbarGroup} key={group}>
+        {group ? <p className={styles.hbarGroupTitle}>{group}</p> : null}
+        {items.map((point, index) => {
+          const member = point.member ?? point.x;
+          return <BarRow key={`${member}-${index}`} point={point} label={member}
+            alt={members.indexOf(member) % 2 === 1} />;
+        })}
+      </div>)}
+    </div>
+  );
+}
+
 function lineRuns(points: BlockView['series'][number]['points']) {
   const runs: string[] = [];
   let current: string[] = [];
@@ -61,6 +117,8 @@ export function BasicBlock({ block, onSuggestion }: { block: BlockView;
                 cx={points.length === 1 ? 50 : 5 + index * 90 / (points.length - 1)}
                 cy={95 - point.ratio * 90 / 10000} />)}
           </svg> : null}
+          {BAR_TYPES.has(block.type) ?
+            <HorizontalBars points={points} grouped={block.type === 'barras_agrupadas'} /> : null}
           {block.type === 'dona' ? <div data-chart-type="dona" aria-hidden="true"
             className={styles.donut} style={{ backgroundImage: donutFill(points) }} /> : null}
           {block.type === 'barras_apiladas' ? <div data-chart-type="barras_apiladas"
@@ -107,7 +165,8 @@ export function BasicBlock({ block, onSuggestion }: { block: BlockView;
                 { opacity: 0.2 + point.ratio * 0.8 / 10000 }}
               title={`${point.x}: ${point.text ?? 'No observado'}`} />)}
           </div> : null}
-          {!['barras_apiladas', 'tabla_tendencia', 'calendario_calor'].includes(block.type) ?
+          {!['barras', 'barras_agrupadas', 'barras_apiladas', 'tabla_tendencia',
+            'calendario_calor'].includes(block.type) ?
           points.map((point, index) => (
             <div className={styles.point} key={`${point.x}-${index}`}>
               <span className={styles.value}>{point.text ??

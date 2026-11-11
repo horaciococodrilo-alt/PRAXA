@@ -21,6 +21,21 @@
 .fill { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
 .graph:has(.point:nth-child(3)) .point:nth-child(even) .fill { background: var(--accent-busy); }
 .label { overflow-wrap: anywhere; }
+.hbars { display: flex; flex-direction: column; gap: 8px; }
+.hbarGroup { display: flex; flex-direction: column; gap: 4px; }
+.hbarGroupTitle { margin: 6px 0 0; font-size: 12px; font-weight: 700; }
+.hbar { display: grid; grid-template-columns: minmax(0, 32%) minmax(60px, 1fr) minmax(48px, auto); align-items: center; gap: 10px; font-size: 12px; }
+.hbarLabel { overflow-wrap: anywhere; }
+.hbarTrack { display: block; height: 16px; border-radius: 4px; background: var(--field); overflow: hidden; }
+.hbarFill, .hbarFillAlt { display: block; height: 100%; border-radius: 0 4px 4px 0; }
+.hbarFill { background: var(--accent); }
+.hbarFillAlt { background: var(--accent-busy); }
+.hbarValue { font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; list-style: none; font-size: 12px; }
+.legend li { display: inline-flex; align-items: center; gap: 6px; }
+.swatch, .swatchAlt { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+.swatch { background: var(--accent); }
+.swatchAlt { background: var(--accent-busy); }
 .toggle { border: 0; background: transparent; color: var(--accent-text); font: inherit; font-weight: 700; cursor: pointer; padding: 8px 0; }
 .tableWrap { width: 100%; overflow-x: auto; }
 .table { width: 100%; border-collapse: collapse; font-size: 12px; }

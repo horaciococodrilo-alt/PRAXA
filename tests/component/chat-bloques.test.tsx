@@ -124,3 +124,32 @@ describe('M25a.3 T-56/57: catálogo completo', () => {
     expect(screen.getByText(/conteos separados/)).toBeInTheDocument();
   });
 });
+
+describe('barras horizontales', () => {
+  it('barras muestra etiqueta, barra proporcional y valor por fila', () => {
+    const { container } = render(<BasicBlock block={block('barras')} />);
+    const rows = container.querySelectorAll('[data-chart-type="barras"] > div');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent('Primero');
+    expect(rows[0]).toHaveTextContent('12');
+    expect(rows[0].querySelector('[aria-hidden="true"] span')).toHaveStyle({ width: '100%' });
+    expect(rows[1].querySelector('[aria-hidden="true"] span')).toBeNull();
+    expect(rows[1]).toHaveTextContent('No observado');
+  });
+
+  it('barras agrupadas separa por grupo y explica los colores con una leyenda', () => {
+    const grouped: BlockView = { ...block('barras_agrupadas'), series: [{ label: 'Valores', points: [
+      { x: '25-34 · female', text: '8', ratio: 10000, absence: null, group: '25-34', member: 'female' },
+      { x: '25-34 · male', text: '4', ratio: 5000, absence: null, group: '25-34', member: 'male' },
+      { x: '35-44 · female', text: '6', ratio: 7500, absence: null, group: '35-44', member: 'female' },
+      { x: '35-44 · male', text: null, ratio: null, absence: 'sin_fila_reportada', group: '35-44', member: 'male' },
+    ] }] };
+    const { container } = render(<BasicBlock block={grouped} />);
+    const chart = container.querySelector('[data-chart-type="barras_agrupadas"]')!;
+    expect(chart.querySelectorAll('ul li')).toHaveLength(2);
+    expect(chart).toHaveTextContent('25-34');
+    expect(chart).toHaveTextContent('35-44');
+    expect(chart.querySelectorAll('p')).toHaveLength(2);
+    expect(chart).toHaveTextContent('Sin fila reportada');
+  });
+});

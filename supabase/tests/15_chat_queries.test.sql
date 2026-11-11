@@ -1,7 +1,7 @@
 -- M25a: registro, arriendo, privilegios y lecturas del chat. Datos sintéticos.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(163);
+select plan(165);
 
 create function pg_temp.sqlstate_of(p_sql text) returns text language plpgsql as $f$
 begin execute p_sql; return null;
@@ -572,6 +572,12 @@ select is(public.chat_total('cc000000-0000-4000-8000-000000000151',
 select is(public.chat_ranking('cc000000-0000-4000-8000-000000000151',
   'campaign','spend',current_date-2,current_date-1,null,'desc',20,false)
   #>>'{values,2,value}','1','T-27: entidad con moneda incompatible queda excluida');
+select is(public.chat_ranking('cc000000-0000-4000-8000-000000000151',
+  'campaign','cpc',current_date-2,current_date-1,null,'desc',20,false)
+  #>>'{values,0,currency}','EUR','H-E1-233: CPC calculado desde bases conserva la moneda');
+select is(public.chat_ranking('cc000000-0000-4000-8000-000000000151',
+  'campaign','cpc',current_date-2,current_date-1,null,'desc',20,false)
+  #>>'{values,2,value}','1','H-E1-233: CPC con monedas mezcladas queda excluido');
 update public.meta_daily_coverage set rows = jsonb_set(jsonb_set(rows,
   '{0,actions}','[{"action_type":"purchase","variant":"value","count":"1","value":null},
     {"action_type":"purchase","variant":"click_7d","count":"100","value":null}]'::jsonb),

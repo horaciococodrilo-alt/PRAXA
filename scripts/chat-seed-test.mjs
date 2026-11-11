@@ -8,6 +8,7 @@ import pg from 'pg';
 import { refFromApiUrl, refFromDbUrl, resolveTarget } from './lib/target.mjs';
 import { resolveIntegrationsTestTarget, resolveSqlTestTarget } from './lib/sql-target.mjs';
 import { supabaseTlsConfig } from '../src/modules/integrations/db/connection-url.mjs';
+import { RICH_DAYS, richBreakdownRows, richDailyRows, richEntities, richIds } from './lib/chat-seed-rich.mjs';
 
 const RUN_EMAIL_PREFIX = 'praxa-chat+';
 const RUN_EMAIL_SUFFIX = '@example.test';
@@ -160,7 +161,8 @@ function breakdownRows(dimension, account, dates) {
   })));
 }
 
-async function seedData(client, actor, company, id) {
+// `rich`: 60 días, cuatro campañas con objetivos distintos y desgloses variados (H-E1-235).
+async function seedData(client, actor, company, id, { rich = false } = {}) {
   const connection = randomUUID();
   const account = `act_${randomInt(100_000_000, 999_999_999)}`;
   const query = (text, values) => client.query(text, values);
@@ -174,20 +176,23 @@ async function seedData(client, actor, company, id) {
     [actor, company, connection, account, 'USD', 'UTC', true]);
   const run = randomUUID();
   const token = randomBytes(32).toString('hex');
-  const dates = Array.from({ length: 7 }, (_, index) => day(7 - index));
+  const length = rich ? RICH_DAYS : 7;
+  const dates = Array.from({ length }, (_, index) => day(length - index));
+  const limits = rich ? { ...LIMITS, lookbackDays: RICH_DAYS, maxWindowDays: RICH_DAYS,
+    maxEntities: 40, maxPayloadBytes: 4_000_000 } : LIMITS;
   const started = await query(`select * from worker_api.start_sync_run(
     $1::uuid,$2::uuid,$3::uuid,$4::integer,$5::uuid,$6::text,$7::date,$8::date,$9::jsonb)`,
-  [actor, company, connection, 0, run, token, dates[0], dates.at(-1), JSON.stringify(LIMITS)]);
+  [actor, company, connection, 0, run, token, dates[0], dates.at(-1), JSON.stringify(limits)]);
   const instant = started.rows[0]?.started_at?.toISOString();
   if (!instant) throw new Error('No se inició la siembra sintética.');
-  const allEntities = entities(account, instant);
-  const byLevel = {
+  const allEntities = rich ? richEntities(account, instant) : entities(account, instant);
+  const byLevel = rich ? { ...richIds(), account: [account] } : {
     account: [account], campaign: ['201', '202'], adset: ['301', '302'], ad: ['401', '402'],
   };
   for (const level of LEVELS) {
     const maxRank = LEVELS.indexOf(level);
     const payload = { entities: allEntities.filter((item) => LEVELS.indexOf(item.level) <= maxRank),
-      days: dailyRows(level, byLevel[level], dates) };
+      days: rich ? richDailyRows(level, account, dates) : dailyRows(level, byLevel[level], dates) };
     await query(`select * from worker_api.publish_snapshot(
       $1::uuid,$2::uuid,$3::uuid,$4::integer,$5::uuid,$6::text,$7::uuid,$8::text,
       $9::timestamptz,$10::integer,$11::integer,$12::jsonb)`,
@@ -199,14 +204,15 @@ async function seedData(client, actor, company, id) {
           $1::uuid,$2::uuid,$3::uuid,$4::integer,$5::uuid,$6::text,$7::uuid,$8::text,
           $9::text,$10::timestamptz,$11::integer,$12::integer,$13::jsonb)`,
         [actor, company, connection, 0, run, token, randomUUID(), 'account', dimension,
-          instant, 1, 1, JSON.stringify({ rows: breakdownRows(dimension, account, dates) })]);
+          instant, 1, 1, JSON.stringify({ rows: rich ? richBreakdownRows(dimension, account, dates)
+            : breakdownRows(dimension, account, dates) })]);
       }
     }
   }
   return connection;
 }
 
-async function serve(env, roleUrl) {
+async function serve(env, roleUrl, { rich = false } = {}) {
   const id = randomUUID();
   const email = runEmail(id);
   const password = `${randomBytes(24).toString('base64url')}Aa1!`;
@@ -227,9 +233,9 @@ async function serve(env, roleUrl) {
     sql = new pg.Client({ connectionString: roleUrl.split('?')[0], ...supabaseTlsConfig(),
       application_name: 'praxa-chat-seed-test' });
     await sql.connect();
-    await sql.query('set statement_timeout = 15000');
+    await sql.query(`set statement_timeout = ${rich ? 90000 : 15000}`);
     await sql.query('set lock_timeout = 15000');
-    await seedData(sql, data.user.id, company.data.id, id);
+    await seedData(sql, data.user.id, company.data.id, id, { rich });
     await sql.end();
     sql = null;
     console.log(`Corrida sintética: ${id}`);
@@ -267,9 +273,10 @@ async function serve(env, roleUrl) {
 
 async function main() {
   const args = process.argv.slice(2);
-  if (!((args.length === 1 && args[0] === '--serve') ||
+  const serveRich = args.length === 2 && args[0] === '--serve' && args[1] === '--rich';
+  if (!((args.length === 1 && args[0] === '--serve') || serveRich ||
         (args.length === 2 && args[0] === '--clean'))) {
-    throw new Error('Usá --serve o --clean <identificador>.');
+    throw new Error('Usá --serve, --serve --rich o --clean <identificador>.');
   }
   const { env, roleUrl } = preflight({ requireModel: args[0] === '--serve' });
   if (args[0] === '--clean') {
@@ -277,7 +284,7 @@ async function main() {
     console.log(`Limpieza sintética: ${result.alreadyAbsent ? 'ya estaba ausente' : `${result.removedCompanies} empresa(s) borrada(s)`}; otra cuenta ${result.otherAccountIntact ? 'intacta' : 'sin testigo disponible'}.`);
     return;
   }
-  await serve(env, roleUrl);
+  await serve(env, roleUrl, { rich: serveRich });
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
