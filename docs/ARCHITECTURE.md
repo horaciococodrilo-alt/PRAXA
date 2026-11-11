@@ -65,8 +65,8 @@ tests/
 
 Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 
-- `chat/`: redacción, herramientas cerradas, adaptador del modelo, orquestador y guarda de
-  afirmaciones numéricas.
+- `chat/`: redacción del registro, herramientas cerradas, adaptador del modelo y orquestador.
+  Sin guarda de afirmaciones numéricas (`H-E1-228`).
 
 ## Módulos y responsabilidades
 
@@ -95,13 +95,15 @@ La ruta `meta_first` no construye Tiendanube, GA4, reportes publicados ni base v
 | Esquema | Contenido | Expuesto por la Data API |
 |---|---|---|
 | `public` | Tablas del producto, protegidas por `GRANT` + RLS; RPC del producto | Sí |
-| `private` | Helpers, triggers, funciones de escritura con privilegio acotado y la tabla de credenciales | No |
+| `private` | Helpers, triggers, funciones de escritura con privilegio acotado, credenciales y arriendos técnicos del turno de chat | No |
 | `worker_api` | Funciones del conector, ejecutables solo por `praxa_integrations` | No |
 
 Los esquemas expuestos se declaran en `supabase/config.toml` (`public` y `graphql_public`).
 `authenticated` recibe `USAGE` sobre `private` porque las políticas RLS se evalúan con los
-privilegios de quien consulta y llaman a `private.is_company_member()`; lo que impide
-invocar `private` por HTTP es que no está expuesto.
+privilegios de quien consulta y llaman a helpers de pertenencia y alcance de ese esquema.
+Ese permiso de esquema permite resolver los helpers, pero no concede lectura de sus tablas:
+el arriendo técnico del chat no tiene grants ni políticas para ese rol. `private` tampoco
+está expuesto por HTTP.
 
 ### Roles
 
@@ -227,8 +229,8 @@ Navegador ──► tarjeta de integraciones ──► cuentas delegadas ──�
   Graph con secretos en parámetros internos viajan dentro de un lote `POST`; ninguna URL de
   salida lleva credenciales, códigos ni tokens.
 - Existen, probadas con Meta simulada: sincronización y lectura persistida de Insights por nivel y entidad, con snapshots independientes por nivel, metadata capturada y acciones tipadas. La cobertura completa de un nivel puede avanzar aunque otro falle; el resultado global conserva esa distinción. Los totales de cuenta provienen de su extracción propia. La lectura pasa por RPC `SECURITY INVOKER` sobre `meta_daily_coverage` y la conexión; los snapshots no son legibles por usuarios.
-- Existen: desgloses por edad y género, país y región, de cuenta y campaña (DEC-23). Se extraen antes del último nivel, porque necesitan la posesión del run, con una parte acotada del tiempo. Tienen tablas, cobertura y estado propios: un fallo no cambia el resultado de los niveles. Se leen por RPC `SECURITY INVOKER`; todavía no los consume la interfaz ni el chat.
-- Previsto: el chat consulta la base bajo RLS; no consulta Meta directamente.
+- Existen: desgloses por edad y género, país y región, de cuenta y campaña (DEC-23). Se extraen antes del último nivel, porque necesitan la posesión del run, con una parte acotada del tiempo. Tienen tablas, cobertura y estado propios: un fallo no cambia el resultado de los niveles. Se leen por RPC `SECURITY INVOKER`; las herramientas del chat pueden consultar sus agregados, aunque la pantalla aún no presenta los bloques completos.
+- El chat consulta la base bajo RLS con el JWT del usuario; no consulta Meta directamente. Su registro, voto y arriendo temporal usan el camino privilegiado.
 
 ## Contexto declarado
 
@@ -292,16 +294,20 @@ La ruta no tiene workers, colas ni programación automática (spec, sección 2; 
 ## Chat (previsto)
 
 ```
-Server Action del chat ──► K01 ──► límites del turno ──► redacción de la pregunta
+Server Action del chat ──► K01 ──► límites del turno
+  ──► arriendo temporal por usuario y empresa, por camino B
   ──► modelo: elige herramienta y argumentos (salida estricta)
-  ──► servidor: ejecuta la herramienta con el JWT del usuario, bajo RLS; cálculos en SQL
-  ──► modelo: redacta `text` + `claims`
-  ──► guarda del servidor: valida cada cifra contra resultados del turno
-  ──► respuesta con período, zona, cobertura y frescura, o abstención controlada
-  ──► registro de la consulta por worker_api
+  ──► servidor: ejecuta herramientas con el JWT del usuario, bajo RLS; cálculos en SQL
+  ──► modelo: redacta `text` + referencias de bloques (el texto no se verifica)
+  ──► servidor: presenta el texto y bloques con datos de las herramientas, o abstención
+  ──► registro de la consulta (pregunta redactada) por camino B antes de devolver la respuesta
+  ──► liberación del arriendo; el voto posterior usa camino B
 ```
 
-Las herramientas leen por el camino A; el registro por consulta se escribe por el camino B.
+Las herramientas leen por el camino A; el arriendo, el registro y el voto escriben por el
+camino B. El modelo recibe contexto anterior redactado y acotado, sin respuestas previas;
+el servidor resuelve tenant y conexión y solo usa resultados del turno actual para validar
+cifras. La pantalla representa los bloques con valores del servidor y tablas equivalentes.
 Contrato completo en la spec, sección 12.
 
 ## Contrato del reporte (existe, sin generación)

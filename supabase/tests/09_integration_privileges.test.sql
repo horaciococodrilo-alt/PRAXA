@@ -385,7 +385,7 @@ select results_eq(
   'T-11: todas las FK de las tres tablas son on delete cascade, salvo el puntero de ejecución, que la purga anula primero');
 
 -- ---------------------------------------------------------------------------
--- T-12: las dieciocho funciones de worker_api (C-15, M16c-C-17, H-E1-202)
+-- T-12: las veintidós funciones de worker_api (C-15, M16c-C-17, H-E1-202, M25a-C-09)
 -- ---------------------------------------------------------------------------
 
 select functions_are('worker_api', array[
@@ -394,13 +394,14 @@ select functions_are('worker_api', array[
   'begin_disconnect', 'purge_connection', 'list_pending_purges',
   'count_credentials_by_key_version', 'rewrap_credential', 'start_sync_run',
   'publish_snapshot', 'fail_sync_run', 'record_connection_error', 'publish_breakdown',
-  'record_breakdown_failure'],
-  'T-12: worker_api tiene exactamente las doce funciones de II.4, las cuatro de M16c y las dos de los desgloses');
+  'record_breakdown_failure', 'begin_chat_turn', 'end_chat_turn', 'record_query',
+  'set_feedback'],
+  'T-12: worker_api tiene exactamente las doce funciones de II.4, las cuatro de M16c, las dos de desgloses y las cuatro de chat');
 
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'worker_api'),
-  18, 'T-12: dieciocho funciones, sin sobrecargas');
+  22, 'T-12: veintidós funciones, sin sobrecargas');
 
 select is_empty(
   $$select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -436,7 +437,7 @@ select is_empty(
   $$select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'worker_api'
        and not has_function_privilege('praxa_integrations', p.oid, 'EXECUTE')$$,
-  'T-12: praxa_integrations tiene EXECUTE sobre las dieciocho');
+  'T-12: praxa_integrations tiene EXECUTE sobre las veintidós');
 
 select is(
   (select p.pronargs::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -452,7 +453,7 @@ select is_empty(
             or p.proargnames[2] is distinct from 'p_company_id'
             or p.proargtypes[0] <> 'uuid'::regtype
             or p.proargtypes[1] <> 'uuid'::regtype)$$,
-  'T-12: las otras quince reciben p_actor_user_id y p_company_id primero');
+  'T-12: las otras veintiuna reciben p_actor_user_id y p_company_id primero');
 
 -- Los helpers privados tampoco tienen EXECUTE para nadie más que su dueño (C-03).
 select is_empty(
@@ -520,12 +521,12 @@ select ok(
 select is(
   (select count(*)::int from pg_temp.worker_api_calls() c
     where pg_temp.sqlstate_as('authenticated', c.call) = '42501'),
-  18, 'T-13: authenticated no ejecuta ninguna de las dieciocho funciones, aun con USAGE (42501)');
+  22, 'T-13: authenticated no ejecuta ninguna de las veintidós funciones, aun con USAGE (42501)');
 
 select is(
   (select count(*)::int from pg_temp.worker_api_calls() c
     where pg_temp.sqlstate_as('anon', c.call) = '42501'),
-  18, 'T-13: anon no ejecuta ninguna de las dieciocho funciones, aun con USAGE (42501)');
+  22, 'T-13: anon no ejecuta ninguna de las veintidós funciones, aun con USAGE (42501)');
 
 -- El USAGE temporal se revoca apenas termina T-13: si quedara hasta el rollback final,
 -- cualquier aserción posterior sobre el ACL del esquema (T-04 ya afirma lo contrario para
@@ -555,7 +556,7 @@ select is(
      join pg_namespace n on n.oid = p.pronamespace
      join pg_roles r on r.oid = p.proowner
     where n.nspname = 'worker_api' and r.rolbypassrls),
-  18, 'T-15: el dueño de las dieciocho funciones tiene rolbypassrls');
+  22, 'T-15: el dueño de las veintidós funciones tiene rolbypassrls');
 
 -- ---------------------------------------------------------------------------
 -- M16c-T-25: rol sintético limpio y bloques reales (H-E1-35, H-E1-36)
@@ -616,7 +617,7 @@ select ok(has_schema_privilege('praxa_integrations', 'worker_api', 'USAGE'),
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'worker_api' and has_function_privilege('praxa_integrations', p.oid, 'EXECUTE')),
-  18, 'M16c-T-25: el rol de C conserva EXECUTE función por función');
+  22, 'M16c-T-25: el rol de C conserva EXECUTE función por función');
 select is(
   (select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'public' and c.relname like 'meta\_%'

@@ -73,6 +73,28 @@
   object-fit: contain;
 }
 
+.notice,
+.connection {
+  width: 100%;
+  max-width: 740px;
+  box-sizing: border-box;
+  margin: 18px 0 0;
+  color: var(--text-strong-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.connection {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.connection a,
+.assistant a { color: var(--accent-text); font-weight: 700; }
+
 .log {
   width: 100%;
   max-width: 740px;
@@ -117,6 +139,33 @@
   height: 38px;
   font-size: 12px;
 }
+
+.assistant {
+  align-self: flex-start;
+  width: 100%;
+  min-width: 0;
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-raised);
+  color: var(--text);
+  box-sizing: border-box;
+}
+
+.answerText { margin: 0; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.answerText [data-kind='observed'] { font-weight: 700; }
+.answerText [data-kind='user_provided'] { font-style: italic; }
+.footer { font-size: 12px; color: var(--text-strong-muted); }
+.footer p { margin: 5px 0; }
+.votes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; }
+.action { padding: 7px 11px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--field); color: var(--text); font: inherit; cursor: pointer; }
+.action[aria-pressed='true'] { border-color: var(--accent); background: var(--surface-accent); }
+.votes [role='alert'] { color: var(--text); }
 
 /* Estado "pensando" del asistente mientras responde (AppChatBuscando). */
 .think {

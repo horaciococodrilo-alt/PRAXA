@@ -11,7 +11,8 @@ export type WorkerApiFunction =
   | 'get_credential' | 'confirm_connection' | 'replace_credential' | 'mark_needs_reauth'
   | 'begin_disconnect' | 'purge_connection' | 'list_pending_purges'
   | 'count_credentials_by_key_version' | 'rewrap_credential' | 'start_sync_run' | 'publish_snapshot'
-  | 'fail_sync_run' | 'record_connection_error' | 'publish_breakdown' | 'record_breakdown_failure';
+  | 'fail_sync_run' | 'record_connection_error' | 'publish_breakdown' | 'record_breakdown_failure'
+  | 'begin_chat_turn' | 'end_chat_turn' | 'record_query' | 'set_feedback';
 
 export interface Queryable {
   query<Row extends pg.QueryResultRow = pg.QueryResultRow>(
@@ -29,7 +30,7 @@ export type WorkerFailureKind = 'transport' | 'timeout' | 'other';
 export type WorkerApiCode =
   | 'not_authorized' | 'attempt_rejected' | 'live_connection_exists' | 'invalid_transition'
   | 'pending_expired' | 'generation_mismatch' | 'account_conflict' | 'key_version_mismatch'
-  | 'sync_in_progress' | 'sync_ownership_lost'
+  | 'sync_in_progress' | 'sync_ownership_lost' | 'chat_turn_in_progress'
   | 'invalid_argument' | 'privilege_missing' | 'unavailable' | 'unexpected'
   | 'config_missing' | 'config_invalid';
 
@@ -44,6 +45,7 @@ const MESSAGES: Record<WorkerApiCode, string> = {
   key_version_mismatch: 'La versión de clave cambió.',
   sync_in_progress: 'Ya hay una sincronización en curso.',
   sync_ownership_lost: 'La sincronización venció o fue reemplazada. Volvé a sincronizar.',
+  chat_turn_in_progress: 'Ya hay una consulta en curso.',
   invalid_argument: 'Argumento de worker_api inválido.',
   privilege_missing: 'Falta un privilegio del rol de integraciones.',
   unavailable: 'La base de datos no está disponible.',
@@ -83,6 +85,10 @@ const SQL_CASTS: Record<WorkerApiFunction, readonly string[]> = {
   record_connection_error: ['uuid', 'uuid', 'uuid', 'integer', 'text', 'text'],
   publish_breakdown: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'text', 'uuid', 'text', 'text', 'timestamptz', 'integer', 'integer', 'jsonb'],
   record_breakdown_failure: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'text', 'text', 'text', 'text', 'timestamptz'],
+  begin_chat_turn: ['uuid', 'uuid', 'uuid', 'integer'],
+  end_chat_turn: ['uuid', 'uuid', 'uuid'],
+  record_query: ['uuid', 'uuid', 'uuid', 'uuid', 'integer', 'text', 'text[]', 'text', 'text', 'integer', 'text', 'text'],
+  set_feedback: ['uuid', 'uuid', 'uuid', 'text'],
 };
 
 const SQL: Record<WorkerApiFunction, string> = Object.fromEntries(
@@ -135,7 +141,7 @@ function translated(error: unknown): WorkerApiError {
     PX001: 'not_authorized', PX002: 'attempt_rejected', PX003: 'live_connection_exists',
     PX004: 'invalid_transition', PX005: 'pending_expired', PX006: 'generation_mismatch',
     PX007: 'account_conflict', PX008: 'key_version_mismatch', PX009: 'sync_in_progress',
-    PX010: 'sync_ownership_lost', '22023': 'invalid_argument',
+    PX010: 'sync_ownership_lost', PX011: 'chat_turn_in_progress', '22023': 'invalid_argument',
     '42501': 'privilege_missing', '42883': 'privilege_missing',
   };
   if (sql[source]) return new WorkerApiError(sql[source]);

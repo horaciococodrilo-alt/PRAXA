@@ -43,7 +43,7 @@ DNS gestionado por el usuario en GoDaddy, sobre el dominio `praxa.site`.
 
 ## Inventario de variables (II.7, paso 2)
 
-Por nombre y estado únicamente; nunca por valor. Estado declarado por el usuario el 2026-10-11.
+Por nombre y estado únicamente; nunca por valor. Estado de `G-ENTORNO` declarado por el usuario el 2026-10-11; la fila de DeepInfra indica el pendiente posterior de M25a.2.
 
 | Grupo | Variable | Destino | Estado |
 |---|---|---|---|
@@ -54,7 +54,7 @@ Por nombre y estado únicamente; nunca por valor. Estado declarado por el usuari
 | Credenciales del conector | `PRAXA_CREDENTIAL_KEY_CURRENT` | Vercel, solo servidor | `configurada por el usuario` |
 | Credenciales del conector | `PRAXA_INTEGRATIONS_DB_URL` | Vercel, solo servidor; rol `praxa_integrations.<ref>`, pooler 6543 | `configurada por el usuario` |
 | Meta | `META_APP_ID`, `META_APP_SECRET` (como Secret), `META_REDIRECT_URI`, `META_CONFIG_ID` | Vercel Production, solo servidor | `configurada por el usuario` (declarado el 2026-10-12, al expandir `M16.1`) |
-| Modelo (diferida, no exigida para este gate) | `DEEPINFRA_API_KEY` | En `M25a.2` | `diferida` |
+| Modelo (no exigido para `G-ENTORNO`) | `DEEPINFRA_API_KEY` | `.env.local`, solo servidor en M25a.2; Vercel antes de publicar | `configurada localmente` por el usuario; autenticación verificada con tres llamadas sintéticas HTTP 200; valor no inspeccionado |
 | Excluidas (nunca en Vercel) | `SUPABASE_DB_URL`, `SUPABASE_TEST_*`, `PRAXA_INTEGRATIONS_TEST_DB_URL` | — | `ausentes` |
 
 **Limitación declarada:** la verificación es por presencia del nombre en Vercel. No acredita validez

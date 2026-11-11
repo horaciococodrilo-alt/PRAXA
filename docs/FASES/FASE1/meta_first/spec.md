@@ -288,7 +288,7 @@ Reglas para las funciones y el rol:
   3. `purge_connection`, idempotente. En una transacción borra la credencial, los snapshots, los días, la cobertura, las ejecuciones y los registros de consulta de la conexión, y al final la fila de la conexión (DEC-09).
 
   Si el proceso se corta después del paso 1, la purga se reanuda al abrir la página de integraciones, al repetir la desconexión o al iniciar una conexión nueva: cualquier conexión `disconnected` de la empresa vuelve a los pasos 2 y 3. Destruir la copia local no desinstala la app en Meta. Por eso la UI indica cómo quitarla desde las apps conectadas del negocio.
-- **CA-38c** *(escrituras en vuelo)* Una operación que empezó antes de la desconexión y termina después no puede reinsertar datos. `publish_snapshot` (CA-59) y `record_query` (CA-62) verifican, en la misma transacción en la que escriben, que la conexión exista, esté `active` y conserve la generación con la que empezaron. Si no se cumple, descartan la escritura.
+- **CA-38c** *(escrituras en vuelo)* Una operación que empezó antes de la desconexión y termina después no puede reinsertar datos. `publish_snapshot` (CA-59) y `record_query` (CA-62) verifican, en la misma transacción en la que escriben, que la conexión exista, esté `active` y conserve la generación con la que empezaron. Si no se cumple, descartan la escritura. Única excepción: `record_query` admite una conexión en `needs_reauth` o `pending_selection`, con la generación esperada, solo para `not_answered` con `connection_not_active`. Una conexión `disconnected` o inexistente siempre se descarta.
 - **CA-38b** *(retención, DEC-09)* Reglas asociadas:
   - Borrar la cuenta de PRAXA borra en cascada todo lo de la empresa.
   - Los intentos OAuth vencidos o consumidos se purgan de forma perezosa.
@@ -346,7 +346,7 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
 - `action_type` es un identificador del proveedor, de 1 a 128 caracteres alfanuméricos, punto o guion bajo; valores y claves fuera del contrato se rechazan o se descartan según sean datos malformados o campos extra. El chat consulta tipos presentes mediante catálogo del servidor y los referencia por su identificador. Solo usa nombres de negocio con mapeo explícito probado; jamás fusiona, por ejemplo, varios tipos de compra para inventar un total.
 - El total de cuenta se obtiene de `account`, no de la suma de otros niveles. El alcance y la frecuencia se ofrecen por día/entidad; no se calcula alcance o frecuencia de varios días o entidades con las filas diarias. Una solicitud de ese agregado recibe resultado no soportado. No se agrega una consulta directa a Meta desde el chat.
 - Los valores de los desgloses son estimados por Meta y conservan sus segmentos tal como llegan, incluidos los desconocidos. No reemplazan ni se reconcilian con los totales de los niveles, y no se cruzan edad o género con lugar. Un desglose fallido no cambia el resultado ni la cobertura de los niveles. Entran en CA-48 por DEC-24: antes de que el modelo reciba datos reales, el usuario aprueba el acta de nuevo y el dueño conoce el cambio.
-- Para períodos y una misma entidad se suman solo métricas aditivas con unidad, moneda y atribución compatibles. CTR se calcula como `100 * clicks / impressions`; CPC como `spend / clicks`; CPM como `1000 * spend / impressions`. Denominador cero o datos necesarios ausentes producen resultado no calculable, nunca cero ni infinito. Las tasas de período se recalculan en SQL desde las bases cubiertas y se presentan parciales si falta cobertura. No se promedian tasas diarias. No se calculan ROAS ni rentabilidad. Las variaciones porcentuales y la participación las calcula SQL según CA-48, nunca el modelo.
+- Para períodos y una misma entidad se suman solo métricas aditivas con unidad, moneda y atribución compatibles. Dos atribuciones conocidas distintas no son compatibles. Una desconocida sí se suma, y el chat lo muestra siempre con una advertencia fija de que puede mezclar ventanas distintas, también en los desgloses (D-M25a-19). CTR se calcula como `100 * clicks / impressions`; CPC como `spend / clicks`; CPM como `1000 * spend / impressions`. Denominador cero o datos necesarios ausentes producen resultado no calculable, nunca cero ni infinito. Las tasas de período se recalculan en SQL desde las bases cubiertas y se presentan parciales si falta cobertura. No se promedian tasas diarias. No se calculan ROAS ni rentabilidad. Las variaciones porcentuales y la participación las calcula SQL según CA-48, nunca el modelo.
 - **CA-44b** Toda medida, tasa y valor de acción se almacena con precisión exacta (`numeric`; los conteos base, `bigint`) y sale de SQL como texto, incluidos JSON y totales. TypeScript valida cadenas; nunca convierte a `number`. Prueba SQL → Data API → TypeScript con decimales y enteros fuera de precisión de `number`.
 
 ### Snapshots y cobertura (DEC-05, DEC-22)
@@ -414,7 +414,7 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
 
 - **CA-50** *(salida estructurada con afirmaciones verificadas)* El modelo redacta en lenguaje natural y puede incluir cifras. Su salida estructurada tiene dos partes: `text` y `claims`.
   - Cada afirmación numérica de `text` sobre los datos del negocio tiene un `claim` que la vincula a un resultado de herramienta del turno actual.
-  - Un claim contiene: `span` (posición exacta en el texto), `kind`, `tool_call_id` con la ruta del valor dentro del resultado, y los campos declarados `metric`, `unit`, `currency` (cuando corresponde), `account_ref`, `level`, `entity_ref`, `action_type` y `attribution_ref` (cuando corresponden), y `period`.
+  - Un claim contiene: `span` (el fragmento citado y su número de aparición en el texto; el servidor obtiene la posición exacta y rechaza si no aparece), `kind`, `tool_call_id` con la ruta del valor dentro del resultado, y los campos declarados `metric`, `unit`, `currency` (cuando corresponde), `account_ref`, `level`, `entity_ref`, `action_type` y `attribution_ref` (cuando corresponden), y `period`.
   - Tipos de claim:
     - `observed_value`: un valor devuelto por una herramienta;
     - `period_bound`: una fecha límite del período consultado;
@@ -465,9 +465,9 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
 
 ### Presentación y modelo
 
-- **CA-51** Toda respuesta declara período, zona horaria, cobertura (presencia, estado temporal y captura parcial) y frescura. Si los días provienen de extracciones distintas, se informa el rango de `fetched_at`, no solo la última sincronización.
+- **CA-51** Toda respuesta con datos declara período, zona horaria, cobertura (presencia, estado temporal y captura parcial) y frescura. Si los días provienen de extracciones distintas, se informa el rango de `fetched_at`, no solo la última sincronización.
 - **CA-51b** Los totales sobre períodos con días `sin_fila_reportada`, `no_observado`, `abierto` o con captura parcial se presentan como parciales, mostrando la composición.
-- **CA-52** La interfaz muestra siempre la cuenta (truncada) y el período.
+- **CA-52** La interfaz muestra la cuenta (truncada) siempre que haya una conectada, y el período en toda respuesta con datos. Sin cuenta conectada, lo dice con un texto fijo. Una aclaración o una abstención muestra solo lo que existe en ese momento (D-M25a-15).
 - **CA-53** *(P01)* El identificador de modelo es fijo. No equivale a un despliegue inmutable: el host puede cambiar la precisión o la forma de servir el modelo sin cambiar el identificador. Para el piloto se acepta esa limitación con dos mitigaciones: VR-02 se repite antes de la demo, y cada registro guarda el identificador informado por la respuesta (CA-53b). Con el modelo caído, el chat muestra un mensaje claro, conserva la pregunta en la sesión y permite reintentar sin volver a escribirla.
 - **CA-53b** *(modelo, DEC-14 y DEC-15)* DeepSeek V4.1 Flash, con sus pesos abiertos servidos por DeepInfra (DEC-16) bajo el identificador `deepseek-ai/DeepSeek-V4.1-Flash`. Según la ficha del modelo al 2026-09-23, se sirve en precisión fp8. No tiene un identificador fechado, a diferencia de `DeepSeek-V4-Flash-0731`.
   - La salida estructurada de CA-50 usa el mecanismo de esquema estricto del host: `response_format` de tipo `json_schema` con `strict`, o una herramienta en modo `strict`. El modo `json_object` no alcanza, porque garantiza JSON válido pero no el esquema.
@@ -483,12 +483,12 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
   - la pregunta, redactada según CA-66;
   - los nombres de las herramientas llamadas, sin sus resultados ni argumentos que contengan identificadores;
   - el resultado: `answered`, `answered_partial_coverage` o `not_answered`;
-  - si no respondió, un motivo de una lista cerrada: `out_of_scope`, `no_coverage`, `connection_not_active`, `guard_rejected`, `model_unavailable` o `tool_error`;
+  - si no respondió, un motivo de una lista cerrada: `out_of_scope`, `no_coverage`, `connection_not_active`, `guard_rejected`, `model_unavailable`, `tool_error` o `needs_clarification`;
   - la fecha y la latencia;
   - el identificador de modelo solicitado y el informado (CA-53b);
   - la conexión a la que se refiere, o nula si todavía no hay conexión. Sin conexión, el resultado es `not_answered` con motivo `connection_not_active`, y ese registro se borra por CA-67.
 
-  No se guardan respuestas, cifras de resultados de herramientas ni credenciales. La pregunta redactada sí puede conservar montos y fechas que escribió el dueño (CA-66). Cada reintento es un registro aparte. `record_query` cumple CA-38c.
+  No se guardan respuestas, cifras de resultados de herramientas ni credenciales. La pregunta redactada sí puede conservar montos y fechas que escribió el dueño (CA-66). Cada reintento es un registro aparte. `record_query` cumple CA-38c. Excepciones: un turno rechazado por otro en curso, una entrada inválida o un mensaje de un usuario sin empresa (D-M25a-20) no llegaron a ser una consulta y no generan registro; una escritura descartada por CA-38c o un fallo al registrar tampoco lo dejan, y en esos dos casos **la respuesta no se muestra** (D-M25a-12).
 - **CA-66** *(redacción, DEC-11)* Una única función determinística redacta la pregunta antes de persistirla y antes de enviarla al modelo. El texto original no se persiste en ningún lado.
   - **Se reemplaza por un marcador:**
     - email → `[EMAIL]`;
@@ -503,7 +503,7 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
   - **Longitud máxima configurable.** Valor inicial propuesto: 500 caracteres, a confirmar en la implementación.
   - **Límites declarados:** un DNI suelto no se distingue de un monto en formato argentino, por lo que no se redacta. Nombres, direcciones y otros datos en forma libre tampoco se detectan. Esos casos quedan cubiertos solo por el aviso de CA-65.
   - **Pruebas con casos sintéticos:** cada patrón se redacta; los montos con separador de miles no se redactan; los números de tarjeta que no pasan Luhn no se redactan; la función es idempotente.
-- **CA-69** *(utilidad, DEC-13)* Cada respuesta mostrada, incluidas las abstenciones, ofrece dos botones: "útil" y "no útil".
+- **CA-69** *(utilidad, DEC-13)* Cada respuesta mostrada, incluidas las abstenciones, ofrece dos botones: "útil" y "no útil". Solo quedan sin botones los mensajes fijos sin registro de CA-62: no hay registro donde guardar el voto.
   - El valor se guarda en el registro de esa consulta como `useful` o `not_useful`, o queda nulo si el dueño no marca nada. No admite texto libre.
   - Se escribe mediante una Server Action que construye K01 y llama a `worker_api` con el identificador opaco del registro. La función verifica que el registro pertenezca a la empresa.
   - Si el dueño marca más de una vez, queda el último valor.

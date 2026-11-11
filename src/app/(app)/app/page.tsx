@@ -1,11 +1,10 @@
 import Link from 'next/link';
 
-import { cantidad, segundos, usd } from '@/components/app/format';
 import { IconBase, IconEdificio } from '@/components/app/icons';
 import s from '@/components/app/inicio.module.css';
 import { IntegracionLogo } from '@/components/app/integracion-logo';
 import { Badge, Button, Card, PageHeader, TileIcon } from '@/components/app/ui';
-import { getEmpresa, getIntegraciones, getUso, requireAppSession } from '@/modules/app-data';
+import { getEmpresa, getIntegraciones, requireAppSession } from '@/modules/app-data';
 
 export const metadata = { title: 'Inicio' };
 
@@ -15,8 +14,7 @@ function Dato({ valor }: { valor: string | null }) {
 
 export default async function InicioPage() {
   await requireAppSession('/app');
-  const [empresa, integraciones, uso] = await Promise.all([getEmpresa(), getIntegraciones(), getUso()]);
-  const { resumen } = uso;
+  const [empresa, integraciones] = await Promise.all([getEmpresa(), getIntegraciones()]);
 
   return (
     <>
@@ -64,22 +62,14 @@ export default async function InicioPage() {
           </ul>
         </Card>
 
-        <Card as="article" className={s.card}>
-          <h2 className={s.eyebrow}>Uso de la IA</h2>
+        <Card as="article" className={s.card} aria-labelledby="uso-ia-title">
+          <h2 className={s.eyebrow} id="uso-ia-title">Uso de la IA</h2>
           <div className={s.id}>
             <TileIcon>
               <IconBase size={20} />
             </TileIcon>
-            <span className={s.big}>{usd(resumen.costoMesUsd)}</span>
+            <span className={s.big}>Todavía no disponible</span>
           </div>
-          <dl className={s.dl}>
-            <dt>Consultas</dt>
-            <dd>{cantidad(resumen.consultas)}</dd>
-            <dt>Latencia promedio</dt>
-            <dd>{segundos(resumen.latenciaPromedioS)}</dd>
-            <dt>Costo por consulta</dt>
-            <dd>{usd(resumen.costoPorConsultaUsd)}</dd>
-          </dl>
         </Card>
       </section>
 

@@ -11,6 +11,7 @@ const srcRoot = fileURLToPath(new URL('./src', import.meta.url));
  *  - `component` monta el asistente de onboarding en jsdom con las Server Actions
  *                simuladas: prueba el COMPORTAMIENTO de la pantalla (qué se guarda, qué
  *                queda pendiente, cuándo se puede confirmar), no funciones sueltas.
+ *  - `eval` usa el modelo real con fixtures sintéticos y no abre la base.
  *  - `app`  corre contra un proyecto REMOTO y desechable de Supabase
  *           (`npm run test:app`). No requiere Docker. Si faltan las credenciales de
  *           prueba, se salta con un mensaje que dice exactamente qué falta. Nunca simula
@@ -42,6 +43,16 @@ export default defineConfig({
           // se queda esperando y muere por timeout. Con threads funciona.
           pool: 'threads',
           testTimeout: 20_000,
+        },
+      },
+      {
+        resolve: { alias: { '@': srcRoot } },
+        test: {
+          name: 'eval',
+          include: ['tests/eval/**/*.test.ts'],
+          environment: 'node',
+          fileParallelism: false,
+          testTimeout: 60_000,
         },
       },
       {

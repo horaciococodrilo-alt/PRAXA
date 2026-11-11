@@ -18,7 +18,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(32);
+select plan(34);
 
 -- ---------------------------------------------------------------------------
 -- Parte 1: empresa con contexto activo y reporte, sin integración
@@ -148,6 +148,19 @@ select 1 from worker_api.confirm_connection(
   'aaaaaaaa-0000-4000-8000-000000000102', 'c0a00000-0000-4000-8000-000000000102',
   'cc000000-0000-4000-8000-000000000102', 'act_90000102', 'USD', 'UTC', true);
 
+-- M25a: un registro asociado, otro sin conexión y un arriendo efímero.
+select 1 from worker_api.record_query(
+  'aaaaaaaa-0000-4000-8000-000000000102','c0a00000-0000-4000-8000-000000000102',
+  'fa000000-0000-4000-8000-000000000102','cc000000-0000-4000-8000-000000000102',
+  0,'Consulta sintética','{total}','answered',null,10,'modelo_sintetico',null);
+select 1 from worker_api.record_query(
+  'aaaaaaaa-0000-4000-8000-000000000102','c0a00000-0000-4000-8000-000000000102',
+  'fa000000-0000-4000-8000-000000000103',null,
+  null,'Consulta sin conexión','{}','not_answered','connection_not_active',10,'modelo_sintetico',null);
+select 1 from worker_api.begin_chat_turn(
+  'aaaaaaaa-0000-4000-8000-000000000102','c0a00000-0000-4000-8000-000000000102',
+  'eb000000-0000-4000-8000-000000000102',90);
+
 select 1 from worker_api.create_oauth_attempt(
   'aaaaaaaa-0000-4000-8000-000000000102', 'c0a00000-0000-4000-8000-000000000102',
   'reauth', repeat('c', 64), repeat('d', 64), '/app/integraciones',
@@ -203,6 +216,14 @@ select is(
   (select count(*)::int from public.companies
     where id = 'c0a00000-0000-4000-8000-000000000102'),
   0, 'CIERRE 2: cero filas en companies');
+select is(
+  (select count(*)::int from public.chat_query_records
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  0, 'CIERRE 2: cero registros del chat, incluso sin conexión');
+select is(
+  (select count(*)::int from private.chat_turn_leases
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  0, 'CIERRE 2: cero arriendos del chat');
 
 select is(
   (select count(*)::int from public.company_members
