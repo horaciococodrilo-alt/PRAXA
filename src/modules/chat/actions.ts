@@ -14,8 +14,8 @@ import { renderTurn, type ChatTurnView } from './render';
 const LOGIN = '/login?next=%2Fapp%2Fchat';
 const questionSchema = z.strictObject({
   question: z.string().trim().min(1).max(CHAT_LIMITS.maxQuestionChars),
-  previous: z.array(z.string()).optional(),
-  pendingClarification: z.string().optional(),
+  previous: z.array(z.string().max(CHAT_LIMITS.maxQuestionChars)).max(20).optional(),
+  pendingClarification: z.string().max(CHAT_LIMITS.maxClarificationChars).optional(),
 });
 const voteSchema = z.strictObject({
   recordId: z.uuid(),

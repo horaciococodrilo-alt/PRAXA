@@ -277,6 +277,31 @@ describe('M25a.3 T-79/93: catálogo completo', () => {
     expect(view.blocks[0].table.rows[1].at(-1)).toBe('4');
   });
 
+  it('no apila series de otra métrica y respeta la fila citada', () => {
+    const otherEntity = 'a0000000-0000-4000-8000-000000000002';
+    const day = (date: string, value: string, ref: string, extra = {}) => ({
+      ...rawValue, path_key: 'day', day: date, presence: 'con_datos', composition: null,
+      value, absence: null, entity_ref: ref, ...extra });
+    const spend = result('daily_series', [day(period.from, '1', entity),
+      day(period.to, '4', entity)]);
+    const clicks = result('daily_series', [day(period.from, '2', otherEntity,
+      { metric: 'clicks', unit: 'count', currency: null })],
+    { scope: { entity_ref: otherEntity } }, 't2');
+    const stacked = { type: 'barras_apiladas', sources: [
+      { tool_call_id: 't1', path_prefix: '/values' },
+      { tool_call_id: 't2', path_prefix: '/values' }] };
+    expect(() => renderTurn({ kind: 'answer', answer: answer('Pila', [stacked]),
+      results: [spend, clicks], accountRef: '…0151', recordId })).toThrow();
+    const compatible = result('daily_series', [day(period.from, '2', otherEntity)],
+      { scope: { entity_ref: otherEntity } }, 't2');
+    const onlyFirstDay = { type: 'barras_apiladas', sources: [
+      { tool_call_id: 't1', path_prefix: '/values/0' },
+      { tool_call_id: 't2', path_prefix: '/values' }] };
+    const view = renderTurn({ kind: 'answer', answer: answer('Pila', [onlyFirstDay]),
+      results: [spend, compatible], accountRef: '…0151', recordId });
+    expect(view.blocks[0].table.rows).toHaveLength(1);
+  });
+
   it('lleva la tendencia con huecos al DTO y deja al padre sin sumar hijos', () => {
     const childRef = 'a0000000-0000-4000-8000-000000000002';
     const ranked = result('ranking', [{ ...rawValue, path_key: 'entity',

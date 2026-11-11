@@ -424,10 +424,31 @@ function renderBlock(block: Record<string, unknown>, results: ToolResult[]): Blo
       notes: dataLimits(selected, [block]), aria_label: title };
   }
   if (type === 'barras_apiladas') {
-    const days = [...new Set(selected.flatMap((result) => result.values
-      .filter((value) => value.path_key === 'day' && value.day).map((value) => value.day!)))].sort();
-    const bySeries = selected.map((result) => days.map((day) => result.values.find((value) =>
-      value.path_key === 'day' && value.day === day)));
+    const dayRows = selected.map((result) => selectedValues(block, result)
+      .filter((value) => value.path_key === 'day'));
+    const reference = dayRows.flat()[0];
+    const entities = dayRows.map((rows, index) =>
+      selected[index].scope.entity_ref ?? rows[0]?.entity_ref ?? null);
+    const samePeriod = (a: ToolResult['scope']['period'], b: ToolResult['scope']['period']) =>
+      a?.from === b?.from && a?.to === b?.to;
+    const stackable = !!reference && selected.length >= 2 &&
+      ['spend', 'impressions', 'clicks', 'inline_link_clicks', 'action_count',
+        'action_value'].includes(reference.metric) &&
+      new Set(entities).size === entities.length && !entities.includes(null) &&
+      selected.every((result, index) => result.tool_name === 'daily_series' &&
+        dayRows[index].length > 0 && result.account_ref === selected[0].account_ref &&
+        result.scope.level === selected[0].scope.level &&
+        samePeriod(result.scope.period, selected[0].scope.period)) &&
+      dayRows.flat().every((value) => value.metric === reference.metric &&
+        value.unit === reference.unit && value.currency === reference.currency &&
+        value.action_type === reference.action_type &&
+        (value.attribution_ref === reference.attribution_ref ||
+          value.attribution_ref === 'unknown' || reference.attribution_ref === 'unknown'));
+    if (!stackable) throw new Error('Las series no se pueden apilar.');
+    const days = [...new Set(dayRows.flatMap((rows) => rows
+      .filter((value) => value.day).map((value) => value.day!)))].sort();
+    const bySeries = dayRows.map((rows) => days.map((day) => rows.find((value) =>
+      value.day === day)));
     const totals = days.map((_, index) => {
       const present = bySeries.map((series) => series[index]?.value ?? null)
         .filter((value): value is string => value !== null);
