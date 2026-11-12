@@ -2,6 +2,8 @@
 
 ## Estado
 
+**Enmienda M26a (diagnóstico de Meta Ads), aprobada por el usuario el 2026-11-11:** agrega la sección 16 con el contrato acotado del diagnóstico y sus excepciones. Mantiene vigentes las exclusiones de recomendaciones, rentabilidad y reportes para `M25a` y el chat. No aprueba la spec ni el plan de `M26a`. Coordinada con la Parte I, II.14 y III de [el plan de la ruta](plan.md).
+
 **Enmienda de Insights ampliados, aprobada por el usuario el 2026-11-06:** el usuario confirmó el alcance de cuatro niveles y ordenó resolver e integrar la enmienda antes de M16c. El contrato vigente es §11 de la spec de la ruta; se coordinan Parte I, II.11, el chat y el acta M03a. La aprobación de alcance no cierra G-SYNC ni aprueba las specs/planes de implementación. Se conserva la evidencia histórica en [la propuesta inicial](../M16c/revisiones/propuesta-ampliacion-insights-1.md).
 
 **Enmienda CA-67 aprobada expresamente por el usuario el 2026-10-19:** incorpora al cierre la gestión de borrado anticipado de los correos de Auth que todavía conserve Resend. Los cinco pasos locales conservan su orden. Este texto es vigente.
@@ -597,6 +599,24 @@ Criterios transversales:
   - La visibilidad del repositorio y la reescritura del historial, que siguen siendo una decisión del usuario; no se hacen automáticamente.
 - **Rutas desactualizadas. Resuelto en `M04a` (H-E1-02).** `AGENTS.md`, líneas 15 y 16, apuntaba a `docs/microfases/<ID>/`, pero la estructura real es `docs/FASES/FASE1/<MF>/`. Además, `docs/FASES/FASE1/MF04/m04-1-auditoria.md` citaba un nombre anterior del roadmap; también se aclaró en `M04a`.
 - **`SECURITY.md`, sección «9. Datos, retención y borrado».** Dice que no hay política de retención. Se alinea con DEC-09 cuando `M03a` la ratifique.
+
+## 16. Diagnóstico de Meta Ads (M26a)
+
+Contrato nuevo y acotado, separado del chat. La spec de la microfase es [`M26a/spec.md`](../M26a/spec.md).
+
+1. `M26a` usa únicamente los datos persistidos del catálogo §11. Se admiten 28 días actuales, 28 anteriores si hay cobertura, cuatro niveles y desgloses disponibles. Ausencia, cero y falta de cobertura son distintos. No se infieren cohortes de compradores, productos vendidos ni ganancia neta desde Meta.
+2. El dueño confirma un objetivo y un `action_type` verificado. Si faltan acciones o valores compatibles, el informe se vuelve parcial; no se fabrica una métrica sustituta. El retorno, cuando sea calculable, se rotula «valor atribuido por Meta / gasto» y no «ganancia».
+3. La búsqueda en vivo se ejecuta por separado, con consultas genéricas de rubro/país/tema sin cifras, identificadores ni nombres de campañas. Solo entran fuentes originales con URL y fecha comprobables; si falta contexto pertinente, se omite. El texto web no ordena al sistema ni modifica cálculos.
+4. Claude recibe evidencia estructurada y acotada procedente de todos los anuncios elegibles; PRAXA calcula y presenta las cifras. La salida del modelo usa estructura validada, referencias a evidencia, interpretaciones marcadas y hasta tres oportunidades. Una muestra pequeña permite hipótesis, no una certeza inventada.
+5. Una generación se bloquea sin objetivo, conexión activa, sincronización de menos de 24 horas, sincronización posterior al informe o intervalo de 24 horas entre informes. Sin actividad no llama al modelo. Datos parciales permiten informe parcial.
+6. Solo hay un informe vigente visible. Se publica el nuevo y se elimina el anterior en la misma transacción; fallas conservan el anterior. Es una excepción expresa a reversibilidad. El PDF se genera bajo autorización desde el informe vigente y no se guarda como objeto persistente. El informe se oculta tras desconexión, pero se conserva hasta reemplazo o borrado de empresa.
+7. La cuenta piloto sin actividad se prueba con estado insuficiente y fixtures sintéticos. `G-DIAG` acredita funcionamiento técnico y calidad revisada; no acredita impacto en ventas.
+
+**Excepciones expresas, aprobadas por el usuario el 2026-11-11 con la enmienda y vigentes solo cuando se apruebe el acta nueva y la spec de `M26a`:**
+
+- **Reversibilidad.** Al publicar un informe nuevo se elimina el anterior en la misma transacción, y su texto exacto no se puede restaurar. Ninguna otra escritura pierde reversibilidad.
+- **Retención.** Un único informe derivado se conserva sin clave foránea que lo borre con la conexión: se oculta al desconectar y se elimina al reemplazarlo o al borrar la empresa. `purge_connection` y CA-67 siguen borrando los datos de la conexión.
+- **Tercero con datos.** Anthropic es el destino exclusivo del diagnóstico, con su retención estándar y una búsqueda web separada sin datos privados. DeepInfra sigue siendo el destino del chat. Hay que reaprobar el acta `M03a` y avisar al dueño antes de enviar datos reales.
 
 ## Fuentes
 

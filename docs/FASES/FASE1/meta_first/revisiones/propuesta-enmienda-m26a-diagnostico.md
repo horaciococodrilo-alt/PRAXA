@@ -1,6 +1,6 @@
 # Propuesta de enmienda — M26a Diagnóstico de Meta Ads
 
-**Estado:** BORRADOR, sin vigencia. Preparada el 2026-11-11 a pedido del usuario después del grill de producto. No modifica la ruta aprobada ni cierra `G-CHAT`.
+**Estado:** INTEGRADA en la ruta el 2026-11-11, por aprobación expresa del usuario (Parte I, II.14, III y spec §16). Fue redactada como BORRADOR, sin vigencia. Preparada el 2026-11-11 a pedido del usuario después del grill de producto. No modifica la ruta aprobada ni cierra `G-CHAT`.
 
 ## Decisiones del usuario que originan la propuesta
 
