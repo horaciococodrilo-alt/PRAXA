@@ -2,6 +2,7 @@
 
 **Versión:** 1.0 — 2026-09-24
 **Estado:** `APROBADO PARA EJECUCIÓN`. `M04a` está cerrada y `G-DOCS` fue aprobado por el usuario el 2026-09-24. El estado de cada microfase y la siguiente habilitada están en `docs/PROJECT_STATE.md`.
+**Enmienda M25b, aprobada por el usuario el 2026-11-11** ([propuesta](revisiones/propuesta-enmienda-m25b-1.md)): después de `G-SYNC` se ejecuta en paralelo con M25a un detector determinístico y reutilizable de anomalías de Meta Ads. Agrega DEC-25, CA-74 a CA-81, `G-ANOMALIES`, la ficha M25b, II.13c y sus verificaciones. No modifica diagnóstico, chat ni reportes y no consulta ni escribe Meta. **El texto enmendado es vigente.**
 **Enmienda de corrida única de M16c, aprobada por el usuario el 2026-11-07:** `M16c` se ejecuta como una microfase única en tres etapas, con una spec, un plan, una corrida de `/microfase` y un solo gate (`G-SYNC`); `G-SYNC-DB` y `G-SYNC-EXTRACT` pasan a ser controles de etapa. Excepción puntual al límite de 8 horas de `AGENTS.md` (D-M16c-05). Cambian la ficha de `M16c`, sus etapas, II.11, III.2 y III.3. Evidencia: [sesión](sesiones/enmienda-corrida-unica-2026-11-07.md) y [propuesta](../M16c/revisiones/propuesta-enmienda-corrida-unica-1.md). **El texto enmendado es vigente.**
 **Enmienda G-SYNC con cuenta sin actividad, aprobada por el usuario el 2026-11-07:** Q-04 se fija según la spec (duración por debajo de Vercel, ventana de CA-47b y cotas técnicas) y `G-SYNC` puede cerrarse con la sincronización real de los cuatro niveles con 0 filas; la validación de campos queda en `H-E1-189` como riesgo aceptado temporal (D-M16c-02). Cambian la Base, la ficha de `M16c`, II.11 y III.4 de este plan, y la línea 23 y la fila Q-04 de la spec de la ruta. Evidencia: [sesión](sesiones/enmienda-gsync-2026-11-07.md). **El texto enmendado es vigente.**
 **Enmienda de Insights ampliados, aprobada por el usuario el 2026-11-06:** el usuario confirmó el alcance de cuatro niveles y ordenó resolver e integrar la enmienda antes de M16c. El contrato vigente es §11 de la spec de la ruta; se coordinan Parte I, II.11, el chat y el acta M03a. La aprobación de alcance no cierra G-SYNC ni aprueba las specs/planes de implementación. Se conserva la evidencia histórica en [la propuesta inicial](../M16c/revisiones/propuesta-ampliacion-insights-1.md).
@@ -61,6 +62,7 @@ Antes de `M04a`, `AGENTS.md` ponía a `docs/ROADMAP.md` por encima de la spec y 
 | — | `M16c` — Insights diarios | Nueva |
 | — | `M16d` — App Review y Business Verification | Nueva, **fuera de la ruta**: hace falta recién para escalar |
 | `M25.1` a `M25.5` — Chat | `M25a` | Chat sobre el catálogo de §11 con entidades, atribución, cifras verificadas, cálculos y bloques visuales |
+| — | `M25b` — Detector de anomalías | Nueva; paralela a M25a después de `G-SYNC` |
 | `M28.2` — Despliegue | `M28.2a` — Entorno del piloto | Adelanta un despliegue mínimo |
 | `M28.3` — Guion de demostración | `M28.3a` — Demo con el dueño y cierre | Nueva |
 
@@ -74,7 +76,7 @@ Antes de `M04a`, `AGENTS.md` ponía a `docs/ROADMAP.md` por encima de la spec y 
 - workers, colas o programación automática;
 - Tiendanube y GA4;
 - reportes publicados;
-- métricas derivadas, recomendaciones y explicaciones causales;
+- recomendaciones y explicaciones causales; las comparaciones determinísticas versionadas de M25b son la única ampliación de métricas derivadas;
 - base vectorial.
 
 ## I.2 Mapa de la ruta
@@ -92,7 +94,9 @@ flowchart LR
   I --> J["M16.2 Ciclo de vida, alta del dueño y VR-01"]
   J --> K["M16c Insights"]
   K --> L["M25a Chat completo: herramientas, modelo, VR-02 y bloques"]
+  K --> M["M25b Anomalías determinísticas"]
   L --> N["M28.3a Demo y cierre"]
+  M --> N
   O["M16d App Review — fuera de la ruta"] -.-> N
 ```
 
@@ -113,8 +117,9 @@ flowchart LR
 | `G-ACTA-META` | `M03a` | Primer dato real: alta y autorización del dueño en `M16.2` |
 | `G-OAUTH` | `M16.1` | `M16.2` |
 | `G-VR01` | `M16.2` | `M16c` |
-| `G-SYNC` | `M16c` | `M25a` |
+| `G-SYNC` | `M16c` | `M25a` y `M25b` en paralelo |
 | `G-CHAT` | `M25a` | `M28.3a` |
+| `G-ANOMALIES` | `M25b` | `M28.3a`, junto con `G-CHAT` |
 | `G-DEMO` | `M28.3a`, al completar la demostración | Cierre de la ruta. El piloto sigue hasta su fin, y entonces se ejecuta CA-67 (DEC-20) |
 
 ## I.4 Microfases
@@ -358,6 +363,21 @@ Las tres etapas se ejecutan en orden, en una sola corrida de `/microfase M16c` e
 | `M25a.3` | Los 19 bloques, casos dudosos, teléfono y accesibilidad, y evaluación ampliada | Los mismos y recorrido manual en la aplicación |
 
 **VR-02 es una parada obligatoria:** la etapa `.3` no empieza si no pasó. Si falla, primero se diagnostica la causa. Cambiar de host es el último recurso y exige actualizar configuración, pruebas y `M03a`, además de `llm.ts`.
+
+### M25b — Detector de anomalías de Meta Ads
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M25b` — ≤8 h, dos etapas internas con una spec y un plan |
+| **Objetivo** | Detectar cambios relevantes de CTR, CPC, CPM, gasto y CPA confiable, con períodos, severidad y evidencia. |
+| **Implementación requerida** | Motor puro y reutilizable; adaptador server-only sobre cobertura persistida de cuenta y campaña; `/app/anomalias`; demostración sintética separada. |
+| **Procedimiento del asistente** | Pruebas primero, decimales exactos y gates por regla. Ausencia nunca es cero. No tocar diagnóstico, chat, reporting, migraciones ni Meta. |
+| **Evidencia de cierre** | `sesiones/M25b.md`: rojo/verde, pruebas focalizadas, `verify`, diff y recorrido real/demo. |
+| **Criterio de aceptación** | CA-74 a CA-81 y CB-01 a CB-06. CPA se omite si falta compra explícita o atribución compatible; el demo nunca se mezcla con datos reales. |
+| **Pruebas** | Unitarias, componentes, aplicación focalizada contra el desechable y recorrido manual. |
+| **Condición para avanzar** | `G-ANOMALIES`. |
+| **Dependencias / habilita** | `G-SYNC` / `M28.3a` junto con `G-CHAT` |
+| **Intervención requerida del usuario** | Aprobar documentos; hacer commit, push, PR, integración, despliegue y aprobar el gate. |
 
 ### M28.3a — Demo con el dueño y cierre del piloto
 
@@ -777,6 +797,21 @@ El catálogo y la semántica exactos viven en §11 de la spec (DEC-22); no se du
 
 ---
 
+## II.13c `M25b` — Detector de anomalías de Meta Ads
+
+| Paso | Acción | Archivos | Verificación |
+|---:|---|---|---|
+| 1 | Pruebas rojas del contrato, ventanas, precisión, reglas y CPA | `tests/unit/meta-anomalies.test.ts` | CA-74 a CA-78 |
+| 2 | Contrato versionado, decimal exacto y motor puro | `src/modules/anomalies/contract.ts`, `decimal.ts`, `detect.ts`, `index.ts` | unit focalizada verde |
+| 3 | Pruebas rojas de estados, demo, navegación, tenant y RLS | `tests/component/app-anomalias.test.tsx`, `tests/app/meta-anomalies.test.ts` | CA-79 a CA-81 |
+| 4 | Adaptador real, fixture sintético y página accesible | `src/modules/anomalies/load.ts`, `demo.ts`, página y componentes de anomalías, cambio aditivo en `shell.tsx` | component/app focalizadas verdes |
+| 5 | Documentación y cierre | `ARCHITECTURE.md`, `PROJECT_STATE.md`, documentos y sesión M25b | `verify`, diff y recorrido real/demo |
+
+No hay migración ni llamada a Meta. La necesidad de una RPC nueva, persistencia o archivo
+prohibido detiene la microfase.
+
+---
+
 ## II.14 `M28.3a` — Demo con el dueño y cierre
 
 | Paso | Quién | Acción | Verificación |
@@ -838,6 +873,7 @@ El detalle y los criterios de aceptación están en la spec v1.0.
 | DEC-20 | `M28.3a` se cierra al completar la demostración; CA-67 se ejecuta al finalizar el piloto |
 | DEC-21 | Umbrales de VR-02 adoptados como criterios iniciales |
 | DEC-22 | Catálogo de Insights ampliados, granularidad y agregación: §11 de la spec; cortes y archivos: ficha M16c e II.11 |
+| DEC-25 | Detector de anomalías determinístico y reutilizable, paralelo a M25a; CA-74 a CA-81 y II.13c |
 | D2 | Sin worker: la sincronización es manual y la limitación se declara en la interfaz |
 | K01 | `M05.1.1` entra en la ruta como primer contrato |
 
@@ -857,6 +893,7 @@ El detalle y los criterios de aceptación están en la spec v1.0.
 | `M16c`, etapa .3 | Comunicar el acta ampliada al dueño antes de la primera captura ampliada; coordinar sincronización real y publicación reservada |
 | `M25a.2` | Crear la cuenta de DeepInfra y cargar `DEEPINFRA_API_KEY` |
 | `M25a.3` | Aprobar de nuevo el acta y comunicar el cambio al dueño; `db:push` de `0018` y `0019` en orden en `app`, publicar y aprobar `G-CHAT` |
+| `M25b` | Aprobar documentos; hacer commit/push/PR, coordinar la integración con diagnóstico, desplegar y aprobar `G-ANOMALIES` |
 | `M28.3a` | Coordinar la demostración. Pasar a Supabase Pro si el dueño lo va a usar sin acompañamiento |
 | Fin del piloto | Ejecutar los pasos de CA-67 que requieren dashboard y quitar al dueño como tester |
 | Para escalar (fuera de la ruta) | `M16d`: Business Verification, dominio y App Review |
@@ -883,6 +920,7 @@ Ninguna clave se pega en el chat.
 | `M25a.1` | `test:policies`, `test:app` |
 | `M25a.2` | Suite adversaria; VR-02 |
 | `M25a.3` | `test:policies`, `test:app`; evaluación ampliada; recorrido manual |
+| `M25b` | `db:check:test`, `test:app` focalizado; unit/component focalizadas y recorrido real/demo |
 | `M28.3a` | Checklists de la demo y del cierre |
 
 Toda evidencia registra los comandos y sus resultados reales. Nada se declara probado si no se ejecutó (CB-05). Un gate no se aprueba si una prueba requerida se omitió por falta de configuración (CB-06).
@@ -973,6 +1011,7 @@ IDs sugeridos. Si chocan con los existentes, se sigue la numeración vigente.
 | `M16.2` | El dueño registrado conecta su cuenta real, con moneda y zona, y puede desconectarla |
 | `M16c` | Gasto e impresiones por día, con los huecos y los días abiertos marcados |
 | `M25a` | El chat completo, con cálculos y bloques, al publicar con `G-CHAT` |
+| `M25b` | Alertas de Meta con comparación, severidad y evidencia; demo sintético rotulado si faltan datos reales |
 | `M28.3a` | La demostración con el dueño. El piloto sigue hasta su fin |
 
 Si hay que elegir qué llega primero a una demostración, son `M16.1` y `M16.2`: prueban el conector.

@@ -26,7 +26,18 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 
 ## Siguiente habilitada
 
-**M25a — TERMINADA en etapa .3; pasos 16–23 cerrados, el 20 y el 21 por excepciones únicas del usuario (H-E1-222 y H-E1-227) y el 23 por decisión del usuario con limitaciones (H-E1-229)** en `mf/M25a`, por `G-SYNC` aprobado (2026-11-08). La etapa .1 quedó cerrada por el commit del usuario `a1102fc10a49e7e7dfff5f04f18b1aa0b1ccf412`; la .2, por el commit del usuario `6f60dcac5f2317e819495e45dc1d44ba2bbaa7d4`. **VR-02 base y ampliada de .3 no fueron aprobadas**; H-E1-221 y H-E1-224 requieren revisión antes de la demo. El paso 22 acreditó siembra y limpieza en el desechable por declaración del usuario. Evidencia en [sesiones/M25a.md](FASES/FASE1/meta_first/sesiones/M25a.md). `G-CHAT` sigue pendiente; la guía del paso 23 está preparada; recorrido manual del usuario pendiente. Secuencia restante: M25a → M28.3a. **H-E1-228 (2026-11-10, excepción del usuario): la pregunta viaja tal cual al modelo y se retiró por completo la guarda; la VR-02 debe remedirse antes de la demo.**
+**M25a — TERMINADA en etapa .3; pasos 16–23 cerrados, el 20 y el 21 por excepciones únicas del usuario (H-E1-222 y H-E1-227) y el 23 por decisión del usuario con limitaciones (H-E1-229)** en `mf/M25a`, por `G-SYNC` aprobado (2026-11-08). La etapa .1 quedó cerrada por el commit del usuario `a1102fc10a49e7e7dfff5f04f18b1aa0b1ccf412`; la .2, por el commit del usuario `6f60dcac5f2317e819495e45dc1d44ba2bbaa7d4`. **VR-02 base y ampliada de .3 no fueron aprobadas**; H-E1-221 y H-E1-224 requieren revisión antes de la demo. El paso 22 acreditó siembra y limpieza en el desechable por declaración del usuario. Evidencia en [sesiones/M25a.md](FASES/FASE1/meta_first/sesiones/M25a.md). `G-CHAT` sigue pendiente; la guía del paso 23 está preparada; recorrido manual del usuario pendiente. Secuencia restante: M25a y M25b en paralelo → M28.3a. **H-E1-228 (2026-11-10, excepción del usuario): la pregunta viaja tal cual al modelo y se retiró por completo la guarda; la VR-02 debe remedirse antes de la demo.**
+
+## Trabajo paralelo autorizado
+
+**M25b — IMPLEMENTACIÓN TERMINADA; GATE PENDIENTE** en `feat/m25b-meta-anomalies`, habilitada
+por `G-SYNC` y aprobada por el usuario el 2026-11-11. El detector determinístico y reutilizable,
+la pantalla, el demo separado y sus pruebas están implementados sin tocar diagnóstico, chat ni
+reporting. `G-ANOMALIES` sigue pendiente del recorrido autenticado, integración, despliegue y
+aprobación del usuario; la prueba contra el proyecto desechable no se acreditó porque este entorno
+no tiene sus variables. M25b y M25a deben estar integradas antes de M28.3a; ninguna habilita ni
+bloquea la implementación de la otra. Evidencia en
+[sesiones/M25b.md](FASES/FASE1/M25b/sesiones/M25b.md).
 
 ## Fuera de la ruta o pospuesto
 
