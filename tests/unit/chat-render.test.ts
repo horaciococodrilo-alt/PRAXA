@@ -510,6 +510,7 @@ describe('M25a.3 paso 23: hallazgos del recorrido', () => {
     const withText = renderTurn({ kind: 'answer', answer: answer('Una posible lectura es esta.'),
       results: [result('total')], accountRef: '…0151', recordId });
     expect(withText.footer?.data_limits.join(' ')).toContain('lectura del asistente');
+    expect(withText.footer?.data_limits.join(' ')).toContain('puede incluir números que no vienen de tus datos');
     const withoutText = renderTurn({ kind: 'answer', answer: answer('  ', [block('tabla')]),
       results: [result('total')], accountRef: '…0151', recordId });
     expect(withoutText.footer?.data_limits.join(' ')).not.toContain('lectura del asistente');
@@ -562,5 +563,46 @@ describe('M25a.3 paso 23: hallazgos del recorrido', () => {
       [block('tabla_tendencia')]), results: [ranked], accountRef: '…0151', recordId });
     expect(view.blocks[0].table.rows).toHaveLength(1);
     expect(view.blocks[0].notes.join(' ')).toContain('No hay tendencia disponible');
+  });
+});
+
+describe('barras agrupadas: agrupación para el gráfico horizontal', () => {
+  it('agrupa por métrica y distingue el período A del B', () => {
+    const compared = result('compare_periods', [
+      { ...rawValue, path_key: 'a', value: '10' },
+      { ...rawValue, path_key: 'b', value: '5' },
+    ]);
+    const view = renderTurn({ kind: 'answer', answer: answer('Comparación',
+      [block('barras_agrupadas')]), results: [compared], accountRef: '…0151', recordId });
+    const points = view.blocks[0].series[0].points;
+    expect(points.map((point) => [point.group, point.member])).toEqual([
+      ['Gasto', 'Período A'], ['Gasto', 'Período B']]);
+    expect(points.map((point) => point.ratio)).toEqual([10000, 5000]);
+  });
+
+  it('agrupa edad y género con el género como miembro', () => {
+    const segments = result('breakdown', [
+      { ...rawValue, path_key: 'segment', metric: 'clicks', unit: 'count', currency: null,
+        value: '8', segment_primary: '25-34', segment_secondary: 'female' },
+      { ...rawValue, path_key: 'segment', metric: 'clicks', unit: 'count', currency: null,
+        value: '4', segment_primary: '25-34', segment_secondary: 'male' },
+    ]);
+    const view = renderTurn({ kind: 'answer', answer: answer('Edad',
+      [block('barras_agrupadas')]), results: [segments], accountRef: '…0151', recordId });
+    expect(view.blocks[0].series[0].points.map((point) => [point.group, point.member]))
+      .toEqual([['25-34', 'female'], ['25-34', 'male']]);
+  });
+
+  it('sin segundo segmento no hay grupo y barras simples no llevan grupo', () => {
+    const countries = result('breakdown', [
+      { ...rawValue, path_key: 'segment', metric: 'clicks', unit: 'count', currency: null,
+        value: '8', segment_primary: 'AR' },
+    ]);
+    const grouped = renderTurn({ kind: 'answer', answer: answer('País',
+      [block('barras_agrupadas')]), results: [countries], accountRef: '…0151', recordId });
+    expect(grouped.blocks[0].series[0].points[0]).toMatchObject({ group: null, member: 'AR' });
+    const simple = renderTurn({ kind: 'answer', answer: answer('País',
+      [block('barras')]), results: [countries], accountRef: '…0151', recordId });
+    expect(simple.blocks[0].series[0].points[0]).not.toHaveProperty('group');
   });
 });

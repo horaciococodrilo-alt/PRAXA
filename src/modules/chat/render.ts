@@ -1,12 +1,23 @@
 import { compareDecimal, parseSqlDecimal } from './decimal';
 import { relativeToMax, shareOfTotal } from './scale';
+import { CHAT_LIMITS } from './limits';
 import { modelMarkers, type ToolResult } from './tools/results';
+
+// El texto de la aclaración se expande con nombres de entidad y puede superar el límite que
+// luego exigen actions.ts y prepareHistory (en unidades UTF-16): se acota para no perder la respuesta.
+function boundedClarification(text: string): string {
+  const max = CHAT_LIMITS.maxClarificationChars;
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max - 1);
+  const last = cut.charCodeAt(cut.length - 1);
+  return `${last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut}…`;
+}
 
 export type Segment = Readonly<{ type: 'plain' | 'observed' | 'entity' | 'label' |
   'user_provided'; text: string }>;
 export type BlockView = Readonly<{ type: string; title: string;
   series: { label: string; points: { x: string; text: string | null;
-    ratio: number | null; absence: string | null }[] }[];
+    ratio: number | null; absence: string | null; group?: string | null; member?: string }[] }[];
   table: { headers: string[]; rows: string[][] }; notes: string[];
   aria_label: string; items?: { segments: Segment[]; provenance: string }[];
   suggestions?: { id: string; text: string }[];
@@ -30,7 +41,7 @@ const INCOMPATIBLE = 'No puedo sumar estos resultados: Meta los contó con confi
 const MIXED = 'Estos resultados usan ventanas de atribución distintas: la comparación es orientativa.';
 const BREAKDOWN = 'Los desgloses son estimados por Meta y no se reconcilian con los totales.';
 const FAILED_BREAKDOWN = 'El último intento de actualizar este desglose falló: estos datos pueden estar desactualizados.';
-const OPINION = 'El texto es una lectura del asistente y no está verificado; los números y gráficos salen de tus datos.';
+const OPINION = 'El texto es una lectura del asistente y no está verificado: puede incluir números que no vienen de tus datos. Solo los números de los gráficos y tablas salen de tus datos.';
 const PARTIAL = 'Algunas filas no tienen datos todos los días del período: sus totales son parciales.';
 
 const FIXED: Record<string, string> = {
@@ -307,6 +318,16 @@ function rowLabel(value: ToolResult['values'][number]): string {
   if (value.path_key === 'total') return metricLabel(value);
   return value.entity_name ?? value.path_key;
 }
+// Barras agrupadas: una barra por período (A/B) o por segundo segmento (género), agrupadas por
+// la métrica o por el primer segmento (edad). Sin segundo segmento no hay grupo.
+function barGroup(value: ToolResult['values'][number]): { group: string | null; member: string } {
+  if (value.path_key === 'a' || value.path_key === 'b') {
+    return { group: metricLabel(value), member: rowLabel(value) };
+  }
+  return value.segment_secondary ?
+    { group: value.segment_primary ?? null, member: value.segment_secondary } :
+    { group: null, member: rowLabel(value) };
+}
 function rowText(value: ToolResult['values'][number]): string {
   if (value.value === null) return value.absence === 'sin_fila_reportada' ?
     'Sin fila reportada' : value.absence === 'no_observado' ? 'No observado' :
@@ -531,7 +552,8 @@ function renderBlock(block: Record<string, unknown>, results: ToolResult[]): Blo
   const ratios = type === 'dona' ? shareOfTotal(donutShares) :
     relativeToMax(values.map((value) => value.value));
   const points = values.map((value, index) => ({ x: rowLabel(value),
-    text: value.value, ratio: ratios[index], absence: value.absence }));
+    text: value.value, ratio: ratios[index], absence: value.absence,
+    ...(type === 'barras_agrupadas' ? barGroup(value) : {}) }));
   const rows = values.map((value, index) => type === 'dona' ?
     [rowLabel(value), rowText(value), `${donutShares[index]}%`] :
     [rowLabel(value), rowText(value)]);
@@ -576,7 +598,7 @@ export function renderTurn(input: RenderInput): ChatTurnView {
     can_vote: recordId !== null,
     segments: visibleSegments, blocks, footer: footer(input),
     pending_clarification: input.kind === 'clarification' ?
-      visibleSegments.map((segment) => segment.text).join('') : null,
+      boundedClarification(visibleSegments.map((segment) => segment.text).join('')) : null,
     retry_allowed: ['model_unavailable', 'tool_error', 'record_failed'].includes(reason),
     link_to_integrations: reason === 'connection_not_active' };
 }

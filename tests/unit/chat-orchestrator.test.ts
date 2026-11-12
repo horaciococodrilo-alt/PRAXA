@@ -435,6 +435,43 @@ describe('M25a-T-35/59/66/69/70/73/75/80/87–89/91/94: turno', () => {
     expect(dep.log.mock.calls[0][0].latency_ms).toBeLessThanOrEqual(60_000);
   });
 
+  it('libera el arriendo aunque el turno haya agotado su plazo', async () => {
+    const { dep } = harness();
+    let clock = 0;
+    dep.now.mockImplementation(() => clock);
+    dep.choose.mockImplementationOnce(async () => { clock = 61_000;
+      return { output: choice('answer'), reportedModelId: 'choice' }; });
+    await runChatTurn({ question: 'Hola' }, dep);
+    expect(dep.end).toHaveBeenCalledTimes(1);
+    expect(dep.log.mock.calls[0][0].lease_released).toBe(true);
+  });
+
+  it('intenta liberar el arriendo si begin vence el plazo tras confirmarse', async () => {
+    const { dep } = harness();
+    let clock = 0;
+    dep.now.mockImplementation(() => clock);
+    dep.begin.mockImplementationOnce(async () => { clock = 51_000; });
+    const view = await runChatTurn({ question: 'Hola' }, dep);
+    expect(view.kind).toBe('abstention');
+    expect(dep.end).toHaveBeenCalledTimes(1);
+    expect(dep.choose).not.toHaveBeenCalled();
+  });
+
+  it('acota la aclaración expandida para que la próxima entrada no sea rechazada', async () => {
+    const { dep } = harness();
+    dep.choose.mockResolvedValueOnce({ output: choice('call_tools',
+      [{ name: 'total', args: {} }]), reportedModelId: 'choice' })
+      .mockResolvedValueOnce({ output: {
+        ...choice('clarify'), clarification_text: `${'a'.repeat(250)} ⟦ENTIDAD_A⟧`,
+      }, reportedModelId: 'choice' });
+    dep.execute.mockResolvedValueOnce({ ...toolResult, scope: { ...toolResult.scope,
+      entity_name: 'Campaña '.repeat(20) } });
+    const view = await runChatTurn({ question: 'Hola' }, dep);
+    expect(view.kind).toBe('clarification');
+    expect(view.pending_clarification!.length).toBeLessThanOrEqual(300);
+    expect(view.pending_clarification!.endsWith('…')).toBe(true);
+  });
+
   it('falla temprano sin modelo y libera el arriendo cuando corresponde', async () => {
     const k01 = harness();
     k01.dep.context.mockRejectedValueOnce(new Error('synthetic'));

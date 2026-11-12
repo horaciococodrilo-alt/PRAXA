@@ -287,6 +287,9 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
       await within(() => deps.begin(ctx!, turnId), workDeadline, deps.now);
       leased = true;
     } catch (error) {
+      // Si venció el plazo, begin pudo confirmarse en la base: se intenta liberar el lease
+      // (end_chat_turn solo borra el lease de este turn_id, así que es inocuo si no existe).
+      if (error instanceof DeadlineError) leased = true;
       const inProgress = (error as WorkerApiError)?.code === 'chat_turn_in_progress';
       return renderTurn({ kind: inProgress ? 'notice' : 'abstention',
         reason: inProgress ? 'chat_turn_in_progress' : 'record_failed',
@@ -389,7 +392,9 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
     }
   } finally {
     if (leased && ctx) {
-      try { leaseReleased = await within(() => deps.end(ctx!, turnId), deadline, deps.now); }
+      // Plazo propio: si el turno agotó el suyo, igual hay que liberar el lease.
+      const releaseDeadline = deps.now() + CHAT_LIMITS.leaseReleaseTimeoutMs;
+      try { leaseReleased = await within(() => deps.end(ctx!, turnId), releaseDeadline, deps.now); }
       catch { leaseReleased = false; }
     }
     deps.log({ request_id: ctx?.request_id ?? turnId, outcome, reason,

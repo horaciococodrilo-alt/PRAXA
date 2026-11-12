@@ -150,4 +150,12 @@ describe('M25a-T-33/T-34: adaptador DeepInfra', () => {
       fetchImpl: vi.fn(async () => Response.json(completion(JSON.stringify(choice), 'stop', null))) });
     expect(result.reportedModelId).toBeNull();
   });
+
+  it('normaliza el modelo informado vacío o largo para que record_query lo acepte', async () => {
+    const run = (model: unknown) => requestChatModel({ phase: 'choice', messages: [],
+      apiKey: 'clave-falsa', fetchImpl: vi.fn(async () =>
+        Response.json(completion(JSON.stringify(choice), 'stop', model))) });
+    expect((await run('')).reportedModelId).toBeNull();
+    expect((await run('m'.repeat(300))).reportedModelId).toBe('m'.repeat(128));
+  });
 });
