@@ -18,7 +18,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(34);
+select plan(37);
 
 -- ---------------------------------------------------------------------------
 -- Parte 1: empresa con contexto activo y reporte, sin integración
@@ -199,6 +199,28 @@ select 1 from worker_api.publish_breakdown(
     'spend', '1.50', 'impressions', '10', 'clicks', null, 'inline_link_clicks', null,
     'ctr', null, 'cpc', null, 'cpm', null, 'actions', '[]'::jsonb))));
 
+-- M26a: objetivo, reserva vigente e informe publicado (T-22, CA-67/68). El informe no
+-- tiene FK a la conexión: la cascada llega solo desde companies.
+select 1 from worker_api.save_diagnostic_settings(
+  'aaaaaaaa-0000-4000-8000-000000000102', 'c0a00000-0000-4000-8000-000000000102',
+  'purchase', 'actions:purchase');
+insert into private.meta_diagnostic_reservations
+  (company_id, request_id, connection_id, credential_generation, sync_finished_at,
+   started_at, expires_at)
+values ('c0a00000-0000-4000-8000-000000000102', 'd1a00000-0000-4000-8000-000000000102',
+        'cc000000-0000-4000-8000-000000000102', 0, now(), now(), now() + interval '5 minutes');
+insert into public.diagnostic_reports
+  (company_id, connection_id, credential_generation, request_id, generated_at,
+   window_from, window_to, prev_from, prev_to, sync_finished_at, schema_version,
+   methodology_version, settings, evidence, output, web_sources, model_requested,
+   model_reported, usage)
+values ('c0a00000-0000-4000-8000-000000000102', 'cc000000-0000-4000-8000-000000000102', 0,
+        'd1a00000-0000-4000-8000-000000000103', now(), current_date - 27, current_date,
+        null, null, now(), 1, 'meta-diag-1',
+        '{"goal_kind":"purchase","metric_ref":"actions:purchase"}'::jsonb,
+        '{"items":[],"totals":{},"manifest":{}}'::jsonb, '{}'::jsonb, '[]'::jsonb,
+        'modelo_sintetico', 'modelo_sintetico', '{"calls":1,"batches":0,"steps":[]}'::jsonb);
+
 -- H-E1-06: el usuario no se puede borrar antes que su empresa.
 select throws_ok(
   $$delete from auth.users where id = 'aaaaaaaa-0000-4000-8000-000000000102'$$,
@@ -319,6 +341,21 @@ select is(
   (select count(*)::int from public.meta_breakdown_status
     where company_id = 'c0a00000-0000-4000-8000-000000000102'),
   0, 'CIERRE 2: cero filas en meta_breakdown_status');
+
+select is(
+  (select count(*)::int from public.diagnostic_settings
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  0, 'CIERRE 2: cero filas en diagnostic_settings (M26a)');
+
+select is(
+  (select count(*)::int from private.meta_diagnostic_reservations
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  0, 'CIERRE 2: cero reservas de diagnóstico (M26a)');
+
+select is(
+  (select count(*)::int from public.diagnostic_reports
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  0, 'CIERRE 2: cero informes de diagnóstico, aunque no tengan FK a la conexión (M26a)');
 
 select lives_ok(
   $$delete from auth.users where id = 'aaaaaaaa-0000-4000-8000-000000000102'$$,
