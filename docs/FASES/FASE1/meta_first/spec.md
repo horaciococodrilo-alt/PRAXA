@@ -604,8 +604,10 @@ Criterios transversales:
 
 Contrato nuevo y acotado, separado del chat. La spec de la microfase es [`M26a/spec.md`](../M26a/spec.md).
 
+**Enmienda correctiva del 2026-11-13:** por decisión expresa del usuario de conservar `traffic` (D-M26a-R8) y alinear la ruta, §16.2 distingue los objetivos basados en acciones del objetivo de tráfico. No cambia los demás puntos de §16.
+
 1. `M26a` usa únicamente los datos persistidos del catálogo §11. Se admiten 28 días actuales, 28 anteriores si hay cobertura, cuatro niveles y desgloses disponibles. Ausencia, cero y falta de cobertura son distintos. No se infieren cohortes de compradores, productos vendidos ni ganancia neta desde Meta.
-2. El dueño confirma un objetivo y un `action_type` verificado. Si faltan acciones o valores compatibles, el informe se vuelve parcial; no se fabrica una métrica sustituta. El retorno, cuando sea calculable, se rotula «valor atribuido por Meta / gasto» y no «ganancia».
+2. El dueño confirma un objetivo. Para `purchase` e `inquiry` elige un `action_type` observado y verificado; para `traffic` usa `inline_link_clicks` sin `action_type`. Si faltan acciones o valores compatibles, el informe se vuelve parcial; no se fabrica una métrica sustituta. El retorno, cuando sea calculable, se rotula «valor atribuido por Meta / gasto» y no «ganancia».
 3. La búsqueda en vivo se ejecuta por separado, con consultas genéricas de rubro/país/tema sin cifras, identificadores ni nombres de campañas. Solo entran fuentes originales con URL y fecha comprobables; si falta contexto pertinente, se omite. El texto web no ordena al sistema ni modifica cálculos.
 4. Claude recibe evidencia estructurada y acotada procedente de todos los anuncios elegibles; PRAXA calcula y presenta las cifras. La salida del modelo usa estructura validada, referencias a evidencia, interpretaciones marcadas y hasta tres oportunidades. Una muestra pequeña permite hipótesis, no una certeza inventada.
 5. Una generación se bloquea sin objetivo, conexión activa, sincronización de menos de 24 horas, sincronización posterior al informe o intervalo de 24 horas entre informes. Sin actividad no llama al modelo. Datos parciales permiten informe parcial.
