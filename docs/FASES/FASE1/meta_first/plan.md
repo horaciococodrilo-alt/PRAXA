@@ -34,6 +34,8 @@ Este documento reemplaza al `plan.md` anterior y contiene, además, el texto de 
 
 Antes de `M04a`, `AGENTS.md` ponía a `docs/ROADMAP.md` por encima de la spec y de este plan, y obligaba a frenar. `M04a` resuelve esa contradicción: archiva el ROADMAP y pone esta Parte I en su lugar.
 
+**Enmienda M26a (diagnóstico de Meta Ads), aprobada por el usuario el 2026-11-11** ([propuesta](revisiones/propuesta-enmienda-m26a-diagnostico.md)): se inserta `M26a`, microfase única en tres etapas, con excepción al límite de 8 horas y un solo gate (`G-DIAG`), entre `M25a` y `M28.3a`; `M28.3a` pasa a depender de `G-CHAT` y `G-DIAG`. Cambian la tabla I.1, el mapa y los gates de la Parte I, la ficha de `M26a`, la nueva II.14 (la demo pasa a II.15), III.2, III.3 y III.8, y la spec de la ruta (§16). Esta enmienda **no aprueba la spec ni el plan de `M26a`**: siguen en borrador hasta su auditoría y aprobación, y no autoriza implementación, ni el envío de datos reales a Anthropic, ni la excepción de retención y de reversibilidad hasta la aprobación expresa del acta nueva.
+
 ---
 
 # Parte I — Enmienda 1 al ROADMAP v2.3
@@ -63,6 +65,7 @@ Antes de `M04a`, `AGENTS.md` ponía a `docs/ROADMAP.md` por encima de la spec y 
 | — | `M16d` — App Review y Business Verification | Nueva, **fuera de la ruta**: hace falta recién para escalar |
 | `M25.1` a `M25.5` — Chat | `M25a` | Chat sobre el catálogo de §11 con entidades, atribución, cifras verificadas, cálculos y bloques visuales |
 | — | `M25b` — Detector de anomalías | Nueva; paralela a M25a después de `G-SYNC` |
+| — | `M26a` — Diagnóstico de Meta Ads | Nueva (enmienda del 2026-11-11) |
 | `M28.2` — Despliegue | `M28.2a` — Entorno del piloto | Adelanta un despliegue mínimo |
 | `M28.3` — Guion de demostración | `M28.3a` — Demo con el dueño y cierre | Nueva |
 
@@ -95,7 +98,8 @@ flowchart LR
   J --> K["M16c Insights"]
   K --> L["M25a Chat completo: herramientas, modelo, VR-02 y bloques"]
   K --> M["M25b Anomalías determinísticas"]
-  L --> N["M28.3a Demo y cierre"]
+  L --> P["M26a Diagnóstico de Meta Ads"]
+  P --> N["M28.3a Demo y cierre"]
   M --> N
   O["M16d App Review — fuera de la ruta"] -.-> N
 ```
@@ -118,8 +122,9 @@ flowchart LR
 | `G-OAUTH` | `M16.1` | `M16.2` |
 | `G-VR01` | `M16.2` | `M16c` |
 | `G-SYNC` | `M16c` | `M25a` y `M25b` en paralelo |
-| `G-CHAT` | `M25a` | `M28.3a` |
-| `G-ANOMALIES` | `M25b` | `M28.3a`, junto con `G-CHAT` |
+| `G-CHAT` | `M25a` | `M26a` |
+| `G-ANOMALIES` | `M25b` | `M28.3a`, junto con `G-CHAT` y `G-DIAG` |
+| `G-DIAG` | `M26a` | `M28.3a`, junto con `G-CHAT` y `G-ANOMALIES` |
 | `G-DEMO` | `M28.3a`, al completar la demostración | Cierre de la ruta. El piloto sigue hasta su fin, y entonces se ejecuta CA-67 (DEC-20) |
 
 ## I.4 Microfases
@@ -351,7 +356,7 @@ Las tres etapas se ejecutan en orden, en una sola corrida de `/microfase M16c` e
 | **Criterio de aceptación** | CA-48 a CA-55, CA-61 a CA-66, CA-69 a CA-73 y VR-02 aprobada con los criterios de DEC-21. Con la cuenta sin actividad, se admite el cierre con datos sintéticos y un recorrido real con 0 filas, como riesgo temporal (DEC-24). |
 | **Pruebas** | Unitarias, adversarias, `test:policies`, `test:app` y transcripciones reproducibles sintéticas. |
 | **Condición para avanzar** | `G-CHAT`. |
-| **Dependencias / habilita** | `G-SYNC` / `M28.3a` |
+| **Dependencias / habilita** | `G-SYNC` / `M26a` y `M28.3a` |
 | **Intervención requerida del usuario** | Crear la cuenta de DeepInfra y cargar la clave. Aprobar de nuevo el acta y comunicar el cambio al dueño antes de que el modelo reciba datos reales. Aplicar `0018` y luego `0019` al desechable y a `app`, publicar y aprobar el gate. |
 
 **Etapas obligatorias de M25a.** Rigen las reglas de corrida única de M16c: no se pasa de etapa con pruebas en rojo, cada etapa termina con un commit del usuario, la corrida se puede reanudar desde el último control registrado, y las revisiones cubren la microfase completa al final. `0018` y luego `0019` llegan a `app` antes de que el código llegue a `main`.
@@ -379,6 +384,21 @@ Las tres etapas se ejecutan en orden, en una sola corrida de `/microfase M16c` e
 | **Dependencias / habilita** | `G-SYNC` / `M28.3a` junto con `G-CHAT` |
 | **Intervención requerida del usuario** | Aprobar documentos; hacer commit, push, PR, integración, despliegue y aprobar el gate. |
 
+### M26a — Diagnóstico de Meta Ads
+
+| Campo | Contenido propuesto |
+|---|---|
+| **ID** | `M26a`, microfase única en tres etapas, excepción expresa al límite de ocho horas, un solo gate `G-DIAG`. |
+| **Objetivo** | Que el dueño genere, lea y descargue un diagnóstico de Meta Ads con cifras calculadas por PRAXA, interpretaciones y hasta tres oportunidades justificadas por evidencia. |
+| **Implementación requerida** | Configuración del objetivo y acción; preparación completa y acotada de evidencia de 28 días; cálculo de comparaciones y retorno atribuido admisible; persistencia de un informe vigente con publicación atómica y borrado del anterior; dos pasos Anthropic (contexto web opcional sin datos privados y generación estructurada); pantalla y PDF; pruebas y evaluación. |
+| **Procedimiento del asistente** | Tres etapas: `.1` datos, contrato y persistencia; `.2` Anthropic, búsqueda y validación; `.3` UI, PDF, evaluación y documentación. TDD para comportamientos; cada etapa tiene control técnico, sin gate propio. No se envían datos reales a Anthropic antes del acta nuevamente aprobada y comunicada. |
+| **Evidencia de cierre** | `sesiones/M26a.md`: comandos, resultados, fixtures y evaluación sintética; capturas redactadas de estados y PDF; revisión visible del usuario de PDF sintéticos; recorrido real sin actividad registrado sin simular valor comercial. |
+| **Criterio de aceptación** | Informe de 28 días con cobertura y procedencia; ninguna cifra autoritativa sale del modelo; hechos y recomendaciones ligados a evidencia; cero actividad y datos parciales honestos; aislamiento por empresa; reemplazo atómico; PDF fiel; retención y visibilidad decididas; prueba adversaria de web y proveedor. |
+| **Pruebas** | `npm run verify`, `npm run db:check:test`, `npm run test:policies`, `npm run test:app`, `npm run test:eval` para el diagnóstico, inspección manual de PDF y recorrido de UI. Ninguna prueba positiva obligatoria se omite por falta de configuración. |
+| **Condición para avanzar** | `G-DIAG` aprobado por el usuario tras spec/plan auditados, implementación verificada y revisión de PDF. Habilita `M28.3a` junto con `G-CHAT`. La falta de actividad real limita la validación de valor, no se oculta. |
+| **Dependencias / habilita** | `G-SYNC` y `G-CHAT` / `M28.3a`. |
+| **Intervención requerida del usuario** | Aprobar enmienda de ruta, spec y plan; crear y configurar la cuenta/clave de Anthropic sin compartirla por chat; aprobar acta actualizada y comunicar transferencia al dueño; aplicar migración en desechable y `app`; publicar cuando corresponda; revisar PDFs sintéticos y aprobar `G-DIAG`. |
+
 ### M28.3a — Demo con el dueño y cierre del piloto
 
 | Campo | Contenido |
@@ -391,7 +411,7 @@ Las tres etapas se ejecutan en orden, en una sola corrida de `/microfase M16c` e
 | **Criterio de aceptación** | El dueño completó el recorrido con su propio login. Al finalizar el piloto, y después de los pasos locales de CA-67, no quedan filas de la empresa ni objetos en su carpeta de `avatars`, y el usuario está eliminado. La gestión ante Resend está documentada sin presentar una solicitud pendiente como borrado confirmado. |
 | **Pruebas** | La lista de verificación; `tests/app/closure-storage.test.ts` en el proyecto desechable para el borrado de fotos por Storage API. |
 | **Condición para avanzar** | `G-DEMO` al completar la demostración. |
-| **Dependencias / habilita** | `G-CHAT` / — |
+| **Dependencias / habilita** | `G-CHAT` y `G-DIAG` / — |
 | **Intervención requerida del usuario** | Coordinar con el dueño, ejecutar los pasos de CA-67 que requieren dashboard, quitar al dueño como tester y solicitar a Resend el borrado anticipado de los mensajes afectados si aún los conserva. |
 
 ### M16d — App Review y Business Verification (fuera de la ruta)
@@ -812,12 +832,32 @@ prohibido detiene la microfase.
 
 ---
 
-## II.14 `M28.3a` — Demo con el dueño y cierre
+## II.14 `M26a` — Diagnóstico de Meta Ads
+
+Spec: [`M26a/spec.md`](../M26a/spec.md) (borrador hasta su auditoría y aprobación). El plan de la microfase se redacta después de aprobar la spec; hasta entonces esta sección fija solo las etapas, los archivos autorizados y el cierre.
+
+| Etapa | Contenido | Control al terminar |
+|---|---|---|
+| `M26a.1` | Configuración del objetivo y la acción, preparación de evidencia de 28 días, cálculos y persistencia de un informe vigente | `verify`, `db:check:test`, `test:policies` y `test:app` |
+| `M26a.2` | Anthropic, búsqueda web opcional separada, contrato de salida y validación | Los mismos y evaluación sintética (`test:eval`) |
+| `M26a.3` | Pantalla, PDF, evaluación completa y documentación | Los mismos, revisión visible de PDF sintéticos y recorrido de la pantalla |
+
+Rigen las reglas de corrida única de `M25a`: no se pasa de etapa con pruebas en rojo, cada etapa termina con un commit del usuario y las revisiones cubren la microfase completa al final.
+
+**Archivos autorizados por esta enmienda.** `supabase/migrations/0022_meta_diagnostics.sql` (nueva, número condicionado al cierre de las migraciones anteriores); `supabase/tests/17_meta_diagnostics.test.sql` (nuevo), `09_integration_privileges.test.sql` y `10_demo_closure.test.sql`; `src/modules/diagnostics/` (contrato, preparación, cálculo, proveedor, web, orquestación, PDF y acceso); `src/modules/integrations/db/worker-api.ts`; `src/modules/app-data/{index,types}.ts`; `src/app/(app)/app/diagnostico/page.tsx` y `descargar/route.ts`; `src/components/app/{diagnostico.tsx,diagnostico.module.css}`; pruebas `tests/{unit,component,app,eval}/` específicas de diagnóstico y regresiones de pantalla; `package.json` y `package-lock.json` si se añade una biblioteca PDF; `.env.example`; `docs/FASES/FASE1/meta_first/entorno.md`; `docs/FASES/FASE1/M03a/acta-meta.md`; `docs/SECURITY.md`; `docs/ARCHITECTURE.md`; `docs/HALLAZGOS.md`; `docs/PROJECT_STATE.md`; `docs/FASES/FASE1/M26a/{spec,plan}.md` y `sesiones/M26a.md`. **Enmienda del 2026-11-11 (decidida por el usuario en el grill de la spec, D-M26a-R6):** `AGENTS.md`, solo para una línea en «Non-negotiables» que remita a `meta_first/spec.md` §16 por la excepción de reversibilidad de M26a; sin otro cambio. No editar migraciones existentes ni el proveedor del chat.
+
+**Cierre:** control completo, `/implementation-review` y `/qa-review` de la microfase, migración aplicada en el desechable y luego en `app` por el usuario, publicación, revisión de los PDF sintéticos y `G-DIAG`. Con la cuenta piloto sin actividad no se valida valor comercial.
+
+---
+
+## II.15 `M28.3a` — Demo con el dueño y cierre
+
+> Antes `II.14`; las referencias a `II.14` en documentos anteriores a la enmienda de `M26a` se refieren a esta demo.
 
 | Paso | Quién | Acción | Verificación |
 |---:|---|---|---|
 | 1 | Asistente | Guion de la demo y lista de verificación, sin datos reales | `docs/FASES/FASE1/meta_first/demo.md` |
-| 2 | Usuario | Confirmar `G-CHAT`, que el dueño sigue siendo tester y que tiene control total de su portfolio | Checklist |
+| 2 | Usuario | Confirmar `G-CHAT` y `G-DIAG`, que el dueño sigue siendo tester y que tiene control total de su portfolio | Checklist |
 | 3 | Dueño | Iniciar sesión con el usuario creado en `M16.2` (no hay alta nueva) | Login sobre el dominio |
 | 4 | Dueño | Verificar la conexión o reconectarla si quedó en `needs_reauth` | Conexión `active` |
 | 5 | Dueño | Sincronizar y consultar el chat | Respuestas con período, zona, cobertura y frescura |
@@ -894,6 +934,7 @@ El detalle y los criterios de aceptación están en la spec v1.0.
 | `M25a.2` | Crear la cuenta de DeepInfra y cargar `DEEPINFRA_API_KEY` |
 | `M25a.3` | Aprobar de nuevo el acta y comunicar el cambio al dueño; `db:push` de `0018` y `0019` en orden en `app`, publicar y aprobar `G-CHAT` |
 | `M25b` | Aprobar documentos; hacer commit/push/PR, coordinar la integración con diagnóstico, desplegar y aprobar `G-ANOMALIES` |
+| `M26a` | Aprobar la spec y el plan; crear la cuenta de Anthropic y cargar la clave sin compartirla por chat; aprobar de nuevo el acta y comunicar al dueño la transferencia a Anthropic antes de enviar datos reales; aplicar la migración en el desechable y en `app`; revisar los PDF sintéticos y aprobar `G-DIAG` |
 | `M28.3a` | Coordinar la demostración. Pasar a Supabase Pro si el dueño lo va a usar sin acompañamiento |
 | Fin del piloto | Ejecutar los pasos de CA-67 que requieren dashboard y quitar al dueño como tester |
 | Para escalar (fuera de la ruta) | `M16d`: Business Verification, dominio y App Review |
@@ -921,6 +962,7 @@ Ninguna clave se pega en el chat.
 | `M25a.2` | Suite adversaria; VR-02 |
 | `M25a.3` | `test:policies`, `test:app`; evaluación ampliada; recorrido manual |
 | `M25b` | `db:check:test`, `test:app` focalizado; unit/component focalizadas y recorrido real/demo |
+| `M26a` | `test:policies`, `test:app`, `test:eval` del diagnóstico, inspección manual de PDF y recorrido de la pantalla |
 | `M28.3a` | Checklists de la demo y del cierre |
 
 Toda evidencia registra los comandos y sus resultados reales. Nada se declara probado si no se ejecutó (CB-05). Un gate no se aprueba si una prueba requerida se omitió por falta de configuración (CB-06).
@@ -1012,6 +1054,7 @@ IDs sugeridos. Si chocan con los existentes, se sigue la numeración vigente.
 | `M16c` | Gasto e impresiones por día, con los huecos y los días abiertos marcados |
 | `M25a` | El chat completo, con cálculos y bloques, al publicar con `G-CHAT` |
 | `M25b` | Alertas de Meta con comparación, severidad y evidencia; demo sintético rotulado si faltan datos reales |
+| `M26a` | El dueño genera, lee y descarga un diagnóstico de 28 días de su cuenta de Meta, al aprobar `G-DIAG` |
 | `M28.3a` | La demostración con el dueño. El piloto sigue hasta su fin |
 
 Si hay que elegir qué llega primero a una demostración, son `M16.1` y `M16.2`: prueban el conector.
