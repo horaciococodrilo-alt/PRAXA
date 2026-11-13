@@ -4,6 +4,13 @@
 
 **Enmienda M26a (diagnóstico de Meta Ads), aprobada por el usuario el 2026-11-11:** agrega la sección 16 con el contrato acotado del diagnóstico y sus excepciones. Mantiene vigentes las exclusiones de recomendaciones, rentabilidad y reportes para `M25a` y el chat. No aprueba la spec ni el plan de `M26a`. Coordinada con la Parte I, II.14 y III de [el plan de la ruta](plan.md).
 
+**Enmienda M25b, aprobada por el usuario el 2026-11-11:** se agrega un detector determinístico
+de anomalías de Meta Ads, ejecutable en paralelo con M25a después de `G-SYNC`. Compara dos
+períodos cerrados, incluye CPA solo con compras y atribución confiables, expone un contrato
+reutilizable y una demostración sintética separada. No modifica diagnóstico, chat ni reportes y
+no escribe ni consulta Meta. Rigen DEC-25 y CA-74 a CA-81; evidencia de la decisión en
+[la propuesta](revisiones/propuesta-enmienda-m25b-1.md).
+
 **Enmienda de Insights ampliados, aprobada por el usuario el 2026-11-06:** el usuario confirmó el alcance de cuatro niveles y ordenó resolver e integrar la enmienda antes de M16c. El contrato vigente es §11 de la spec de la ruta; se coordinan Parte I, II.11, el chat y el acta M03a. La aprobación de alcance no cierra G-SYNC ni aprueba las specs/planes de implementación. Se conserva la evidencia histórica en [la propuesta inicial](../M16c/revisiones/propuesta-ampliacion-insights-1.md).
 
 **Enmienda CA-67 aprobada expresamente por el usuario el 2026-10-19:** incorpora al cierre la gestión de borrado anticipado de los correos de Auth que todavía conserve Resend. Los cinco pasos locales conservan su orden. Este texto es vigente.
@@ -45,7 +52,7 @@ Un usuario (el dueño), una empresa y una cuenta publicitaria conectada. El due�
 - Más de una cuenta conectada por empresa. Más de un proveedor.
 - Workers, colas, reintentos en segundo plano, programación automática. El esquema `worker_api` es un nombre heredado del ROADMAP v2.3 y no implica construir un worker.
 - Tiendanube, GA4, reportes publicados (`reliability`, `catalog`).
-- Benchmarks, recomendaciones de presupuesto, explicación causal del rendimiento y evaluación de rentabilidad. Solo se admiten las métricas y tasas del contrato de §11 y los cálculos de CA-48; el modelo no calcula cifras autoritativas.
+- Benchmarks, recomendaciones de presupuesto, explicación causal del rendimiento y evaluación de rentabilidad. Solo se admiten las métricas y tasas del contrato de §11, los cálculos de CA-48 y las comparaciones determinísticas de M25b; el modelo no calcula cifras autoritativas.
 - Base vectorial o RAG.
 
 ## 3. Registro de decisiones
@@ -76,6 +83,7 @@ Un usuario (el dueño), una empresa y una cuenta publicitaria conectada. El due�
 | DEC-22 | Insights diarios de cuenta, campaña, conjunto y anuncio, catálogo y reglas de agregación de §11; chat sobre datos persistidos y verificados. Aprobada por el usuario el 2026-11-06 | Cerrada |
 | DEC-23 | Desgloses diarios de edad y género, país y región, por cuenta y campaña, según §11. Entran al catálogo del chat con DEC-24. Aprobada por el usuario el 2026-11-08 (`H-E1-202`) | Cerrada |
 | DEC-24 | Chat con opción A ampliada: la IA elige de un catálogo cerrado, el servidor calcula y la app dibuja. Seis cálculos, desgloses, 19 bloques y casos dudosos (CA-48, CA-71 a CA-73), en una sola microfase `M25a`. Si la cuenta sigue sin actividad, `G-CHAT` se cierra con datos sintéticos y un recorrido real con 0 filas, como riesgo temporal. Aprobada por el usuario el 2026-11-08 (`H-E1-190`) | Cerrada |
+| DEC-25 | Detector de anomalías determinístico y reutilizable en M25b, paralelo a M25a después de `G-SYNC`; datos reales bajo RLS o demostración sintética inequívocamente separada; sin IA ni escrituras en Meta. Aprobada por el usuario el 2026-11-11 | Cerrada |
 
 ## 4. Prerrequisitos de Meta — pendientes de verificar
 
@@ -538,6 +546,35 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
   Si VR-02 falla, primero se diagnostica la causa: prompt, esquema, herramientas, esfuerzo de razonamiento o modelo. Cambiar de host es el último recurso y no es gratis: además de `llm.ts`, exige actualizar la configuración, las pruebas y `M03a`.
 - **Declaración en `M03a`** (P01): DeepInfra como host, con centros de datos en EE. UU. y sin entrenamiento sobre los datos. Retención: no guarda entradas en disco, pero se reserva registrar porciones chicas de las solicitudes para depuración o seguridad. También hay que declarar que la pregunta viaja redactada (DEC-11) y que viajan resultados pertinentes del catálogo de §11 y nombres de entidades cuando sean necesarios para responder.
 
+## 12b. Detector de anomalías (M25b, DEC-25)
+
+- **CA-74 — Contrato reutilizable.** El motor no depende de UI, Next, Supabase, chat,
+  diagnóstico ni reporting. Acepta observaciones normalizadas y devuelve un resultado JSON
+  versionado con modo, estado, períodos, cobertura y anomalías.
+- **CA-75 — Períodos y cobertura.** Compara siete días cerrados y consecutivos contra los siete
+  inmediatamente anteriores. Solo usa filas `con_datos`, cerradas y no capturadas antes de
+  finalizar el día. Ausencia, nulo, hueco, captura parcial o moneda incompatible omiten la regla
+  afectada; nunca significan cero.
+- **CA-76 — Reglas versionadas.** CTR baja 20 %/40 %; CPC, CPM y CPA suben 25 %/50 %; gasto
+  sube 30 %/60 %, para severidad `warning`/`critical`. CTR, CPM y gasto requieren 1.000
+  impresiones por período; CPC, 20 clics; CPA, 5 compras. Umbrales y mínimos viven en una
+  constante versionada.
+- **CA-77 — CPA confiable.** Usa gasto dividido por compras `purchase` explícitas y exige en los
+  14 días gasto y compra presentes, atribución conocida e idéntica y el mínimo de CA-76. Si no
+  se cumple, se omite solo CPA.
+- **CA-78 — Evidencia.** Cada anomalía declara alcance, nombre, métrica, dirección, severidad,
+  valores, variación, unidad/moneda, períodos, cobertura, frescura y regla. No afirma causas ni
+  recomienda cambios automáticos.
+- **CA-79 — Pantalla.** `/app/anomalias` presenta conexión, sincronización, datos insuficientes,
+  ausencia de anomalías, alertas y error controlado; muestra comparación, severidad, evidencia y
+  acceso a Integraciones.
+- **CA-80 — Demo sintético.** Cuando faltan datos reales se ofrece `?ejemplo=1`, identificado
+  antes de las alertas como datos simulados que no corresponden a la cuenta. Nunca mezcla datos
+  simulados y reales y permite volver al modo real.
+- **CA-81 — Seguridad y solo lectura.** El tenant se resuelve en servidor, la lectura reutiliza
+  JWT y RLS, ninguna entrada cliente decide empresa o conexión, no se muestran IDs externos y no
+  existe escritura ni llamada a Meta.
+
 ## 13. Parámetros pendientes de medición
 
 | ID | Pregunta | Tipo |
@@ -578,6 +615,7 @@ Ningún secreto se pega en el chat ni se guarda en el repositorio.
 | Ciclo de vida | `test:policies`: transiciones, pendiente → desconectada sin metadatos, confirmación vencida rechazada en la base, purga reanudable e idempotente, reconexión después de una purga, cierre (CA-67, CA-68). `test:app`: desconexión durante una confirmación y durante una reautorización, con Meta simulada. VR-01 |
 | Sincronización | `test:policies`, `test:app` de revocación y desconexión durante una sincronización, más pruebas unitarias con Meta simulada: paginación completa, fallo en una página intermedia, resincronización sin duplicados y con valores actualizados, ejecución desplazada (A vence, B publica, A es rechazada), snapshot nuevo sin fila donde el anterior tenía valor, captura parcial vista al día siguiente sin resincronizar, precisión SQL → API → TypeScript |
 | Chat | Pruebas obligatorias de CA-50b, aislamiento (CA-54), límites (CA-70), redacción (CA-66), escritura en vuelo (CA-38c), VR-02 y transcripciones reproducibles con fixtures sintéticos |
+| Anomalías | Pruebas unitarias de CA-74 a CA-78, componentes de CA-79/80, aplicación focalizada de CA-81 contra el desechable y recorrido real/demo |
 
 Criterios transversales:
 

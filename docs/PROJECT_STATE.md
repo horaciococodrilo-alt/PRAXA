@@ -29,6 +29,17 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 
 **M26a — Diagnóstico de Meta Ads: spec APROBADA el 2026-11-12 (hash de contenido sin la línea de estado `6c2f2f65999ffd4c9904861aeaa43932a56aa2cb`), plan APROBADO el 2026-11-13 (hash de contenido sin la línea de estado `8fa7cd4b74a8684e4da303abc22ed54adbdb2166`); habilitada para implementar tras el commit documental previo al paso 1 del plan.** La ruta se enmendó el 2026-11-11 y su §16.2 se alineó con `traffic` el 2026-11-13 por decisión expresa del usuario. La spec se aprobó después de `spec-audit-6` (REQUIERE CAMBIOS) y sin una auditoría posterior a las correcciones (excepción decidida por el usuario; ver «Auditorías» de la spec). El plan cita el hash vigente de la spec. El usuario lo aprobó expresamente después de `plan-audit-4` (REQUIERE CAMBIOS) y de la corrección de sus hallazgos P-01 y P-02, sin una auditoría posterior: es una excepción al paso 7 del pipeline, en el mismo sentido que la de la spec. `M28.3a` espera a `G-CHAT` (aprobado) y a `G-DIAG`. **Pendientes abiertos de M25a, sin bloquear el avance:** VR-02 no aprobada y H-E1-221 y H-E1-224 por revisar antes de la demo; H-E1-229 y H-E1-230; la migración `0021` (H-E1-233) y su prueba `15` no tienen acreditada su aplicación en el desechable ni en `app`. Evidencia en [sesiones/M25a.md](FASES/FASE1/meta_first/sesiones/M25a.md).
 
+## Trabajo paralelo autorizado
+
+**M25b — IMPLEMENTACIÓN TERMINADA; GATE PENDIENTE** en `feat/m25b-meta-anomalies`, habilitada
+por `G-SYNC` y aprobada por el usuario el 2026-11-11. El detector determinístico y reutilizable,
+la pantalla, el demo separado y sus pruebas están implementados sin tocar diagnóstico, chat ni
+reporting. `G-ANOMALIES` sigue pendiente del recorrido autenticado, integración, despliegue y
+aprobación del usuario; la prueba contra el proyecto desechable no se acreditó porque este entorno
+no tiene sus variables. M25b y M25a deben estar integradas antes de M28.3a; ninguna habilita ni
+bloquea la implementación de la otra. Evidencia en
+[sesiones/M25b.md](FASES/FASE1/M25b/sesiones/M25b.md).
+
 ## Fuera de la ruta o pospuesto
 
 - **M16d — App Review y Business Verification:** depende de trámites del usuario ante Meta.
