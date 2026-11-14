@@ -22,12 +22,18 @@ export type ProviderFailureClass = 'unavailable' | 'timeout' | 'http' | 'invalid
 export class DiagnosticProviderError extends Error {
   readonly failureClass: ProviderFailureClass;
   readonly httpStatus: number | null;
+  /** Uso facturado de una respuesta recibida pero inválida (`max_tokens`, `refusal`, JSON roto). */
+  readonly usage: ProviderUsage | null;
+  readonly reportedModel: string | null;
 
-  constructor(failureClass: ProviderFailureClass, httpStatus: number | null = null) {
+  constructor(failureClass: ProviderFailureClass, httpStatus: number | null = null,
+    billed: Readonly<{ usage: ProviderUsage; reportedModel: string | null }> | null = null) {
     super(`praxa: proveedor del diagnóstico (${failureClass})`);
     this.name = 'DiagnosticProviderError';
     this.failureClass = failureClass;
     this.httpStatus = httpStatus;
+    this.usage = billed?.usage ?? null;
+    this.reportedModel = billed?.reportedModel ?? null;
   }
 }
 
@@ -109,15 +115,16 @@ export async function requestStructured(options: CallOptions & {
     messages: [{ role: 'user', content: options.user }],
     output_config: { format: { type: 'json_schema', schema: options.schema } },
   }, options, DIAGNOSTIC_LIMITS.reportTimeoutMs);
-  // max_tokens, refusal o pause_turn pueden no cumplir el esquema: se rechazan.
-  if (envelope.stop_reason !== 'end_turn') throw new DiagnosticProviderError('invalid_output');
+  const billed = { usage: usageOf(envelope), reportedModel: reportedModel(envelope) };
+  // max_tokens, refusal o pause_turn pueden no cumplir el esquema: se rechazan, con su uso.
+  if (envelope.stop_reason !== 'end_turn') throw new DiagnosticProviderError('invalid_output', null, billed);
   const text = envelope.content
     .filter((block): block is { type: 'text'; text: string } => typeof block === 'object' && block !== null
       && (block as { type?: unknown }).type === 'text' && typeof (block as { text?: unknown }).text === 'string')
     .map((block) => block.text).join('');
   let json: unknown;
-  try { json = JSON.parse(text); } catch { throw new DiagnosticProviderError('invalid_output'); }
-  return { json, usage: usageOf(envelope), reportedModel: reportedModel(envelope) };
+  try { json = JSON.parse(text); } catch { throw new DiagnosticProviderError('invalid_output', null, billed); }
+  return { json, ...billed };
 }
 
 export type WebResult = Readonly<{ blocks: readonly unknown[]; usage: ProviderUsage; reportedModel: string | null }>;
@@ -131,6 +138,7 @@ export async function requestWebSearch(options: CallOptions & { prompt: string }
     tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: DIAGNOSTIC_LIMITS.webMaxUses,
       allowed_domains: [...ALLOWED_WEB_DOMAINS] }],
   }, options, DIAGNOSTIC_LIMITS.webTimeoutMs);
-  if (envelope.stop_reason !== 'end_turn') throw new DiagnosticProviderError('invalid_output');
-  return { blocks: envelope.content, usage: usageOf(envelope), reportedModel: reportedModel(envelope) };
+  const billed = { usage: usageOf(envelope), reportedModel: reportedModel(envelope) };
+  if (envelope.stop_reason !== 'end_turn') throw new DiagnosticProviderError('invalid_output', null, billed);
+  return { blocks: envelope.content, ...billed };
 }

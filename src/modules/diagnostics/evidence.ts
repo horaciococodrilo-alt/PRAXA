@@ -64,11 +64,6 @@ function below(value: string | null, threshold: number): boolean {
   return compareValues(parsed, { coefficient: BigInt(threshold), scale: 0 }) < 0;
 }
 
-function positive(value: string | null): boolean {
-  const parsed = value === null ? null : parseSqlDecimal(value);
-  return parsed !== null && parsed.coefficient > BigInt(0);
-}
-
 export function isLowSample(sample: { impressions: string | null; clicks: string | null;
   results: string | null; resultUnavailable?: boolean }): boolean {
   const limits = DIAGNOSTIC_LIMITS.lowSample;
@@ -202,10 +197,10 @@ export function prepareDiagnostic(input: PrepareInput): PreparedDiagnostic {
     ...(traffic ? [] : ['var_attributed_return'] as Metric[])];
 
   for (const level of ENTITY_LEVELS) {
-    const active = input.entities[level].filter((row) => positive(row.cur_spend) || positive(row.cur_impressions)
-      || positive(row.cur_clicks) || positive(row.cur_result_count));
-    examined[level] = active.length;
-    for (const row of active) {
+    // La función SQL ya devolvió solo entidades con actividad en cualquier acción o métrica.
+    // Filtrar de nuevo por el objetivo elegido descartaría actividad de otras acciones.
+    examined[level] = input.entities[level].length;
+    for (const row of input.entities[level]) {
       const alias = `e${entities.length + 1}`;
       aliasOf.set(row.entity_ref, alias);
       const lowSample = isLowSample({ impressions: row.cur_impressions, clicks: row.cur_clicks,

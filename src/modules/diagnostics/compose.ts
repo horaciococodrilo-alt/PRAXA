@@ -5,6 +5,7 @@ import { actionLabel } from '@/modules/chat/tools/action-labels';
 
 import {
   BREAKDOWN_DIMENSIONS,
+  attributionWindowSchema,
   CAUSES,
   ENTITY_LEVELS,
   evidenceSchema,
@@ -61,6 +62,7 @@ const totalsSchema = z.object({
   currency: z.string().nullable(),
   comparison: z.boolean(),
   level_coverage: z.record(z.string(), z.string()),
+  attribution_windows: z.array(attributionWindowSchema).optional(),
   limits: z.array(z.enum(CAUSES)),
   section_plan: z.object({
     comparison: sectionStatusSchema,
@@ -145,6 +147,7 @@ export type DiagnosticDocument = Readonly<{
 const CLAUDE = 'Interpretación de Claude';
 /** Mismo texto fijo que el chat (`chat/render.ts`) para la atribución no informada. */
 const UNKNOWN_ATTRIBUTION = 'Meta no informa con qué atribución contó estos resultados: pueden mezclar ventanas distintas.';
+const UNKNOWN_PREVIOUS_ATTRIBUTION = 'En el período anterior, Meta no informa con qué atribución contó los resultados: pueden mezclar ventanas distintas.';
 
 const CAUSE_TEXT: Readonly<Record<Cause, string>> = {
   no_activity: 'no hubo actividad en los días cubiertos.',
@@ -218,12 +221,25 @@ export function pdfFileName(report: StoredReport): string {
   return `diagnostico-meta-${p.year}-${p.month}-${p.day}.pdf`;
 }
 
-function attributionLabel(evidence: readonly Evidence[]): string {
+function attributionLabel(evidence: readonly Evidence[], from: string, to: string): string {
   const values = new Set(evidence.filter((e) => e.level === 'account' && e.segment === null
+    && e.period.from === from && e.period.to === to
     && (e.metric === 'result_count' || e.metric === 'result_value')).map((e) => e.attribution));
   if (values.has('mixed')) return 'configuraciones distintas (no se mezclan)';
   if ([...values].some((v) => v.startsWith('attr_'))) return 'configuración informada por Meta';
   return 'no informada por Meta';
+}
+
+function attributionWindowsLabel(windows: readonly { event_type: string; days: number }[] | undefined,
+  attribution: string): string {
+  if (!windows?.length) return attribution === 'no informada por Meta'
+    ? 'no informadas por Meta' : 'no disponibles en este informe';
+  const eventNames: Readonly<Record<string, string>> = { click: 'clic', view: 'visualización',
+    engaged_video_view: 'visualización de video' };
+  const list = windows.map((w) => `${w.days} ${w.days === 1 ? 'día' : 'días'} tras ${eventNames[w.event_type] ?? w.event_type}`);
+  const prefix = attribution === 'no informada por Meta' ? 'observadas en parte de los datos; otras no informadas por Meta: '
+    : attribution.startsWith('configuraciones distintas') ? 'observadas en configuraciones distintas: ' : '';
+  return `${prefix}${list.join(', ')}`;
 }
 
 export function composeDocument(report: StoredReport): DiagnosticDocument {
@@ -232,14 +248,21 @@ export function composeDocument(report: StoredReport): DiagnosticDocument {
   const totals = report.evidence.totals;
   const plan = totals.section_plan;
   const out = report.output;
+  const currentAttribution = attributionLabel(items, report.window_from, report.window_to);
   const value = (id: string | undefined) => {
     const evidence = id ? byId.get(id) : undefined;
     return evidence ? formatEvidenceValue(evidence) : 'no calculable';
   };
   // Solo la evidencia de cuenta sin segmento: los desgloses son siempre `unknown` y llevan su aviso.
-  const unknownAttribution = items.some((e) => e.level === 'account' && e.segment === null
-    && e.attribution === 'unknown'
-    && (e.metric === 'result_count' || e.metric === 'result_value' || e.metric === 'attributed_return'));
+  // Cada período por separado, para no contradecir el rótulo de la cabecera (ventana actual).
+  const unknownIn = (from: string | null, to: string | null) => from !== null && to !== null
+    && items.some((e) => e.level === 'account' && e.segment === null && e.attribution === 'unknown'
+      && e.period.from === from && e.period.to === to
+      && (e.metric === 'result_count' || e.metric === 'result_value' || e.metric === 'attributed_return'));
+  const unknownCurrent = unknownIn(report.window_from, report.window_to);
+  const unknownPrevious = totals.previous !== null && unknownIn(report.prev_from, report.prev_to);
+  const attributionNotice = unknownCurrent ? UNKNOWN_ATTRIBUTION
+    : unknownPrevious ? UNKNOWN_PREVIOUS_ATTRIBUTION : null;
 
   // 1. Resumen ejecutivo.
   const summary: DocSection = { id: 'summary', title: 'Resumen ejecutivo',
@@ -253,7 +276,7 @@ export function composeDocument(report: StoredReport): DiagnosticDocument {
     { kind: 'paragraph', label: CLAUDE, text: out.overall_performance.text },
     { kind: 'table', columns: ['Métrica', 'Período actual', ...(totals.previous ? ['Período anterior'] : [])],
       rows: performanceRows },
-    ...(unknownAttribution ? [{ kind: 'notice' as const, text: UNKNOWN_ATTRIBUTION }] : []),
+    ...(attributionNotice ? [{ kind: 'notice' as const, text: attributionNotice }] : []),
     { kind: 'notice', text: 'El retorno es atribuido por Meta (valor atribuido / gasto): no es ganancia ni el retorno de la tienda.' },
   ] };
 
@@ -374,7 +397,8 @@ export function composeDocument(report: StoredReport): DiagnosticDocument {
         ? `del ${formatDate(report.prev_from)} al ${formatDate(report.prev_to)}` : 'sin comparación' },
       { label: 'Objetivo', value: goalLabel(report.settings) },
       { label: 'Moneda', value: totals.currency && totals.currency !== 'mixed' ? totals.currency : 'sin moneda única' },
-      { label: 'Atribución', value: attributionLabel(items) },
+      { label: 'Atribución', value: currentAttribution },
+      { label: 'Ventanas de atribución', value: attributionWindowsLabel(totals.attribution_windows, currentAttribution) },
     ],
     summary: out.executive_summary.text,
     opportunities: out.opportunities.map((o) => ({ title: o.title, priority: PRIORITY_LABEL[o.priority] })),

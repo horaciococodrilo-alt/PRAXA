@@ -10,6 +10,7 @@ import {
   type StructuredRequest,
 } from '@/modules/diagnostics/orchestrator';
 import { DIAGNOSTIC_MODEL_ID, DiagnosticProviderError } from '@/modules/diagnostics/provider';
+import { WorkerApiError } from '@/modules/integrations/db/worker-api';
 import type { TenantContext } from '@/modules/tenant/context';
 import { account, entity, prepareInput, segment } from '../eval/fixtures/diagnostics';
 
@@ -79,6 +80,7 @@ function harness(opts: {
   const deps: DiagnosticDeps = {
     ctx: CTX,
     loadContext: async () => opts.ctx ?? context(),
+    loadAttributionWindows: async () => [],
     rpc: async (fn, args) => {
       rpcCalls.push(fn);
       switch (fn) {
@@ -241,6 +243,18 @@ describe('M26a-T-33: liberación única ante fallos posteriores a la reserva', (
     expect(h.logs).toEqual(['praxa diagnostico: paso=report clase=provider http=529']);
   });
 
+  it('un error de worker_api al publicar se registra como escritura, no como lectura', async () => {
+    const h = harness();
+    const call = h.deps.worker.call;
+    const deps: DiagnosticDeps = { ...h.deps, worker: { call: (async (fn: string, args: readonly unknown[]) => {
+      if (fn === 'publish_diagnostic') throw new WorkerApiError('invalid_argument');
+      return call(fn as never, args);
+    }) as DiagnosticDeps['worker']['call'] } };
+    expect(await generateDiagnostic(deps)).toEqual({ code: 'fallo_generacion', failureClass: 'write' });
+    expect(h.logs).toEqual(['praxa diagnostico: paso=publish clase=write http=-']);
+    expect(fns(h)).toEqual(['reserve_diagnostic', 'release_diagnostic']);
+  });
+
   it('un lote con notas inválidas falla sin reparación y no publica', async () => {
     const h = harness({ campaigns: 40, batchBudget: 9000, report: (req) => req.step === 'batch'
       ? { notes: [{ alias: 'e1', note: 'Gastó 300.', evidence_ids: ['ev_e1_spend'] }] } : goodReport(req) });
@@ -329,6 +343,35 @@ describe('M26a: generación completa con proveedor simulado', () => {
     }
     expect(report.web_sources).toEqual([]);
     expect(report.evidence.totals.section_plan.web).toEqual({ status: 'not_evaluable', cause: 'web_unavailable' });
+  });
+
+  it('la evidencia citada solo por marcador queda en evidence_ids de su sección', async () => {
+    const h = harness({ report: (req) => ({ ...(goodReport(req) as object),
+      executive_summary: { text: 'El gasto fue [[ev_acct_cur_spend]].', evidence_ids: ['ev_acct_cur_ctr'] } }) });
+    expect(await generateDiagnostic(h.deps)).toEqual({ code: 'generado' });
+    const report = JSON.parse(String(h.workerCalls[1].args[5]));
+    expect(report.output.executive_summary.evidence_ids).toEqual(['ev_acct_cur_ctr', 'ev_acct_cur_spend']);
+    expect(report.output.executive_summary.text).toBe('El gasto fue USD 294,00.');
+  });
+
+  it('el uso de una respuesta inválida pero facturada se cuenta, y el modelo informado por la web', async () => {
+    const usage = { input_tokens: 900, output_tokens: 12_000, web_searches: 0 };
+    const h = harness({
+      web: async () => ({ blocks: [], usage: { input_tokens: 1, output_tokens: 1, web_searches: 1 },
+        reportedModel: 'otro-modelo' }),
+      report: (req) => req.step === 'report'
+        ? new DiagnosticProviderError('invalid_output', null, { usage, reportedModel: DIAGNOSTIC_MODEL_ID })
+        : goodReport(req),
+    });
+    expect(await generateDiagnostic(h.deps)).toEqual({ code: 'generado' });
+    const report = JSON.parse(String(h.workerCalls[1].args[5]));
+    expect(report.usage.calls).toBe(3);
+    expect(report.usage.steps).toEqual([
+      { step: 'web', input_tokens: 1, output_tokens: 1, web_searches: 1 },
+      { step: 'report', ...usage },
+      { step: 'repair', input_tokens: 100, output_tokens: 50, web_searches: 0 },
+    ]);
+    expect(report.model_reported).toBe('otro-modelo');
   });
 
   it('sin rubro de lista no hay paso web', async () => {

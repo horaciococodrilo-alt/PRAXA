@@ -291,6 +291,15 @@ describe('M26a.1: diagnóstico por Data API y worker_api reales', () => {
     const pdf = await import('@/modules/diagnostics/pdf');
     const s = await seedCompany(admin, 'm26a-pdf');
     await seedAccount(admin, s, 56, '2.25');
+    const adsetRef = randomUUID();
+    const knownAttribution = JSON.stringify({ known: true, report_time: 'impression', unified: true,
+      settings: [{ adset_ref: adsetRef, windows: [
+        { event_type: 'click', days: 7 }, { event_type: 'view', days: 1 },
+      ] }] });
+    await admin.query(`update public.meta_daily_coverage
+      set rows = jsonb_set(rows, '{0,attribution}', $2::jsonb),
+          entities = jsonb_set(entities, '{0,attribution}', $2::jsonb)
+      where connection_id = $1 and level = 'account'`, [s.connectionId, knownAttribution]);
     await seedLevel(admin, s, 'campaign', 2, 28, { spend: '3.5', impressions: '1200', clicks: '40' });
     await setSummary(admin, s.connectionId, 'completed', '1 minute', '-1 minute');
     expect(await diag.saveSettings(worker, s.ctx, { goal_kind: 'traffic', metric_ref: 'inline_link_clicks' })).toBe('saved');
@@ -306,9 +315,19 @@ describe('M26a.1: diagnóstico por Data API y worker_api reales', () => {
     };
     const ctx = { ...s.ctx, request_id: randomUUID() };
     const result = await orchestrator.generateDiagnostic({ ctx, rpc: rpcOf(s.user), worker, model,
-      loadContext: () => orchestrator.loadGenerationContext(ctx, s.user.client), log: () => undefined });
+      loadContext: () => orchestrator.loadGenerationContext(ctx, s.user.client),
+      loadAttributionWindows: (connectionId, window, metricRef) =>
+        diag.readAccountAttributionWindows(s.user.client, connectionId, window, metricRef),
+      log: () => undefined });
     expect(result).toEqual({ code: 'generado' });
     expect(await reservations(s.ctx.company_id)).toBe(0);
+    const saved = await compose.readStoredReport(s.user.client, s.ctx.company_id);
+    expect(saved?.evidence.totals.attribution_windows).toEqual([
+      { event_type: 'click', days: 7 }, { event_type: 'view', days: 1 },
+    ]);
+    expect(JSON.stringify(saved?.evidence)).not.toContain(adsetRef);
+    expect(compose.composeDocument(saved!).meta.find((item) => item.label === 'Ventanas de atribución')?.value)
+      .toContain('7 días tras clic');
 
     const requestUrl = 'https://praxa.test/app/diagnostico/descargar';
     const own = await pdf.diagnosticDownload({ requestUrl, getUser: async () => ({ id: s.user.id }),

@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { WorkerApi } from '@/modules/integrations/db/worker-api';
+import { WorkerApiError, type WorkerApi } from '@/modules/integrations/db/worker-api';
 import { readLiveConnection } from '@/modules/integrations/repository/connections';
 import type { TenantContext } from '@/modules/tenant/context';
 
@@ -12,6 +12,7 @@ import {
   reportJsonSchema,
   SCHEMA_VERSION,
   type BatchNotes,
+  type AttributionWindow,
   type DiagnosticSettings,
   type EligibilityReason,
   type EntityLevel,
@@ -49,6 +50,7 @@ import {
   validateBatchNotes,
   validateReportOutput,
   validationContext,
+  withMarkerEvidence,
   type ValidationContext,
   type ValidationFailure,
 } from './validate';
@@ -97,6 +99,7 @@ export type ModelSteps = Readonly<{
 export type DiagnosticDeps = Readonly<{
   ctx: TenantContext;
   loadContext: () => Promise<GenerationContext>;
+  loadAttributionWindows: (connectionId: string, window: ReturnType<typeof windowsFor>, metricRef: string) => Promise<AttributionWindow[]>;
   rpc: Rpc;
   worker: Pick<WorkerApi, 'call'>;
   model: ModelSteps;
@@ -256,7 +259,8 @@ export async function runModelSteps(input: {
   };
   const record = (step: UsageStep['step'], u: ProviderUsage, reported: string | null) => {
     usage.push({ step, ...u });
-    if (reported) modelReported = reported;
+    // Un modelo distinto del pedido, en cualquier paso, no lo tapa una llamada posterior.
+    if (reported && (modelReported === null || modelReported === DIAGNOSTIC_MODEL_ID)) modelReported = reported;
   };
 
   // Paso web opcional: un fallo omite la sección, nunca bloquea.
@@ -265,10 +269,11 @@ export async function runModelSteps(input: {
   if (query) {
     try {
       const result = await model.web(webPrompt(query), AbortSignal.timeout(remaining(DIAGNOSTIC_LIMITS.webTimeoutMs, 'web')));
-      record('web', result.usage, null);
+      record('web', result.usage, result.reportedModel);
       web = extractWebContext(result.blocks, new Date(now()));
     } catch (error) {
       if (error instanceof GenerationFailure) throw error;
+      if (error instanceof DiagnosticProviderError && error.usage) record('web', error.usage, error.reportedModel);
       web = { sources: [], excerpts: [] };
     }
     if (now() > deadlineAt) throw new GenerationFailure('web', 'timeout');
@@ -289,6 +294,7 @@ export async function runModelSteps(input: {
     } catch (error) {
       if (error instanceof GenerationFailure) throw error;
       if (error instanceof DiagnosticProviderError) {
+        if (error.usage) record(step, error.usage, error.reportedModel);
         if (error.failureClass === 'invalid_output') return undefined;
         throw new GenerationFailure(step, error.failureClass === 'timeout' ? 'timeout' : 'provider', error.httpStatus);
       }
@@ -321,7 +327,7 @@ export async function runModelSteps(input: {
     observe('repair', checked.ok ? 'accepted' : checked.reason);
     if (!checked.ok) throw new GenerationFailure('repair', 'invalid_output');
   }
-  return { rawOutput: checked.value, output: substituteOutput(checked.value, ctx), ctx, web, webPlan, usage,
+  return { rawOutput: checked.value, output: substituteOutput(withMarkerEvidence(checked.value), ctx), ctx, web, webPlan, usage,
     batches: batched ? prepared.batches.length : 0, modelReported };
 }
 
@@ -331,7 +337,8 @@ export async function runModelSteps(input: {
 
 const MARKER = /\[\[(ev_[a-z0-9][a-z0-9_-]{0,62})\]\]/g;
 
-export function buildReport(input: { prepared: Ready; run: ModelRun; syncFinishedAt: string }) {
+export function buildReport(input: { prepared: Ready; run: ModelRun; syncFinishedAt: string;
+  attributionWindows?: readonly AttributionWindow[] }) {
   const { prepared, run } = input;
   const pkg = prepared.package;
   const output = run.output;
@@ -360,6 +367,7 @@ export function buildReport(input: { prepared: Ready; run: ModelRun; syncFinishe
       totals: {
         current: pkg.totals.current, previous: pkg.totals.previous, currency: pkg.currency,
         comparison: pkg.comparison, level_coverage: pkg.level_coverage, limits: prepared.limits,
+        attribution_windows: input.attributionWindows ?? [],
         section_plan: { comparison: prepared.sectionPlan.comparison, breakdowns: prepared.sectionPlan.breakdowns,
           web: run.webPlan },
         entities,
@@ -439,6 +447,10 @@ export async function generateDiagnostic(deps: DiagnosticDeps): Promise<Generati
       pagesRead += read.pages;
     }
     const breakdowns = await readBreakdowns(deps.rpc, { connectionId: connection.id, window, metricRef });
+    const attributionWindows = await deps.loadAttributionWindows(connection.id, window, metricRef);
+    if (account.current.attribution !== 'unknown' && attributionWindows.length === 0) {
+      throw new DiagnosticReadError();
+    }
 
     step = 'prepare';
     const prepared = prepareDiagnostic({ settings: context.settings, window, account, entities, breakdowns,
@@ -452,7 +464,8 @@ export async function generateDiagnostic(deps: DiagnosticDeps): Promise<Generati
       deadlineAt: started + DIAGNOSTIC_LIMITS.totalDeadlineMs, now });
 
     step = 'publish';
-    const report = buildReport({ prepared, run, syncFinishedAt: eligibility.sync_finished_at });
+    const report = buildReport({ prepared, run, syncFinishedAt: eligibility.sync_finished_at,
+      attributionWindows });
     const published = await publishDiagnostic(deps.worker as WorkerApi, deps.ctx, { connectionId: connection.id,
       generation: connection.credentialGeneration, report });
     if (published === 'published' || published === 'already_published') {
@@ -469,7 +482,10 @@ export async function generateDiagnostic(deps: DiagnosticDeps): Promise<Generati
     if (error instanceof DiagnosticPreparationError) {
       return fail(new GenerationFailure('prepare', error.failureClass === 'too_large' ? 'too_large' : 'read'));
     }
-    if (error instanceof DiagnosticWriteError) return fail(new GenerationFailure(step, 'write'));
+    // `worker.call` solo se usa para escrituras (reserva y publicación): su error es de escritura.
+    if (error instanceof DiagnosticWriteError || error instanceof WorkerApiError) {
+      return fail(new GenerationFailure(step, 'write'));
+    }
     if (error instanceof DiagnosticReadError) return fail(new GenerationFailure(step, 'read'));
     return fail(new GenerationFailure(step, 'read'));
   }

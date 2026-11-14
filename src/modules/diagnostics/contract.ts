@@ -180,6 +180,13 @@ export type SectionStatus = Readonly<{ status: 'evaluable' } | { status: 'not_ev
 
 export type DiagnosticWindow = Readonly<{ from: string; to: string; prev_from: string; prev_to: string }>;
 
+/** Ventanas de Meta sin referencias de conjuntos; se congelan con el informe. */
+export const attributionWindowSchema = z.strictObject({
+  event_type: z.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,63}$/),
+  days: z.number().int().min(1).max(365),
+});
+export type AttributionWindow = z.infer<typeof attributionWindowSchema>;
+
 // ---------------------------------------------------------------------------
 // Salida del modelo (Diseño §3, schema_version 1). El modelo escribe texto plano sin cifras y
 // cita evidencia; no declara status ni cause, que fija el servidor. Los límites de tamaño se

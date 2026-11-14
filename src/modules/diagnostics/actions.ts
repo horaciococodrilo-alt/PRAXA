@@ -13,7 +13,7 @@ import type { Resultado } from './compose';
 import { supabaseRpc } from './eligibility';
 import { windowsFor } from './evidence';
 import { anthropicModelSteps, generateDiagnostic, loadGenerationContext } from './orchestrator';
-import { readActionTypes, readEligibility, saveSettings } from './repository';
+import { readAccountAttributionWindows, readActionTypes, readEligibility, saveSettings } from './repository';
 import { actionTypeOptions, catalogWindowTo, GoalInputError, parseGoalInput } from './settings';
 
 /**
@@ -62,7 +62,9 @@ export async function generarDiagnostico(): Promise<never> {
     const ctx = await requireTenantContext();
     const supabase = await createSupabaseServerClient();
     const result = await generateDiagnostic({ ctx, rpc: supabaseRpc(supabase), worker: getWorkerApi(),
-      model: anthropicModelSteps(), loadContext: () => loadGenerationContext(ctx, supabase) });
+      model: anthropicModelSteps(), loadContext: () => loadGenerationContext(ctx, supabase),
+      loadAttributionWindows: (connectionId, window, metricRef) =>
+        readAccountAttributionWindows(supabase, connectionId, window, metricRef) });
     code = result.code;
   } catch (error) {
     login = error instanceof UnauthorizedError;

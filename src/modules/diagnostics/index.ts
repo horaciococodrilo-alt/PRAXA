@@ -14,6 +14,7 @@ export {
 export {
   DiagnosticReadError,
   DiagnosticWriteError,
+  readAccountAttributionWindows,
   publishDiagnostic,
   readAccountMetrics,
   readActionTypes,

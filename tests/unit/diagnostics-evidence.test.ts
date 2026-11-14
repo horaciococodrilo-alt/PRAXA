@@ -15,7 +15,7 @@ import {
   windowsFor,
   type PrepareInput,
 } from '@/modules/diagnostics/evidence';
-import { readAllEntities, readBreakdowns } from '@/modules/diagnostics/repository';
+import { extractAttributionWindows, readAllEntities, readBreakdowns } from '@/modules/diagnostics/repository';
 
 const W = windowsFor('2026-11-12');
 
@@ -106,13 +106,16 @@ describe('M26a-T-08: cero, falta de cobertura y ausencia', () => {
 });
 
 describe('M26a-T-09: entidades, días abiertos y comparación', () => {
-  it('incluye pausadas con actividad y excluye filas sin actividad', () => {
+  it('conserva todas las entidades que SQL calificó, incluidas pausadas y con otra acción', () => {
     const paused = entity(2, { effective_status: 'PAUSED' });
-    const idle = entity(3, { cur_spend: '0', cur_impressions: '0', cur_clicks: '0', cur_result_count: null });
-    const out = prepareDiagnostic(input({ entities: { campaign: [entity(1), paused, idle], adset: [], ad: [] } }));
+    // SQL incluye esta fila por una acción observada distinta de la elegida como objetivo.
+    const otherAction = entity(3, { cur_spend: '0', cur_impressions: '0', cur_clicks: '0',
+      cur_result_count: null });
+    const out = prepareDiagnostic(input({ entities: { campaign: [entity(1), paused, otherAction],
+      adset: [], ad: [] } }));
     if (out.status !== 'ready') throw new Error('se esperaba paquete');
-    expect(out.package.entities.map((e) => e.status)).toEqual(['ACTIVE', 'PAUSED']);
-    expect(out.manifest.entities_examined).toEqual({ campaign: 2, adset: 0, ad: 0 });
+    expect(out.package.entities.map((e) => e.status)).toEqual(['ACTIVE', 'PAUSED', 'ACTIVE']);
+    expect(out.manifest.entities_examined).toEqual({ campaign: 3, adset: 0, ad: 0 });
   });
 
   it('marca días abiertos, captura parcial y parcialidad por nivel', () => {
@@ -211,6 +214,20 @@ describe('M26a-T-10: recorrido completo, lotes y manifiesto', () => {
 });
 
 describe('M26a-T-13: resultado del objetivo y retorno atribuido', () => {
+  it('congela solo las ventanas que aportaron el resultado, sin referencias de conjuntos', () => {
+    const rows = [{ rows: [
+      { inline_link_clicks: '3', actions: [{ action_type: 'purchase', variant: 'value', count: '2', value: null }],
+        attribution: { known: true, settings: [{ adset_ref: entity(1).entity_ref,
+          windows: [{ event_type: 'click', days: 7 }, { event_type: 'view', days: 1 }] }] } },
+      { inline_link_clicks: '1', actions: [{ action_type: 'lead', variant: 'value', count: '1', value: null }],
+        attribution: { known: true, settings: [{ adset_ref: entity(2).entity_ref,
+          windows: [{ event_type: 'click', days: 28 }] }] } },
+    ] }];
+    const windows = extractAttributionWindows(rows, 'actions:purchase');
+    expect(windows).toEqual([{ event_type: 'click', days: 7 }, { event_type: 'view', days: 1 }]);
+    expect(JSON.stringify(windows)).not.toContain(entity(1).entity_ref);
+  });
+
   it('retorno solo con valor del tipo elegido; rótulo atribuido por Meta, nunca ganancia', () => {
     const out = prepareDiagnostic(input());
     if (out.status !== 'ready') throw new Error('se esperaba paquete');

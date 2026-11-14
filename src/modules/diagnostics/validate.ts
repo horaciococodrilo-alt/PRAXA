@@ -242,6 +242,27 @@ export function substituteMarkers(text: string, ctx: ValidationContext): string 
   });
 }
 
+/**
+ * Suma a `evidence_ids` de cada sección la evidencia citada solo por marcador en sus textos.
+ * Después de sustituir, los marcadores desaparecen: sin esto, una cifra mostrada en el texto
+ * no tendría fila en la tabla de evidencia citada.
+ */
+export function withMarkerEvidence(output: ReportOutput): ReportOutput {
+  const merge = (ids: readonly string[], ...textsOf: string[]) =>
+    [...new Set([...ids, ...textsOf.flatMap(citedEvidence)])];
+  return {
+    ...output,
+    executive_summary: { ...output.executive_summary,
+      evidence_ids: merge(output.executive_summary.evidence_ids, output.executive_summary.text) },
+    overall_performance: { ...output.overall_performance,
+      evidence_ids: merge(output.overall_performance.evidence_ids, output.overall_performance.text) },
+    top_entities: output.top_entities.map((e) => ({ ...e, evidence_ids: merge(e.evidence_ids, e.note) })),
+    breakdowns: output.breakdowns.map((b) => ({ ...b, evidence_ids: merge(b.evidence_ids, b.text) })),
+    opportunities: output.opportunities.map((o) => ({ ...o, evidence_ids: merge(o.evidence_ids, o.title,
+      o.rationale, o.action, o.check_plan, o.uncertainty) })),
+  };
+}
+
 /** Salida validada con todos los marcadores reemplazados por texto plano. */
 export function substituteOutput(output: ReportOutput, ctx: ValidationContext): ReportOutput {
   const s = (t: string) => substituteMarkers(t, ctx);

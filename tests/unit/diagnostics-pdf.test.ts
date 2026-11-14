@@ -52,6 +52,54 @@ describe('M26a-T-24: modelo de documento compartido', () => {
     expect(texts).toContain('meta-diag-1');
   });
 
+  it('la atribución anterior conocida no rotula como conocida la ventana actual desconocida', async () => {
+    const fixture = await storedReportFixture();
+    const withKnownPrevious = parseStoredReport({ ...fixture, evidence: { ...fixture.evidence,
+      items: fixture.evidence.items.map((item) => item.id === 'ev_acct_prev_result_count'
+        ? { ...item, attribution: `attr_${'a'.repeat(32)}` } : item) } });
+    const currentLabel = composeDocument(withKnownPrevious).meta.find((item) => item.label === 'Atribución');
+    expect(currentLabel?.value).toBe('no informada por Meta');
+  });
+
+  it('con la atribución actual conocida y la anterior desconocida, el aviso no contradice la cabecera', async () => {
+    const fixture = await storedReportFixture();
+    const stored = parseStoredReport({ ...fixture, evidence: { ...fixture.evidence,
+      items: fixture.evidence.items.map((item) => item.level === 'account' && item.segment === null
+        && item.period.from === fixture.window_from && item.attribution === 'unknown'
+        ? { ...item, attribution: `attr_${'a'.repeat(32)}` } : item) } });
+    expect(stored.evidence.items.some((e) => e.level === 'account' && e.segment === null
+      && e.period.from === stored.prev_from && e.attribution === 'unknown')).toBe(true);
+    const rendered = composeDocument(stored);
+    expect(rendered.meta.find((item) => item.label === 'Atribución')?.value).toBe('configuración informada por Meta');
+    const notices = rendered.sections.find((s) => s.id === 'performance')!.blocks
+      .filter((b) => b.kind === 'notice').map((b) => (b as { text: string }).text);
+    expect(notices).not.toContain('Meta no informa con qué atribución contó estos resultados: pueden mezclar ventanas distintas.');
+    expect(notices.some((t) => t.startsWith('En el período anterior, Meta no informa'))).toBe(true);
+  });
+
+  it('muestra las ventanas congeladas en pantalla y PDF desde el informe persistido', async () => {
+    const fixture = await storedReportFixture();
+    const stored = parseStoredReport({ ...fixture, evidence: { ...fixture.evidence,
+      totals: { ...fixture.evidence.totals, attribution_windows: [
+        { event_type: 'click', days: 7 }, { event_type: 'view', days: 1 },
+      ] }, items: fixture.evidence.items.map((item) => item.id === 'ev_acct_cur_result_count'
+        ? { ...item, attribution: `attr_${'a'.repeat(32)}` } : item) } });
+    const rendered = composeDocument(stored);
+    const windows = rendered.meta.find((item) => item.label === 'Ventanas de atribución');
+    expect(windows?.value).toContain('7 días');
+    expect(windows?.value).toContain('1 día');
+    expect(treeTexts(pdfTree(rendered))).toContain(`Ventanas de atribución: ${windows?.value}`);
+  });
+
+  it('advierte si las ventanas informadas cubren solo parte de los datos', async () => {
+    const fixture = await storedReportFixture();
+    const stored = parseStoredReport({ ...fixture, evidence: { ...fixture.evidence,
+      totals: { ...fixture.evidence.totals,
+        attribution_windows: [{ event_type: 'click', days: 7 }] } } });
+    const windows = composeDocument(stored).meta.find((item) => item.label === 'Ventanas de atribución');
+    expect(windows?.value).toContain('observadas en parte de los datos; otras no informadas por Meta');
+  });
+
   it('nunca lleva identificadores de entidad, de cuenta ni marcadores sin sustituir', () => {
     const json = JSON.stringify(doc) + JSON.stringify(large);
     expect(json).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-/);

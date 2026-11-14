@@ -1,10 +1,12 @@
 import { z } from 'zod';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { WorkerApi } from '@/modules/integrations/db/worker-api';
 import type { TenantContext } from '@/modules/tenant/context';
 
 import {
   accountMetricsRowSchema,
+  attributionWindowSchema,
   actionTypeRowSchema,
   BREAKDOWN_DIMENSIONS,
   breakdownMetricsRowSchema,
@@ -12,6 +14,7 @@ import {
   eligibilitySchema,
   entityMetricsRowSchema,
   type AccountMetricsRow,
+  type AttributionWindow,
   type ActionTypeRow,
   type BreakdownDimension,
   type BreakdownMetricsRow,
@@ -67,6 +70,43 @@ export async function readAccountMetrics(rpc: Rpc, args: { connectionId: string;
   const current = found.find((row) => row.period === 'current');
   if (!current || found.length > 2) throw new DiagnosticReadError();
   return { current, previous: found.find((row) => row.period === 'previous') ?? null };
+}
+
+const attributionCoverageSchema = z.array(z.object({ rows: z.array(z.object({
+  inline_link_clicks: z.string().nullable(),
+  actions: z.array(z.object({ action_type: z.string(), variant: z.string(),
+    count: z.string().nullable(), value: z.string().nullable() })),
+  attribution: z.object({ known: z.boolean(), settings: z.array(z.object({
+    windows: z.array(attributionWindowSchema),
+  })) }).nullable(),
+})) }));
+
+/** Solo ventanas de filas que aportaron resultados del objetivo; nunca conserva adset_ref. */
+export function extractAttributionWindows(raw: unknown, metricRef: string): AttributionWindow[] {
+  const parsed = attributionCoverageSchema.safeParse(raw);
+  if (!parsed.success) throw new DiagnosticReadError();
+  const windows = new Map<string, AttributionWindow>();
+  const actionType = metricRef.startsWith('actions:') ? metricRef.slice('actions:'.length) : null;
+  for (const coverage of parsed.data) for (const row of coverage.rows) {
+    const contributes = actionType === null ? row.inline_link_clicks !== null
+      : row.actions.some((action) => action.action_type === actionType && action.variant === 'value'
+        && (action.count !== null || action.value !== null));
+    if (!contributes || !row.attribution?.known) continue;
+    for (const setting of row.attribution.settings) for (const window of setting.windows) {
+      windows.set(`${window.event_type}:${window.days}`, window);
+    }
+  }
+  return [...windows.values()].sort((a, b) => a.event_type.localeCompare(b.event_type, 'en') || a.days - b.days);
+}
+
+/** Lectura de la proyección de cuenta bajo RLS; se guarda solo el resumen sin IDs. */
+export async function readAccountAttributionWindows(supabase: SupabaseClient, connectionId: string,
+  window: DiagnosticWindow, metricRef: string): Promise<AttributionWindow[]> {
+  const { data, error } = await supabase.from('meta_daily_coverage').select('rows')
+    .eq('connection_id', connectionId).eq('level', 'account')
+    .gte('date', window.from).lte('date', window.to).order('date', { ascending: true });
+  if (error || !data) throw new DiagnosticReadError();
+  return extractAttributionWindows(data, metricRef);
 }
 
 /** Recorre todas las entidades elegibles por clave (gasto desc, ref), sin el tope de PostgREST. */
