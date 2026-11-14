@@ -97,8 +97,12 @@ Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 Tiendanube entró en la ruta con M16e (enmienda de conectores del 2026-11-14): existen el
 proveedor en K02–K04 y en la base, una conexión viva por empresa **y proveedor**, las tablas
 privadas de la tienda, los agregados públicos, las funciones de sincronización y privacidad y
-las lecturas `get_tn_*` (`0023`). El OAuth, la extracción, la pantalla, el chat y el
-diagnóstico con la tienda están previstos en las etapas siguientes; GA4, en M16f. La ruta no
+las lecturas `get_tn_*` (`0023`). Desde la etapa .2 existen además el módulo
+`integrations/tiendanube` (configuración, cliente HTTP de solo lectura, errores y OAuth), las
+rutas `iniciar` (`POST` del propio origen) y `callback`, y la desconexión de la tienda sin
+revocación remota; la purga perezosa distingue el proveedor. La extracción, los webhooks, la
+pantalla, el chat y el diagnóstico con la tienda están previstos en las etapas siguientes; GA4,
+en M16f. La ruta no
 construye reportes publicados ni base vectorial. Solo admite las medidas y tasas del catálogo de la spec de la ruta, sin cálculos autoritativos del modelo.
 
 ## Base de datos
