@@ -79,6 +79,13 @@ La [cuarta auditoría](../../M16e/revisiones/spec-audit-4.md) dio REQUIERE CAMBI
 
 El usuario aprobó la spec de `M16e` sin una quinta auditoría, como excepción a la regla de aprobar solo con auditoría APROBABLE. Las correcciones de `spec-audit-4` quedan integradas sin volver a auditarse. El detalle está en el encabezado de `M16e/spec.md`.
 
+## Correcciones de `plan-audit-1` de M16e (mismo día)
+
+La [auditoría del plan](../../M16e/revisiones/plan-audit-1.md) dio REQUIERE CAMBIOS. Decisiones del usuario:
+
+- **P-01:** se suman a II.14b `src/modules/integrations/lifecycle.ts` y `actions.ts`. La spec de `M16e` los atribuía a II.14b sin que la ruta los nombrara; desde esta enmienda la atribución es correcta, sin cambiar la spec aprobada.
+- **P-02:** la instrucción para desinstalar la app de Tiendanube va en la «Guía de integraciones» de la pantalla de Integraciones. La guía es un modal con dos páginas, «Conectar» y «Desconectar», con el estilo de la imagen que dio el usuario. La desconexión de Tiendanube enlaza a la página «Desconectar». Los archivos quedan dentro de `src/app/(app)/app/integraciones/`, que II.14b ya autoriza.
+
 ## Verificación
 
 Revisión del diff y `git diff --check`. Es un cambio documental: no hay código ni pruebas.
