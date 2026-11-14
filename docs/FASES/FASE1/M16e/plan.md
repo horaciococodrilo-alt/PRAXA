@@ -1,6 +1,6 @@
 # M16e — Plan de implementación
 
-**Estado:** APROBADO
+**Estado:** BORRADOR
 
 **Spec base:** `docs/FASES/FASE1/M16e/spec.md`, APROBADA; hash de contenido, excluida la línea de estado: `9a4eb6f7fa0540591aca327dda3430f1e0f6d153`.
 
@@ -21,6 +21,7 @@ II.14b de la ruta incluye `src/modules/integrations/lifecycle.ts` y `actions.ts`
 | `docs/SECURITY.md`; `docs/ARCHITECTURE.md`; `docs/HALLAZGOS.md`; `docs/PROJECT_STATE.md`; `docs/FASES/FASE1/meta_first/sesiones/M16e.md` | Seguimiento y cambios estructurales autorizados | 0–14 | II.14b |
 | `supabase/migrations/0023_tiendanube.sql`; `supabase/migrations/0024_tiendanube_diag.sql` | Nuevos, sujetos a confirmar que `0022` sigue siendo el último número | 1, 11 | II.14b |
 | `supabase/tests/18_tiendanube.test.sql`; `08_integration_isolation.test.sql`, `09_integration_privileges.test.sql`, `09b_integration_lifecycle.test.sql`, `10_demo_closure.test.sql`, `15_chat_queries.test.sql`, `17_meta_diagnostics.test.sql` | Nuevo/modificados | 1, 5, 11 | II.14b |
+| `supabase/tests/{13_meta_insights,14_meta_breakdowns,16_chat_entity_level}.test.sql`; `scripts/chat-seed-test.mjs` | Modificados, solo para pasar `'meta'` como proveedor en las llamadas a las firmas nuevas | 1 | II.14b (`H-E1-254`, DP-03) |
 | `src/modules/integrations/contract/{primitives,oauth-attempt,connection,credential}.ts`; `db/worker-api.ts`; `repository/{connections,credentials,attempts,lifecycle-calls}.ts`; `meta/oauth.ts` | Modificados | 1, 4 | II.14b |
 | `src/modules/integrations/{lifecycle,actions}.ts` | Modificados | 4–5 | II.14b (enmienda P-01) |
 | `src/modules/integrations/tiendanube/{config,client,errors,limits,oauth,projection,repository,sync,privacy,analysis}.ts` | Nuevos | 4–8 | II.14b |
@@ -38,6 +39,7 @@ II.14b de la ruta incluye `src/modules/integrations/lifecycle.ts` y `actions.ts`
 |---|---|---|
 | DP-01 | Se suman a II.14b `src/modules/integrations/lifecycle.ts` y `actions.ts` (`plan-audit-1`, P-01) | 2026-11-14 |
 | DP-02 | La instrucción para desinstalar va en la «Guía de integraciones»: un modal con dos páginas, «Conectar» y «Desconectar», con el estilo de la imagen del usuario. La desconexión de Tiendanube enlaza a «Desconectar» (`plan-audit-1`, P-02) | 2026-11-14 |
+| DP-03 | Se suman a II.14b y a esta tabla los pgTAP `13`, `14` y `16` y `scripts/chat-seed-test.mjs`, que llaman a las firmas antiguas de `create_oauth_attempt`, `consume_oauth_attempt` y `create_pending_connection`. El cambio es mecánico: pasar `'meta'` como proveedor (`H-E1-254`) | 2026-11-14 |
 
 ## Pasos
 
@@ -46,7 +48,7 @@ En cada etapa, escribir primero los casos automatizables, observar el fallo espe
 | # | Acción | Archivos | Criterios y casos que cubre | Verificación del paso |
 |---:|---|---|---|---|
 | 0 | Ampliar el acta para Tiendanube, DeepInfra y Anthropic. Auditar el plan. El usuario aprueba plan y acta antes de la primera línea de código. Comprobar otra vez Git, `G-DIAG`, número de migración y guías pertinentes de Next 16.4.2. | Documentación del primer bloque | CB-02–CB-06; §17.7–17.9 | Auditoría APROBABLE, aprobaciones registradas y árbol inicial preservado. |
-| 1 | **Etapa .1, pruebas primero:** agregar pgTAP y pruebas de contrato para coexistencia, RLS, grants exactos, proveedor en K02–K04, supresión de celdas menores a cinco y purga. Implementar migración 1 y adaptar contratos, repositorios y `worker-api`. Conservar la semántica de Meta. | Migración 1; pgTAP 08–10 y 18; integración | C-01, C-08, C-13; T-01, T-07; CA-05, CA-11c, CA-18, CA-28, CA-38c, INV-01/04 | Fallo previo reproducido; migración inspeccionada; matriz de privilegios del encabezado igual al pgTAP. |
+| 1 | **Etapa .1, pruebas primero:** agregar pgTAP y pruebas de contrato para coexistencia, RLS, grants exactos, proveedor en K02–K04, supresión de celdas menores a cinco y purga. Implementar migración 1 y adaptar contratos, repositorios y `worker-api`. Conservar la semántica de Meta. | Migración 1; pgTAP 08–10, 13, 14, 16 y 18; `scripts/chat-seed-test.mjs`; integración | C-01, C-08, C-13; T-01, T-07; CA-05, CA-11c, CA-18, CA-28, CA-38c, INV-01/04 | Fallo previo reproducido; migración inspeccionada; matriz de privilegios del encabezado igual al pgTAP. |
 | 2 | El usuario ejecuta `npm run db:push:test` para la migración 1, solo tras `npm run db:check:test`. El asistente comprueba historial de migraciones del desechable y corre el control completo de .1. El usuario hace el commit de etapa. | Migración 1; sesión | C-01, C-08; T-01, T-07, T-09 | `0023` aplicada una vez; suites completas verdes; commit identificado. |
 | 3 | Antes de .2, el usuario crea la única app en el Portal con los tres permisos de lectura, callback y webhooks de `app`; confirma H-04 y H-10, carga variables fuera del chat y ejecuta el preflight redactado. Si no puede instalarse sin homologación, detener M16e. | Preflight; `.env.example`; entorno; sesión | C-02, C-10; T-02, T-10 | Presencia y forma de variables sin mostrar valores; H-04/H-10 registrados. |
 | 4 | **Etapa .2, pruebas primero:** OAuth de un uso, navegador/actor/empresa/proveedor vinculados, callback limpio, cancelación, scopes exactos, confirmación de tienda/zona/moneda, cifrado con AAD y reautorización de la misma tienda. Hacer que `runLazyPurge` revoque solo Meta; agregar desconexión de Tiendanube sin revocación remota. | Integración; rutas iniciar/callback; acciones | C-02, C-03; T-02, T-03; CA-37c, CA-38, DEC-09/17 | Replay y generación vieja rechazados; token de Tiendanube nunca enviado a Meta; control completo de .2 y commit del usuario. |
