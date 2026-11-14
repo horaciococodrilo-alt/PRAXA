@@ -55,7 +55,7 @@ describe('M25a.1: consultas del chat por Data API real', () => {
     ctx = { user_id: owner.id, company_id: created.data.id, role: 'owner', request_id: randomUUID() };
     const keyring = keyrings.getCredentialKeyring();
     const pending = await credentials.executePreparedCredentialOperation(ctx,
-      credentials.preparePendingConnectionWithCredential(ctx, {
+      credentials.preparePendingConnectionWithCredential(ctx, { provider: 'meta',
         token: 'token-sint', tokenType: 'system_user', issuedForAppId: 'app_sintetica',
         grantedScopes: ['ads_read'], expiresAt: null, clientBusinessId: 'negocio_sint',
       }, { keyring }), { workerApi: worker });

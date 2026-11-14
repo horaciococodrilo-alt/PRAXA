@@ -112,9 +112,22 @@ const disconnectedSchema = z.strictObject({
   purge_requested_at: isoDateTimeSchema,
 });
 
+/** M16e: la cuenta de una conexión de Tiendanube es el ID numérico de la tienda. */
+export const tiendanubeStoreIdSchema = z.string().regex(/^[1-9][0-9]{0,19}$/, 'debe ser un ID de tienda');
+
 export const integrationConnectionRecordSchema = z
   .discriminatedUnion('status', [pendingSchema, activeSchema, needsReauthSchema, disconnectedSchema])
   .superRefine((record, ctx) => {
+    // M16e: espejo de `integration_connections_provider_shape` (0023).
+    if (record.provider === 'tiendanube') {
+      if (record.client_business_id !== null || record.current_sync_run_id !== null) {
+        ctx.addIssue({ code: 'custom', path: ['provider'],
+          message: 'una conexión de Tiendanube no tiene negocio ni ejecución de Meta' });
+      }
+      if (record.external_account_id !== null && !tiendanubeStoreIdSchema.safeParse(record.external_account_id).success) {
+        ctx.addIssue({ code: 'custom', path: ['external_account_id'], message: 'debe ser un ID de tienda' });
+      }
+    }
     // CA-08: ninguna transición inventa metadatos. Los tres vienen juntos de la
     // confirmación, así que están todos o no está ninguno.
     const present = [record.external_account_id, record.currency, record.timezone].filter(

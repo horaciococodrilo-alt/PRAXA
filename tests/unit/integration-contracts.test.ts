@@ -133,6 +133,7 @@ function credential(): SecretCredential {
   return {
     connection_id: CONNECTION_ID,
     company_id: COMPANY_ID,
+    provider: 'meta',
     ciphertext: b64(48, 7),
     iv: b64(12, 1),
     auth_tag: b64(16, 2),
@@ -149,8 +150,8 @@ function credential(): SecretCredential {
 // ---------------------------------------------------------------------------
 
 describe('primitivas', () => {
-  it('el proveedor es un enum cerrado con único valor meta (CA-05)', () => {
-    expect(integrationProviderSchema.options).toEqual(['meta']);
+  it('el proveedor es un enum cerrado: meta y tiendanube (CA-05 enmendado por M16e)', () => {
+    expect(integrationProviderSchema.options).toEqual(['meta', 'tiendanube']);
     expect(integrationProviderSchema.safeParse('google').success).toBe(false);
     expect(integrationProviderSchema.safeParse('Meta').success).toBe(false);
   });
@@ -880,5 +881,81 @@ describe('K04 SecretCredential', () => {
         provider: 'google' as 'meta',
       }),
     ).toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M16e-T-01: K02–K04 discriminan por proveedor (C-01, CA-05/11c enmendados)
+// ---------------------------------------------------------------------------
+
+describe('M16e: contratos por proveedor', () => {
+  function tiendanubeCredential(): SecretCredential {
+    return {
+      ...credential(),
+      provider: 'tiendanube',
+      token_type: 'store_app_token',
+      issued_for_app_id: '12345',
+      granted_scopes: ['read_orders', 'read_customers', 'read_products'],
+      expires_at: null,
+    };
+  }
+
+  function tiendanubeConnection(): IntegrationConnectionRecord {
+    return {
+      ...activeConnection(),
+      provider: 'tiendanube',
+      client_business_id: null,
+      external_account_id: '777001',
+      currency: 'ARS',
+      timezone: 'America/Argentina/Buenos_Aires',
+    };
+  }
+
+  it('K04 acepta la credencial de Tiendanube con los tres read_* en cualquier orden', () => {
+    expect(secretCredentialSchema.safeParse(tiendanubeCredential()).success).toBe(true);
+    expect(secretCredentialSchema.safeParse({
+      ...tiendanubeCredential(), granted_scopes: ['read_products', 'read_orders', 'read_customers'],
+    }).success).toBe(true);
+  });
+
+  it.each([
+    ['un scope de más', { granted_scopes: ['read_orders', 'read_customers', 'read_products', 'write_orders'] }],
+    ['un scope de menos', { granted_scopes: ['read_orders', 'read_customers'] }],
+    ['un scope repetido', { granted_scopes: ['read_orders', 'read_orders', 'read_products'] }],
+    ['token de Meta', { token_type: 'system_user' }],
+    ['vencimiento', { expires_at: '2027-01-01T00:00:00.000Z' }],
+  ])('K04 rechaza Tiendanube con %s', (_label, change) => {
+    expect(secretCredentialSchema.safeParse({ ...tiendanubeCredential(), ...change }).success).toBe(false);
+  });
+
+  it('K04 sigue exigiendo system_user y ads_read para Meta', () => {
+    expect(secretCredentialSchema.safeParse(credential()).success).toBe(true);
+    expect(secretCredentialSchema.safeParse({ ...credential(), token_type: 'store_app_token' }).success).toBe(false);
+    expect(secretCredentialSchema.safeParse({
+      ...credential(), granted_scopes: ['read_orders', 'read_customers', 'read_products'],
+    }).success).toBe(false);
+    expect(secretCredentialSchema.safeParse(without(credential(), 'provider')).success).toBe(false);
+  });
+
+  it('el AAD distingue el proveedor: una credencial de Meta no se reinterpreta como de Tiendanube', () => {
+    const base = { company_id: COMPANY_ID, connection_id: CONNECTION_ID };
+    expect(buildCredentialAad({ ...base, provider: 'meta' }))
+      .not.toBe(buildCredentialAad({ ...base, provider: 'tiendanube' }));
+  });
+
+  it('K03 acepta la conexión de Tiendanube y rechaza negocio de Meta o cuenta no numérica', () => {
+    expect(integrationConnectionRecordSchema.safeParse(tiendanubeConnection()).success).toBe(true);
+    expect(integrationConnectionRecordSchema.safeParse({
+      ...tiendanubeConnection(), client_business_id: 'negocio_sintetico',
+    }).success).toBe(false);
+    expect(integrationConnectionRecordSchema.safeParse({
+      ...tiendanubeConnection(), external_account_id: 'act_123',
+    }).success).toBe(false);
+    expect(toConnectionDto(tiendanubeConnection()).provider).toBe('tiendanube');
+  });
+
+  it('K02 acepta intentos de los dos proveedores y rechaza otro', () => {
+    expect(oauthAttemptSchema.safeParse({ ...initialAttempt(), provider: 'tiendanube' }).success).toBe(true);
+    expect(oauthAttemptSchema.safeParse({ ...initialAttempt(), provider: 'google' }).success).toBe(false);
   });
 });

@@ -404,7 +404,7 @@ export async function completeReauth(
   const write = () => {
     const keyring = deps.keyring();
     const operation = prepareReplaceCredential(ctx, {
-      connectionId: connection.id, attemptId: attempt.attemptId, token: token.reveal(),
+      provider: 'meta', connectionId: connection.id, attemptId: attempt.attemptId, token: token.reveal(),
       tokenType: validated.tokenType, issuedForAppId: validated.issuedForAppId,
       grantedScopes: validated.grantedScopes, expiresAt: validated.expiresAt,
     }, { keyring });

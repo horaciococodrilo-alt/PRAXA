@@ -49,7 +49,7 @@ begin
   insert into public.companies (id, name, owner_id)
   values (pg_temp.cid(n), format('Empresa sintetica %s', n), pg_temp.uid(n));
   perform worker_api.create_pending_connection(
-    pg_temp.uid(n), pg_temp.cid(n), pg_temp.kid(n), 'negocio_sintetico', 'AAAA',
+    pg_temp.uid(n), pg_temp.cid(n), pg_temp.kid(n), 'meta', 'negocio_sintetico', 'AAAA',
     'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica',
     '{ads_read}', null);
   perform worker_api.confirm_connection(

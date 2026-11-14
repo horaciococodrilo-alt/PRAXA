@@ -2,9 +2,11 @@ import 'server-only';
 
 import {
   OAuthAttemptRejectedError,
+  integrationProviderSchema,
   oauthPurposeSchema,
   returnPathSchema,
   sha256HexSchema,
+  type IntegrationProvider,
   type OAuthPurpose,
   type ReturnPath,
 } from '@/modules/integrations/contract';
@@ -15,6 +17,7 @@ import { getWorkerApi, WorkerApiError, type WorkerApi } from '../db/worker-api';
 /**
  * K02 sobre `worker_api`: crear y consumir un intento OAuth.
  *
+ * Cada intento es de un proveedor (M16e): la base no consume un intento con otro (A-14).
  * La base recibe solo hashes. El consumo es una sola llamada que valida `state`, nonce,
  * actor, empresa, vigencia y no consumido en la misma sentencia (CA-03): acá no se lee el
  * intento antes de consumirlo. Cualquier rechazo es el mismo error, sin decir qué falló
@@ -98,6 +101,7 @@ function translated(error: unknown): unknown {
 export async function createOAuthAttempt(
   ctx: TenantContext,
   input: {
+    provider: IntegrationProvider;
     purpose: OAuthPurpose;
     stateHash: string;
     bindingHash: string;
@@ -108,9 +112,10 @@ export async function createOAuthAttempt(
   deps: { workerApi?: WorkerApi } = {},
 ): Promise<CreatedAttempt> {
   const actor = context(ctx);
+  const provider = integrationProviderSchema.safeParse(input.provider);
   const purpose = oauthPurposeSchema.safeParse(input.purpose);
   const returnPath = returnPathSchema.safeParse(input.returnPath);
-  if (!purpose.success || !returnPath.success) invalidInput();
+  if (!provider.success || !purpose.success || !returnPath.success) invalidInput();
   if (!sha256HexSchema.safeParse(input.stateHash).success || !sha256HexSchema.safeParse(input.bindingHash).success) {
     invalidInput();
   }
@@ -125,6 +130,7 @@ export async function createOAuthAttempt(
     rows = await api.call('create_oauth_attempt', [
       actor.user_id,
       actor.company_id,
+      provider.data,
       purpose.data,
       input.stateHash,
       input.bindingHash,
@@ -147,17 +153,20 @@ export async function createOAuthAttempt(
 
 export async function consumeOAuthAttempt(
   ctx: TenantContext,
-  input: { stateHash: string; bindingHash: string },
+  input: { provider: IntegrationProvider; stateHash: string; bindingHash: string },
   deps: { workerApi?: WorkerApi } = {},
 ): Promise<ConsumedAttempt> {
   const actor = context(ctx);
+  const provider = integrationProviderSchema.safeParse(input.provider);
+  if (!provider.success) invalidInput();
   if (!sha256HexSchema.safeParse(input.stateHash).success || !sha256HexSchema.safeParse(input.bindingHash).success) {
     invalidInput();
   }
   const api = deps.workerApi ?? getWorkerApi();
   let rows: unknown;
   try {
-    rows = await api.call('consume_oauth_attempt', [actor.user_id, actor.company_id, input.stateHash, input.bindingHash]);
+    rows = await api.call('consume_oauth_attempt', [actor.user_id, actor.company_id, provider.data,
+      input.stateHash, input.bindingHash]);
   } catch (error) {
     throw translated(error);
   }

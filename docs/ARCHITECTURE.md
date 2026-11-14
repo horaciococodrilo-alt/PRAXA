@@ -94,7 +94,12 @@ Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 | `integrations` (resto) | Orquesta selección, reautorización, desconexión y purga perezosa; Server Actions de confirmación, desconexión y sincronización manual | Existe |
 | `chat` | Consulta en lenguaje natural sobre métricas y resultados persistidos de Meta por nivel y entidad, con cifras verificadas; catálogo en §11 de la spec de la ruta | Previsto |
 
-La ruta `meta_first` no construye Tiendanube, GA4, reportes publicados ni base vectorial. Solo admite las medidas y tasas del catálogo de la spec de la ruta, sin cálculos autoritativos del modelo.
+Tiendanube entró en la ruta con M16e (enmienda de conectores del 2026-11-14): existen el
+proveedor en K02–K04 y en la base, una conexión viva por empresa **y proveedor**, las tablas
+privadas de la tienda, los agregados públicos, las funciones de sincronización y privacidad y
+las lecturas `get_tn_*` (`0023`). El OAuth, la extracción, la pantalla, el chat y el
+diagnóstico con la tienda están previstos en las etapas siguientes; GA4, en M16f. La ruta no
+construye reportes publicados ni base vectorial. Solo admite las medidas y tasas del catálogo de la spec de la ruta, sin cálculos autoritativos del modelo.
 
 ## Base de datos
 
@@ -145,7 +150,9 @@ La lista vigente se obtiene de las migraciones
 
 ### Integridad entre empresas
 
-Toda tabla de empresa tiene `company_id NOT NULL` y cascada desde `companies`. Las tablas
+Toda tabla de empresa tiene `company_id NOT NULL` y cascada desde `companies`. Desde `0023`
+la credencial y el intento de reautorización referencian además `(company_id, id, provider)`
+de su conexión: no pueden colgar de una conexión de otro proveedor. Las tablas
 hijas referencian el par `(company_id, id_del_padre)`, así que una fila de la empresa A no
 puede apuntar a un padre de la empresa B aunque alguien eluda las políticas.
 

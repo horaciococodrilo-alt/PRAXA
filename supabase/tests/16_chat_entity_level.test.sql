@@ -11,7 +11,7 @@ insert into public.companies (id,name,owner_id) values
   ('c0a00000-0000-4000-8000-000000000161','Chat sintético tres','aaaaaaaa-0000-4000-8000-000000000161');
 select 1 from worker_api.create_pending_connection(
   'aaaaaaaa-0000-4000-8000-000000000161','c0a00000-0000-4000-8000-000000000161',
-  'cc000000-0000-4000-8000-000000000161','negocio_sintetico','AAAA','AAAAAAAAAAAAAAAA',
+  'cc000000-0000-4000-8000-000000000161', 'meta','negocio_sintetico','AAAA','AAAAAAAAAAAAAAAA',
   'AAAAAAAAAAAAAAAAAAAAAA==',1,'system_user','app_sintetica','{ads_read}',null);
 select 1 from worker_api.confirm_connection(
   'aaaaaaaa-0000-4000-8000-000000000161','c0a00000-0000-4000-8000-000000000161',

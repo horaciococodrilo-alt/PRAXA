@@ -55,7 +55,7 @@ async function seedPendingConnection(
   const connectionId = randomUUID();
   await client.query(
     `select 1 from worker_api.create_pending_connection(
-       $1, $2, $3, 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
+       $1, $2, $3, 'meta', 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
        'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)`,
     [userId, companyId, connectionId],
   );

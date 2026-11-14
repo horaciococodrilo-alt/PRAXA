@@ -507,7 +507,7 @@ const LEVELS = ['account', 'campaign', 'adset', 'ad'] as const;
 
 /** Conexión viva, objetivo, perfil y estado por nivel, leídos con el JWT del dueño y RLS. */
 export async function loadGenerationContext(ctx: TenantContext, supabase: SupabaseClient): Promise<GenerationContext> {
-  const connection = await readLiveConnection(ctx, { supabase });
+  const connection = await readLiveConnection(ctx, 'meta', { supabase });
   const settings = await readDiagnosticSettings(supabase, ctx.company_id);
   const company = await supabase.from('companies').select('country, industry').eq('id', ctx.company_id).maybeSingle();
   if (company.error) throw new DiagnosticReadError();

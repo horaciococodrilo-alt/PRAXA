@@ -36,8 +36,11 @@ export function base64OfBytes(bytes: number) {
 // Proveedor y estados
 // ---------------------------------------------------------------------------
 
-/** CA-05: enum cerrado. Agregar un proveedor es una decisión, no un valor nuevo. */
-export const integrationProviderSchema = z.enum(['meta']);
+/**
+ * CA-05 (enmendado por M16e): enum cerrado. Agregar un proveedor es una decisión, no un
+ * valor nuevo. Tiendanube entró con la enmienda de conectores del 2026-11-14.
+ */
+export const integrationProviderSchema = z.enum(['meta', 'tiendanube']);
 export type IntegrationProvider = z.infer<typeof integrationProviderSchema>;
 
 /** CA-07. `disconnected` significa "borrado en curso": la purga elimina la fila. */

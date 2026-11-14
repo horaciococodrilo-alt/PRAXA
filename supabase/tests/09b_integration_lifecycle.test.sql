@@ -61,7 +61,7 @@ create function pg_temp.pending(n int, k int) returns void language plpgsql
 as $fn$
 begin
   perform worker_api.create_pending_connection(
-    pg_temp.uid(n), pg_temp.cid(n), pg_temp.kid(k), 'negocio_sintetico', 'AAAA',
+    pg_temp.uid(n), pg_temp.cid(n), pg_temp.kid(k), 'meta', 'negocio_sintetico', 'AAAA',
     'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica',
     '{ads_read}', null);
 end;
@@ -109,139 +109,139 @@ select pg_temp.new_company(201);
 
 -- C-11: restricciones por estado de integration_connections.
 select throws_ok(
-  $$insert into public.integration_connections (id, company_id, status, purge_requested_at, external_account_id)
-    values (gen_random_uuid(), pg_temp.cid(201), 'disconnected', now(), 'cuenta_sintetica_0001')$$,
+  $$insert into public.integration_connections (provider, id, company_id, status, purge_requested_at, external_account_id)
+    values ('meta', gen_random_uuid(), pg_temp.cid(201), 'disconnected', now(), 'cuenta_sintetica_0001')$$,
   '23514', null, 'T-17: metadatos parciales → 23514');
 
 select throws_ok(
-  $$insert into public.integration_connections (id, company_id, status)
-    values (gen_random_uuid(), pg_temp.cid(201), 'active')$$,
+  $$insert into public.integration_connections (provider, id, company_id, status)
+    values ('meta', gen_random_uuid(), pg_temp.cid(201), 'active')$$,
   '23514', null, 'T-17: active sin metadatos → 23514');
 
 select throws_ok(
-  $$insert into public.integration_connections (id, company_id, status)
-    values (gen_random_uuid(), pg_temp.cid(201), 'pending_selection')$$,
+  $$insert into public.integration_connections (provider, id, company_id, status)
+    values ('meta', gen_random_uuid(), pg_temp.cid(201), 'pending_selection')$$,
   '23514', null, 'T-17: pendiente sin vencimiento → 23514');
 
 select throws_ok(
-  $$insert into public.integration_connections (id, company_id, status, pending_expires_at, purge_requested_at)
-    values (gen_random_uuid(), pg_temp.cid(201), 'pending_selection', now() + interval '30 minutes', now())$$,
+  $$insert into public.integration_connections (provider, id, company_id, status, pending_expires_at, purge_requested_at)
+    values ('meta', gen_random_uuid(), pg_temp.cid(201), 'pending_selection', now() + interval '30 minutes', now())$$,
   '23514', null, 'T-17: marca de purga fuera de disconnected → 23514');
 
 select throws_ok(
-  $$insert into public.integration_connections (id, company_id, status, purge_requested_at, last_error_class)
-    values (gen_random_uuid(), pg_temp.cid(201), 'disconnected', now(), 'unknown')$$,
+  $$insert into public.integration_connections (provider, id, company_id, status, purge_requested_at, last_error_class)
+    values ('meta', gen_random_uuid(), pg_temp.cid(201), 'disconnected', now(), 'unknown')$$,
   '23514', null, 'T-17: clase de error sin mensaje → 23514');
 
 select throws_ok(
   $$insert into public.integration_connections
-      (id, company_id, status, external_account_id, currency, timezone, last_error_class, last_error_message)
-    values (gen_random_uuid(), pg_temp.cid(201), 'needs_reauth', 'cuenta_sintetica_0001', 'USD', 'UTC', 'unknown', 'error sintetico')$$,
+      (provider, id, company_id, status, external_account_id, currency, timezone, last_error_class, last_error_message)
+    values ('meta', gen_random_uuid(), pg_temp.cid(201), 'needs_reauth', 'cuenta_sintetica_0001', 'USD', 'UTC', 'unknown', 'error sintetico')$$,
   '23514', null, 'T-17: needs_reauth con clase unknown → 23514');
 
 select throws_ok(
   $$insert into public.integration_connections
-      (id, company_id, status, external_account_id, currency, timezone)
-    values (gen_random_uuid(), pg_temp.cid(201), 'needs_reauth', 'cuenta_sintetica_0001', 'USD', 'UTC')$$,
+      (provider, id, company_id, status, external_account_id, currency, timezone)
+    values ('meta', gen_random_uuid(), pg_temp.cid(201), 'needs_reauth', 'cuenta_sintetica_0001', 'USD', 'UTC')$$,
   '23514', null, 'T-17: needs_reauth con clase y mensaje nulos → 23514');
 
 select throws_ok(
   $$insert into public.integration_connections
-      (id, company_id, status, purge_requested_at, last_error_class, last_error_message)
-    values (gen_random_uuid(), pg_temp.cid(201), 'disconnected', now(), 'unknown', repeat('x', 501))$$,
+      (provider, id, company_id, status, purge_requested_at, last_error_class, last_error_message)
+    values ('meta', gen_random_uuid(), pg_temp.cid(201), 'disconnected', now(), 'unknown', repeat('x', 501))$$,
   '23514', null, 'T-17: mensaje de 501 caracteres → 23514');
 
 -- C-12: una sola conexión viva por empresa y cuenta única por empresa.
 select lives_ok(
-  $$insert into public.integration_connections (id, company_id, status, pending_expires_at)
-    values (pg_temp.kid(201), pg_temp.cid(201), 'pending_selection', now() + interval '30 minutes')$$,
+  $$insert into public.integration_connections (provider, id, company_id, status, pending_expires_at)
+    values ('meta', pg_temp.kid(201), pg_temp.cid(201), 'pending_selection', now() + interval '30 minutes')$$,
   'T-17: primera conexión viva');
 
 select throws_ok(
-  $$insert into public.integration_connections (id, company_id, status, pending_expires_at)
-    values (gen_random_uuid(), pg_temp.cid(201), 'pending_selection', now() + interval '30 minutes')$$,
+  $$insert into public.integration_connections (provider, id, company_id, status, pending_expires_at)
+    values ('meta', gen_random_uuid(), pg_temp.cid(201), 'pending_selection', now() + interval '30 minutes')$$,
   '23505', null, 'T-17: segunda conexión viva en la misma empresa → 23505');
 
 select lives_ok(
   $$insert into public.integration_connections
-      (id, company_id, status, purge_requested_at, external_account_id, currency, timezone)
-    values (gen_random_uuid(), pg_temp.cid(201), 'disconnected', now(), 'cuenta_sintetica_0201', 'USD', 'UTC')$$,
+      (provider, id, company_id, status, purge_requested_at, external_account_id, currency, timezone)
+    values ('meta', gen_random_uuid(), pg_temp.cid(201), 'disconnected', now(), 'cuenta_sintetica_0201', 'USD', 'UTC')$$,
   'T-17: desconectada con cuenta');
 
 select throws_ok(
   $$insert into public.integration_connections
-      (id, company_id, status, purge_requested_at, external_account_id, currency, timezone)
-    values (gen_random_uuid(), pg_temp.cid(201), 'disconnected', now(), 'cuenta_sintetica_0201', 'USD', 'UTC')$$,
+      (provider, id, company_id, status, purge_requested_at, external_account_id, currency, timezone)
+    values ('meta', gen_random_uuid(), pg_temp.cid(201), 'disconnected', now(), 'cuenta_sintetica_0201', 'USD', 'UTC')$$,
   '23505', null, 'T-17: misma cuenta dos veces en la empresa → 23505');
 
 -- C-14: intentos.
 select throws_ok(
-  $$insert into public.oauth_attempts (company_id, actor_user_id, purpose, state_hash,
+  $$insert into public.oauth_attempts (provider, company_id, actor_user_id, purpose, state_hash,
       browser_binding_hash, return_path, expires_at)
-    values (pg_temp.cid(201), pg_temp.uid(201), 'initial', upper(pg_temp.h(1701)),
+    values ('meta', pg_temp.cid(201), pg_temp.uid(201), 'initial', upper(pg_temp.h(1701)),
       pg_temp.h(1702), '/app/integraciones', now() + interval '5 minutes')$$,
   '23514', null, 'T-17: state_hash que no es SHA-256 hex en minúsculas → 23514');
 
 select throws_ok(
-  $$insert into public.oauth_attempts (company_id, actor_user_id, purpose, state_hash,
+  $$insert into public.oauth_attempts (provider, company_id, actor_user_id, purpose, state_hash,
       browser_binding_hash, return_path, expires_at)
-    values (pg_temp.cid(201), pg_temp.uid(201), 'initial', pg_temp.h(1701),
+    values ('meta', pg_temp.cid(201), pg_temp.uid(201), 'initial', pg_temp.h(1701),
       'abc', '/app/integraciones', now() + interval '5 minutes')$$,
   '23514', null, 'T-17: browser_binding_hash que no es SHA-256 → 23514');
 
 select throws_ok(
-  $$insert into public.oauth_attempts (company_id, actor_user_id, purpose, state_hash,
+  $$insert into public.oauth_attempts (provider, company_id, actor_user_id, purpose, state_hash,
       browser_binding_hash, return_path, expires_at)
-    values (pg_temp.cid(201), pg_temp.uid(201), 'other', pg_temp.h(1701),
+    values ('meta', pg_temp.cid(201), pg_temp.uid(201), 'other', pg_temp.h(1701),
       pg_temp.h(1702), '/app/integraciones', now() + interval '5 minutes')$$,
   '23514', null, 'T-17: propósito desconocido → 23514');
 
 select throws_ok(
-  $$insert into public.oauth_attempts (company_id, actor_user_id, purpose, expected_connection_id,
+  $$insert into public.oauth_attempts (provider, company_id, actor_user_id, purpose, expected_connection_id,
       state_hash, browser_binding_hash, return_path, expires_at)
-    values (pg_temp.cid(201), pg_temp.uid(201), 'initial', pg_temp.kid(201), pg_temp.h(1701),
+    values ('meta', pg_temp.cid(201), pg_temp.uid(201), 'initial', pg_temp.kid(201), pg_temp.h(1701),
       pg_temp.h(1702), '/app/integraciones', now() + interval '5 minutes')$$,
   '23514', null, 'T-17: initial con conexión esperada → 23514');
 
 select throws_ok(
-  $$insert into public.oauth_attempts (company_id, actor_user_id, purpose, state_hash,
+  $$insert into public.oauth_attempts (provider, company_id, actor_user_id, purpose, state_hash,
       browser_binding_hash, return_path, expires_at)
-    values (pg_temp.cid(201), pg_temp.uid(201), 'reauth', pg_temp.h(1701),
+    values ('meta', pg_temp.cid(201), pg_temp.uid(201), 'reauth', pg_temp.h(1701),
       pg_temp.h(1702), '/app/integraciones', now() + interval '5 minutes')$$,
   '23514', null, 'T-17: reauth sin conexión ni generación esperadas → 23514');
 
 select throws_ok(
-  $$insert into public.oauth_attempts (company_id, actor_user_id, purpose, state_hash,
+  $$insert into public.oauth_attempts (provider, company_id, actor_user_id, purpose, state_hash,
       browser_binding_hash, return_path, expires_at)
-    values (pg_temp.cid(201), pg_temp.uid(201), 'initial', pg_temp.h(1701),
+    values ('meta', pg_temp.cid(201), pg_temp.uid(201), 'initial', pg_temp.h(1701),
       pg_temp.h(1702), '/otra', now() + interval '5 minutes')$$,
   '23514', null, 'T-17: retorno fuera de la allowlist → 23514');
 
 select throws_ok(
-  $$insert into public.oauth_attempts (company_id, actor_user_id, purpose, state_hash,
+  $$insert into public.oauth_attempts (provider, company_id, actor_user_id, purpose, state_hash,
       browser_binding_hash, return_path, expires_at)
-    values (pg_temp.cid(201), pg_temp.uid(201), 'initial', pg_temp.h(1701),
+    values ('meta', pg_temp.cid(201), pg_temp.uid(201), 'initial', pg_temp.h(1701),
       pg_temp.h(1702), '/app/integraciones', now() + interval '11 minutes')$$,
   '23514', null, 'T-17: vencimiento mayor a 10 minutos → 23514');
 
 select throws_ok(
-  $$insert into public.oauth_attempts (company_id, actor_user_id, purpose, state_hash,
+  $$insert into public.oauth_attempts (provider, company_id, actor_user_id, purpose, state_hash,
       browser_binding_hash, return_path, expires_at)
-    values (pg_temp.cid(201), pg_temp.uid(201), 'initial', pg_temp.h(1701),
+    values ('meta', pg_temp.cid(201), pg_temp.uid(201), 'initial', pg_temp.h(1701),
       pg_temp.h(1702), '/app/integraciones', now())$$,
   '23514', null, 'T-17: vencimiento no posterior a la creación → 23514');
 
 select lives_ok(
-  $$insert into public.oauth_attempts (company_id, actor_user_id, purpose, state_hash,
+  $$insert into public.oauth_attempts (provider, company_id, actor_user_id, purpose, state_hash,
       browser_binding_hash, return_path, expires_at)
-    values (pg_temp.cid(201), pg_temp.uid(201), 'initial', pg_temp.h(1701),
+    values ('meta', pg_temp.cid(201), pg_temp.uid(201), 'initial', pg_temp.h(1701),
       pg_temp.h(1702), '/app/integraciones', now() + interval '10 minutes')$$,
   'T-17: intento válido con el vencimiento máximo de 10 minutos');
 
 select throws_ok(
-  $$insert into public.oauth_attempts (company_id, actor_user_id, purpose, state_hash,
+  $$insert into public.oauth_attempts (provider, company_id, actor_user_id, purpose, state_hash,
       browser_binding_hash, return_path, expires_at)
-    values (pg_temp.cid(201), pg_temp.uid(201), 'initial', pg_temp.h(1701),
+    values ('meta', pg_temp.cid(201), pg_temp.uid(201), 'initial', pg_temp.h(1701),
       pg_temp.h(1703), '/app/integraciones', now() + interval '5 minutes')$$,
   '23505', null, 'T-17: state_hash repetido → 23505');
 
@@ -252,9 +252,9 @@ create function pg_temp.credential_insert(p_ciphertext text, p_iv text, p_auth_t
 returns text language sql immutable
 as $fn$
   select format(
-    'insert into private.integration_credentials (connection_id, company_id, ciphertext, iv, '
+    'insert into private.integration_credentials (provider, connection_id, company_id, ciphertext, iv, '
     'auth_tag, key_version, token_type, issued_for_app_id, granted_scopes) '
-    'values (pg_temp.kid(201), pg_temp.cid(201), %L, %L, %L, %s, %L, ''app_sintetica'', %L)',
+    'values (''meta'', pg_temp.kid(201), pg_temp.cid(201), %L, %L, %L, %s, %L, ''app_sintetica'', %L)',
     p_ciphertext, p_iv, p_auth_tag, p_key_version, p_token_type, p_scopes)
 $fn$;
 
@@ -324,39 +324,39 @@ select pg_temp.pending(205, 205);
 select 1 from worker_api.begin_disconnect(pg_temp.uid(205), pg_temp.cid(205), pg_temp.kid(205));
 
 select throws_ok(
-  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(202), pg_temp.cid(202),
+  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(202), pg_temp.cid(202), 'meta',
       'initial', pg_temp.h(1801), pg_temp.h(1802), '/app/integraciones', now() + interval '5 minutes')$$,
   'PX003', 'praxa: la empresa ya tiene una conexión', 'T-18/T-31: initial con conexión viva → PX003');
 
 select throws_ok(
-  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(203), pg_temp.cid(203),
+  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(203), pg_temp.cid(203), 'meta',
       'initial', pg_temp.h(1801), pg_temp.h(1802), '/app/integraciones',
       now() + interval '5 minutes', pg_temp.kid(202))$$,
   '22023', 'praxa: argumento inválido', 'T-18: initial con conexión esperada → 22023');
 
 select throws_ok(
-  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(203), pg_temp.cid(203),
+  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(203), pg_temp.cid(203), 'meta',
       'reauth', pg_temp.h(1801), pg_temp.h(1802), '/app/integraciones', now() + interval '5 minutes')$$,
   '22023', null, 'T-18: reauth sin conexión esperada → 22023');
 
 select throws_ok(
-  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(203), pg_temp.cid(203),
+  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(203), pg_temp.cid(203), 'meta',
       'other', pg_temp.h(1801), pg_temp.h(1802), '/app/integraciones', now() + interval '5 minutes')$$,
   '22023', null, 'T-18: propósito desconocido → 22023');
 
 select throws_ok(
-  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(203), pg_temp.cid(203),
+  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(203), pg_temp.cid(203), 'meta',
       'initial', pg_temp.h(1801), pg_temp.h(1802), '/app/integraciones', now() + interval '11 minutes')$$,
   '22023', null, 'T-18: vencimiento a 11 minutos → 22023');
 
 select throws_ok(
-  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(203), pg_temp.cid(203),
+  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(203), pg_temp.cid(203), 'meta',
       'initial', pg_temp.h(1801), pg_temp.h(1802), '/app/integraciones', now() - interval '1 minute')$$,
   '22023', null, 'T-18: vencimiento en el pasado → 22023');
 
 select results_eq(
   $$select purpose, created_at = now(), expires_at = now() + interval '10 minutes'
-      from worker_api.create_oauth_attempt(pg_temp.uid(203), pg_temp.cid(203),
+      from worker_api.create_oauth_attempt(pg_temp.uid(203), pg_temp.cid(203), 'meta',
         'initial', pg_temp.h(1803), pg_temp.h(1804), '/app/integraciones',
         now() + interval '10 minutes')$$,
   $$values ('initial', true, true)$$,
@@ -368,7 +368,7 @@ select results_eq(
 -- con el mismo state sigue dando 22023: no es un reintento de la misma llamada.
 select results_eq(
   $$select attempt_id, purpose
-      from worker_api.create_oauth_attempt(pg_temp.uid(203), pg_temp.cid(203),
+      from worker_api.create_oauth_attempt(pg_temp.uid(203), pg_temp.cid(203), 'meta',
         'initial', pg_temp.h(1803), pg_temp.h(1804), '/app/integraciones',
         now() + interval '10 minutes')$$,
   $$select id, purpose from public.oauth_attempts where state_hash = pg_temp.h(1803)$$,
@@ -380,35 +380,35 @@ select is(
 
 select results_eq(
   $$select purpose, expected_connection_id, expected_generation
-      from worker_api.create_oauth_attempt(pg_temp.uid(202), pg_temp.cid(202),
+      from worker_api.create_oauth_attempt(pg_temp.uid(202), pg_temp.cid(202), 'meta',
         'reauth', pg_temp.h(1805), pg_temp.h(1806), '/app/integraciones',
         now() + interval '5 minutes', pg_temp.kid(202))$$,
   $$values ('reauth', pg_temp.kid(202), 3)$$,
   'T-18: reauth sobre una activa guarda la conexión y la generación leída de la fila');
 
 select throws_ok(
-  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(202), pg_temp.cid(202),
+  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(202), pg_temp.cid(202), 'meta',
       'reauth', pg_temp.h(1805), pg_temp.h(1806), '/app/integraciones',
       now() + interval '5 minutes', pg_temp.kid(204))$$,
   'PX001', 'praxa: operación no autorizada',
   'T-18: el mismo state no saltea la autorización de una conexión ajena');
 
 select throws_ok(
-  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(202), pg_temp.cid(202),
+  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(202), pg_temp.cid(202), 'meta',
       'initial', pg_temp.h(1805), pg_temp.h(1806), '/app/integraciones',
       now() + interval '5 minutes')$$,
   'PX003', 'praxa: la empresa ya tiene una conexión',
   'T-18: el mismo state con otro propósito no es un reintento');
 
 select throws_ok(
-  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(204), pg_temp.cid(204),
+  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(204), pg_temp.cid(204), 'meta',
       'reauth', pg_temp.h(1807), pg_temp.h(1808), '/app/integraciones',
       now() + interval '5 minutes', pg_temp.kid(204))$$,
   'PX004', 'praxa: transición de estado no permitida',
   'T-18/T-31: reauth sobre una pendiente no vencida → PX004');
 
 select throws_ok(
-  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(205), pg_temp.cid(205),
+  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(205), pg_temp.cid(205), 'meta',
       'reauth', pg_temp.h(1807), pg_temp.h(1808), '/app/integraciones',
       now() + interval '5 minutes', pg_temp.kid(205))$$,
   'PX004', null, 'T-18: reauth sobre una desconectada → PX004');
@@ -422,37 +422,37 @@ select pg_temp.new_company(299);
 select results_eq(
   $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
       from pg_temp.error_of($q$select * from worker_api.consume_oauth_attempt(
-        pg_temp.uid(299), pg_temp.cid(299), 'abc', pg_temp.h(2331))$q$)$$,
+        pg_temp.uid(299), pg_temp.cid(299), 'meta', 'abc', pg_temp.h(2331))$q$)$$,
   $$values ('22023', 'praxa: argumento inválido', '', '')$$,
   'T-19: state_hash corto → 22023 antes de tocar filas');
 select results_eq(
   $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
       from pg_temp.error_of($q$select * from worker_api.consume_oauth_attempt(
-        pg_temp.uid(299), pg_temp.cid(299), repeat('A', 64), pg_temp.h(2331))$q$)$$,
+        pg_temp.uid(299), pg_temp.cid(299), 'meta', repeat('A', 64), pg_temp.h(2331))$q$)$$,
   $$values ('22023', 'praxa: argumento inválido', '', '')$$,
   'T-19: state_hash en mayúsculas → 22023');
 select results_eq(
   $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
       from pg_temp.error_of($q$select * from worker_api.consume_oauth_attempt(
-        pg_temp.uid(299), pg_temp.cid(299), repeat('g', 64), pg_temp.h(2331))$q$)$$,
+        pg_temp.uid(299), pg_temp.cid(299), 'meta', repeat('g', 64), pg_temp.h(2331))$q$)$$,
   $$values ('22023', 'praxa: argumento inválido', '', '')$$,
   'T-19: state_hash con caracteres inválidos → 22023');
 select results_eq(
   $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
       from pg_temp.error_of($q$select * from worker_api.consume_oauth_attempt(
-        pg_temp.uid(299), pg_temp.cid(299), pg_temp.h(2332), 'abc')$q$)$$,
+        pg_temp.uid(299), pg_temp.cid(299), 'meta', pg_temp.h(2332), 'abc')$q$)$$,
   $$values ('22023', 'praxa: argumento inválido', '', '')$$,
   'T-19: browser_binding_hash corto → 22023');
 select results_eq(
   $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
       from pg_temp.error_of($q$select * from worker_api.consume_oauth_attempt(
-        pg_temp.uid(299), pg_temp.cid(299), pg_temp.h(2332), repeat('A', 64))$q$)$$,
+        pg_temp.uid(299), pg_temp.cid(299), 'meta', pg_temp.h(2332), repeat('A', 64))$q$)$$,
   $$values ('22023', 'praxa: argumento inválido', '', '')$$,
   'T-19: browser_binding_hash en mayúsculas → 22023');
 select results_eq(
   $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
       from pg_temp.error_of($q$select * from worker_api.consume_oauth_attempt(
-        pg_temp.uid(299), pg_temp.cid(299), pg_temp.h(2332), repeat('g', 64))$q$)$$,
+        pg_temp.uid(299), pg_temp.cid(299), 'meta', pg_temp.h(2332), repeat('g', 64))$q$)$$,
   $$values ('22023', 'praxa: argumento inválido', '', '')$$,
   'T-19: browser_binding_hash con caracteres inválidos → 22023');
 -- ===========================================================================
@@ -465,59 +465,59 @@ insert into public.company_members (company_id, user_id, role)
 values (pg_temp.cid(207), pg_temp.uid(206), 'owner'),
        (pg_temp.cid(206), pg_temp.uid(208), 'owner');
 
-select 1 from worker_api.create_oauth_attempt(pg_temp.uid(206), pg_temp.cid(206),
+select 1 from worker_api.create_oauth_attempt(pg_temp.uid(206), pg_temp.cid(206), 'meta',
   'initial', pg_temp.h(1901), pg_temp.h(1902), '/app/integraciones', now() + interval '5 minutes');
 
 select results_eq(
   $$select purpose, return_path
-      from worker_api.consume_oauth_attempt(pg_temp.uid(206), pg_temp.cid(206),
+      from worker_api.consume_oauth_attempt(pg_temp.uid(206), pg_temp.cid(206), 'meta',
         pg_temp.h(1901), pg_temp.h(1902))$$,
   $$values ('initial', '/app/integraciones')$$,
   'T-19: el primer consumo devuelve el propósito');
 
 select throws_ok(
-  $$select * from worker_api.consume_oauth_attempt(pg_temp.uid(206), pg_temp.cid(206),
+  $$select * from worker_api.consume_oauth_attempt(pg_temp.uid(206), pg_temp.cid(206), 'meta',
       pg_temp.h(1901), pg_temp.h(1902))$$,
   'PX002', 'praxa: la autorización no es válida o ya se usó',
   'T-19/T-31: el segundo consumo → PX002');
 
 -- Sembrados después de la última llamada a create_oauth_attempt de 206, que los purgaría.
-insert into public.oauth_attempts (company_id, actor_user_id, purpose, state_hash,
+insert into public.oauth_attempts (provider, company_id, actor_user_id, purpose, state_hash,
   browser_binding_hash, return_path, created_at, expires_at)
 values
-  (pg_temp.cid(206), pg_temp.uid(206), 'initial', pg_temp.h(1911), pg_temp.h(1912),
+  ('meta', pg_temp.cid(206), pg_temp.uid(206), 'initial', pg_temp.h(1911), pg_temp.h(1912),
    '/app/integraciones', now() - interval '8 minutes', now() - interval '1 minute'),
-  (pg_temp.cid(206), pg_temp.uid(206), 'initial', pg_temp.h(1921), pg_temp.h(1922),
+  ('meta', pg_temp.cid(206), pg_temp.uid(206), 'initial', pg_temp.h(1921), pg_temp.h(1922),
    '/app/integraciones', now(), now() + interval '5 minutes');
 
 select throws_ok(
-  $$select * from worker_api.consume_oauth_attempt(pg_temp.uid(206), pg_temp.cid(206),
+  $$select * from worker_api.consume_oauth_attempt(pg_temp.uid(206), pg_temp.cid(206), 'meta',
       pg_temp.h(1911), pg_temp.h(1912))$$,
   'PX002', null, 'T-19: intento vencido → PX002');
 
 select throws_ok(
-  $$select * from worker_api.consume_oauth_attempt(pg_temp.uid(208), pg_temp.cid(206),
+  $$select * from worker_api.consume_oauth_attempt(pg_temp.uid(208), pg_temp.cid(206), 'meta',
       pg_temp.h(1921), pg_temp.h(1922))$$,
   'PX002', null, 'T-19: intento de otro actor de la misma empresa → PX002');
 
 select throws_ok(
-  $$select * from worker_api.consume_oauth_attempt(pg_temp.uid(206), pg_temp.cid(207),
+  $$select * from worker_api.consume_oauth_attempt(pg_temp.uid(206), pg_temp.cid(207), 'meta',
       pg_temp.h(1921), pg_temp.h(1922))$$,
   'PX002', null, 'T-19: intento de otra empresa, con actor miembro de ambas → PX002');
 
 select throws_ok(
-  $$select * from worker_api.consume_oauth_attempt(pg_temp.uid(206), pg_temp.cid(206),
+  $$select * from worker_api.consume_oauth_attempt(pg_temp.uid(206), pg_temp.cid(206), 'meta',
       pg_temp.h(1921), pg_temp.h(1999))$$,
   'PX002', null, 'T-19: otro hash de vinculación → PX002');
 
 select throws_ok(
-  $$select * from worker_api.consume_oauth_attempt(pg_temp.uid(206), pg_temp.cid(206),
+  $$select * from worker_api.consume_oauth_attempt(pg_temp.uid(206), pg_temp.cid(206), 'meta',
       pg_temp.h(1998), pg_temp.h(1922))$$,
   'PX002', null, 'T-19: state desconocido → PX002');
 
 select results_eq(
   $$select purpose
-      from worker_api.consume_oauth_attempt(pg_temp.uid(206), pg_temp.cid(206),
+      from worker_api.consume_oauth_attempt(pg_temp.uid(206), pg_temp.cid(206), 'meta',
         pg_temp.h(1921), pg_temp.h(1922))$$,
   $$values ('initial')$$,
   'T-19: los rechazos no consumieron el intento vigente');
@@ -531,7 +531,7 @@ select pg_temp.new_company(209);
 select results_eq(
   $$select connection_id, status, credential_generation
       from worker_api.create_pending_connection(pg_temp.uid(209), pg_temp.cid(209),
-        pg_temp.kid(209), 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
+        pg_temp.kid(209), 'meta', 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
         'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)$$,
   $$values (pg_temp.kid(209), 'pending_selection', 0)$$,
   'T-20: la pendiente se crea con generación 0');
@@ -553,7 +553,7 @@ select is(
 
 select throws_ok(
   $$select * from worker_api.create_pending_connection(pg_temp.uid(209), pg_temp.cid(209),
-      pg_temp.kid(1209), 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
+      pg_temp.kid(1209), 'meta', 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
       'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)$$,
   'PX003', null, 'T-20: segunda pendiente con una viva → PX003');
 
@@ -562,7 +562,7 @@ select throws_ok(
 select results_eq(
   $$select connection_id, status, credential_generation
       from worker_api.create_pending_connection(pg_temp.uid(209), pg_temp.cid(209),
-        pg_temp.kid(209), 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
+        pg_temp.kid(209), 'meta', 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
         'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)$$,
   $$values (pg_temp.kid(209), 'pending_selection', 0)$$,
   'T-20: el reintento idéntico devuelve la pendiente');
@@ -576,7 +576,7 @@ select results_eq(
 -- Material cifrado distinto (el servidor volvió a cifrar): es una operación nueva.
 select throws_ok(
   $$select * from worker_api.create_pending_connection(pg_temp.uid(209), pg_temp.cid(209),
-      pg_temp.kid(209), 'negocio_sintetico', 'BBBB', 'AAAAAAAAAAAAAAAA',
+      pg_temp.kid(209), 'meta', 'negocio_sintetico', 'BBBB', 'AAAAAAAAAAAAAAAA',
       'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)$$,
   'PX003', null, 'T-20: mismo id con otro material cifrado → PX003');
 
@@ -586,14 +586,14 @@ select throws_ok(
 -- llamada sobre una empresa que ya tiene una conexión.
 select pg_temp.new_company(2091);
 select 1 from worker_api.create_pending_connection(pg_temp.uid(2091), pg_temp.cid(2091),
-  pg_temp.kid(2091), 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
+  pg_temp.kid(2091), 'meta', 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
   'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null);
 update public.integration_connections set pending_expires_at = now() - interval '1 minute'
  where id = pg_temp.kid(2091);
 
 select throws_ok(
   $$select * from worker_api.create_pending_connection(pg_temp.uid(2091), pg_temp.cid(2091),
-      pg_temp.kid(2091), 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
+      pg_temp.kid(2091), 'meta', 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
       'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)$$,
   'PX003', null, 'T-20: reintento idéntico sobre una pendiente vencida → PX003');
 
@@ -658,29 +658,29 @@ select throws_ok(
 
 select pg_temp.new_company(212);
 select pg_temp.active(212, 212);
-insert into public.integration_connections (id, company_id, status, purge_requested_at)
-values (pg_temp.kid(1212), pg_temp.cid(212), 'disconnected', now());
+insert into public.integration_connections (provider, id, company_id, status, purge_requested_at)
+values ('meta', pg_temp.kid(1212), pg_temp.cid(212), 'disconnected', now());
 
 insert into ids
-select 'r1', attempt_id from worker_api.create_oauth_attempt(pg_temp.uid(212), pg_temp.cid(212),
+select 'r1', attempt_id from worker_api.create_oauth_attempt(pg_temp.uid(212), pg_temp.cid(212), 'meta',
   'reauth', pg_temp.h(2201), pg_temp.h(2202), '/app/integraciones',
   now() + interval '5 minutes', pg_temp.kid(212));
-select 1 from worker_api.consume_oauth_attempt(pg_temp.uid(212), pg_temp.cid(212),
+select 1 from worker_api.consume_oauth_attempt(pg_temp.uid(212), pg_temp.cid(212), 'meta',
   pg_temp.h(2201), pg_temp.h(2202));
 -- Otra reautorización cambió la credencial después de que se creó el intento r1.
 update public.integration_connections set credential_generation = 1 where id = pg_temp.kid(212);
 
 insert into ids
-select 'r2', attempt_id from worker_api.create_oauth_attempt(pg_temp.uid(212), pg_temp.cid(212),
+select 'r2', attempt_id from worker_api.create_oauth_attempt(pg_temp.uid(212), pg_temp.cid(212), 'meta',
   'reauth', pg_temp.h(2211), pg_temp.h(2212), '/app/integraciones',
   now() + interval '5 minutes', pg_temp.kid(212));
 
-insert into public.oauth_attempts (id, company_id, actor_user_id, purpose, expected_connection_id,
+insert into public.oauth_attempts (provider, id, company_id, actor_user_id, purpose, expected_connection_id,
   expected_generation, state_hash, browser_binding_hash, return_path, expires_at, consumed_at)
 values
-  (pg_temp.aid(2221), pg_temp.cid(212), pg_temp.uid(212), 'initial', null, null,
+  ('meta', pg_temp.aid(2221), pg_temp.cid(212), pg_temp.uid(212), 'initial', null, null,
    pg_temp.h(2221), pg_temp.h(2222), '/app/integraciones', now() + interval '5 minutes', now()),
-  (pg_temp.aid(2231), pg_temp.cid(212), pg_temp.uid(212), 'reauth', pg_temp.kid(1212), 1,
+  ('meta', pg_temp.aid(2231), pg_temp.cid(212), pg_temp.uid(212), 'reauth', pg_temp.kid(1212), 1,
    pg_temp.h(2231), pg_temp.h(2232), '/app/integraciones', now() + interval '5 minutes', now());
 
 select throws_ok(
@@ -708,7 +708,7 @@ select throws_ok(
       'AAAAAAAAAAAAAAAAAAAAAA==', 2, 'system_user', 'app_sintetica', '{ads_read}', null)$$,
   'PX002', null, 'T-22: intento de otra conexión → PX002');
 
-select 1 from worker_api.consume_oauth_attempt(pg_temp.uid(212), pg_temp.cid(212),
+select 1 from worker_api.consume_oauth_attempt(pg_temp.uid(212), pg_temp.cid(212), 'meta',
   pg_temp.h(2211), pg_temp.h(2212));
 select 1 from worker_api.mark_needs_reauth(pg_temp.uid(212), pg_temp.cid(212), pg_temp.kid(212),
   1, 'permission', 'error sintetico');
@@ -773,14 +773,14 @@ select throws_ok(
 select pg_temp.new_company(233);
 select pg_temp.active(233, 233);
 
-insert into public.oauth_attempts (id, company_id, actor_user_id, purpose, expected_connection_id,
+insert into public.oauth_attempts (provider, id, company_id, actor_user_id, purpose, expected_connection_id,
   expected_generation, state_hash, browser_binding_hash, return_path, created_at, expires_at,
   consumed_at)
 values
-  (pg_temp.aid(2331), pg_temp.cid(233), pg_temp.uid(233), 'reauth', pg_temp.kid(233), 0,
+  ('meta', pg_temp.aid(2331), pg_temp.cid(233), pg_temp.uid(233), 'reauth', pg_temp.kid(233), 0,
    pg_temp.h(2331), pg_temp.h(2332), '/app/integraciones', now() - interval '20 minutes',
    now() - interval '12 minutes', now() - interval '11 minutes'),
-  (pg_temp.aid(2333), pg_temp.cid(233), pg_temp.uid(233), 'reauth', pg_temp.kid(233), 0,
+  ('meta', pg_temp.aid(2333), pg_temp.cid(233), pg_temp.uid(233), 'reauth', pg_temp.kid(233), 0,
    pg_temp.h(2333), pg_temp.h(2334), '/app/integraciones', now() - interval '15 minutes',
    now() - interval '6 minutes', now() - interval '10 minutes');
 
@@ -915,7 +915,7 @@ select results_eq(
 
 select pg_temp.new_company(217);
 select pg_temp.active(217, 217);
-select 1 from worker_api.create_oauth_attempt(pg_temp.uid(217), pg_temp.cid(217),
+select 1 from worker_api.create_oauth_attempt(pg_temp.uid(217), pg_temp.cid(217), 'meta',
   'reauth', pg_temp.h(2501), pg_temp.h(2502), '/app/integraciones',
   now() + interval '5 minutes', pg_temp.kid(217));
 
@@ -1027,7 +1027,7 @@ select pg_temp.new_company(221);
 select pg_temp.active(221, 221);
 select pg_temp.new_company(222);
 select 1 from worker_api.create_pending_connection(pg_temp.uid(222), pg_temp.cid(222),
-  pg_temp.kid(222), 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
+  pg_temp.kid(222), 'meta', 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
   'AAAAAAAAAAAAAAAAAAAAAA==', 2, 'system_user', 'app_sintetica', '{ads_read}', null);
 
 select results_eq(
@@ -1135,9 +1135,9 @@ select pg_temp.active(225, 225);
 select pg_temp.new_company(226);
 select pg_temp.active(226, 226);
 select 1 from worker_api.begin_disconnect(pg_temp.uid(226), pg_temp.cid(226), pg_temp.kid(226));
-insert into public.oauth_attempts (id, company_id, actor_user_id, purpose, expected_connection_id,
+insert into public.oauth_attempts (provider, id, company_id, actor_user_id, purpose, expected_connection_id,
   expected_generation, state_hash, browser_binding_hash, return_path, expires_at, consumed_at)
-values (pg_temp.aid(2261), pg_temp.cid(226), pg_temp.uid(226), 'reauth', pg_temp.kid(226), 1,
+values ('meta', pg_temp.aid(2261), pg_temp.cid(226), pg_temp.uid(226), 'reauth', pg_temp.kid(226), 1,
         pg_temp.h(2261), pg_temp.h(2262), '/app/integraciones', now() + interval '5 minutes', now());
 
 select throws_ok(
@@ -1198,9 +1198,9 @@ select pg_temp.new_user(228);
 create temp table unauthorized_calls as
 with templates(fn, sql) as (
   values
-    ('create_oauth_attempt', $t$select * from worker_api.create_oauth_attempt(%1$s, %2$s, 'initial', pg_temp.h(3001), pg_temp.h(3002), '/app/integraciones', now() + interval '5 minutes')$t$),
-    ('consume_oauth_attempt', $t$select * from worker_api.consume_oauth_attempt(%1$s, %2$s, pg_temp.h(3001), pg_temp.h(3002))$t$),
-    ('create_pending_connection', $t$select * from worker_api.create_pending_connection(%1$s, %2$s, pg_temp.kid(3003), 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)$t$),
+    ('create_oauth_attempt', $t$select * from worker_api.create_oauth_attempt(%1$s, %2$s, 'meta', 'initial', pg_temp.h(3001), pg_temp.h(3002), '/app/integraciones', now() + interval '5 minutes')$t$),
+    ('consume_oauth_attempt', $t$select * from worker_api.consume_oauth_attempt(%1$s, %2$s, 'meta', pg_temp.h(3001), pg_temp.h(3002))$t$),
+    ('create_pending_connection', $t$select * from worker_api.create_pending_connection(%1$s, %2$s, pg_temp.kid(3003), 'meta', 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)$t$),
     ('get_credential', $t$select * from worker_api.get_credential(%1$s, %2$s, pg_temp.kid(227))$t$),
     ('confirm_connection', $t$select * from worker_api.confirm_connection(%1$s, %2$s, pg_temp.kid(227), 'cuenta_sintetica_0227', 'USD', 'UTC', true)$t$),
     ('replace_credential', $t$select * from worker_api.replace_credential(%1$s, %2$s, pg_temp.kid(227), pg_temp.aid(3004), 'AAAA', 'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)$t$),
@@ -1236,33 +1236,33 @@ select pg_temp.new_company(229);
 select pg_temp.active(229, 229);
 select pg_temp.new_company(230);
 
-insert into public.oauth_attempts (id, company_id, actor_user_id, purpose, state_hash,
+insert into public.oauth_attempts (provider, id, company_id, actor_user_id, purpose, state_hash,
   browser_binding_hash, return_path, created_at, expires_at, consumed_at)
 values
   -- vencido sin consumir: se purga
-  (pg_temp.aid(3901), pg_temp.cid(229), pg_temp.uid(229), 'initial', pg_temp.h(3901), pg_temp.h(3911),
+  ('meta', pg_temp.aid(3901), pg_temp.cid(229), pg_temp.uid(229), 'initial', pg_temp.h(3901), pg_temp.h(3911),
    '/app/integraciones', now() - interval '15 minutes', now() - interval '5 minutes', null),
   -- consumido hace 11 minutos: se purga
-  (pg_temp.aid(3902), pg_temp.cid(229), pg_temp.uid(229), 'initial', pg_temp.h(3902), pg_temp.h(3912),
+  ('meta', pg_temp.aid(3902), pg_temp.cid(229), pg_temp.uid(229), 'initial', pg_temp.h(3902), pg_temp.h(3912),
    '/app/integraciones', now() - interval '20 minutes', now() - interval '12 minutes',
    now() - interval '11 minutes'),
   -- consumido hace exactamente 10 minutos: se conserva
-  (pg_temp.aid(3903), pg_temp.cid(229), pg_temp.uid(229), 'initial', pg_temp.h(3903), pg_temp.h(3913),
+  ('meta', pg_temp.aid(3903), pg_temp.cid(229), pg_temp.uid(229), 'initial', pg_temp.h(3903), pg_temp.h(3913),
    '/app/integraciones', now() - interval '15 minutes', now() - interval '6 minutes',
    now() - interval '10 minutes'),
   -- consumido hace 2 minutos y ya vencido: se conserva
-  (pg_temp.aid(3904), pg_temp.cid(229), pg_temp.uid(229), 'initial', pg_temp.h(3904), pg_temp.h(3914),
+  ('meta', pg_temp.aid(3904), pg_temp.cid(229), pg_temp.uid(229), 'initial', pg_temp.h(3904), pg_temp.h(3914),
    '/app/integraciones', now() - interval '11 minutes', now() - interval '1 minute',
    now() - interval '2 minutes'),
   -- vigente: se conserva
-  (pg_temp.aid(3905), pg_temp.cid(229), pg_temp.uid(229), 'initial', pg_temp.h(3905), pg_temp.h(3915),
+  ('meta', pg_temp.aid(3905), pg_temp.cid(229), pg_temp.uid(229), 'initial', pg_temp.h(3905), pg_temp.h(3915),
    '/app/integraciones', now() - interval '1 minute', now() + interval '5 minutes', null),
   -- vencido de otra empresa: no se toca
-  (pg_temp.aid(3906), pg_temp.cid(230), pg_temp.uid(230), 'initial', pg_temp.h(3906), pg_temp.h(3916),
+  ('meta', pg_temp.aid(3906), pg_temp.cid(230), pg_temp.uid(230), 'initial', pg_temp.h(3906), pg_temp.h(3916),
    '/app/integraciones', now() - interval '15 minutes', now() - interval '5 minutes', null);
 
 select throws_ok(
-  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(229), pg_temp.cid(229),
+  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(229), pg_temp.cid(229), 'meta',
       'initial', pg_temp.h(3921), pg_temp.h(3922), '/app/integraciones', now() + interval '5 minutes')$$,
   'PX003', null, 'T-39: una llamada que termina en PX003');
 
@@ -1271,7 +1271,7 @@ select is(
   5, 'T-39: la llamada fallida no purgó nada');
 
 select results_eq(
-  $$select purpose from worker_api.create_oauth_attempt(pg_temp.uid(229), pg_temp.cid(229),
+  $$select purpose from worker_api.create_oauth_attempt(pg_temp.uid(229), pg_temp.cid(229), 'meta',
       'reauth', pg_temp.h(3923), pg_temp.h(3924), '/app/integraciones',
       now() + interval '5 minutes', pg_temp.kid(229))$$,
   $$values ('reauth')$$,
@@ -1302,7 +1302,7 @@ select pg_temp.new_company(231);
 select results_eq(
   $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
       from pg_temp.error_of($q$select * from worker_api.create_oauth_attempt(pg_temp.uid(231),
-        pg_temp.cid(231), 'initial', null, pg_temp.h(4502), '/app/integraciones',
+        pg_temp.cid(231), 'meta', 'initial', null, pg_temp.h(4502), '/app/integraciones',
         now() + interval '5 minutes')$q$)$$,
   $$values ('22023', 'praxa: argumento inválido', '', '')$$,
   'T-45: p_state_hash nulo → 22023 fijo, sin DETAIL ni HINT');
@@ -1310,7 +1310,7 @@ select results_eq(
 select results_eq(
   $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
       from pg_temp.error_of($q$select * from worker_api.create_oauth_attempt(pg_temp.uid(231),
-        pg_temp.cid(231), 'initial', pg_temp.h(4501), pg_temp.h(4502), '/app/integraciones',
+        pg_temp.cid(231), 'meta', 'initial', pg_temp.h(4501), pg_temp.h(4502), '/app/integraciones',
         null)$q$)$$,
   $$values ('22023', 'praxa: argumento inválido', '', '')$$,
   'T-45: p_expires_at nulo → 22023 fijo, sin DETAIL ni HINT');
@@ -1318,7 +1318,7 @@ select results_eq(
 select results_eq(
   $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
       from pg_temp.error_of($q$select * from worker_api.create_pending_connection(pg_temp.uid(231),
-        pg_temp.cid(231), pg_temp.kid(231), 'negocio_sintetico', null, 'AAAAAAAAAAAAAAAA',
+        pg_temp.cid(231), pg_temp.kid(231), 'meta', 'negocio_sintetico', null, 'AAAAAAAAAAAAAAAA',
         'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)$q$)$$,
   $$values ('22023', 'praxa: argumento inválido', '', '')$$,
   'T-45: p_ciphertext nulo → 22023 fijo, sin DETAIL ni HINT');
@@ -1326,20 +1326,20 @@ select results_eq(
 select results_eq(
   $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
       from pg_temp.error_of($q$select * from worker_api.create_pending_connection(pg_temp.uid(231),
-        pg_temp.cid(231), pg_temp.kid(231), null, 'AAAA', 'AAAAAAAAAAAAAAAA',
+        pg_temp.cid(231), pg_temp.kid(231), 'meta', null, 'AAAA', 'AAAAAAAAAAAAAAAA',
         'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)$q$)$$,
   $$values ('22023', 'praxa: argumento inválido', '', '')$$,
   'T-45: p_client_business_id nulo → 22023 fijo, sin DETAIL ni HINT (A-01)');
 
 select lives_ok(
-  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(231), pg_temp.cid(231),
+  $$select * from worker_api.create_oauth_attempt(pg_temp.uid(231), pg_temp.cid(231), 'meta',
       'initial', pg_temp.h(4601), pg_temp.h(4602), '/app/integraciones', now() + interval '5 minutes')$$,
   'T-46: primer intento con el state');
 
 select results_eq(
   $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
       from pg_temp.error_of($q$select * from worker_api.create_oauth_attempt(pg_temp.uid(231),
-        pg_temp.cid(231), 'initial', pg_temp.h(4601), pg_temp.h(4603), '/app/integraciones',
+        pg_temp.cid(231), 'meta', 'initial', pg_temp.h(4601), pg_temp.h(4603), '/app/integraciones',
         now() + interval '5 minutes')$q$)$$,
   $$values ('22023', 'praxa: argumento inválido', '', '')$$,
   'T-46: state_hash repetido → 22023 fijo, sin DETAIL ni HINT');
@@ -1347,7 +1347,7 @@ select results_eq(
 select ok(
   (select position(pg_temp.h(4601) in coalesce(message, '') || coalesce(detail, '') || coalesce(hint, '')) = 0
      from pg_temp.error_of($q$select * from worker_api.create_oauth_attempt(pg_temp.uid(231),
-       pg_temp.cid(231), 'initial', pg_temp.h(4601), pg_temp.h(4603), '/app/integraciones',
+       pg_temp.cid(231), 'meta', 'initial', pg_temp.h(4601), pg_temp.h(4603), '/app/integraciones',
        now() + interval '5 minutes')$q$)),
   'T-46: el hash no aparece en ningún campo del error');
 
@@ -1358,7 +1358,7 @@ select 1 from worker_api.begin_disconnect(pg_temp.uid(232), pg_temp.cid(232), pg
 select results_eq(
   $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
       from pg_temp.error_of($q$select * from worker_api.create_pending_connection(pg_temp.uid(232),
-        pg_temp.cid(232), pg_temp.kid(232), 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
+        pg_temp.cid(232), pg_temp.kid(232), 'meta', 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
         'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null)$q$)$$,
   $$values ('PX001', 'praxa: operación no autorizada', '', '')$$,
   'T-47/T-31: id de una conexión propia existente → PX001 fijo, sin DETAIL ni HINT');

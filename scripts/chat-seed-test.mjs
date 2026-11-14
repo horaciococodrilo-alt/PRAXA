@@ -167,7 +167,7 @@ async function seedData(client, actor, company, id, { rich = false } = {}) {
   const account = `act_${randomInt(100_000_000, 999_999_999)}`;
   const query = (text, values) => client.query(text, values);
   await query(`select * from worker_api.create_pending_connection(
-    $1::uuid,$2::uuid,$3::uuid,$4::text,$5::text,$6::text,$7::text,
+    $1::uuid,$2::uuid,$3::uuid,'meta',$4::text,$5::text,$6::text,$7::text,
     $8::integer,$9::text,$10::text,$11::text[],$12::timestamptz)`,
   [actor, company, connection, `synthetic_${id.slice(0, 8)}`,
     randomBytes(24).toString('base64'), randomBytes(12).toString('base64'),

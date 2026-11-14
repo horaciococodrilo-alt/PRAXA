@@ -40,7 +40,7 @@ export async function readDiagnosticStatus(ctx: TenantContext, deps: { supabase?
   Promise<DiagnosticStatus> {
   const supabase = deps.supabase ?? (await createSupabaseServerClient());
   const [connection, settings] = await Promise.all([
-    readLiveConnection(ctx, { supabase }),
+    readLiveConnection(ctx, 'meta', { supabase }),
     readDiagnosticSettings(supabase, ctx.company_id),
   ]);
   const eligibility = connection ? await readEligibility(supabaseRpc(supabase), connection.id) : null;

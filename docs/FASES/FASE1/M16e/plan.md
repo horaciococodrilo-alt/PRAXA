@@ -1,6 +1,6 @@
 # M16e — Plan de implementación
 
-**Estado:** BORRADOR
+**Estado:** APROBADO
 
 **Spec base:** `docs/FASES/FASE1/M16e/spec.md`, APROBADA; hash de contenido, excluida la línea de estado: `9a4eb6f7fa0540591aca327dda3430f1e0f6d153`.
 

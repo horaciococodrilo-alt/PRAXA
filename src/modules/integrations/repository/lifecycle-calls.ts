@@ -1,8 +1,8 @@
 import 'server-only';
 
 import { currencyCodeSchema, externalAccountIdSchema, timeZoneSchema } from '@/modules/integrations/contract';
-import { PG_INT4_MAX, reauthErrorClassSchema, redactedErrorMessageSchema, uuidSchema } from
-  '@/modules/integrations/contract/primitives';
+import { PG_INT4_MAX, integrationProviderSchema, reauthErrorClassSchema, redactedErrorMessageSchema, uuidSchema,
+  type IntegrationProvider } from '@/modules/integrations/contract/primitives';
 import { tenantContextSchema, type TenantContext } from '@/modules/tenant/context';
 import { getWorkerApi, type WorkerApi } from '../db/worker-api';
 
@@ -98,7 +98,9 @@ export async function purgeConnection(ctx: TenantContext, connectionId: string, 
   return row.purge_connection;
 }
 
-export type PendingPurge = Readonly<{ connectionId: string; status: 'pending_selection' | 'disconnected';
+/** M16e: cada fila informa su proveedor; solo una credencial de Meta se revoca en Meta (A-13). */
+export type PendingPurge = Readonly<{ connectionId: string; provider: IntegrationProvider;
+  status: 'pending_selection' | 'disconnected';
   reason: 'pending_expired' | 'disconnect_requested'; hasCredential: boolean }>;
 
 export async function listPendingPurges(ctx: TenantContext, deps: Deps = {}): Promise<readonly PendingPurge[]> {
@@ -106,16 +108,18 @@ export async function listPendingPurges(ctx: TenantContext, deps: Deps = {}): Pr
   const rows = await api(deps).call('list_pending_purges', [a.user_id, a.company_id]);
   if (!Array.isArray(rows)) throw new LifecycleResponseError();
   return rows.map((value) => {
-    const row = exact(value, ['connection_id', 'status', 'reason', 'has_credential',
+    const row = exact(value, ['connection_id', 'provider', 'status', 'reason', 'has_credential',
       'pending_expires_at', 'purge_requested_at']);
     const connectionId = id(row.connection_id as string);
+    const provider = integrationProviderSchema.safeParse(row.provider);
+    if (!provider.success) throw new LifecycleResponseError();
     if (typeof row.has_credential !== 'boolean' || !dateOrNull(row.pending_expires_at) ||
         !dateOrNull(row.purge_requested_at) ||
         !(row.status === 'pending_selection' && row.reason === 'pending_expired' && row.pending_expires_at instanceof Date ||
           row.status === 'disconnected' && row.reason === 'disconnect_requested' && row.purge_requested_at instanceof Date)) {
       throw new LifecycleResponseError();
     }
-    return { connectionId, status: row.status as PendingPurge['status'], reason: row.reason as PendingPurge['reason'],
+    return { connectionId, provider: provider.data, status: row.status as PendingPurge['status'], reason: row.reason as PendingPurge['reason'],
       hasCredential: row.has_credential };
   });
 }

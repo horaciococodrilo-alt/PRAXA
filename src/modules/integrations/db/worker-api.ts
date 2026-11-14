@@ -13,7 +13,9 @@ export type WorkerApiFunction =
   | 'count_credentials_by_key_version' | 'rewrap_credential' | 'start_sync_run' | 'publish_snapshot'
   | 'fail_sync_run' | 'record_connection_error' | 'publish_breakdown' | 'record_breakdown_failure'
   | 'begin_chat_turn' | 'end_chat_turn' | 'record_query' | 'set_feedback'
-  | 'save_diagnostic_settings' | 'reserve_diagnostic' | 'release_diagnostic' | 'publish_diagnostic';
+  | 'save_diagnostic_settings' | 'reserve_diagnostic' | 'release_diagnostic' | 'publish_diagnostic'
+  | 'tn_start_sync' | 'tn_publish_orders' | 'tn_publish_catalog' | 'tn_finish_sync' | 'tn_fail_sync'
+  | 'tn_privacy_store_redact' | 'tn_privacy_customer_redact';
 
 export interface Queryable {
   query<Row extends pg.QueryResultRow = pg.QueryResultRow>(
@@ -68,9 +70,10 @@ export class WorkerApiError extends Error {
 }
 
 const SQL_CASTS: Record<WorkerApiFunction, readonly string[]> = {
-  create_oauth_attempt: ['uuid', 'uuid', 'text', 'text', 'text', 'text', 'timestamptz', 'uuid'],
-  consume_oauth_attempt: ['uuid', 'uuid', 'text', 'text'],
-  create_pending_connection: ['uuid', 'uuid', 'uuid', 'text', 'text', 'text', 'text', 'integer', 'text', 'text', 'text[]', 'timestamptz'],
+  // M16e: el proveedor va explícito (0023); las firmas viejas ya no existen.
+  create_oauth_attempt: ['uuid', 'uuid', 'public.integration_provider', 'text', 'text', 'text', 'text', 'timestamptz', 'uuid'],
+  consume_oauth_attempt: ['uuid', 'uuid', 'public.integration_provider', 'text', 'text'],
+  create_pending_connection: ['uuid', 'uuid', 'uuid', 'public.integration_provider', 'text', 'text', 'text', 'text', 'integer', 'text', 'text', 'text[]', 'timestamptz'],
   get_credential: ['uuid', 'uuid', 'uuid'],
   confirm_connection: ['uuid', 'uuid', 'uuid', 'text', 'text', 'text', 'boolean'],
   replace_credential: ['uuid', 'uuid', 'uuid', 'uuid', 'text', 'text', 'text', 'integer', 'text', 'text', 'text[]', 'timestamptz'],
@@ -95,6 +98,16 @@ const SQL_CASTS: Record<WorkerApiFunction, readonly string[]> = {
   reserve_diagnostic: ['uuid', 'uuid', 'uuid', 'uuid', 'integer', 'timestamptz', 'integer'],
   release_diagnostic: ['uuid', 'uuid', 'uuid'],
   publish_diagnostic: ['uuid', 'uuid', 'uuid', 'uuid', 'integer', 'jsonb'],
+  // Tiendanube (0023): las seis primeras posiciones son actor, empresa, conexión,
+  // generación, ejecución y lease.
+  tn_start_sync: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'uuid', 'timestamptz'],
+  tn_publish_orders: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'uuid', 'jsonb', 'jsonb', 'jsonb'],
+  tn_publish_catalog: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'uuid', 'jsonb', 'jsonb', 'boolean'],
+  tn_finish_sync: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'uuid', 'timestamptz', 'boolean'],
+  tn_fail_sync: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'uuid', 'text', 'text'],
+  // Privacidad sin sesión (D-M16e-14): solo la tienda, verificada por firma en el servidor.
+  tn_privacy_store_redact: ['text', 'integer'],
+  tn_privacy_customer_redact: ['text', 'text', 'text[]'],
 };
 
 const SQL: Record<WorkerApiFunction, string> = Object.fromEntries(

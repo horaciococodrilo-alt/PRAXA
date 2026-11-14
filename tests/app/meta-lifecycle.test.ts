@@ -111,7 +111,7 @@ describe('M16.2: ciclo de vida con base desechable y Meta simulada', () => {
   function oauthDeps(owner: Company, meta: ReturnType<typeof fakeMeta>): Partial<MetaOAuthDeps> {
     return { tenant: async () => owner.ctx, config, http: meta.http, workerApi: worker!,
       keyring: keyrings.getCredentialKeyring(),
-      readLiveConnection: (ctx) => connections.readLiveConnection(ctx, { supabase: owner.user.client }),
+      readLiveConnection: (ctx) => connections.readLiveConnection(ctx, 'meta', { supabase: owner.user.client }),
       readConnection: (ctx) => connections.readConnectionRecord(ctx, { supabase: owner.user.client }),
       log: () => {} };
   }

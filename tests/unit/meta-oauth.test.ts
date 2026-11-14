@@ -158,11 +158,11 @@ function fakeWorker(overrides: Partial<Record<string, WorkerHandler>> = {}) {
     create_oauth_attempt: (args) => [
       {
         attempt_id: randomUUID(),
-        purpose: args[2],
-        expected_connection_id: args[7] ?? null,
-        expected_generation: args[2] === 'reauth' ? 3 : null,
+        purpose: args[3],
+        expected_connection_id: args[8] ?? null,
+        expected_generation: args[3] === 'reauth' ? 3 : null,
         created_at: new Date(NOW),
-        expires_at: new Date(String(args[6])),
+        expires_at: new Date(String(args[7])),
       },
     ],
     consume_oauth_attempt: () => [consumedRow()],
@@ -638,8 +638,9 @@ describe('M16.1-T-08: inicio sin conexión viva', () => {
     expect(location.origin).toBe('https://www.facebook.com');
 
     expect(worker.calls.map((call) => call.fn)).toEqual(['list_pending_purges', 'create_oauth_attempt']);
-    const [actor, company, purpose, stateHash, bindingHash, returnPath, expiresAt, expected] = worker.calls[1].args;
-    expect([actor, company, purpose]).toEqual([CTX.user_id, CTX.company_id, 'initial']);
+    const [actor, company, provider, purpose, stateHash, bindingHash, returnPath, expiresAt, expected] =
+      worker.calls[1].args;
+    expect([actor, company, provider, purpose]).toEqual([CTX.user_id, CTX.company_id, 'meta', 'initial']);
     expect(stateHash).toBe(sha256(state));
     expect(bindingHash).toBe(sha256(nonce));
     expect(returnPath).toBe('/app/integraciones');
@@ -674,8 +675,9 @@ describe('M16.1-T-09: inicio con una conexión activa o por reautorizar', () => 
     expect(response.status).toBe(303);
     expect(new URL(response.headers.get('location') ?? '').origin).toBe('https://www.facebook.com');
     expect(worker.calls.map((call) => call.fn)).toEqual(['list_pending_purges', 'create_oauth_attempt']);
-    expect(worker.calls[1].args[2]).toBe('reauth');
-    expect(worker.calls[1].args[7]).toBe(CONNECTION_ID);
+    expect(worker.calls[1].args[2]).toBe('meta');
+    expect(worker.calls[1].args[3]).toBe('reauth');
+    expect(worker.calls[1].args[8]).toBe(CONNECTION_ID);
   });
 });
 
@@ -868,7 +870,7 @@ describe('M16.1-T-14: cancelación en Meta', () => {
     );
     expectCleanCallback(response, RESULT('cancelado'));
     expect(worker.calls.map((call) => call.fn)).toEqual(['consume_oauth_attempt']);
-    expect(worker.calls[0].args.slice(2)).toEqual([sha256(state), sha256(nonce)]);
+    expect(worker.calls[0].args.slice(2)).toEqual(['meta', sha256(state), sha256(nonce)]);
     expect(meta.calls).toEqual([]);
   });
 
@@ -1159,9 +1161,10 @@ describe('M16.1-T-20: reintento de la pendiente', () => {
     expect(create).toBeDefined();
     const args = create!.args;
     expect(args.slice(0, 2)).toEqual([CTX.user_id, CTX.company_id]);
-    expect(args[3]).toBe(BUSINESS);
-    expect(args[4]).not.toContain(TOKEN);
-    expect(args.slice(8)).toEqual(['system_user', APP_ID, ['ads_read'], '2030-01-01T00:00:00.000Z']);
+    expect(args[3]).toBe('meta');
+    expect(args[4]).toBe(BUSINESS);
+    expect(args[5]).not.toContain(TOKEN);
+    expect(args.slice(9)).toEqual(['system_user', APP_ID, ['ads_read'], '2030-01-01T00:00:00.000Z']);
   });
 });
 
@@ -1224,7 +1227,7 @@ describe('M16.2-T-13: purga al iniciar con Meta inyectada', () => {
     const meta = fakeMeta();
     const worker = fakeWorker({
       list_pending_purges: () => [{ connection_id: CONNECTION_ID, status: 'disconnected',
-        reason: 'disconnect_requested', has_credential: true,
+        provider: 'meta', reason: 'disconnect_requested', has_credential: true,
         pending_expires_at: null, purge_requested_at: new Date(NOW) }],
       get_credential: () => [{ connection_id: CONNECTION_ID, company_id: CTX.company_id,
         provider: 'meta', status: 'disconnected', credential_generation: 1,

@@ -141,7 +141,7 @@ values ('4e900000-0000-4000-8000-000000000102', 'c0a00000-0000-4000-8000-0000000
 
 select 1 from worker_api.create_pending_connection(
   'aaaaaaaa-0000-4000-8000-000000000102', 'c0a00000-0000-4000-8000-000000000102',
-  'cc000000-0000-4000-8000-000000000102', 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
+  'cc000000-0000-4000-8000-000000000102', 'meta', 'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA',
   'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null);
 
 select 1 from worker_api.confirm_connection(
@@ -162,7 +162,7 @@ select 1 from worker_api.begin_chat_turn(
   'eb000000-0000-4000-8000-000000000102',90);
 
 select 1 from worker_api.create_oauth_attempt(
-  'aaaaaaaa-0000-4000-8000-000000000102', 'c0a00000-0000-4000-8000-000000000102',
+  'aaaaaaaa-0000-4000-8000-000000000102', 'c0a00000-0000-4000-8000-000000000102', 'meta',
   'reauth', repeat('c', 64), repeat('d', 64), '/app/integraciones',
   now() + interval '5 minutes', 'cc000000-0000-4000-8000-000000000102');
 

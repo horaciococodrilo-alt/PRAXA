@@ -110,7 +110,7 @@ insert into public.companies (id,name,owner_id) values
   ('c0a00000-0000-4000-8000-000000000152','Chat sintético dos','aaaaaaaa-0000-4000-8000-000000000152');
 select 1 from worker_api.create_pending_connection(
   'aaaaaaaa-0000-4000-8000-000000000151','c0a00000-0000-4000-8000-000000000151',
-  'cc000000-0000-4000-8000-000000000151','negocio_sintetico','AAAA','AAAAAAAAAAAAAAAA',
+  'cc000000-0000-4000-8000-000000000151', 'meta','negocio_sintetico','AAAA','AAAAAAAAAAAAAAAA',
   'AAAAAAAAAAAAAAAAAAAAAA==',1,'system_user','app_sintetica','{ads_read}',null);
 select 1 from worker_api.confirm_connection(
   'aaaaaaaa-0000-4000-8000-000000000151','c0a00000-0000-4000-8000-000000000151',
@@ -191,7 +191,7 @@ select is((select count(*)::int from public.chat_query_records where id in
   'T-02: referencias ajena e inexistente no dejan fila');
 select 1 from worker_api.create_pending_connection(
   'aaaaaaaa-0000-4000-8000-000000000152','c0a00000-0000-4000-8000-000000000152',
-  'cc000000-0000-4000-8000-000000000152','negocio_sintetico','AAAA',
+  'cc000000-0000-4000-8000-000000000152', 'meta','negocio_sintetico','AAAA',
   'AAAAAAAAAAAAAAAA','AAAAAAAAAAAAAAAAAAAAAA==',1,'system_user','app_sintetica',
   '{ads_read}',null);
 select is((select written from worker_api.record_query(

@@ -6,27 +6,45 @@ import { z } from 'zod';
 
 import {
   clientBusinessIdSchema,
+  credentialProviderIssues,
   secretCredentialSchema,
   tokenTypeSchema,
   type SecretCredential,
   type TokenType,
 } from '@/modules/integrations/contract';
-import { PG_INT4_MAX, isoDateTimeSchema, uuidSchema } from '@/modules/integrations/contract/primitives';
+import {
+  PG_INT4_MAX,
+  integrationProviderSchema,
+  isoDateTimeSchema,
+  uuidSchema,
+  type IntegrationProvider,
+} from '@/modules/integrations/contract/primitives';
 import { tenantContextSchema, type TenantContext } from '@/modules/tenant/context';
 import { getCredentialKeyring, type CredentialKeyring } from '../crypto/keyring';
 import { openCredential, sealCredential, type SecretValue } from '../crypto/seal';
 import { getWorkerApi, WorkerApiError, type WorkerApi } from '../db/worker-api';
 
+/**
+ * M16e: toda escritura nombra su proveedor. Entra en el AAD del cifrado (CA-11b), elige las
+ * reglas de K04 (tipo de token, permisos, vencimiento) y, en la creación, viaja a SQL.
+ */
 export type CredentialWriteInput = {
+  provider: IntegrationProvider;
   token: string;
   tokenType: TokenType;
   issuedForAppId: string;
   grantedScopes: readonly string[];
   expiresAt: string | null;
 };
-export type PendingCredentialInput = CredentialWriteInput & { clientBusinessId: string };
+/** Meta exige el negocio del cliente; Tiendanube no tiene (null). */
+export type PendingCredentialInput = CredentialWriteInput & { clientBusinessId: string | null };
 export type ReplaceCredentialInput = CredentialWriteInput & { connectionId: string; attemptId: string };
-export type CredentialRepositoryDeps = { workerApi?: WorkerApi; keyring?: CredentialKeyring };
+/**
+ * `provider` es el proveedor que espera quien lee una credencial; por defecto Meta. Una
+ * credencial de otro proveedor es una respuesta inválida: así un token de Tiendanube nunca
+ * llega a código de Meta (A-13).
+ */
+export type CredentialRepositoryDeps = { workerApi?: WorkerApi; keyring?: CredentialKeyring; provider?: IntegrationProvider };
 declare const preparedCredentialBrand: unique symbol;
 export type PreparedCredentialOperation = Readonly<{ [preparedCredentialBrand]: true }>;
 
@@ -64,13 +82,14 @@ export class CredentialChangedError extends Error {
 }
 
 const writeSchema = z.strictObject({
+  provider: integrationProviderSchema,
   token: z.string().min(1),
   tokenType: tokenTypeSchema,
   issuedForAppId: secretCredentialSchema.shape.issued_for_app_id,
   grantedScopes: secretCredentialSchema.shape.granted_scopes,
   expiresAt: isoDateTimeSchema.nullable(),
 });
-const pendingSchema = writeSchema.extend({ clientBusinessId: clientBusinessIdSchema });
+const pendingSchema = writeSchema.extend({ clientBusinessId: clientBusinessIdSchema.nullable() });
 const replaceSchema = writeSchema.extend({ connectionId: uuidSchema, attemptId: uuidSchema });
 const MAX_VERSION = PG_INT4_MAX;
 const READ_STATUSES = new Set(['pending_selection', 'active', 'needs_reauth', 'disconnected']);
@@ -144,8 +163,14 @@ function wrapPrepared(payload: PreparedPayload): PreparedCredentialOperation {
   return operation;
 }
 
+/** Reglas de K04 por proveedor, las mismas que aplica SQL (0023). */
+function assertProviderRules(input: z.infer<typeof writeSchema>): void {
+  if (credentialProviderIssues({ provider: input.provider, token_type: input.tokenType,
+    granted_scopes: input.grantedScopes, expires_at: input.expiresAt }).length > 0) invalidInput();
+}
+
 function makeSealedArgs(ctx: TenantContext, id: string, input: CredentialWriteInput, ring: CredentialKeyring) {
-  const sealed = sealCredential(input.token, { company_id: ctx.company_id, connection_id: id, provider: 'meta' }, ring);
+  const sealed = sealCredential(input.token, { company_id: ctx.company_id, connection_id: id, provider: input.provider }, ring);
   return [sealed.ciphertext, sealed.iv, sealed.auth_tag, sealed.key_version,
     input.tokenType, input.issuedForAppId, Object.freeze([...input.grantedScopes]), input.expiresAt] as const;
 }
@@ -156,9 +181,11 @@ export function preparePendingConnectionWithCredential(
   const actor = context(ctx);
   const parsed = pendingSchema.safeParse(input);
   if (!parsed.success) invalidInput();
+  assertProviderRules(parsed.data);
+  if ((parsed.data.provider === 'meta') !== (parsed.data.clientBusinessId !== null)) invalidInput();
   const id = randomUUID();
   const ring = deps.keyring ?? getCredentialKeyring();
-  const args = [actor.user_id, actor.company_id, id, parsed.data.clientBusinessId,
+  const args = [actor.user_id, actor.company_id, id, parsed.data.provider, parsed.data.clientBusinessId,
     ...makeSealedArgs(actor, id, parsed.data, ring)];
   return wrapPrepared({ actorId: actor.user_id, companyId: actor.company_id,
     kind: 'create', connectionId: id, args });
@@ -170,6 +197,7 @@ export function prepareReplaceCredential(
   const actor = context(ctx);
   const parsed = replaceSchema.safeParse(input);
   if (!parsed.success) invalidInput();
+  assertProviderRules(parsed.data);
   const ring = deps.keyring ?? getCredentialKeyring();
   const args = [actor.user_id, actor.company_id, parsed.data.connectionId, parsed.data.attemptId,
     ...makeSealedArgs(actor, parsed.data.connectionId, parsed.data, ring)];
@@ -227,12 +255,13 @@ const READ_COLUMNS = [
   'issued_for_app_id', 'granted_scopes', 'expires_at',
 ] as const;
 const CREDENTIAL_COLUMNS = [
-  'connection_id', 'company_id', 'ciphertext', 'iv', 'auth_tag', 'key_version',
+  'connection_id', 'company_id', 'provider', 'ciphertext', 'iv', 'auth_tag', 'key_version',
   'token_type', 'issued_for_app_id', 'granted_scopes', 'expires_at',
 ] as const;
 
 export type ReadCredentialResult = {
   connectionId: string;
+  provider: IntegrationProvider;
   status: string;
   credentialGeneration: number;
   keyVersion: number;
@@ -249,6 +278,9 @@ export async function readCredential(
 ): Promise<ReadCredentialResult> {
   const actor = context(ctx);
   const requestedId = connectionId(id);
+  const expectedProvider = integrationProviderSchema.safeParse(deps.provider ?? 'meta');
+  if (!expectedProvider.success) invalidInput();
+  const provider = expectedProvider.data;
   const api = deps.workerApi ?? getWorkerApi();
   const ring = deps.keyring ?? getCredentialKeyring();
   const rows = await api.call('get_credential', [actor.user_id, actor.company_id, requestedId]);
@@ -256,7 +288,8 @@ export async function readCredential(
   if (rows.length === 0) throw new CredentialNotFoundError();
   const row = one(rows, READ_COLUMNS);
   if (!uuidSchema.safeParse(row.connection_id).success || row.connection_id !== requestedId ||
-      !uuidSchema.safeParse(row.company_id).success || row.company_id !== actor.company_id || row.provider !== 'meta') {
+      !uuidSchema.safeParse(row.company_id).success || row.company_id !== actor.company_id ||
+      row.provider !== provider) {
     invalidResponse();
   }
   const readStatus = status(row.status);
@@ -267,13 +300,13 @@ export async function readCredential(
   const parsed = secretCredentialSchema.safeParse(projected);
   if (!parsed.success) invalidResponse();
   const token = openCredential(parsed.data, {
-    company_id: actor.company_id, connection_id: requestedId, provider: 'meta',
+    company_id: actor.company_id, connection_id: requestedId, provider,
   }, ring);
 
   let rewrap: CredentialRewrapResult = { status: 'not_attempted' };
   if (parsed.data.key_version < ring.currentVersion && REWRAP_STATUSES.has(readStatus)) {
     const sealed = sealCredential(token.reveal(), {
-      company_id: actor.company_id, connection_id: requestedId, provider: 'meta',
+      company_id: actor.company_id, connection_id: requestedId, provider,
     }, ring);
     let rewrapped: unknown;
     try {
@@ -300,7 +333,7 @@ export async function readCredential(
   }
 
   return {
-    connectionId: requestedId, status: readStatus, credentialGeneration: readGeneration,
+    connectionId: requestedId, provider, status: readStatus, credentialGeneration: readGeneration,
     keyVersion: parsed.data.key_version, tokenType: parsed.data.token_type,
     issuedForAppId: parsed.data.issued_for_app_id, grantedScopes: [...parsed.data.granted_scopes],
     expiresAt: parsed.data.expires_at, token, rewrap,
