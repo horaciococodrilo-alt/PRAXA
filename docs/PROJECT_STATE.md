@@ -32,7 +32,7 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 
 - revisar la spec, auditarla y aprobarla;
 - redactar el plan, auditarlo y aprobarlo;
-- ampliar el acta de datos, aprobarla y comunicarla al dueño, antes de la primera captura real.
+- ampliar el acta de datos y aprobarla antes del código, como pide la ficha, y comunicársela al dueño antes del primer dato real.
 
 `G-TIENDA` habilita `M16f`. `M28.3a` espera `G-CHAT`, `G-ANOMALIES`, `G-DIAG`, `G-TIENDA` y `G-GA4-FUSION`.
 
