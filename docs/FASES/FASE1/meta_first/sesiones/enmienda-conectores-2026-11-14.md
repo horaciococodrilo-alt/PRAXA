@@ -63,6 +63,10 @@ La [segunda auditoría](../../M16e/revisiones/spec-audit-2.md) dio REQUIERE CAMB
 
 Además, §17.10 remite a las dos notas nuevas y `HALLAZGOS.md` marca `H-E1-234` como resuelto en la ruta.
 
+## Correcciones de `spec-audit-3` de M16e (mismo día)
+
+La [tercera auditoría](../../M16e/revisiones/spec-audit-3.md) dio REQUIERE CAMBIOS. El usuario aprobó en el chat ampliar §17.9: las funciones de privacidad sin sesión pueden marcar conexiones como desconectadas y borrar, nunca activar ni devolver datos (D-M16e-27). También aceptó como riesgo que un aviso de desinstalación atrasado borre una conexión reinstalada dentro de las 48 horas (D-M16e-28), que solo cambia la spec de `M16e`.
+
 ## Verificación
 
 Revisión del diff y `git diff --check`. Es un cambio documental: no hay código ni pruebas.

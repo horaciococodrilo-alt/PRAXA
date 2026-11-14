@@ -697,7 +697,7 @@ Enmienda del 2026-11-14. Los contratos detallados son los de las specs [`M16e/sp
 8. **Decisiones de §7 de la propuesta.** Para Tiendanube, las decisiones 2, 3 y 6 se cerraron el 2026-11-14 (D-M16e-04 a D-M16e-11). Las decisiones 4 (instrumentación de GA4) y 5 (análisis entre fuentes) quedan abiertas para la spec de `M16f`.
 9. **Excepciones acotadas de M16e, aprobadas por el usuario el 2026-11-14.**
    - **CB-04 e INV-10 (D-M16e-12).** Se permiten pruebas **manuales** en `app` solo con la tienda de demostración de Tiendanube y pedidos sintéticos, sin suites automatizadas. Al terminar, la tienda se desconecta y se verifica la purga.
-   - **INV-01 (D-M16e-14).** Los webhooks de privacidad de Tiendanube no tienen sesión. Con la firma verificada, dos funciones de `worker_api` sin actor resuelven por ID de tienda todas sus conexiones. Solo borran y no devuelven datos.
+   - **INV-01 (D-M16e-14).** Los webhooks de privacidad de Tiendanube no tienen sesión. Con la firma verificada, dos funciones de `worker_api` sin actor resuelven por ID de tienda todas sus conexiones. Solo pueden marcarlas como desconectadas (estado `disconnected`, generación incrementada y credencial destruida) y borrar; nunca activan una conexión ni devuelven datos. *(Ampliado el 2026-11-14, D-M16e-27: antes decía «solo borran».)*
 
    Las dos se registran en `SECURITY.md` dentro de `M16e`.
 10. **CA enmendados para Tiendanube (M16e, 2026-11-14).** Para Meta, cada CA conserva su texto.
