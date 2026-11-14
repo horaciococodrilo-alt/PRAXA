@@ -19,4 +19,23 @@ export const DIAGNOSTIC_LIMITS = Object.freeze({
   lowSample: Object.freeze({ impressions: 1_000, clicks: 100, results: 30 }),
   /** Candidatos por categoría y nivel en el paquete. */
   candidatesPerLevel: 5,
+  /** Tiempo (Diseño §3): plazo total con reserva para publicar; cada paso con su propio tope. */
+  maxDurationSeconds: 300,
+  totalDeadlineMs: 240_000,
+  publishReserveMs: 30_000,
+  webTimeoutMs: 45_000,
+  reportTimeoutMs: 120_000,
+  reportMaxTokens: 12_000,
+  webMaxTokens: 4_000,
+  webMaxUses: 3,
+  /** Contexto web: fuentes y extractos aceptados, ya validados. */
+  webMaxSources: 5,
+  webExcerptsPerSource: 3,
+  webExcerptChars: 400,
+  /** Salida del modelo (aplicados en Zod, no en el esquema enviado: H-09). */
+  output: Object.freeze({
+    summaryChars: 1_200, noteChars: 400, breakdownChars: 600, titleChars: 120, rationaleChars: 600,
+    actionChars: 400, checkPlanChars: 400, uncertaintyChars: 300, webNoteChars: 300,
+    topEntities: 10, opportunities: 3, webNotes: 3, batchNotes: 10, evidenceIdsPerItem: 20,
+  }),
 });

@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import { evidenceIdSchema, isoDateSchema, periodSchema } from '@/modules/reporting/contract/primitives';
 
+import { DIAGNOSTIC_LIMITS } from './limits';
+
 /**
  * Contrato del diagnóstico de Meta Ads (M26a): objetivo, filas de las funciones SQL, evidencia
  * tipada y causas de lista cerrada. Toda cifra es texto decimal exacto o null (CA-44b): null
@@ -177,3 +179,73 @@ export type Manifest = z.infer<typeof manifestSchema>;
 export type SectionStatus = Readonly<{ status: 'evaluable' } | { status: 'not_evaluable'; cause: Cause }>;
 
 export type DiagnosticWindow = Readonly<{ from: string; to: string; prev_from: string; prev_to: string }>;
+
+// ---------------------------------------------------------------------------
+// Salida del modelo (Diseño §3, schema_version 1). El modelo escribe texto plano sin cifras y
+// cita evidencia; no declara status ni cause, que fija el servidor. Los límites de tamaño se
+// aplican acá (Zod), no en el esquema enviado, que no admite esas restricciones (H-09).
+// ---------------------------------------------------------------------------
+
+const L = DIAGNOSTIC_LIMITS.output;
+const evidenceIds = z.array(z.string().min(1).max(64)).min(1).max(L.evidenceIdsPerItem);
+const text = (max: number) => z.string().trim().min(1).max(max);
+const alias = z.string().regex(/^e[1-9]\d{0,5}$/);
+
+export const reportOutputSchema = z.strictObject({
+  executive_summary: z.strictObject({ text: text(L.summaryChars), evidence_ids: evidenceIds }),
+  overall_performance: z.strictObject({ text: text(L.summaryChars), evidence_ids: evidenceIds }),
+  top_entities: z.array(z.strictObject({
+    alias, level: z.enum(ENTITY_LEVELS), note: text(L.noteChars), evidence_ids: evidenceIds,
+  })).max(L.topEntities),
+  breakdowns: z.array(z.strictObject({
+    dimension: z.enum(BREAKDOWN_DIMENSIONS), text: text(L.breakdownChars), evidence_ids: evidenceIds,
+  })).max(BREAKDOWN_DIMENSIONS.length),
+  opportunities: z.array(z.strictObject({
+    title: text(L.titleChars), priority: z.enum(['high', 'medium', 'low']),
+    kind: z.enum(['fact', 'hypothesis']), rationale: text(L.rationaleChars), action: text(L.actionChars),
+    check_plan: text(L.checkPlanChars), uncertainty: text(L.uncertaintyChars), evidence_ids: evidenceIds,
+  })).max(L.opportunities),
+  web_notes: z.array(z.strictObject({
+    source_index: z.number().int().min(1), note: text(L.webNoteChars),
+  })).max(L.webNotes),
+});
+export type ReportOutput = z.infer<typeof reportOutputSchema>;
+
+export const batchNotesSchema = z.strictObject({
+  notes: z.array(z.strictObject({ alias, note: text(L.noteChars), evidence_ids: evidenceIds })).max(L.batchNotes),
+});
+export type BatchNotes = z.infer<typeof batchNotesSchema>;
+
+type JsonSchema = Record<string, unknown>;
+const str: JsonSchema = { type: 'string' };
+const ids: JsonSchema = { type: 'array', items: str };
+const obj = (properties: Record<string, JsonSchema>): JsonSchema =>
+  ({ type: 'object', properties, required: Object.keys(properties), additionalProperties: false });
+
+/** Esquema enviado: solo el subconjunto admitido (sin longitudes, mínimos ni cantidades). */
+export function reportJsonSchema(evaluableDimensions: readonly BreakdownDimension[]): JsonSchema {
+  const dimensions = evaluableDimensions.length > 0 ? [...evaluableDimensions] : [...BREAKDOWN_DIMENSIONS];
+  return obj({
+    executive_summary: obj({ text: str, evidence_ids: ids }),
+    overall_performance: obj({ text: str, evidence_ids: ids }),
+    top_entities: { type: 'array', items: obj({ alias: str, level: { type: 'string', enum: [...ENTITY_LEVELS] },
+      note: str, evidence_ids: ids }) },
+    breakdowns: { type: 'array', items: obj({ dimension: { type: 'string', enum: dimensions }, text: str,
+      evidence_ids: ids }) },
+    opportunities: { type: 'array', items: obj({ title: str,
+      priority: { type: 'string', enum: ['high', 'medium', 'low'] },
+      kind: { type: 'string', enum: ['fact', 'hypothesis'] }, rationale: str, action: str, check_plan: str,
+      uncertainty: str, evidence_ids: ids }) },
+    web_notes: { type: 'array', items: obj({ source_index: { type: 'integer' }, note: str }) },
+  });
+}
+
+export const BATCH_NOTES_JSON_SCHEMA: JsonSchema = obj({
+  notes: { type: 'array', items: obj({ alias: str, note: str, evidence_ids: ids }) },
+});
+
+/** Fuente web validada (Diseño §3); el índice es el que cita `web_notes.source_index`. */
+export type WebSource = Readonly<{ index: number; url: string; title: string; page_age: string; domain: string }>;
+
+export type UsageStep = Readonly<{ step: 'web' | 'report' | 'repair' | 'batch' | 'synthesis';
+  input_tokens: number; output_tokens: number; web_searches: number }>;

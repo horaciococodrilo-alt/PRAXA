@@ -27,3 +27,16 @@ export {
   type ReserveOutcome,
   type Rpc,
 } from './repository';
+export {
+  formatEvidenceValue,
+  hasFreeNumerals,
+  substituteMarkers,
+  substituteOutput,
+  validateBatchNotes,
+  validateReportOutput,
+  validationContext,
+  type ValidationContext,
+  type ValidationFailure,
+} from './validate';
+export { ALLOWED_WEB_DOMAINS, extractWebContext, webPrompt, webQueryFor, webTopicFor, type CompanyProfile,
+  type WebContext } from './web';
