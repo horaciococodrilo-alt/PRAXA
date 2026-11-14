@@ -67,6 +67,14 @@ Además, §17.10 remite a las dos notas nuevas y `HALLAZGOS.md` marca `H-E1-234`
 
 La [tercera auditoría](../../M16e/revisiones/spec-audit-3.md) dio REQUIERE CAMBIOS. El usuario aprobó en el chat ampliar §17.9: las funciones de privacidad sin sesión pueden marcar conexiones como desconectadas y borrar, nunca activar ni devolver datos (D-M16e-27). También aceptó como riesgo que un aviso de desinstalación atrasado borre una conexión reinstalada dentro de las 48 horas (D-M16e-28), que solo cambia la spec de `M16e`.
 
+## Correcciones de `spec-audit-4` de M16e (mismo día)
+
+La [cuarta auditoría](../../M16e/revisiones/spec-audit-4.md) dio REQUIERE CAMBIOS. Decisiones del usuario:
+
+- **D-M16e-29:** agregar a `AGENTS.md` una línea de excepción de reversibilidad para Tiendanube, que remite a §17.6, como se hizo en M26a. II.14b autoriza ese archivo, y la línea se agregó ya.
+- **D-M16e-30:** alcance de `customer/redact` según la recomendación de la auditoría. El usuario lo considera improbable.
+- **D-M16e-31:** las pruebas manuales en `app` usan la cuenta y la empresa sintéticas de DEC-18.
+
 ## Verificación
 
 Revisión del diff y `git diff --check`. Es un cambio documental: no hay código ni pruebas.

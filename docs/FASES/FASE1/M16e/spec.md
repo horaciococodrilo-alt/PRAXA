@@ -4,7 +4,7 @@
 
 **Entrada:** la ruta incluye `M16e` desde la [enmienda de conectores](../meta_first/sesiones/enmienda-conectores-2026-11-14.md), aprobada por el usuario el 2026-11-14 (ficha en Parte I y II.14b de `meta_first/plan.md`; §17 de `meta_first/spec.md`). `G-DIAG` está aprobado (2026-11-14). Como exige la ficha, **spec, plan y acta M03a ampliada se aprueban antes de la primera línea de código**, y el acta se comunica al dueño antes del primer dato real. El usuario exceptuó esta microfase del límite de ocho horas; el resto del contrato de `AGENTS.md` sigue vigente. **Salida:** un único `G-TIENDA`, que habilita M16f.
 
-**Revisión del 2026-11-14:** se integraron la enmienda de ruta, las decisiones D-M16e-04 a D-M16e-20 del usuario y las correcciones de [spec-audit-1](revisiones/spec-audit-1.md) (A-01 a A-23). Después se integraron las correcciones de [spec-audit-2](revisiones/spec-audit-2.md) (A-01 a A-10) y de [spec-audit-3](revisiones/spec-audit-3.md) (A-01 a A-06), con las decisiones D-M16e-21 a D-M16e-28 y sus enmiendas de ruta. La spec sigue en borrador hasta una nueva auditoría y su aprobación.
+**Revisión del 2026-11-14:** se integraron la enmienda de ruta, las decisiones D-M16e-04 a D-M16e-20 del usuario y las correcciones de [spec-audit-1](revisiones/spec-audit-1.md) (A-01 a A-23). Después se integraron las correcciones de [spec-audit-2](revisiones/spec-audit-2.md) (A-01 a A-10) de [spec-audit-3](revisiones/spec-audit-3.md) (A-01 a A-06) y de [spec-audit-4](revisiones/spec-audit-4.md) (A-01 a A-15), con las decisiones D-M16e-21 a D-M16e-31 y sus enmiendas de ruta. La spec sigue en borrador hasta una nueva auditoría y su aprobación.
 
 **Hash de contenido:** al solicitar auditoría, excluir solamente la línea `**Estado:**` y pasar los bytes restantes a `git hash-object --stdin`, como indica `docs/_templates/mf-spec.md`.
 
@@ -57,7 +57,9 @@ Escritura de pedidos, productos, clientes, inventario, precios, scripts o webhoo
 | K01 deriva actor y empresa en servidor | `tenant/context.ts:37-43` | No aceptar `company_id` ni tienda desde el navegador |
 | `purge_connection` se reemplazó al agregar chat; borra los registros del chat de la conexión y al final la fila de la conexión | `0018_chat_queries.sql:196-230` | La migración nueva conserva firma y semántica y borra los hijos de Tiendanube. Como se borra la fila, una FK con cascada a la conexión alcanza al informe del diagnóstico |
 | Lecturas de Meta por funciones `public` `SECURITY INVOKER` bajo RLS | `0016_meta_insights.sql:1784`, `:1929`, `:1982` | Los agregados de Tiendanube siguen el mismo patrón (A-06) |
-| `chat_valid_tool_names` fija la lista cerrada de herramientas; `record_query` admite `not_answered/connection_not_active` sobre una conexión `active` | `0018_chat_queries.sql:5`, `:111-147` | La segunda migración amplía la lista; el registro de una abstención por fuente no conectada no cambia de firma |
+| `chat_valid_tool_names` valida solo formato (`^[a-z_]{1,40}$`) y cantidad; la lista cerrada de herramientas es `TOOL_NAMES`, que arma el formato estricto del modelo y `choiceSchema`. `record_query` admite `not_answered/connection_not_active` sobre una conexión `active` | `0018_chat_queries.sql:5-11`, `:111-147`; `src/modules/chat/tools/schema.ts:7-11`; `output-schema.ts:28`, `:49` | Las herramientas nuevas se agregan en código, sin SQL del chat. El registro de una abstención por fuente no conectada no cambia de firma |
+| Los argumentos de herramientas van en un objeto plano y estricto; los resultados (`valueSchema`) admiten solo métricas de Meta | `output-schema.ts:14-19`, `:38-44`; `tools/results.ts:31-49` | Se amplían como dice §6 (A-03) |
+| `diagnostic_reports` fija la versión por `check`, y en `app` puede haber un informe v1 | `0022_meta_diagnostics.sql:87`; `diagnostics/contract.ts:13-14` | La versión 2 convive con la 1 (A-04) |
 | El orquestador corta con `connection_not_active` si Meta no está `active`; `abstain_reason` solo admite `out_of_scope` | `src/modules/chat/orchestrator.ts:298-301`; `src/modules/chat/output-schema.ts:31`, `:52` | Mecanismo por fuente de §6 (A-07) |
 | La página del chat solo habilita el chat con Meta `active` y lista solo Meta | `src/app/(app)/app/chat/page.tsx:18`, `:25-27` | Se generaliza en la etapa 5 (D-M16e-22) |
 | `getIntegraciones()` fija Tiendanube como no conectada; la usan Inicio y el menú | `src/modules/app-data/index.ts:96-104`; `src/app/(app)/app/page.tsx:17`; `layout.tsx:38`, `:48` | Lee el estado real de Tiendanube en la etapa 4 (D-M16e-22) |
@@ -134,6 +136,8 @@ Cada tipo se guarda con una clase existente de `last_error_class`, así no cambi
 | Producto/variante | `id`, `name`, `visibility`/`published`, `variants[].id`, `variants[].sku` | Descripción HTML, imágenes, SEO, categorías, precios, stock |
 | Historial de valores | Suma de `total_paid_diff` negativos por pedido | El resto de cada entrada |
 
+Si M16f necesita otros campos, como `domains`, `url_with_protocol` o `number`, los agrega con columnas en su propia migración y resincroniza: Tiendanube sigue siendo la fuente (A-15).
+
 La petición pide el subconjunto con `fields`, pero como `fields` y los subcampos de `customer` no están verificados (M16e-H-07), **la proyección en memoria es obligatoria** aunque el servidor devuelva de más.
 
 ### Alta de la app en el Portal de Socios (acción del usuario, sin secretos en el chat)
@@ -143,7 +147,7 @@ Se hace **antes de la etapa 2**, porque confirma M16e-H-04 (instalar sin homolog
 1. Registrarse como socio en `partners.tiendanube.com`, sección Apps, y crear la app. Confirmar en pantalla qué tipo corresponde a una tienda propia (la documentación menciona «Para Tus Clientes», sin homologación; la página no cargó).
 2. En «Datos básicos», marcar **solo** `read_orders`, `read_customers`, `read_products`. Ningún `write_*`.
 3. URL de redirección: `https://<dominio de app>/api/integraciones/tiendanube/callback`. Webhooks de privacidad: `…/api/integraciones/tiendanube/privacidad/store-redact`, `…/customer-redact` y `…/data-request`. Soporte: el contacto de D-M16e-08. Completar las demás URL obligatorias (panel, preferencias, política de privacidad) con las páginas existentes del sitio.
-4. Crear una tienda de demostración en el Portal, cargarle pedidos sintéticos e instalar la app (D-M16e-12).
+4. Crear una tienda de demostración en el Portal y cargarle pedidos sintéticos. Se instala recién en la etapa 4, con la cuenta y la empresa sintéticas de DEC-18 (D-M16e-31), después de la primera publicación.
 5. Cargar las cuatro variables de §1 (`TIENDANUBE_APP_ID`, `TIENDANUBE_CLIENT_SECRET`, `TIENDANUBE_SUPPORT_CONTACT` y `TIENDANUBE_REDIRECT_URI`), más `TIENDANUBE_CLIENT_ID` si M16e-H-10 falla, solo en `.env.local` y en Vercel (producción). Correr `node --env-file=.env.local scripts/tiendanube-preflight.mjs`, que informa presencia y forma de cada una sin imprimir valores: ID numérico, secreto no vacío, contacto con forma de email o URL, y `TIENDANUBE_REDIRECT_URI` en HTTPS y terminada en `/api/integraciones/tiendanube/callback`.
 
 ## Diseño concreto
@@ -158,7 +162,7 @@ Una microfase, un gate (`G-TIENDA`), cinco etapas con control técnico propio (D
 | `.2` | OAuth, ciclo de vida, purga perezosa por proveedor | Los mismos |
 | `.3` | Cliente HTTP, extracción, conciliación y webhooks de privacidad | Los mismos |
 | `.4` | Pantalla de Tiendanube; Inicio y menú con el estado real (`app-data`). Al pasar el control: primera publicación y pruebas manuales con la tienda de demostración (T-15, D-M16e-12) | Los mismos, publicación verificada y T-15 |
-| `.5` | Migración 2 (`<n+1>_tiendanube_chat_diag.sql`): lista de herramientas del chat y versión 2 de `diagnostic_reports`. Página del chat, orquestador, herramientas y diagnóstico. Al pasar el control: segunda publicación | Los mismos; `test:eval` solo con OK previo (T-13) |
+| `.5` | Migración 2 (`<n+1>_tiendanube_diag.sql`): solo la versión 2 de `diagnostic_reports` (A-02). En código: herramientas en `TOOL_NAMES`, página del chat, orquestador y diagnóstico. Al pasar el control: segunda publicación | Los mismos; `test:eval` solo con OK previo (T-13) |
 
 **Publicación antes del gate (D-M16e-25).** El OAuth y los webhooks reales solo llegan a `app`, así que el código se publica antes de `G-TIENDA`, en dos momentos:
 
@@ -180,7 +184,7 @@ Cada migración se aplica primero al desechable (`db:push:test`). Una migración
   - `GET /api/integraciones/tiendanube/iniciar`: autenticado y solo el dueño.
   - `GET /api/integraciones/tiendanube/callback`.
   - `POST /api/integraciones/tiendanube/privacidad/{store-redact,customer-redact,data-request}`.
-- **Inicio.** Construye K01 con `requireTenantContext()`, exige rol dueño y crea un K02 con proveedor `tiendanube` y propósito `initial` (sin conexión viva de Tiendanube en la empresa) o `reauth`. Usa la nueva firma de `create_oauth_attempt`, que recibe el proveedor; Meta pasa `meta`. `state` y nonce tienen 32 bytes aleatorios; se guardan solo sus hashes, y el intento se consume una sola vez. Redirige a `https://www.tiendanube.com/apps/{TIENDANUBE_APP_ID}/authorize?state=<state>`.
+- **Inicio.** Construye K01 con `requireTenantContext()`, exige rol dueño y crea un K02 con proveedor `tiendanube` y propósito `initial` (sin conexión viva de Tiendanube en la empresa) o `reauth`. Usa la nueva firma de `create_oauth_attempt`, que recibe el proveedor; Meta pasa `meta`. `state` y nonce tienen 32 bytes aleatorios; se guardan solo sus hashes, y el intento se consume una sola vez. `consume_oauth_attempt` rechaza un intento de otro proveedor (A-14). Redirige a `https://www.tiendanube.com/apps/{TIENDANUBE_APP_ID}/authorize?state=<state>`.
 - **Callback.**
   - Recibe `code` y `state` y redirige enseguida a una ruta limpia, con `Referrer-Policy: no-referrer`. PRAXA no guarda ni registra `code`.
   - Sin `state`, por una instalación iniciada desde Tiendanube: se rechaza con el aviso «iniciá la conexión desde PRAXA».
@@ -192,6 +196,8 @@ Cada migración se aplica primero al desechable (`db:push:test`). Una migración
 - **Desconexión.**
   - El dueño desconecta Tiendanube sin afectar Meta. PRAXA deja de leer, destruye la credencial y purga.
   - No hay revocación remota. `runLazyPurge` distingue proveedor: solo las credenciales de Meta llaman a `revokeToken` de Meta. Las de Tiendanube se destruyen sin llamada externa (A-13).
+  - Como el token sigue válido en Tiendanube hasta que se desinstala la app, la interfaz explica, al desconectar, cómo desinstalar PRAXA desde el administrador de Tiendanube, como hace CA-38 para Meta (A-07).
+- **Cierre del piloto (CA-67, A-07).** Junto con Meta, el cierre desconecta y purga Tiendanube. Después, el dueño desinstala la app de su tienda. El `store_redact` que llega a continuación no encuentra conexiones y responde `2xx`. `M28.3a` toma estos pasos de aquí.
 
 ### 2. Esquema y privilegios
 
@@ -206,7 +212,7 @@ Cada migración se aplica primero al desechable (`db:push:test`). Una migración
   - `tn_products` y variantes: nombre, SKU opcional y visibilidad.
   - `tn_customers`: solo el identificador opaco.
   - No se guarda JSON bruto. Los agregados no exponen IDs externos ni filas de comprador.
-- **Agregados** (A-06). Se recalculan dentro de la transacción que publica una ventana, en el paso de borrado de `tn_privacy_customer_redact` y en el borrado previo de pedidos marcados que hace el primer paso de sincronización (§4):
+- **Agregados** (A-06). Se recalculan dentro de la transacción que publica una ventana; al cerrar un recorrido completo del catálogo; en el paso de borrado de `tn_privacy_customer_redact`, y en el borrado previo de pedidos marcados que hace el primer paso de sincronización (§4). En los dos casos de privacidad se recalculan solo los días locales de los pedidos borrados y la cohorte del cliente, que es una sola (A-12):
   - **`tn_sales_daily`**, un registro por conexión, día local y moneda. El día local sigue la regla de fechas de §3. Columnas: pedidos pagados elegibles, pedidos elegibles sin `customer.id`, pagos parciales, suma de `total_paid_by_customer` de los elegibles y suma de reembolsos verificados. `get_tn_sales(p_connection_id, p_from, p_to, p_grain)` agrupa por día o por mes y nunca suma monedas distintas.
   - **`tn_product_units_daily`**, un registro por conexión, día local, producto y variante. Producto y variante se identifican con claves internas, nunca con el ID de Tiendanube. Columnas: nombre, SKU, marca de eliminado y unidades. `get_tn_product_units(p_connection_id, p_from, p_to, p_limit)` ordena por unidades, con desempate por nombre.
   - **`tn_cohort_cells`**, un registro por conexión, mes de cohorte y desplazamiento N. Columnas: tamaño de la cohorte, activos y marca de parcial. Se recalcula completa para la conexión. **La regla de cinco se aplica en SQL al escribir:** un tamaño menor que cinco se guarda nulo, con todas las celdas de esa cohorte, y un activo menor que cinco también se guarda nulo, cada uno con su marca de ocultamiento. Ningún rol puede leer un conteo menor que cinco. `get_tn_cohorts(p_connection_id, p_from_month, p_to_month, p_max_offset)` los devuelve con esas marcas.
@@ -219,7 +225,7 @@ Cada migración se aplica primero al desechable (`db:push:test`). Una migración
   - Solo `GET` a `api.tiendanube.com/2025-03/{store_id}/…` y a los paths `store`, `orders`, `orders/{id}/history/values` y `products`.
   - Headers fijos: `Authorization: Bearer` y `User-Agent`. El token no va en URL, logs ni errores.
   - `per_page=200` y paginación por `Link rel="next"`. Se valida estructura, unicidad de ID entre páginas y coherencia de `store_id`.
-- **Presupuestos iniciales**, configurables. Se miden en el desechable con fixtures y en la tienda de demostración, y se registran como Q-04 en M16c:
+- **Presupuestos iniciales**, configurables. Se miden en el desechable con fixtures y en la tienda de demostración, y se registran en la evidencia de M16e, como se hizo con Q-04 en M16c:
   - duración de un paso: 240 s, por debajo de `maxDuration = 300`;
   - hasta 25 páginas por paso;
   - espera por `429`: hasta 30 s acumulados por paso;
@@ -229,7 +235,10 @@ Cada migración se aplica primero al desechable (`db:push:test`). Una migración
   - lease de 5 minutos;
   - solapamiento incremental de 1 hora sobre `updated_at`, con desempate por ID.
 - **Backfill de todo el histórico** (D-M16e-06), en ventanas mensuales de `created_at`. Antes de paginar, se lee `x-total-count` de la primera página. Si es 10.000 o más, la ventana se divide a la mitad hasta que entre o hasta llegar a un día. Si un día solo supera el tope, la ejecución termina incompleta sin publicar cobertura completa. Cada paso continúa desde el checkpoint de la ejecución anterior; el dueño lo dispara con «Sincronizar» hasta terminar, sin cron.
-- **Incremental.** `updated_at_min` = último checkpoint menos 1 hora. El catálogo se recorre completo en cada sincronización: el producto que falta queda como «eliminado».
+- **Orden y marca de agua** (A-05). El primer paso del backfill guarda su instante de inicio como marca de agua. El backfill recorre las ventanas de la más antigua a la más nueva. Al terminar, el primer incremental arranca desde la marca de agua menos 1 hora, así que recupera los cambios hechos durante el backfill a pedidos de ventanas ya leídas.
+- **Cobertura.** Como un pedido cae en el día de `paid_at` y puede haberse creado en una ventana todavía no leída, ningún día cuenta como cubierto hasta que terminan el backfill completo y ese primer incremental. Antes, todo período se muestra como parcial. Después, cada incremental terminado extiende la cobertura hasta su instante de inicio.
+- **Incremental.** `updated_at_min` = último checkpoint menos 1 hora. Si la ventana incremental tiene 10.000 resultados o más por `x-total-count`, se divide a la mitad por `updated_at` hasta que entre o hasta llegar a una hora; si una hora sola supera el tope, la ejecución termina incompleta sin extender la cobertura.
+- **Recorrido del catálogo.** El catálogo se recorre completo en cada sincronización. Solo al cerrar un recorrido completo, el producto que falta queda como «eliminado» y se recalculan sus filas de `tn_product_units_daily`; un recorrido incompleto no marca nada (A-13).
 - **Publicación.** Cada paso obtiene lease y token de posesión ligados a conexión y generación. Guarda el checkpoint solo después de publicar en una transacción los pedidos y líneas de la ventana. Repetir una ventana no duplica. Una ejecución desplazada por desconexión o reautorización no escribe. Cero real, ausencia de pedido y ventana no cubierta son tres resultados distintos.
 - **Elegibilidad** (D-M16e-05):
   - **Pedido pagado elegible:** `payment_status` en `paid` o `partially_refunded`, y `status` distinto de `cancelled`. No cuentan `pending`, `authorized`, `abandoned`, `voided` ni `refunded`. `partially_paid` se informa aparte como «pago parcial».
@@ -257,10 +266,10 @@ Cada migración se aplica primero al desechable (`db:push:test`). Una migración
 
   Ninguna de las dos fases exige actor. Si se agotan los reintentos, el estado queda igual al de una desconexión pendiente de purga, y lo completa `runLazyPurge` cuando el dueño abre Integraciones o el cierre del piloto (CA-67).
 - **`customer/redact`** (D-M16e-04, D-M16e-26). También en dos pasos:
-  1. La primera llamada a `tn_privacy_customer_redact` inserta, en una transacción corta, las marcas de supresión de ese cliente y de sus pedidos, y devuelve `marked`. Desde ahí, la publicación de una ventana las filtra dentro de su propia transacción, así que una sincronización en vuelo o un backfill no reimportan esos pedidos.
-  2. Con las marcas presentes, la llamada siguiente borra, en una transacción, el cliente y los pedidos y líneas indicados, recalcula los agregados y devuelve `done`. Su tamaño lo acota un solo cliente.
+  1. La primera llamada a `tn_privacy_customer_redact` inserta, en una transacción corta, las marcas de supresión de los pedidos a borrar, y devuelve `marked`. Los pedidos a borrar son los de `orders_to_redact` más cualquier otro pedido local con ese `customer.id` (D-M16e-30). Desde ahí, la publicación de una ventana las filtra dentro de su propia transacción, así que una sincronización en vuelo o un backfill no reimportan esos pedidos.
+  2. Con las marcas presentes, la llamada siguiente borra, en una transacción, primero las líneas y los pedidos marcados y después la fila del cliente; recalcula los agregados y devuelve `done`. Su tamaño lo acota un solo cliente.
 
-  Si el paso 2 falla, el handler responde `5xx` y el reintento lo repite. Si se agotan los reintentos, el primer paso de sincronización de esa conexión borra, antes de leer, los pedidos que siguen presentes con marca de supresión, y recalcula. No toca el informe del diagnóstico, que solo tiene totales.
+  Si el paso 2 falla, el handler responde `5xx` y el reintento lo repite. Si se agotan los reintentos, el primer paso de sincronización de esa conexión borra, antes de leer, los pedidos que siguen presentes con marca de supresión, y recalcula. La supresión es **por pedido**: una compra posterior del mismo cliente se importa normalmente. Un pedido antiguo del cliente que todavía no se había leído en el backfill puede importarse después (riesgo aceptado, D-M16e-30). No toca el informe del diagnóstico, que solo tiene totales.
 - **Idempotencia y reintentos.** Las funciones son idempotentes: un duplicado o un reintento no produce efectos adicionales, porque marcar lo ya marcado o borrar lo ya borrado no cambia nada y la supresión se inserta sin duplicar. No hay tabla de solicitudes. Un corte de la función antes de confirmar una transacción la deshace entera, y lo ya confirmado se conserva. Cada fallo deja un log redactado con tipo de evento, fase, clase de error y cantidad de conexiones, sin IDs ni cuerpo.
 - **Reinstalación dentro de las 48 horas** (D-M16e-28, riesgo aceptado). Un aviso de desinstalación no trae fecha, y Tiendanube puede repetirlo hasta 48 horas. Si el dueño reinstala la app en ese lapso, un reintento o duplicado atrasado marca y borra también la conexión nueva, y el dueño tiene que volver a conectar y resincronizar. No afecta a otra tienda ni a otra fuente. Por eso, «sin efectos adicionales» vale solo mientras no haya una conexión nueva de la tienda.
 - **Riesgo aceptado** (D-M16e-26). Si fallan los 16 reintentos en 48 horas y nadie dispara la recuperación, los datos de la tienda quedan ocultos y sin credencial, pero no borrados, hasta que el dueño abra Integraciones o hasta el cierre del piloto. En `customer/redact`, los pedidos marcados quedan hasta la próxima sincronización. No hay cron ni worker (§2 de la ruta). El riesgo se registra en `SECURITY.md`.
@@ -287,11 +296,19 @@ Cada migración se aplica primero al desechable (`db:push:test`). Una migración
 
 - **Herramientas del chat.** Nuevas en `src/modules/chat/tools/`, con el contrato de §12 de la ruta. Leen solo con las funciones `get_tn_*` de §2. Devuelven agregados con fuente `tiendanube`, período, zona, moneda y cobertura, y nunca IDs de clientes o pedidos.
 
+  **Contrato** (A-03). Las herramientas se agregan a `TOOL_NAMES` y a `toolSchemas`. El objeto plano de argumentos del formato estricto suma cuatro campos anulables: `granularity` (`day` o `month`), `from_month` y `to_month` (`AAAA-MM`) y `max_offset` (entero de 0 a 11). Los campos que una herramienta no usa van nulos, como hoy. Los resultados reutilizan `valueSchema` ampliado:
+  - métricas de la tienda: `tn_paid_orders` y `tn_partially_paid_orders` (`count`), `tn_collected_amount` (`money`, solo con la constante activa), `tn_units` (`count`), `tn_cohort_size` (`count`), `tn_cohort_active` (`count`) y `tn_cohort_retention` (`percent`);
+  - `path_key` nuevos: `product` y `cohort_cell`, con los campos `cohort_month` y `month_offset`;
+  - un valor oculto por la regla de cinco lleva `value` nulo y `absence = 'menos_de_5'`;
+  - cada resultado lleva `fetched_at`, que es la fecha de la última extracción que cubre el período, y la definición de cada métrica es un texto fijo del servidor que muestra el bloque «fuentes y metodología» (A-09, §17.1 de la ruta).
+
+  Bloques del catálogo de CA-71, sin componentes nuevos: `tn_ventas` usa tarjeta, líneas, barras y tabla; `tn_productos`, ranking y tabla; `tn_cohortes`, tabla; `tn_cobertura`, estado de los datos. Si hiciera falta un componente nuevo en `src/components/chat/`, la microfase se detiene y vuelve a la ruta.
+
   | Herramienta | Parámetros | Devuelve |
   |---|---|---|
-  | `tn_ventas` | período (máx. 93 días, CA-70), granularidad día o mes | Pedidos pagados elegibles y pagos parciales por moneda; monto cobrado solo con la constante activa |
-  | `tn_cohortes` | desde-hasta en meses (todo el histórico, por la excepción de CA-70 de §17.10), hasta 24 cohortes y 12 meses N | Tamaños y retenciones con la regla de cinco |
-  | `tn_productos` | período (máx. 93 días), hasta 20 filas | Ranking por unidades |
+  | `tn_ventas` | `period` (máx. 93 días, CA-70), `granularity` | Pedidos pagados elegibles y pagos parciales por moneda; monto cobrado solo con la constante activa |
+  | `tn_cohortes` | `from_month`, `to_month` (todo el histórico, por la excepción de CA-70 de §17.10; hasta 24 cohortes) y `max_offset` (hasta 12 meses N) | Tamaños y retenciones con la regla de cinco |
+  | `tn_productos` | `period` (máx. 93 días) y `limit` (hasta 20 filas) | Ranking por unidades |
   | `tn_cobertura` | — | Última sincronización, ventanas cubiertas y pendientes |
 - **Verificación de cifras** (D-M16e-13, D-M16e-21). Rige la nota «Enmienda H-E1-228» de §12 de la ruta, que vale para todo el chat: las cifras de bloques y tablas salen de SQL; el texto libre del modelo no se verifica y se rotula como tal; la pregunta llega al modelo sin redactar y se guarda redactada.
 - **Fuentes y abstención** (A-07).
@@ -301,21 +318,22 @@ Cada migración se aplica primero al desechable (`db:push:test`). Una migración
 - **Registro** (CA-62 completado, D-M16e-24). La conexión del registro es:
   - la de Meta, si el turno usó alguna herramienta de Meta, incluido un turno que usó ambas;
   - la de Tiendanube, si solo usó herramientas de Tiendanube;
-  - sin herramientas, la de Meta si está activa y, si no, la de Tiendanube.
+  - sin herramientas, la de Meta si está activa y, si no, la de Tiendanube;
+  - si ninguna está activa, el turno corta antes del modelo, y el registro usa la conexión viva de Meta si existe; si no, la de Tiendanube; si no, ninguna (A-14).
 
   `record_query` ya admite `connection_not_active` sobre una conexión `active` (`0018:141-147`).
 - **Página del chat** (D-M16e-22). Con cualquiera de las dos conexiones activa, habilita el chat y lista las fuentes conectadas. Con ninguna, muestra el texto fijo actual. CA-52 muestra también la tienda conectada, por su dominio truncado.
 - **Diagnóstico.**
-  - **Sección.** Con Tiendanube `active`, el informe suma «Ventas de la tienda» para los mismos 28 días y los 28 anteriores: pedidos pagados elegibles, pagos parciales y, solo con la constante activa, monto cobrado. Va al lado del gasto de Meta, como dos series distintas, sin atribuir ventas ni inferir causalidad.
+  - **Sección.** Con Tiendanube `active`, el informe suma «Ventas de la tienda» para las mismas fechas de calendario que los 28 días del informe y los 28 anteriores, cada fuente en su propia zona horaria, con las dos zonas visibles (A-10). Lleva la definición de cada cifra y la fecha de la última extracción (A-09). Incluye pedidos pagados elegibles, pagos parciales y, solo con la constante activa, monto cobrado. Va al lado del gasto de Meta, como dos series distintas, sin atribuir ventas ni inferir causalidad.
   - **Parcialidad.** Si la última sincronización de Tiendanube tiene más de 24 horas o la ventana no está cubierta completa, la sección se marca parcial con su motivo. La generación no se bloquea por Tiendanube; la sección se agrega si la conexión está `active` y tiene al menos una ventana cubierta.
-  - **Versiones.** `schema_version = 2` y `methodology_version = 'meta-tn-diag-1'`.
+  - **Versiones** (A-04). Un informe sin sección de tienda sigue siendo `schema_version = 1` y `'meta-diag-1'`, igual que hoy. Un informe con sección es `schema_version = 2` y `'meta-tn-diag-1'`. El `check` nuevo admite las dos combinaciones, y `store_connection_id` es no nulo si y solo si el informe es v2. Así, un informe v1 ya guardado en `app` sobrevive a la migración 2 y se sigue leyendo.
   - **Persistencia** (D-M16e-15; nota «Enmienda D-M16e-15» de §16 de la ruta). Columna nueva `store_connection_id`, nula cuando no hay sección de tienda, con FK compuesta a la conexión de Tiendanube y `ON DELETE CASCADE`. La política de lectura oculta el informe si esa conexión no está `active` o `needs_reauth`. La purga y `store_redact` borran la fila de la conexión, y el informe cae por cascada. Va en la migración 2.
   - **Presentación.** En `diagnostico.tsx` y en el PDF.
 - **Proveedores.** Los agregados de Tiendanube van a DeepInfra (chat) y a Anthropic (diagnóstico). El acta ampliada lo declara.
 
 ### 7. Excepciones expresas (§17.6 de la ruta)
 
-Las aprobó el usuario el 2026-11-14 y siguen el modelo de CA-67:
+Las aprobó el usuario el 2026-11-14 y siguen el modelo de CA-67. `AGENTS.md` las admite por la línea de D-M16e-29:
 
 | Escritura | Irreversibilidad | Cómo se recupera | Decisión |
 |---|---|---|---|
@@ -333,15 +351,16 @@ Los autoriza II.14b de la ruta, ampliada por las decisiones del 2026-11-14 (D-M1
 |---|---|---|---|
 | `docs/FASES/FASE1/meta_first/{plan,spec,entorno}.md` | Modificados | Ruta, CA enmendados y variables nuevas | II.14b |
 | `docs/FASES/FASE1/M16e/{spec,plan}.md`; `docs/FASES/FASE1/M16e/revisiones/`; `docs/FASES/FASE1/meta_first/sesiones/M16e.md` | Nuevos/modificados | Contrato, plan, auditorías y evidencia | II.14b |
+| `AGENTS.md` | Modificado | Una línea de excepción de reversibilidad para Tiendanube, que remite a §17.6 de la ruta. Ya agregada con la enmienda | II.14b (D-M16e-29) |
 | `docs/FASES/FASE1/M03a/acta-meta.md`; `docs/SECURITY.md`; `docs/ARCHITECTURE.md`; `docs/PROJECT_STATE.md`; `docs/HALLAZGOS.md` | Modificados | Acta, fronteras y riesgos aceptados (D-M16e-07, -12, -14, -17, -26, -27, -28), estructura, estado y hallazgos | II.14b |
-| `supabase/migrations/<n>_tiendanube.sql` (etapa 1) y `<n+1>_tiendanube_chat_diag.sql` (etapa 5); `supabase/tests/<n>_tiendanube.test.sql` | Nuevos | Esquema, grants, agregados, privacidad, chat y diagnóstico (D-M16e-25) | II.14b |
+| `supabase/migrations/<n>_tiendanube.sql` (etapa 1) y `<n+1>_tiendanube_diag.sql` (etapa 5, solo `diagnostic_reports`); `supabase/tests/18_tiendanube.test.sql` (siguiente número de pgTAP, que se comprueba al implementar) | Nuevos | Esquema, grants, agregados, privacidad, chat y diagnóstico (D-M16e-25) | II.14b |
 | `supabase/tests/{08_integration_isolation,09_integration_privileges,09b_integration_lifecycle,10_demo_closure}.test.sql` | Modificados | Aislamiento, enum y privilegios, ciclo de vida y cierre con dos proveedores | II.14b (D-M16e-22) |
-| `supabase/tests/{15_chat_queries,17_meta_diagnostics}.test.sql` | Modificados | Herramientas del chat y versión 2 del informe | II.14b |
+| `supabase/tests/17_meta_diagnostics.test.sql` | Modificado | Versión 2 del informe, con un informe v1 presente al migrar | II.14b |
 | `src/modules/integrations/contract/{primitives,oauth-attempt,connection,credential}.ts`; `src/modules/integrations/db/worker-api.ts`; `src/modules/integrations/repository/{connections,credentials,attempts,lifecycle-calls}.ts`; `src/modules/integrations/meta/oauth.ts` | Modificados | Contratos por proveedor y firma nueva de `create_oauth_attempt` | II.14b |
 | `src/modules/integrations/tiendanube/`; `src/app/api/integraciones/tiendanube/` | Nuevos | Cliente, OAuth, extractor y handlers de privacidad | II.14b |
 | `src/modules/integrations/{lifecycle,actions}.ts`; `src/app/(app)/app/integraciones/` | Modificados/nuevos | Ciclo de vida, purga por proveedor y pantalla | II.14b |
 | `src/modules/chat/` (`tools/`, `prompt.ts`, `orchestrator.ts`, `output-schema.ts`, `render.ts`, `limits.ts`) | Modificados/nuevos | Herramientas de Tiendanube | II.14b (D-M16e-10) |
-| `src/modules/diagnostics/` (`evidence.ts`, `contract.ts`, `compose.ts`, `pdf.ts`, `validate.ts`, `repository.ts`); `src/components/app/diagnostico.tsx` y `diagnostico.module.css` | Modificados | Sección de ventas de la tienda | II.14b (D-M16e-10) |
+| `src/modules/diagnostics/` (la carpeta, incluidos `actions.ts`, `eligibility.ts` y `orchestrator.ts`, que llaman a `readLiveConnection`); `src/components/app/diagnostico.tsx` y `diagnostico.module.css` | Modificados | Sección de ventas de la tienda | II.14b (D-M16e-10) |
 | `src/app/(app)/app/chat/page.tsx`; `src/components/app/chat.tsx` | Modificados | Chat con cualquiera de las dos fuentes y lista de fuentes conectadas | II.14b (D-M16e-22) |
 | `src/modules/app-data/{index,types}.ts` | Modificados | Estado real de Tiendanube en Inicio y en el menú | II.14b (D-M16e-22) |
 | `scripts/tiendanube-preflight.mjs` | Nuevo | Preflight de variables sin imprimir valores | II.14b |
@@ -381,7 +400,7 @@ Una necesidad adicional durante la implementación detiene la microfase y vuelve
 | M16e-C-09 | Recorrido real con la tienda del dueño: al menos un pedido pagado y un cambio posterior de estado, documentado sin valores ni IDs. Sin él no se acredita funcionamiento real | CB-05/06 |
 | M16e-C-10 | El cliente HTTP envía siempre `Authorization: Bearer` y `User-Agent`, solo a `api.tiendanube.com` y `2025-03`; clasifica cada error según la tabla; pide solo campos de la lista cerrada y descarta el resto en memoria | Referencia de API |
 | M16e-C-11 | El chat responde sobre ventas, cohortes, productos y cobertura solo con las cuatro herramientas; las cifras de bloques salen de SQL; ninguna respuesta expone IDs ni celdas de cohorte de menos de cinco; con una sola fuente conectada, la otra se abstiene con `connection_not_active` y el registro sigue la regla de §6 | D-M16e-10/11/13/20/21/24 |
-| M16e-C-12 | Con Tiendanube activa, el diagnóstico agrega la sección de 28 días sin atribuir ventas a Meta; sin ella, el informe no cambia; la evidencia enviada a Anthropic no incluye datos individuales; desconectar Tiendanube borra el informe con sección | D-M16e-10/15 |
+| M16e-C-12 | Con Tiendanube activa, el diagnóstico agrega la sección de 28 días sin atribuir ventas a Meta; sin ella, el informe no cambia; la evidencia enviada a Anthropic no incluye datos individuales; desconectar Tiendanube borra el informe con sección; un informe v1 previo sigue legible | D-M16e-10/15; A-04 |
 | M16e-C-13 | La regla de cinco se aplica por cohorte y por celda en la pantalla, el chat y el diagnóstico | D-M16e-11/20 |
 | M16e-C-14 | Las pruebas manuales en `app` usan solo la tienda de demostración, se hacen después de la primera publicación y terminan con desconexión y purga verificadas | D-M16e-12/25 |
 | M16e-C-15 | Inicio, el menú y la página del chat reflejan el estado real de cada conexión; con solo Tiendanube activa, el chat queda habilitado | D-M16e-22 |
@@ -391,20 +410,20 @@ Una necesidad adicional durante la implementación detiene la microfase y vuelve
 | ID | Criterios | Tipo | Comando | Resultado esperado | ¿Falla sin implementación? |
 |---|---|---|---|---|---|
 | M16e-T-01 | C-01/C-08 | pgTAP + app | `npm run test:policies`; `npm run test:app` | La matriz de grants del encabezado de la migración coincide exactamente; dos empresas y dos proveedores aislados; una segunda conexión viva de Tiendanube se rechaza; Meta sigue pasando sus pruebas | Sí |
-| M16e-T-02 | C-02 | unit + app | `npm run verify`; `npm run test:app` | Replay, vencido, navegador, actor o empresa ajenos, scopes distintos de los tres `read_*`, callback sin `state`, cancelado y reautorización con otra tienda: rechazados o cerrados como dice §1, sin reemplazar la credencial; callback limpio | Sí |
+| M16e-T-02 | C-02 | unit + app | `npm run verify`; `npm run test:app` | Replay, vencido, navegador, actor o empresa ajenos, scopes distintos de los tres `read_*`, callback sin `state`, cancelado , reautorización con otra tienda e intento de otro proveedor: rechazados o cerrados como dice §1, sin reemplazar la credencial; callback limpio | Sí |
 | M16e-T-03 | C-03 | unit + app | `npm run verify`; `npm run test:app` | Token alterado no descifra; reinstalación cambia generación; sincronización vieja no escribe; purga repetida segura; `runLazyPurge` con una credencial de Tiendanube no llama a la revocación de Meta | Sí |
-| M16e-T-04 | C-04 | unit + app | `npm run verify`; `npm run test:app` | Páginas de 200/201, `429`, `5xx`, ventana con 10.000 o más que se subdivide, empate de `updated_at`, ID repetido y reinicio desde checkpoint: sin pérdidas ni duplicados | Sí |
+| M16e-T-04 | C-04 | unit + app | `npm run verify`; `npm run test:app` | Páginas de 200/201, `429`, `5xx`, ventana con 10.000 o más que se subdivide, empate de `updated_at`, ID repetido y reinicio desde checkpoint, cambio durante el backfill a un pedido de una ventana ya leída (lo recupera el primer incremental), día parcial antes de terminar backfill e incremental, e incremental con 10.000 o más que se subdivide: sin pérdidas ni duplicados | Sí |
 | M16e-T-05 | C-05/C-07 | pgTAP + app | `npm run test:policies`; `npm run test:app` | Fixture con valores esperados escritos: pendiente → pagado → reembolsado parcial → cancelado; línea editada; invitado sin ID; producto borrado. Las cohortes y el ranking dan exactamente los valores del fixture | Sí |
-| M16e-T-06 | C-06 | unit + app + pgTAP | `npm run verify`; `npm run test:app`; `npm run test:policies` | Firma inválida → `401`; cuerpo de más de 64 KB rechazado; duplicado sin doble efecto; tienda desconocida → `2xx` sin escribir; tienda en dos empresas → ambas borradas; `store_redact` sobre una conexión `active` deja cero filas de la tienda e informe borrado, sin actor; interrupción simulada después de la marca, entre dos tandas y antes de confirmar una tanda → datos ya ocultos y sin credencial, `5xx`, y la llamada siguiente termina el borrado sin errores; reintentos agotados → `runLazyPurge` completa la purga; conexión nueva de la misma tienda creada después de la marca → el reintento la marca y la borra, y no toca conexiones de otras tiendas ni la de Meta (D-M16e-28); `customer/redact` con el paso 2 fallido → el siguiente paso de sincronización borra los pedidos marcados antes de leer; `customer/redact` durante una sincronización en vuelo → la publicación no reimporta; `data_request` válido → `2xx` sin escribir | Sí |
+| M16e-T-06 | C-06 | unit + app + pgTAP | `npm run verify`; `npm run test:app`; `npm run test:policies` | Firma inválida → `401`; cuerpo de más de 64 KB rechazado; duplicado sin doble efecto; tienda desconocida → `2xx` sin escribir; tienda en dos empresas → ambas borradas; `store_redact` sobre una conexión `active` deja cero filas de la tienda e informe borrado, sin actor; interrupción simulada después de la marca, entre dos tandas y antes de confirmar una tanda → datos ya ocultos y sin credencial, `5xx`, y la llamada siguiente termina el borrado sin errores; reintentos agotados → `runLazyPurge` completa la purga; conexión nueva de la misma tienda creada después de la marca → el reintento la marca y la borra, y no toca conexiones de otras tiendas ni la de Meta (D-M16e-28); `customer/redact` con el paso 2 fallido → el siguiente paso de sincronización borra los pedidos marcados antes de leer; `customer/redact` durante una sincronización en vuelo → la publicación no reimporta; `customer/redact` con un pedido local del cliente que no está en la lista → también se borra, y una compra posterior del mismo cliente se importa; `data_request` válido → `2xx` sin escribir | Sí |
 | M16e-T-07 | C-08/C-13 | pgTAP + app | `npm run test:policies`; `npm run test:app` | Conexión ajena, Data API, cascada y cierre sin filas huérfanas; `tn_cohort_cells` no guarda ningún conteo menor que cinco; `get_tn_*` con otra empresa devuelve vacío | Sí |
 | M16e-T-08 | C-07/C-09/C-13/C-15 | component + unit + manual | `npm run verify`; recorrido manual | La pantalla distingue cobertura, vacío y cero; muestra «menos de 5» en cohortes y celdas; `getIntegraciones()` marca Tiendanube conectada solo con `active`; recorrido real redactado | Sí para componente y unit; no para recorrido |
 | M16e-T-09 | C-01–C-14 | integración | `npm run db:check:test`; `npm run verify`; `npm run test:policies`; `npm run test:app`; `git diff --check` | Todo verde, sin omisiones requeridas ni migraciones antiguas editadas | Sí |
 | M16e-T-10 | C-10 | unit | `npm run verify` | Falta de `User-Agent` imposible por construcción; host o versión fuera de la allowlist rechazados; cada fila de la tabla de errores produce su tipo, clase y efecto; un pedido con `contact_*`, `billing_*` y `customer` completo se proyecta sin esos campos | Sí |
-| M16e-T-11 | C-11/C-13 | unit + app | `npm run verify`; `npm run test:app` | Las cuatro herramientas con fixtures: cifras iguales a SQL; celdas de menos de cinco ocultas; sin IDs; período de más de 93 días rechazado salvo `tn_cohortes`; solo Tiendanube conectada → página habilitada, solo herramientas de la tienda, Meta se abstiene con `connection_not_active` y el registro apunta a la tienda; solo Meta conectada → una pregunta sobre la tienda se abstiene y el registro apunta a Meta; ambas: turno mixto → Meta, turno sin herramientas → Meta, turno solo con herramientas de la tienda → Tiendanube; una herramienta no ofrecida se rechaza | Sí |
-| M16e-T-12 | C-12/C-13 | unit + app + pgTAP | `npm run verify`; `npm run test:app`; `npm run test:policies` | Evidencia con y sin Tiendanube; ningún dato individual en la petición; sección parcial con sincronización vieja; desconectar Tiendanube borra el informe; PDF con la sección | Sí |
+| M16e-T-11 | C-11/C-13 | unit + app | `npm run verify`; `npm run test:app` | Las cuatro herramientas con fixtures: cifras iguales a SQL; argumentos nuevos validados y nulos los que no usa cada herramienta; celda oculta con `absence = menos_de_5`; definición y `fetched_at` en cada resultado; solo bloques del catálogo; celdas de menos de cinco ocultas; sin IDs; período de más de 93 días rechazado salvo `tn_cohortes`; solo Tiendanube conectada → página habilitada, solo herramientas de la tienda, Meta se abstiene con `connection_not_active` y el registro apunta a la tienda; solo Meta conectada → una pregunta sobre la tienda se abstiene y el registro apunta a Meta; ambas: turno mixto → Meta, turno sin herramientas → Meta, turno solo con herramientas de la tienda → Tiendanube; una herramienta no ofrecida se rechaza | Sí |
+| M16e-T-12 | C-12/C-13 | unit + app + pgTAP | `npm run verify`; `npm run test:app`; `npm run test:policies` | Evidencia con y sin Tiendanube; ningún dato individual en la petición; sección parcial con sincronización vieja; desconectar Tiendanube borra el informe; PDF con la sección; migración 2 con un informe v1 presente y lectura de ese informe después; un v2 sin `store_connection_id` rechazado; zonas de las dos fuentes visibles | Sí |
 | M16e-T-13 | C-11/C-12 | eval con proveedor | `npm run test:eval` (chat y diagnóstico) | Respuestas sobre fixtures de Tiendanube | **No requerida para el gate**: se corre solo con OK previo del usuario y costo estimado |
 | M16e-T-14 | C-05 | unit | `npm run verify` | Dos monedas en el mismo período: nunca sumadas. Pedido pagado a las 23:30 del último día del mes, en una zona con cambio de horario: cae en el mes correcto de la tienda | Sí |
-| M16e-T-15 | C-06/C-14 | manual en `app` (D-M16e-12) | Recorrido redactado | Con la tienda de demostración: OAuth real, `GET /store` con los tres scopes (H-05), sincronización, pedido reembolsado (H-06) y desinstalación con `store_redact` real, que verifica la firma (H-09) y deja cero datos | No |
+| M16e-T-15 | C-06/C-14 | manual en `app` (D-M16e-12, D-M16e-31) | Recorrido redactado | Con la cuenta y la empresa sintéticas de DEC-18, nunca las del dueño, y la tienda de demostración: OAuth real, `GET /store` con los tres scopes (H-05), sincronización y pedido reembolsado (H-06). Después, en este orden: desinstalar la app con la conexión todavía activa; verificar que `store_redact` real verifica la firma (H-09) y deja cero filas de la tienda; verificar que no queda conexión | No |
 
 ## Verificación
 
@@ -471,7 +490,7 @@ Una necesidad adicional durante la implementación detiene la microfase y vuelve
 | D-M16e-09 | Una sola app en el Portal de Socios, apuntada a `app`. Las suites del desechable usan Tiendanube simulada | Menos trámite (Q-06) | Usuario | 2026-11-14 |
 | D-M16e-10 | El chat y el diagnóstico usan los agregados de Tiendanube dentro de M16e | Decisión expresa | Usuario | 2026-11-14 |
 | D-M16e-11 | Mínimo de cinco clientes por grupo visible de cohorte | Opción recomendada | Usuario | 2026-11-14 |
-| D-M16e-12 | Excepción acotada a CB-04 e INV-10: pruebas **manuales** en `app` solo con la tienda de demostración y pedidos sintéticos, sin suites automatizadas, con desconexión y purga verificadas al terminar | El usuario prefirió la excepción a una segunda app (A-04) | Usuario | 2026-11-14 |
+| D-M16e-12 | Excepción acotada a CB-04 e INV-10: pruebas **manuales** en `app` solo con la tienda de demostración y pedidos sintéticos, sin suites automatizadas, con desconexión y purga verificadas al terminar. Usan la cuenta y la empresa sintéticas de DEC-18 (D-M16e-31) | El usuario prefirió la excepción a una segunda app (A-04) | Usuario | 2026-11-14 |
 | D-M16e-13 | El chat trata las cifras de Tiendanube con el criterio de Meta: bloques desde SQL; texto libre sin verificar y rotulado. Se acepta H-E1-228 para la fuente nueva | Opción recomendada (A-01) | Usuario | 2026-11-14 |
 | D-M16e-14 | Excepción acotada a INV-01 para los webhooks de privacidad: funciones sin actor que resuelven por ID de tienda verificado por firma, solo borran y no devuelven datos. Ampliada por D-M16e-27 | Opción recomendada (A-02) | Usuario | 2026-11-14 |
 | D-M16e-15 | Desconectar o desinstalar Tiendanube borra el informe del diagnóstico que tiene sección de tienda; `customer/redact` no lo toca | Opción recomendada (A-05) | Usuario | 2026-11-14 |
@@ -488,6 +507,9 @@ Una necesidad adicional durante la implementación detiene la microfase y vuelve
 | D-M16e-26 | Los dos `redact` marcan primero y borran después, en transacciones cortas y reanudables; `store_redact` borra por tandas. Se acepta, sin cron, el riesgo de que con los reintentos agotados los datos queden ocultos y sin credencial hasta que el dueño abra Integraciones o hasta el cierre del piloto | Opción recomendada (observación sobre la purga por webhook) | Usuario | 2026-11-14 |
 | D-M16e-27 | Las funciones de privacidad sin sesión pueden marcar conexiones como desconectadas (estado, generación y credencial) y borrar; nunca activan ni devuelven datos. Amplía §17.9 de la ruta y D-M16e-14 | Opción recomendada (spec-audit-3, A-01) | Usuario | 2026-11-14 |
 | D-M16e-28 | Riesgo aceptado: un aviso de desinstalación atrasado puede borrar una conexión reinstalada dentro de las 48 horas; el dueño reconecta y resincroniza | Opción recomendada (spec-audit-3, A-02) | Usuario | 2026-11-14 |
+| D-M16e-29 | Agregar a `AGENTS.md` una línea de excepción de reversibilidad para Tiendanube (estado vigente del pedido, purga y borrados por privacidad), que remite a §17.6 de la ruta, como D-M26a-R6 | Opción recomendada (spec-audit-4, A-01) | Usuario | 2026-11-14 |
+| D-M16e-30 | `customer/redact` borra los pedidos listados y cualquier otro pedido local del cliente; la supresión es por pedido y una compra posterior se importa. El usuario considera improbable el caso y adopta la recomendación de la auditoría | «nunca va a pedir que se borren sus datos, no importa» (spec-audit-4, A-06) | Usuario | 2026-11-14 |
+| D-M16e-31 | Las pruebas manuales en `app` usan la cuenta y la empresa sintéticas de DEC-18, nunca las del dueño | Confirmación del usuario (spec-audit-4, A-08) | Usuario | 2026-11-14 |
 
 ## Supuestos e hipótesis
 
@@ -506,7 +528,7 @@ Una necesidad adicional durante la implementación detiene la microfase y vuelve
 
 ## Preguntas abiertas
 
-Ninguna. Las preguntas M16e-Q-01 a Q-06 y las decisiones que pidieron `spec-audit-1`, `spec-audit-2` y `spec-audit-3` se resolvieron el 2026-11-14 (D-M16e-04 a D-M16e-28).
+Ninguna. Las preguntas M16e-Q-01 a Q-06 y las decisiones que pidieron `spec-audit-1` a `spec-audit-4` se resolvieron el 2026-11-14 (D-M16e-04 a D-M16e-31).
 
 ## Hallazgos relacionados
 
@@ -524,4 +546,6 @@ Esta spec no declara resuelto ningún otro hallazgo.
 
 - [spec-audit-3](revisiones/spec-audit-3.md) (2026-11-14): REQUIERE CAMBIOS, 14 PASS y 4 FAIL. Hash auditado `51b053ce05a12137a976e312eca2c0274eaf135d`. Correcciones integradas en esta revisión.
 
-Corresponde una cuarta auditoría sobre el hash nuevo.
+- [spec-audit-4](revisiones/spec-audit-4.md) (2026-11-14): REQUIERE CAMBIOS, 13 PASS y 5 FAIL. Hash auditado `3dc84cb955d5d9dd2b9b5b2102788866d6cc90ee`. Correcciones integradas en esta revisión.
+
+Corresponde una quinta auditoría sobre el hash nuevo.
