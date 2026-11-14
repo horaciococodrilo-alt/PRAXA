@@ -69,6 +69,7 @@ Si una microfase cambia una propiedad de `SECURITY.md` o `ARCHITECTURE.md`, el a
 ## Non-negotiables
 - El LLM nunca produce números, estados ni políticas autoritativas.
 - Toda escritura es idempotente, reversible y verificable.
+- Excepción de reversibilidad: el reemplazo del informe del diagnóstico borra el anterior (ver `docs/FASES/FASE1/meta_first/spec.md` §16).
 - El MVP es read-only sobre sistemas externos (Tiendanube, Meta, GA4).
 - Aislamiento multiempresa: el tenant se resuelve en el servidor por membresía; nunca se acepta un `company_id` del cliente.
 - Sin secretos, tokens, montos reales ni IDs de cuentas en código, logs, fixtures, docs ni mensajes.

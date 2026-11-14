@@ -135,3 +135,91 @@ export function categoryInput(category: EvalCategory): PrepareInput {
 
 export const EVAL_CATEGORIES: readonly EvalCategory[] = ['winners', 'low_sample', 'no_goal_action',
   'partial_coverage', 'no_comparison', 'paused_with_activity', 'breakdowns'];
+
+// ---------------------------------------------------------------------------
+// Informe guardado sintético (M26a .3): orquestador real con modelo SIMULADO, sin llamadas
+// pagas. La versión máxima fuerza tablas y párrafos largos para probar el salto de página.
+// ---------------------------------------------------------------------------
+
+const LONG_PHRASE = 'La evolución de [[ALIAS]] se mantiene estable en el período y conviene revisar sus anuncios '
+  + 'con la evidencia citada, sin asumir causas que los datos no muestran. ';
+
+function fill(phrase: string, max: number): string {
+  let out = '';
+  while (out.length + phrase.length <= max) out += phrase;
+  return (out || phrase.slice(0, max)).trim();
+}
+
+type FakeOutputOptions = { long: boolean };
+
+function fakeOutput(prepared: ReturnType<typeof readyPackage>, opts: FakeOutputOptions) {
+  const pkg = prepared.package;
+  const entities = pkg.entities.slice(0, 10);
+  const evaluable = (Object.entries(prepared.sectionPlan.breakdowns) as [BreakdownDimension, { status: string }][])
+    .filter(([, plan]) => plan.status === 'evaluable').map(([d]) => d);
+  const text = (alias: string, max: number) => opts.long
+    ? fill(LONG_PHRASE.replace('[[ALIAS]]', `[[${alias}]]`), max)
+    : `[[${alias}]] concentra el gasto de [[periodo:actual]].`;
+  return {
+    executive_summary: { text: opts.long ? fill('El gasto total fue [[ev_acct_cur_spend]] y la evolución general '
+      + 'del período muestra señales mixtas que conviene seguir con cuidado en la próxima sincronización. ', 1200)
+      : 'El gasto total fue [[ev_acct_cur_spend]] en [[periodo:actual]].', evidence_ids: ['ev_acct_cur_spend'] },
+    overall_performance: { text: 'El costo por resultado fue [[ev_acct_cur_cost_per_result]] y el retorno atribuido '
+      + 'fue [[ev_acct_cur_attributed_return]].', evidence_ids: ['ev_acct_cur_cost_per_result'] },
+    top_entities: entities.map((e) => ({ alias: e.alias, level: e.level, note: text(e.alias, 400),
+      evidence_ids: [`ev_${e.alias}_spend`] })),
+    breakdowns: evaluable.map((dimension) => ({ dimension, text: opts.long
+      ? fill('Estimación de Meta: el segmento de mayor gasto concentra la inversión y otros segmentos tienen baja muestra. ', 600)
+      : 'Estimación de Meta: el segmento de mayor gasto concentra la inversión.',
+    evidence_ids: [`ev_bd_${dimension}_1_spend`] })),
+    opportunities: entities.slice(0, 3).map((e) => ({
+      title: `Revisar los anuncios de una entidad destacada`, priority: 'medium', kind: 'hypothesis',
+      rationale: text(e.alias, 600), action: 'Sugerencia: comparar sus anuncios con los de mejor desempeño.',
+      check_plan: 'Comparar el costo por resultado después de la próxima sincronización.',
+      uncertainty: 'La atribución de Meta puede mezclar ventanas y la muestra puede ser chica.',
+      evidence_ids: [`ev_${e.alias}_spend`] })),
+    web_notes: [],
+  };
+}
+
+const NAME_120 = 'Campaña de Otoño — Señalización y Diseño Ñandú para tiendas de decoración del hogar con envío a todo el país 2026';
+
+export function largeInput(): PrepareInput {
+  const campaigns = Array.from({ length: 60 }, (_, i) => entity('campaign', i + 1,
+    { name: `${NAME_120.slice(0, 110)} ${i + 1}`, cur_spend: String(5000 - i) }));
+  const segs = (dimension: BreakdownDimension, label: (n: number) => string) => Array.from({ length: 50 }, (_, i) =>
+    segment(dimension, label(i + 1), { spend: String(500 - i), segments_total: 64 }));
+  return prepareInput({
+    entities: { campaign: campaigns, adset: [], ad: [] },
+    breakdowns: {
+      age_gender: segs('age_gender', (n) => `Edad ${n}|Mujer`),
+      country: segs('country', (n) => `País ${n} — Perú, España, Ñuñoa`),
+      region: segs('region', (n) => `Región ${n} — Córdoba y Neuquén`),
+    },
+  });
+}
+
+/** Fila de `diagnostic_reports` tal como la lee la pantalla (sin ids de empresa ni conexión). */
+export async function storedReportFixture(options: { large?: boolean; generatedAt?: string } = {}) {
+  const { runModelSteps, buildReport } = await import('@/modules/diagnostics/orchestrator');
+  const prepared = readyPackage(options.large ? largeInput() : {});
+  const output = fakeOutput(prepared, { long: Boolean(options.large) });
+  const run = await runModelSteps({
+    prepared, profile: { country: 'Argentina', industry: 'Otro' }, deadlineAt: Date.now() + 60_000, now: Date.now,
+    model: {
+      web: async () => { throw new Error('sin web en el fixture'); },
+      structured: async () => ({ json: output, usage: { input_tokens: 1, output_tokens: 1, web_searches: 0 },
+        reportedModel: 'claude-sonnet-5-5' }),
+    },
+  });
+  const report = buildReport({ prepared, run, syncFinishedAt: '2026-11-13T01:02:03.123456Z' });
+  return {
+    generated_at: options.generatedAt ?? '2026-11-13T15:30:00.000000+00:00',
+    window_from: report.window.from, window_to: report.window.to,
+    prev_from: report.window.prev_from, prev_to: report.window.prev_to,
+    sync_finished_at: '2026-11-13T01:02:03.123456+00:00',
+    settings: report.settings, evidence: report.evidence, output: report.output,
+    web_sources: report.web_sources, model_requested: report.model_requested,
+    model_reported: report.model_reported, usage: report.usage,
+  };
+}

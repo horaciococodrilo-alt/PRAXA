@@ -1,42 +1,30 @@
 import { Diagnostico } from '@/components/app/diagnostico';
 import d from '@/components/app/diagnostico.module.css';
-import { IconChispas } from '@/components/app/icons';
-import { ButtonLink, PageHeader } from '@/components/app/ui';
-import { cn } from '@/components/ui';
-import { getDiagnostico, requireAppSession } from '@/modules/app-data';
+import { PageHeader } from '@/components/app/ui';
+import { getDiagnostico, requireAppSession, type DiagnosticoVista } from '@/modules/app-data';
+import { parseResultado } from '@/modules/diagnostics/compose';
 
 export const metadata = { title: 'Diagnóstico' };
 
-export default async function DiagnosticoPage() {
+/** La Server Action de generación corre con el plazo de la página (Diseño §3: 300 s). */
+export const maxDuration = 300;
+
+export default async function DiagnosticoPage({ searchParams }: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requireAppSession('/app/diagnostico');
-  const datos = await getDiagnostico();
+  const params = await searchParams;
+  let vista: DiagnosticoVista | null = null;
+  let error = false;
+  try { vista = await getDiagnostico(); } catch { error = true; }
 
   return (
     <div className={d.page}>
       <PageHeader
         title="Diagnóstico"
-        subtitle="Un análisis claro de tu negocio, basado en tus datos de Meta Ads."
+        subtitle="Un análisis claro de tus campañas de Meta Ads, con cifras calculadas por PRAXA."
       />
-      {datos ? (
-        <Diagnostico datos={datos} />
-      ) : (
-        // El diseño no tiene estado vacío: misma tarjeta del resumen, sin datos inventados.
-        <section className={cn(d.card, d.empty)} aria-label="Resumen del diagnóstico">
-          <div className={d.lh}>
-            <span className={cn(d.tile, d.tileLg)}>
-              <IconChispas size={30} stroke={1.4} />
-            </span>
-            <h2 className={d.h}>Todavía no hay un diagnóstico.</h2>
-          </div>
-          <p className={d.p}>
-            Se genera a partir de los datos de tus integraciones, cuando estén conectadas y
-            sincronizadas.
-          </p>
-          <ButtonLink href="/app/integraciones" variant="secondary">
-            Ver integraciones
-          </ButtonLink>
-        </section>
-      )}
+      <Diagnostico vista={vista} error={error} resultado={parseResultado(params.resultado)} />
     </div>
   );
 }

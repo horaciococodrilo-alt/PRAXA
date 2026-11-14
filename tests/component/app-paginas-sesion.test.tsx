@@ -48,6 +48,7 @@ vi.mock('@/modules/identity/actions', () => ({
 }));
 vi.mock('@/modules/company/actions', () => ({ guardarPerfilEmpresa: vi.fn() }));
 vi.mock('@/modules/chat/actions', () => ({ preguntarChat: vi.fn(), votarRespuesta: vi.fn() }));
+vi.mock('@/modules/diagnostics/actions', () => ({ guardarObjetivoDiagnostico: vi.fn(), generarDiagnostico: vi.fn() }));
 vi.mock('@/lib/supabase/client', () => ({ createSupabaseBrowserClient: vi.fn() }));
 
 const RAIZ = join(process.cwd(), 'src', 'app', '(app)', 'app');
@@ -107,6 +108,11 @@ describe('verificación de sesión en cada página de /app', () => {
     expect(element.props).toMatchObject({ tieneEmpresa: true, conexionActiva: true });
     expect(connection).toHaveBeenCalledWith(context);
     expect(requireAppSession).toHaveBeenCalledWith('/app/chat');
+  });
+
+  it('diagnóstico declara maxDuration para su Server Action de generación', async () => {
+    const { maxDuration } = await import('@/app/(app)/app/diagnostico/page');
+    expect(maxDuration).toBe(300);
   });
 
   it('chat degrada a flags falsos cuando falla K01 o la lectura de conexión', async () => {

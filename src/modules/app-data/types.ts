@@ -1,3 +1,5 @@
+import type { DiagnosticDocument } from '@/modules/diagnostics/compose';
+
 /**
  * Contrato de datos de las pantallas de la app (`/app`).
  *
@@ -62,16 +64,20 @@ export type Uso = {
   costoDiario: CostoDia[];
 };
 
-export type IconoOportunidad = 'personas' | 'producto' | 'barras';
+export type EstadoDiagnostico = 'sin_empresa' | 'sin_conexion' | 'sin_objetivo' | 'sincronizacion_requerida'
+  | 'sincronizacion_en_curso' | 'espera' | 'listo';
 
-export type BloqueAnalisis =
-  | { tipo: 'subtitulo'; texto: string }
-  | { tipo: 'parrafo'; texto: string }
-  | { tipo: 'lista'; items: string[] };
-
-export type Diagnostico = {
-  titular: { inicio: string; destacado: string };
-  parrafos: string[];
-  oportunidades: { titulo: string; detalle: string; icono: IconoOportunidad }[];
-  analisis: { titulo: string; bloques: BloqueAnalisis[] };
+/**
+ * Diagnóstico de Meta Ads (M26a): estado que calcula la base, objetivo guardado, opciones del
+ * catálogo observado y el informe vigente ya compuesto (el mismo modelo que imprime el PDF).
+ */
+export type DiagnosticoVista = {
+  estado: EstadoDiagnostico;
+  /** Motivo de elegibilidad de la base, cuando no se puede generar. */
+  motivo: string | null;
+  /** Instante ISO desde el que se puede generar (espera de 24 h), calculado por la base. */
+  disponibleDesde: string | null;
+  objetivo: { goal_kind: 'purchase' | 'inquiry' | 'traffic'; metric_ref: string; etiqueta: string } | null;
+  opcionesObjetivo: { action_type: string; label: string }[];
+  informe: DiagnosticDocument | null;
 };

@@ -18,8 +18,10 @@ workers en segundo plano. Todo el código del servidor corre dentro de peticione
 No se usa el stack local de Supabase ni Docker. Las políticas RLS y los privilegios se
 prueban contra PostgreSQL y PostgREST reales, en un proyecto remoto desechable.
 
-Sistemas externos: Meta Graph API (fuente de datos, solo lectura) y un proveedor de modelo de
-lenguaje (DeepInfra, DEC-16), ambos **previstos**. El despliegue previsto es Vercel con
+Sistemas externos: Meta Graph API (fuente de datos, solo lectura), un proveedor de modelo de
+lenguaje para el chat (DeepInfra, DEC-16) y Anthropic para el diagnóstico de Meta Ads (M26a:
+Messages API por `fetch`, con un paso de búsqueda web separado y restringido a dominios
+aprobados). El despliegue previsto es Vercel con
 dominio fijo (DEC-07).
 
 ## Estructura del código
@@ -44,6 +46,9 @@ src/
     tenant/                 K01 TenantContext: actor + empresa, solo en el servidor
     app-data/               datos de las pantallas de `/app`: contrato, lecturas reales y mock
     anomalies/              contrato, aritmética exacta, motor puro, adaptador y demo de anomalías
+    diagnostics/            diagnóstico de Meta Ads: contrato, lecturas SQL, preparación de la
+                            evidencia, proveedor Anthropic, web, validación, orquestador,
+                            composición compartida pantalla/PDF, PDF y Server Actions
     reporting/contract/     contrato versionado del reporte (sin generación)
     integrations/contract/  contratos K02–K04: intento OAuth, conexión, credencial
     integrations/crypto/    llavero y cifrado autenticado de credenciales
@@ -77,7 +82,8 @@ Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 | `company` | Empresa del usuario y membresía, resueltas bajo RLS. Alta y perfil desde Configuración | Existe |
 | `tenant` | Construye K01 (`user_id`, `company_id`, `role`, `request_id`) dentro del servidor. Es la única entrada de actor y empresa al camino privilegiado | Existe; lo consumen las rutas del OAuth con Meta |
 | Contexto declarado | Objetivos, problemas y sistemas de la empresa, versionados e inmutables una vez activos | Existe solo en la base (tablas y funciones). Sin código ni pantalla que lo cargue: se quitaron con el onboarding |
-| `app-data` | Única fuente de datos de las pantallas de `/app`. Lee lo real bajo RLS (usuario, empresa, existencia de un diagnóstico y conexión activa de Meta) y devuelve mock en cero para lo que no tiene backend (otras integraciones, uso de la IA) | Existe |
+| `app-data` | Única fuente de datos de las pantallas de `/app`. Lee lo real bajo RLS (usuario, empresa, estado e informe vigente del diagnóstico desde `diagnostic_reports` y conexión activa de Meta) y devuelve mock en cero para lo que no tiene backend (otras integraciones, uso de la IA) | Existe |
+| `diagnostics` | Diagnóstico de Meta Ads de 28 días (M26a). Lee agregados SQL bajo RLS (camino A), prepara evidencia tipada sin truncar (lotes si hace falta), llama a Anthropic en un paso web opcional y un paso de informe con salida estricta, valida y sustituye cifras, y publica por `worker_api` (camino B) con reserva por empresa. `compose` arma un único modelo de documento que consumen la pantalla y el PDF (`@react-pdf/renderer`, generado al descargar y sin guardar). Persistencia propia (`diagnostic_settings`, `diagnostic_reports`), no `reports` | Existe; probado con proveedor simulado (sin evaluación con el modelo real, `H-E1-242`) |
 | `anomalies` | Detecta cambios de CTR, CPC, CPM, gasto y CPA de compra en cuenta y campañas. El contrato y el motor son puros y reutilizables; `load.ts` resuelve tenant y cobertura persistida en servidor; `demo.ts` aporta un fixture sintético que nunca se mezcla con datos reales | Existe |
 | `reporting/contract` | Esquema del reporte y su evidencia tipada por procedencia | Existe; sin generación |
 | `integrations/contract` | Contratos Zod de intento OAuth, conexión (registro interno y DTO público separados) y credencial cifrada | Existe |
@@ -301,6 +307,16 @@ antes que cualquier bloqueo de fila.** Así no hay ciclos entre las vías que us
   token de posesión; solo la ejecución vigente publica, falla o pide reautorización (CA-58,
   CA-59). Es un mecanismo propio de ese dominio: no se reutiliza la revisión del contexto.
 
+**Diagnóstico (M26a).**
+
+- Reserva por empresa con vencimiento (`private.meta_diagnostic_reservations`), tomada por
+  `worker_api` con el cerrojo de empresa y la conexión bloqueada: una sola generación a la vez,
+  y un reintento con el mismo `request_id` no duplica. La elegibilidad (objetivo, conexión,
+  sincronización y plazo de 24 horas) la decide la base con su reloj dentro del cerrojo.
+- La publicación vuelve a verificar reserva, conexión, generación y sincronización después de
+  los bloqueos, y en una transacción borra el informe anterior, inserta el nuevo y libera la
+  reserva. Cualquier fallo posterior a la reserva la libera una vez y conserva el anterior.
+
 ## Operaciones largas y ausencia de workers
 
 La ruta no tiene workers, colas ni programación automática (spec, sección 2; D2). El nombre
@@ -330,6 +346,24 @@ camino B. El modelo recibe contexto anterior redactado y acotado, sin respuestas
 el servidor resuelve tenant y conexión y solo usa resultados del turno actual para validar
 cifras. La pantalla representa los bloques con valores del servidor y tablas equivalentes.
 Contrato completo en la spec, sección 12.
+
+## Diagnóstico de Meta Ads (existe; M26a)
+
+```
+Server Action ──► K01 ──► conexión, objetivo y elegibilidad (base, camino A)
+  ──► lectura de la cuenta: con cero actividad o sin cobertura termina sin reserva ni modelo
+  ──► reserva por empresa (camino B)
+  ──► lecturas por clave de todas las entidades y desgloses de cuenta (camino A, SQL exacto)
+  ──► preparación determinística: evidencia tipada, plan de secciones, lotes y manifiesto
+  ──► Anthropic, paso web opcional (solo país, rubro y tema; dominios aprobados)
+  ──► Anthropic, informe o lotes + síntesis (salida estricta, sin herramientas)
+  ──► validación (forma, referencias, sin cifras libres, aserciones) y una reparación
+  ──► sustitución de marcadores por valores del servidor ──► publicación atómica (camino B)
+```
+
+La pantalla y el PDF leen el informe vigente bajo RLS (la política exige una conexión vigente)
+y lo componen con el mismo módulo; el PDF se genera en la descarga y no se guarda. El
+diagnóstico no usa `reports` ni el contrato del reporte de abajo.
 
 ## Contrato del reporte (existe, sin generación)
 

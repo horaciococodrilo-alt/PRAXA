@@ -9,7 +9,7 @@ import { Perfil } from '@/components/app/perfil';
 import { AppShell } from '@/components/app/shell';
 import { UsoCostos } from '@/components/app/uso-costos';
 import { usoEnCero } from '@/modules/app-data/mock';
-import type { Diagnostico as DatosDiagnostico } from '@/modules/app-data/types';
+import type { DiagnosticoVista } from '@/modules/app-data/types';
 
 /**
  * Comportamientos de la app que pide docs/praxa-app-diseno/PANTALLAS.md. Los datos son los
@@ -18,6 +18,7 @@ import type { Diagnostico as DatosDiagnostico } from '@/modules/app-data/types';
 
 let pathname = '/app';
 vi.mock('next/navigation', () => ({ usePathname: () => pathname }));
+vi.mock('@/modules/diagnostics/actions', () => ({ guardarObjetivoDiagnostico: vi.fn(), generarDiagnostico: vi.fn() }));
 vi.mock('@/components/landing/fonts', () => ({ manrope: { variable: '' }, jetbrainsMono: { variable: '' } }));
 
 const guardarPerfilEmpresa = vi.fn();
@@ -379,24 +380,24 @@ describe('Uso y costos', () => {
   });
 });
 
-const DIAGNOSTICO_PRUEBA: DatosDiagnostico = {
-  titular: { inicio: 'Titular de prueba,', destacado: 'con una parte destacada.' },
-  parrafos: ['Primer párrafo de prueba.'],
-  oportunidades: [{ titulo: 'Oportunidad de prueba', detalle: 'Detalle de prueba.', icono: 'barras' }],
-  analisis: {
-    titulo: 'Análisis de prueba',
-    bloques: [
-      { tipo: 'subtitulo', texto: 'Resumen ejecutivo' },
-      { tipo: 'parrafo', texto: 'Texto de prueba.' },
-      { tipo: 'lista', items: ['Uno', 'Dos'] },
-    ],
+const DIAGNOSTICO_PRUEBA: DiagnosticoVista = {
+  estado: 'espera', motivo: 'too_soon', disponibleDesde: '2026-11-14T15:30:00.000000Z',
+  objetivo: { goal_kind: 'traffic', metric_ref: 'inline_link_clicks', etiqueta: 'Clics al enlace' },
+  opcionesObjetivo: [],
+  informe: {
+    title: 'Diagnóstico de Meta Ads', subtitle: 'Texto de prueba.', meta: [{ label: 'Generado', value: '13/11/2026' }],
+    summary: 'Resumen de prueba.', opportunities: [{ title: 'Oportunidad de prueba', priority: 'Prioridad media' }],
+    sections: [{ id: 'summary', title: 'Resumen ejecutivo', blocks: [
+      { kind: 'paragraph', label: 'Interpretación de Claude', text: 'Texto de prueba.' },
+      { kind: 'list', items: ['Uno', 'Dos'] }] }],
+    footer: 'Pie de prueba.',
   },
 };
 
 describe('Diagnóstico', () => {
   it('el análisis completo arranca abierto y se colapsa', async () => {
     const user = userEvent.setup();
-    render(<Diagnostico datos={DIAGNOSTICO_PRUEBA} />);
+    render(<Diagnostico vista={DIAGNOSTICO_PRUEBA} />);
     const boton = screen.getByRole('button', { name: 'Análisis completo del diagnóstico' });
     expect(boton).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('heading', { name: 'Resumen ejecutivo' })).toBeInTheDocument();

@@ -285,6 +285,64 @@ describe('M26a.1: diagnóstico por Data API y worker_api reales', () => {
     await admin.query('update public.integration_connections set credential_generation = 0 where id=$1', [main.connectionId]);
   }, 60_000);
 
+  it('T-25 y T-23 (.3): generación con modelo simulado, descarga y ocultamiento tras desconectar', async () => {
+    const orchestrator = await import('@/modules/diagnostics/orchestrator');
+    const compose = await import('@/modules/diagnostics/compose');
+    const pdf = await import('@/modules/diagnostics/pdf');
+    const s = await seedCompany(admin, 'm26a-pdf');
+    await seedAccount(admin, s, 56, '2.25');
+    await seedLevel(admin, s, 'campaign', 2, 28, { spend: '3.5', impressions: '1200', clicks: '40' });
+    await setSummary(admin, s.connectionId, 'completed', '1 minute', '-1 minute');
+    expect(await diag.saveSettings(worker, s.ctx, { goal_kind: 'traffic', metric_ref: 'inline_link_clicks' })).toBe('saved');
+
+    // Modelo SIMULADO: ninguna llamada paga (H-E1-242).
+    const model = {
+      web: async () => { throw new Error('sin web'); },
+      structured: async () => ({ json: {
+        executive_summary: { text: 'El gasto fue [[ev_acct_cur_spend]] en [[periodo:actual]].', evidence_ids: ['ev_acct_cur_spend'] },
+        overall_performance: { text: 'Rendimiento estable.', evidence_ids: ['ev_acct_cur_ctr'] },
+        top_entities: [], breakdowns: [], opportunities: [], web_notes: [] },
+        usage: { input_tokens: 1, output_tokens: 1, web_searches: 0 }, reportedModel: 'claude-sonnet-5-5' }),
+    };
+    const ctx = { ...s.ctx, request_id: randomUUID() };
+    const result = await orchestrator.generateDiagnostic({ ctx, rpc: rpcOf(s.user), worker, model,
+      loadContext: () => orchestrator.loadGenerationContext(ctx, s.user.client), log: () => undefined });
+    expect(result).toEqual({ code: 'generado' });
+    expect(await reservations(s.ctx.company_id)).toBe(0);
+
+    const requestUrl = 'https://praxa.test/app/diagnostico/descargar';
+    const own = await pdf.diagnosticDownload({ requestUrl, getUser: async () => ({ id: s.user.id }),
+      readReport: () => compose.readStoredReport(s.user.client, s.ctx.company_id) });
+    expect(own.status).toBe(200);
+    expect(own.headers.get('content-type')).toBe('application/pdf');
+    expect(own.headers.get('cache-control')).toBe('private, no-store');
+    expect(own.headers.get('x-content-type-options')).toBe('nosniff');
+    const disposition = own.headers.get('content-disposition') ?? '';
+    expect(disposition).toMatch(/^attachment; filename="diagnostico-meta-\d{4}-\d{2}-\d{2}\.pdf"$/);
+    expect(disposition).not.toContain(s.ctx.company_id);
+    expect(disposition).not.toContain(s.connectionId);
+    const bytes = Buffer.from(await own.arrayBuffer()).toString('latin1');
+    expect(bytes.startsWith('%PDF-')).toBe(true);
+    expect(bytes).not.toMatch(/act_\d/);
+
+    const foreign = await pdf.diagnosticDownload({ requestUrl, getUser: async () => ({ id: stranger.id }),
+      readReport: () => compose.readStoredReport(stranger.client, s.ctx.company_id) });
+    expect(foreign.status).toBe(404);
+    const anonymous = await pdf.diagnosticDownload({ requestUrl, getUser: async () => null,
+      readReport: async () => { throw new Error('no debe leer'); } });
+    expect(anonymous.status).toBe(307);
+    expect(anonymous.headers.get('location')).toBe('https://praxa.test/login?next=%2Fapp%2Fdiagnostico');
+
+    // Desconexión: el informe sigue en la tabla, pero ni la lectura ni la descarga lo devuelven.
+    await admin.query('select 1 from worker_api.begin_disconnect($1,$2,$3)', [s.user.id, s.ctx.company_id, s.connectionId]);
+    expect(await compose.readStoredReport(s.user.client, s.ctx.company_id)).toBeNull();
+    const hidden = await pdf.diagnosticDownload({ requestUrl, getUser: async () => ({ id: s.user.id }),
+      readReport: () => compose.readStoredReport(s.user.client, s.ctx.company_id) });
+    expect(hidden.status).toBe(404);
+    expect(Number((await admin.query('select count(*) from public.diagnostic_reports where company_id=$1',
+      [s.ctx.company_id])).rows[0].count)).toBe(1);
+  }, 120_000);
+
   it('T-11: decimales exactos y recorrido por clave de más de 1000 entidades', async () => {
     await seedLevel(admin, main, 'campaign', 2, 2, { spend: '9007199254740993.125', impressions: '9007199254740993', clicks: '3' });
     await seedLevel(admin, main, 'adset', 1, 2, { spend: '1', impressions: '10', clicks: '1' });

@@ -28,7 +28,8 @@ nada hasta que exista.
 | Credenciales de integración (token de system user de Meta) | Dan acceso de lectura a la cuenta publicitaria del dueño fuera de PRAXA |
 | Claves del llavero de cifrado (`PRAXA_CREDENTIAL_KEYS`) | Descifran todas las credenciales guardadas |
 | Credencial de base del rol `praxa_integrations` (`PRAXA_INTEGRATIONS_DB_URL`) | Ejecuta `worker_api`, la única vía a las credenciales |
-| Secretos de terceros (`META_APP_SECRET`, `DEEPINFRA_API_KEY`) y credenciales administrativas de Supabase | Suplantación de la app o acceso total a la base |
+| Secretos de terceros (`META_APP_SECRET`, `DEEPINFRA_API_KEY`, `ANTHROPIC_API_KEY`) y credenciales administrativas de Supabase | Suplantación de la app, gasto en el proveedor del modelo o acceso total a la base |
+| Informe del diagnóstico vigente (M26a) | Contiene cifras, nombres de entidades e interpretaciones de la empresa; se conserva tras desconectar, oculto por la base |
 | Integridad de las cifras mostradas al dueño | Una cifra falsa presentada como hecho es un daño aunque no haya filtración |
 | Identidad del dueño y su cuenta de Supabase Auth | Todo lo demás se autoriza a partir de ella |
 | Enlaces y códigos de confirmación y recuperación de Supabase Auth | Permiten completar operaciones sobre la cuenta mientras son válidos; viajan en correos transaccionales |
@@ -49,6 +50,12 @@ nada hasta que exista.
 5. **Servidor Next → proveedor del modelo (DeepInfra).** Recibe la pregunta del dueño **tal cual**
    (sin redacción), las preguntas previas y resultados de herramientas; su salida es no confiable
    y **no se verifica** (`H-E1-228`).
+5b. **Servidor Next → Anthropic (diagnóstico de Meta Ads, M26a).** Dos llamadas separadas. El paso
+   web recibe solo país, rubro de lista cerrada y un tema fijo, con la búsqueda restringida a
+   los dominios aprobados por el usuario; nunca datos de Meta. El paso de informe recibe la
+   evidencia ya calculada, los alias de entidades con sus nombres capturados (truncados y
+   marcados no confiables) y los extractos web validados; nunca IDs de cuenta, negocio, empresa,
+   conexión ni token. Su salida es no confiable y **se valida** antes de publicar (sección 8).
 6. **Entorno de ejecución (Vercel) y panel de Supabase.** Quien los controla controla todo
    lo anterior. Están fuera del modelo de amenazas que la aplicación puede mitigar.
 7. **Entorno de pruebas → proyecto desechable.** Las pruebas destructivas nunca cruzan hacia
@@ -102,7 +109,11 @@ spec, con decisión del usuario.
 - **INV-08 — El LLM no es autoridad (modificada por `H-E1-228`).** Los números, estados y
   políticas de los bloques y del pie los produce el servidor desde las herramientas. El texto
   libre y las conclusiones que redacta el modelo **no se verifican**: pueden contener cifras o
-  afirmaciones erróneas. Decisión expresa del usuario y riesgo aceptado.
+  afirmaciones erróneas. Decisión expresa del usuario y riesgo aceptado. **Alcance en el
+  diagnóstico (M26a):** ahí sí se valida la salida del modelo antes de publicar (forma,
+  referencias a evidencia existente, ausencia de cifras libres y hechos sin baja muestra); las
+  cifras entran al texto solo por sustitución del servidor. La interpretación no numérica puede
+  ser errónea y se rotula «interpretación de Claude».
 - **INV-09 — Membresías inmutables para el usuario.** Nadie se otorga ni modifica membresías
   desde la aplicación.
 - **INV-10 — Pruebas aisladas.** Ninguna prueba se ejecuta contra el proyecto de la
@@ -125,6 +136,8 @@ spec, con decisión del usuario.
 | Pruebas destructivas contra el proyecto equivocado | Sección 11 | Guardas vigentes para pruebas SQL, de aplicación y del rol | Requiere configurar el proyecto desechable y su URL de rol; una guarda de destino no sustituye la prueba de conexión |
 | Prompt o pregunta maliciosa hacia el LLM | Catálogo cerrado de herramientas; el modelo no elige empresa, tabla ni SQL; las herramientas leen con el JWT del usuario bajo RLS (sección 8) | Previsto | La inyección puede degradar la respuesta; no puede ampliar el alcance de los datos |
 | Cifras o estados inventados por el LLM | Los bloques y el pie los arma el servidor desde las herramientas; el texto libre y las conclusiones del modelo **no se verifican** (`H-E1-228`) | Vigente, sin verificación del texto | El texto del modelo puede presentar una cifra falsa como hecho. Riesgo aceptado por el usuario; la exactitud la mide VR-02 |
+| Cifras inventadas en el diagnóstico (M26a) | Validación antes de publicar: esquema estricto, referencias existentes, sin numerales libres (lista cerrada) y ningún hecho con baja muestra; una reparación y, si vuelve a fallar, no se publica | Vigente, probada con proveedor simulado (pruebas unitarias) | Sin evaluación con el modelo real por decisión del usuario (`H-E1-242`): no se midieron con Anthropic los umbrales de calidad; la interpretación no numérica puede ser errónea |
+| Instrucciones en nombres de entidades o en páginas web hacia el modelo del diagnóstico | Nombres y extractos viajan como datos marcados no confiables; el modelo no elige empresa, SQL ni herramientas; el paso web es una llamada aparte sin datos de Meta; solo se aceptan fuentes `https` de dominios aprobados con título y fecha, y extractos sin cifras; la salida se valida | Vigente en el código, probada con proveedor simulado | Una instrucción puede degradar la interpretación; no puede cambiar cifras, referencias ni el alcance de los datos. Sin prueba adversaria con el modelo real (`H-E1-242`) |
 
 Fuera del modelo: un compromiso completo del servidor, de la cuenta de Vercel, del panel de
 Supabase o de la cuenta de Meta del dueño. La aplicación no puede defenderse de quien ya
@@ -179,6 +192,11 @@ Garantías de la base, vigentes y probadas en pgTAP:
 - Una ejecución de sincronización escribe solo si conserva token, puntero, arrendamiento y
   generación, con la conexión activa, comprobados después de los bloqueos; lo mismo vale para
   registrar un fallo y para pedir reautorización (CA-58, CA-59).
+- El informe del diagnóstico (M26a) se lee bajo RLS solo si existe una conexión visible de la
+  empresa con ese `connection_id` en estado `active` o `needs_reauth`. Tras desconectar o
+  reconectar a otra conexión, el informe sigue en la tabla pero ni la pantalla ni la descarga lo
+  devuelven; se borra con la empresa. La publicación verifica reserva, conexión, generación y
+  sincronización después de los bloqueos y reemplaza el anterior en una sola transacción.
 
 La matriz exacta de privilegios vive en cada migración y en su pgTAP. No se copia acá.
 
@@ -199,7 +217,8 @@ migración vigente (encabezado de `0012` y de cada migración posterior que sume
 probadas en `09_integration_privileges`. Por categoría: intentos OAuth, ciclo de vida de la
 conexión, lectura y reemplazo de la credencial cifrada, purga, rotación de claves, y
 ejecuciones de sincronización con su registro de errores; y, para el chat, arriendo temporal
-del turno, registro de la pregunta redactada y voto sobre ese registro. No tiene
+del turno, registro de la pregunta redactada y voto sobre ese registro; y, para el diagnóstico
+(M26a), guardado del objetivo, reserva y liberación por empresa y publicación del informe. No tiene
 lectura directa de tablas ni acceso administrativo. Cada función, salvo el conteo global por
 versión de clave, recibe actor y empresa y verifica pertenencia y propiedad. El cliente Node
 solo llama a las funciones previstas; la matriz exacta permanece en la migración y pgTAP.
@@ -321,6 +340,22 @@ servidor trata ese contexto del navegador como no confiable.
 Las instrucciones incluidas en nombres o metadatos no amplían permisos ni el catálogo de
 herramientas, pero pueden degradar la respuesta del modelo.
 
+**Diagnóstico de Meta Ads (M26a), con Anthropic.** Vigente en el código y probado con un
+proveedor simulado; la evaluación con el modelo real no se ejecutó por decisión del usuario
+(`H-E1-242`), y los datos reales esperan la aprobación del acta y la comunicación al dueño:
+
+- La clave se lee solo en `src/modules/diagnostics/provider.ts` (prueba automática). No se envían
+  `temperature`, `top_p` ni `top_k`. Un fallo deja una sola línea de log de forma fija (paso,
+  clase y estado HTTP), sin entradas, salidas, nombres, cifras ni identificadores.
+- La generación se bloquea en la base sin objetivo, sin conexión activa, sin sincronización
+  utilizable de menos de 24 horas y posterior al informe, o antes de 24 horas desde el informe
+  vigente; con cero actividad o sin cobertura no se llama al modelo.
+- El paso web no recibe datos de Meta y su texto no se usa como cifra ni como instrucción.
+- Se guarda el modelo solicitado y el informado, y el uso por paso.
+
+Retención declarada por Anthropic para la API: entradas y salidas se borran a los 30 días salvo
+excepciones; aceptada por el usuario para el piloto y declarada en el acta.
+
 ## 9. Datos, retención y borrado
 
 Estado de cada pieza, sin repetir los plazos (la fuente es la spec):
@@ -334,6 +369,8 @@ Estado de cada pieza, sin repetir los plazos (la fuente es la spec):
 | Flujo de baja de cuenta desde la aplicación | No existe (`H-E1-06`). El cierre del piloto es un procedimiento administrativo con orden obligatorio (CA-67) |
 | Foto de perfil | Al reemplazarla o eliminarla se borra el archivo de Storage. Si ese borrado falla, el archivo puede quedar sin referencia en la carpeta del usuario. Con la baja de cuenta, igual que el resto (`H-E1-06`) |
 | Correos de Auth en Resend | El proveedor conserva los mensajes de confirmación y recuperación durante su retención; el borrado de la base activa no los alcanza. Al cerrar el piloto se pide su borrado anticipado (CA-67). Alcance y procedimiento en el [acta de datos reales](FASES/FASE1/M03a/acta-meta.md) |
+| Informe del diagnóstico (M26a) | Uno por empresa. Se conserva tras desconectar, oculto por la política de lectura (excepción de retención de `meta_first/spec.md` §16); se borra al publicar uno nuevo (excepción de reversibilidad) o al borrar la empresa. `purge_connection` no lo toca. Un PDF descargado no se revoca. Vigente en la base, probado en pgTAP y en `test:app` |
+| Reserva técnica del diagnóstico | Vence sola; se libera al terminar o fallar la generación |
 | Copias de seguridad del proveedor | Un dato borrado de la base activa puede seguir en las copias durante su plazo (CA-38b). Es un límite declarado, no se mitiga |
 
 "Borrado" en este documento significa borrado en la base activa.
@@ -397,6 +434,13 @@ Cubierto por `05_delete_carveout.test.sql`.
 - **Sin registro de auditoría** de accesos ni de cambios, más allá de las versiones de
   contexto, las marcas de tiempo y los registros por consulta del chat.
 - **Retención del host del modelo** (sección 8) y **copias de seguridad** (sección 9).
+- **Diagnóstico sin evaluación con el modelo real** (`H-E1-242`): la calidad interpretativa y los
+  umbrales de C-17 no se midieron con Anthropic; la validación de cifras y referencias sí está
+  probada con un proveedor simulado.
+- **Sin tope de intentos fallidos del diagnóstico** (D-M26a-R4): cada intento gasta tokens y
+  búsquedas aunque no consuma el plazo de 24 horas; solo rige una reserva por empresa.
+- **El reemplazo del informe borra el anterior** de la base activa sin recuperar su texto ni
+  revocar un PDF ya descargado.
 - **Correos de Auth en el proveedor SMTP.** Los enlaces y códigos de un solo uso llegan al
   proveedor de envío como parte del mensaje. La retención y el borrado en ese tercero siguen
   los límites declarados en el acta de M03a; el cierre local de CA-67 no los elimina.

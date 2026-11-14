@@ -50,3 +50,12 @@ export function parseGoalInput(raw: unknown, catalog: readonly ActionTypeOption[
   }
   return { goal_kind: goalKind, metric_ref: `actions:${actionType}` };
 }
+
+/**
+ * Último día de la ventana del catálogo de acciones: el `window_to` de la elegibilidad si existe;
+ * si no, ayer en UTC. La lectura acota a 28 días (CA-41); la lista solo ofrece opciones.
+ */
+export function catalogWindowTo(windowTo: string | null, now: Date = new Date()): string {
+  if (windowTo) return windowTo;
+  return new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
+}
