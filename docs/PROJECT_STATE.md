@@ -28,9 +28,8 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 
 ## Siguiente habilitada
 
-**M16e — Conector Tiendanube y cohortes de compradores: habilitada por `G-DIAG` y por la [enmienda de conectores](FASES/FASE1/meta_first/sesiones/enmienda-conectores-2026-11-14.md), aprobada por el usuario el 2026-11-14. No iniciada.** La [spec](FASES/FASE1/M16e/spec.md) es un borrador anterior a la enmienda. Antes de escribir código hacen falta:
+**M16e — Conector Tiendanube y cohortes de compradores: habilitada por `G-DIAG` y por la [enmienda de conectores](FASES/FASE1/meta_first/sesiones/enmienda-conectores-2026-11-14.md), aprobada por el usuario el 2026-11-14. No iniciada.** La [spec](FASES/FASE1/M16e/spec.md) está APROBADA (2026-11-14), con excepción: el usuario la aprobó sin una auditoría APROBABLE, después de integrar las correcciones de `spec-audit-4`. Antes de escribir código hacen falta:
 
-- revisar la spec, auditarla y aprobarla;
 - redactar el plan, auditarlo y aprobarlo;
 - ampliar el acta de datos y aprobarla antes del código, como pide la ficha, y comunicársela al dueño antes del primer dato real.
 

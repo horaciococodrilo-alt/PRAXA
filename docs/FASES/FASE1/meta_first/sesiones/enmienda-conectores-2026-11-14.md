@@ -75,6 +75,10 @@ La [cuarta auditoría](../../M16e/revisiones/spec-audit-4.md) dio REQUIERE CAMBI
 - **D-M16e-30:** alcance de `customer/redact` según la recomendación de la auditoría. El usuario lo considera improbable.
 - **D-M16e-31:** las pruebas manuales en `app` usan la cuenta y la empresa sintéticas de DEC-18.
 
+## Aprobación de la spec de M16e (mismo día)
+
+El usuario aprobó la spec de `M16e` sin una quinta auditoría, como excepción a la regla de aprobar solo con auditoría APROBABLE. Las correcciones de `spec-audit-4` quedan integradas sin volver a auditarse. El detalle está en el encabezado de `M16e/spec.md`.
+
 ## Verificación
 
 Revisión del diff y `git diff --check`. Es un cambio documental: no hay código ni pruebas.

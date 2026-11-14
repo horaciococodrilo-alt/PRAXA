@@ -1,10 +1,10 @@
 # M16e — Conector Tiendanube y cohortes de compradores
 
-**Estado:** BORRADOR
+**Estado:** APROBADA
 
 **Entrada:** la ruta incluye `M16e` desde la [enmienda de conectores](../meta_first/sesiones/enmienda-conectores-2026-11-14.md), aprobada por el usuario el 2026-11-14 (ficha en Parte I y II.14b de `meta_first/plan.md`; §17 de `meta_first/spec.md`). `G-DIAG` está aprobado (2026-11-14). Como exige la ficha, **spec, plan y acta M03a ampliada se aprueban antes de la primera línea de código**, y el acta se comunica al dueño antes del primer dato real. El usuario exceptuó esta microfase del límite de ocho horas; el resto del contrato de `AGENTS.md` sigue vigente. **Salida:** un único `G-TIENDA`, que habilita M16f.
 
-**Revisión del 2026-11-14:** se integraron la enmienda de ruta, las decisiones D-M16e-04 a D-M16e-20 del usuario y las correcciones de [spec-audit-1](revisiones/spec-audit-1.md) (A-01 a A-23). Después se integraron las correcciones de [spec-audit-2](revisiones/spec-audit-2.md) (A-01 a A-10) de [spec-audit-3](revisiones/spec-audit-3.md) (A-01 a A-06) y de [spec-audit-4](revisiones/spec-audit-4.md) (A-01 a A-15), con las decisiones D-M16e-21 a D-M16e-31 y sus enmiendas de ruta. La spec sigue en borrador hasta una nueva auditoría y su aprobación.
+**Revisión del 2026-11-14:** se integraron la enmienda de ruta, las decisiones D-M16e-04 a D-M16e-20 del usuario y las correcciones de [spec-audit-1](revisiones/spec-audit-1.md) (A-01 a A-23). Después se integraron las correcciones de [spec-audit-2](revisiones/spec-audit-2.md) (A-01 a A-10) de [spec-audit-3](revisiones/spec-audit-3.md) (A-01 a A-06) y de [spec-audit-4](revisiones/spec-audit-4.md) (A-01 a A-15), con las decisiones D-M16e-21 a D-M16e-31 y sus enmiendas de ruta. **Aprobación con excepción (2026-11-14).** El usuario aprobó esta spec sin una auditoría APROBABLE, como excepción expresa a la regla de `docs/_templates/mf-spec.md`: «con esto ya terminamos, no hace falta correr otro spec auditor; que quede como excepción». La última auditoría, `spec-audit-4`, dio REQUIERE CAMBIOS, y sus correcciones están integradas pero no se volvieron a auditar. Riesgo aceptado: un error introducido al corregir puede aparecer recién en la auditoría del plan o al implementar. Si eso pasa, se registra como hallazgo y se corrige la spec antes de seguir.
 
 **Hash de contenido:** al solicitar auditoría, excluir solamente la línea `**Estado:**` y pasar los bytes restantes a `git hash-object --stdin`, como indica `docs/_templates/mf-spec.md`.
 
@@ -548,4 +548,4 @@ Esta spec no declara resuelto ningún otro hallazgo.
 
 - [spec-audit-4](revisiones/spec-audit-4.md) (2026-11-14): REQUIERE CAMBIOS, 13 PASS y 5 FAIL. Hash auditado `3dc84cb955d5d9dd2b9b5b2102788866d6cc90ee`. Correcciones integradas en esta revisión.
 
-Corresponde una quinta auditoría sobre el hash nuevo.
+No hay quinta auditoría: el usuario aprobó la spec con excepción (ver el encabezado).
