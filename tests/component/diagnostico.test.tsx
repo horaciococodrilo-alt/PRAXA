@@ -138,6 +138,7 @@ const redirect = vi.fn((url: string) => { throw new Error(`REDIRECT ${url}`); })
 const requireTenantContext = vi.fn();
 const saveSettings = vi.fn();
 const readActionTypes = vi.fn();
+const readEligibility = vi.fn();
 const generateDiagnostic = vi.fn();
 const readLiveConnection = vi.fn();
 vi.mock('next/navigation', () => ({ redirect: (url: string) => redirect(url) }));
@@ -152,6 +153,7 @@ vi.mock('@/modules/diagnostics/repository', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/modules/diagnostics/repository')>()),
   saveSettings: (...a: unknown[]) => saveSettings(...a),
   readActionTypes: (...a: unknown[]) => readActionTypes(...a),
+  readEligibility: (...a: unknown[]) => readEligibility(...a),
 }));
 vi.mock('@/modules/diagnostics/orchestrator', () => ({
   generateDiagnostic: (...a: unknown[]) => generateDiagnostic(...a),
@@ -173,6 +175,16 @@ describe('M26a-T-27: Server Actions sin IDs del cliente', () => {
       credentialGeneration: 0 });
     readActionTypes.mockResolvedValue([{ action_type: 'purchase', observed_days: 3, total_count: '9' }]);
     saveSettings.mockResolvedValue('saved');
+    readEligibility.mockResolvedValue({ eligible: true, reason: null, available_at: null,
+      sync_finished_at: '2026-11-13T01:02:03.123456Z', window_to: '2026-11-10' });
+  });
+
+  it('R-01: valida contra la misma ventana del catálogo que muestra la pantalla', async () => {
+    const fd = new FormData();
+    fd.set('goal_kind', 'purchase');
+    fd.set('action_type', 'purchase');
+    await expect(actions.guardarObjetivoDiagnostico(fd)).rejects.toThrow('REDIRECT');
+    expect(readActionTypes.mock.calls[0][2]).toMatchObject({ from: '2026-10-14', to: '2026-11-10' });
   });
 
   it('guardar objetivo ignora company_id y connection_id del formulario', async () => {

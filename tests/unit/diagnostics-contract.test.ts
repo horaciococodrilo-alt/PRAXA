@@ -277,6 +277,7 @@ describe('M26a-T-18: sin numerales libres y sustitución del servidor', () => {
     'El costo se duplicó', 'Superó mil clics', 'Hubo cero compras', 'Fue el segundo mejor', 'Quedó tercero',
     'Los dos anuncios', 'Fueron veintidós días', 'Treinta y cinco clics', 'Quinientos pesos', 'Una docena',
     'Un par de anuncios', 'Se triplicó el gasto', 'Tercer conjunto', 'Novecientas visitas', 'El vigésimo día',
+    'Subió ５ veces', 'Alcance en m²', 'Fueron ٣ días',
   ])('rechaza «%s»', (text) => {
     expect(hasFreeNumerals(text)).toBe(true);
   });

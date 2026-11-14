@@ -102,7 +102,8 @@ function numberWord(word: string): boolean {
 /** Verdadero si el texto, sin sus marcadores, contiene una cifra libre. */
 export function hasFreeNumerals(text: string): boolean {
   const plain = text.replace(MARKER, ' ');
-  if (/\d/.test(plain) || plain.includes('%')) return true;
+  // Todo dígito, también los de ancho completo, superíndices y otros sistemas (\p{Nd}, \p{No}).
+  if (/[\p{Nd}\p{No}]/u.test(plain) || plain.includes('%')) return true;
   const norm = normalize(plain);
   if (/\bpor\s+ciento\b/.test(norm)) return true;
   return norm.split(/[^a-z]+/).filter(Boolean).some(numberWord);

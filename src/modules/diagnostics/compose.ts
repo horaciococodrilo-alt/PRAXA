@@ -177,6 +177,19 @@ const LEVEL_LABEL: Readonly<Record<'account' | EntityLevel, string>> = {
 const PRIORITY_LABEL = { high: 'Prioridad alta', medium: 'Prioridad media', low: 'Prioridad baja' } as const;
 const GOAL_LABEL = { purchase: 'Ventas', inquiry: 'Consultas', traffic: 'Tráfico' } as const;
 
+/** Estados efectivos de Meta más comunes; uno desconocido se muestra tal cual. */
+const STATUS_LABEL: Readonly<Record<string, string>> = {
+  ACTIVE: 'Activa', PAUSED: 'Pausada', ARCHIVED: 'Archivada', DELETED: 'Eliminada',
+  CAMPAIGN_PAUSED: 'Pausada por la campaña', ADSET_PAUSED: 'Pausada por el conjunto', IN_PROCESS: 'En proceso',
+  WITH_ISSUES: 'Con problemas', PENDING_REVIEW: 'En revisión', DISAPPROVED: 'Rechazada', PREAPPROVED: 'Preaprobada',
+  PENDING_BILLING_INFO: 'Pendiente de facturación',
+};
+
+function statusLabel(status: string | null): string {
+  if (!status) return 'sin dato';
+  return STATUS_LABEL[status] ?? status;
+}
+
 export function goalLabel(settings: DiagnosticSettings): string {
   if (settings.goal_kind === 'traffic') return 'Tráfico: clics al enlace';
   return `${GOAL_LABEL[settings.goal_kind]}: ${actionLabel(settings.metric_ref.replace(/^actions:/, ''))}`;
@@ -223,7 +236,9 @@ export function composeDocument(report: StoredReport): DiagnosticDocument {
     const evidence = id ? byId.get(id) : undefined;
     return evidence ? formatEvidenceValue(evidence) : 'no calculable';
   };
-  const unknownAttribution = items.some((e) => e.attribution === 'unknown'
+  // Solo la evidencia de cuenta sin segmento: los desgloses son siempre `unknown` y llevan su aviso.
+  const unknownAttribution = items.some((e) => e.level === 'account' && e.segment === null
+    && e.attribution === 'unknown'
     && (e.metric === 'result_count' || e.metric === 'result_value' || e.metric === 'attributed_return'));
 
   // 1. Resumen ejecutivo.
@@ -251,7 +266,7 @@ export function composeDocument(report: StoredReport): DiagnosticDocument {
   // 4. Entidades destacadas.
   const entityRows = out.top_entities.map((e) => {
     const info = totals.entities[e.alias];
-    return [info?.name || 'entidad sin nombre', LEVEL_LABEL[e.level], info?.status ?? 'sin dato',
+    return [info?.name || 'entidad sin nombre', LEVEL_LABEL[e.level], statusLabel(info?.status ?? null),
       value(`ev_${e.alias}_spend`), value(`ev_${e.alias}_result_count`), value(`ev_${e.alias}_cost_per_result`),
       info?.low_sample ? 'Baja muestra' : 'Suficiente'];
   });
@@ -310,7 +325,7 @@ export function composeDocument(report: StoredReport): DiagnosticDocument {
   // 7. Contexto web.
   const web: DocSection = { id: 'web', title: 'Contexto web', blocks: plan.web.status === 'evaluable' && report.web_sources.length > 0
     ? [...out.web_notes.map((n) => ({ kind: 'paragraph' as const, label: CLAUDE, text: `Fuente ${n.source_index}: ${n.note}` })),
-      { kind: 'list', items: report.web_sources.map((s) => `${s.index}. ${s.title} (${s.domain}), ${s.url}, publicada hace: ${s.page_age}`) },
+      { kind: 'list', items: report.web_sources.map((s) => `${s.index}. ${s.title} (${s.domain}), ${s.url}. Antigüedad informada por la fuente: ${s.page_age}`) },
       { kind: 'notice', text: 'El contexto web es general y no confiable como dato: no se usa como referencia numérica.' }]
     : [{ kind: 'notice', text: `No evaluable: ${CAUSE_TEXT[plan.web.status === 'not_evaluable' ? plan.web.cause : 'web_unavailable']}` }] };
 

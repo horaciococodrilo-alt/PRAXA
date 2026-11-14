@@ -13,7 +13,7 @@ import type { Resultado } from './compose';
 import { supabaseRpc } from './eligibility';
 import { windowsFor } from './evidence';
 import { anthropicModelSteps, generateDiagnostic, loadGenerationContext } from './orchestrator';
-import { readActionTypes, saveSettings } from './repository';
+import { readActionTypes, readEligibility, saveSettings } from './repository';
 import { actionTypeOptions, catalogWindowTo, GoalInputError, parseGoalInput } from './settings';
 
 /**
@@ -33,8 +33,11 @@ export async function guardarObjetivoDiagnostico(formData: FormData): Promise<ne
     const ctx = await requireTenantContext();
     const supabase = await createSupabaseServerClient();
     const connection = await readLiveConnection(ctx, { supabase });
+    // Misma ventana que muestra la pantalla (`getDiagnostico`): la de la elegibilidad o, sin ella, ayer.
+    const rpc = supabaseRpc(supabase);
     const catalog = connection?.status === 'active'
-      ? actionTypeOptions(await readActionTypes(supabaseRpc(supabase), connection.id, windowsFor(catalogWindowTo(null))))
+      ? actionTypeOptions(await readActionTypes(rpc, connection.id,
+        windowsFor(catalogWindowTo((await readEligibility(rpc, connection.id)).window_to))))
       : [];
     const goal = formData.get('goal_kind');
     const action = formData.get('action_type');

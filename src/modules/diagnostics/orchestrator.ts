@@ -79,6 +79,8 @@ export type GenerationContext = Readonly<{
   settings: DiagnosticSettings | null;
   profile: CompanyProfile;
   levelStatus: Readonly<Record<'account' | EntityLevel, string>> | null;
+  /** `finished_at` del mismo resumen del que salió `levelStatus`. */
+  syncFinishedAt: string | null;
 }>;
 
 export type StructuredStep = 'report' | 'repair' | 'batch' | 'synthesis';
@@ -108,6 +110,14 @@ class GenerationFailure extends Error {
   constructor(readonly step: string, readonly failureClass: FailureClass, readonly httpStatus: number | null = null) {
     super(`praxa: generación del diagnóstico fallida (${failureClass})`);
   }
+}
+
+/** Igualdad de instantes con precisión de microsegundos, sin pasar por la precisión de `Date`. */
+function sameInstant(a: string | null, b: string | null): boolean {
+  if (!a || !b) return false;
+  const fraction = (t: string) => (/\.(\d{1,6})/.exec(t)?.[1] ?? '').padEnd(6, '0');
+  const ms = (t: string) => Date.parse(t.replace(' ', 'T'));
+  return !Number.isNaN(ms(a)) && ms(a) === ms(b) && fraction(a) === fraction(b);
 }
 
 export function failureLine(step: string, failureClass: string, httpStatus: number | null): string {
@@ -396,6 +406,11 @@ export async function generateDiagnostic(deps: DiagnosticDeps): Promise<Generati
     if (!eligibility.window_to || !eligibility.sync_finished_at || !context.levelStatus) {
       throw new GenerationFailure('read', 'read');
     }
+    // Una sincronización que terminó entre las dos lecturas mezclaría la cobertura vieja con la
+    // ventana nueva: se corta antes de reservar.
+    if (!sameInstant(context.syncFinishedAt, eligibility.sync_finished_at)) {
+      return { code: 'no_elegible', reason: 'sync_changed' };
+    }
     const window = windowsFor(eligibility.window_to);
     const metricRef = context.settings.metric_ref;
     const account = await readAccountMetrics(deps.rpc, { connectionId: connection.id, window, metricRef });
@@ -484,17 +499,19 @@ export async function loadGenerationContext(ctx: TenantContext, supabase: Supaba
   const profile = { country: typeof row.country === 'string' ? row.country : null,
     industry: typeof row.industry === 'string' ? row.industry : null };
   let levelStatus: GenerationContext['levelStatus'] = null;
+  let syncFinishedAt: string | null = null;
   if (connection) {
     const summary = await supabase.from('integration_connections').select('meta_sync_summary')
       .eq('id', connection.id).maybeSingle();
     if (summary.error) throw new DiagnosticReadError();
-    const levels = (summary.data as { meta_sync_summary?: { levels?: Record<string, { status?: unknown }> } } | null)
-      ?.meta_sync_summary?.levels;
+    const projected = (summary.data as { meta_sync_summary?: { finished_at?: unknown;
+      levels?: Record<string, { status?: unknown }> } } | null)?.meta_sync_summary;
+    const levels = projected?.levels;
+    syncFinishedAt = typeof projected?.finished_at === 'string' ? projected.finished_at : null;
     if (levels && LEVELS.every((l) => typeof levels[l]?.status === 'string')) {
       levelStatus = Object.fromEntries(LEVELS.map((l) => [l, levels[l].status as string])) as
         Record<'account' | EntityLevel, string>;
     }
   }
-  return { connection, settings, profile, levelStatus };
+  return { connection, settings, profile, levelStatus, syncFinishedAt };
 }
-

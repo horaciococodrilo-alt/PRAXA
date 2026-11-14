@@ -67,6 +67,15 @@ describe('getDiagnostico (M26a-T-29)', () => {
     expect(eq).toHaveBeenCalledWith('company_id', ID);
   });
 
+  it('R-01: el catálogo usa la ventana de la elegibilidad (la misma que valida la acción)', async () => {
+    maybeSingle.mockResolvedValue({ data: null, error: null });
+    readDiagnosticStatus.mockResolvedValue({ connection: ACTIVE, settings: { goal_kind: 'traffic', metric_ref: 'inline_link_clicks' },
+      eligibility: { eligible: true, reason: null, available_at: null, sync_finished_at: '2026-11-13T01:02:03.123456Z',
+        window_to: '2026-11-10' } });
+    await getDiagnostico();
+    expect(readActionTypes.mock.calls[0][2]).toMatchObject({ from: '2026-10-14', to: '2026-11-10' });
+  });
+
   it('sin conexión: estado sin_conexion y sin catálogo', async () => {
     maybeSingle.mockResolvedValue({ data: null, error: null });
     const vista = await getDiagnostico();

@@ -6,7 +6,7 @@
 
 **Ampliación M25a para el modelo:** preparada para nueva aprobación del usuario. Hasta esa aprobación y la declaración de comunicación al dueño, no se envían datos reales al modelo. La aprobación histórica de esta acta y la conformidad anterior sobre desgloses no acreditan esta ampliación.
 
-**Ampliación M26a para el diagnóstico con Anthropic:** preparada para nueva aprobación del usuario, solo en las propiedades del diagnóstico (lo pendiente del chat, `H-E1-204`, queda fuera). Hasta esa aprobación y la declaración de comunicación al dueño, no se envían datos reales a Anthropic ni se genera un diagnóstico con datos reales; las excepciones de reversibilidad y de retención de `meta_first/spec.md` §16 rigen solo con esta ampliación aprobada.
+**Ampliación M26a para el diagnóstico con Anthropic:** **aprobada expresamente por el usuario el 2026-11-14**, solo en las propiedades del diagnóstico (lo pendiente del chat, `H-E1-204`, queda fuera). Con esta aprobación rigen las excepciones de reversibilidad y de retención de `meta_first/spec.md` §16. La comunicación al dueño de la sección 9 sigue pendiente: hasta que el usuario la declare, no se genera un diagnóstico con datos reales.
 
 **Estado de aprobación histórica:** ver [`docs/PROJECT_STATE.md`](../../../PROJECT_STATE.md); la evidencia histórica está en la [sesión de M03a](../meta_first/sesiones/M03a.md).
 **Alcance:** piloto de la ruta `meta_first`, con un dueño, una empresa y una cuenta publicitaria de Meta (spec `meta_first`, sección 1).
@@ -152,4 +152,4 @@ Solo el usuario aprueba esta acta. El estado de `G-ACTA-META` y la versión a la
 
 La ampliación M25a descrita arriba está **pendiente de nueva aprobación expresa del usuario y de su declaración de comunicación al dueño**. La aprobación histórica no se extiende automáticamente a los nuevos flujos hacia DeepInfra.
 
-La ampliación M26a (diagnóstico con Anthropic) está **pendiente de aprobación expresa del usuario, solo en sus propiedades, y de su declaración de comunicación al dueño**. Sin ella no se ejecuta `db:push` de `0022` en `app` ni se genera un diagnóstico con datos reales.
+La ampliación M26a (diagnóstico con Anthropic) fue **aprobada por el usuario el 2026-11-14**, solo en sus propiedades. Falta su declaración de comunicación al dueño (sección 9): sin ella no se genera un diagnóstico con datos reales.
