@@ -10,21 +10,33 @@ const ID = '00000000-0000-4000-8000-000000000001';
 const from = vi.fn();
 const eq = vi.fn();
 const limit = vi.fn();
+const maybeSingle = vi.fn();
 const getUser = vi.fn();
 const createSignedUrl = vi.fn();
 const requireUser = vi.fn();
 const requireTenantContext = vi.fn();
 const readConnectionRecord = vi.fn();
+const readDiagnosticStatus = vi.fn();
+const readActionTypes = vi.fn();
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/modules/identity/session', () => ({ requireUser: (p?: string) => requireUser(p) }));
 vi.mock('@/modules/tenant/context', () => ({ requireTenantContext: () => requireTenantContext() }));
+vi.mock('@/modules/diagnostics/eligibility', () => ({
+  readDiagnosticStatus: (...args: unknown[]) => readDiagnosticStatus(...args),
+  supabaseRpc: () => async () => ({ data: [], error: null }),
+}));
+vi.mock('@/modules/diagnostics/repository', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/modules/diagnostics/repository')>()),
+  readActionTypes: (...args: unknown[]) => readActionTypes(...args),
+}));
 vi.mock('@/modules/integrations/repository/connections', () => ({
   readConnectionRecord: (...args: unknown[]) => readConnectionRecord(...args),
 }));
 vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: async () => ({
-    from: (t: string) => (from(t), { select: () => ({ eq: (...a: unknown[]) => (eq(...a), { limit: (n: number) => limit(n) }) }) }),
+    from: (t: string) => (from(t), { select: () => ({ eq: (...a: unknown[]) => (eq(...a), {
+      limit: (n: number) => limit(n), maybeSingle: () => maybeSingle() }) }) }),
     auth: { getUser: () => getUser() },
     storage: { from: () => ({ createSignedUrl: (...a: unknown[]) => createSignedUrl(...a) }) },
   }),
@@ -37,24 +49,65 @@ beforeEach(() => {
   requireUser.mockResolvedValue({ id: ID, email: 'ana@praxa.test' });
   requireTenantContext.mockResolvedValue({ user_id: ID, company_id: ID, role: 'owner', request_id: ID });
   readConnectionRecord.mockResolvedValue(null);
+  readDiagnosticStatus.mockResolvedValue({ connection: null, settings: null, eligibility: null });
+  readActionTypes.mockResolvedValue([]);
 });
 
-describe('getDiagnostico', () => {
-  it('sin reportes listos devuelve null (estado vacío)', async () => {
-    limit.mockResolvedValue({ data: [], error: null });
-    await expect(getDiagnostico()).resolves.toBeNull();
-    expect(from).toHaveBeenCalledWith('reports');
-    expect(eq).toHaveBeenCalledWith('status', 'ready');
+describe('getDiagnostico (M26a-T-29)', () => {
+  const ACTIVE = { id: 'cc000000-0000-4000-8000-000000000001', status: 'active', credentialGeneration: 0 };
+
+  it('lee la persistencia nueva bajo RLS y nunca consulta reports', async () => {
+    maybeSingle.mockResolvedValue({ data: null, error: null });
+    readDiagnosticStatus.mockResolvedValue({ connection: ACTIVE, settings: null,
+      eligibility: { eligible: false, reason: 'no_settings', available_at: null, sync_finished_at: null, window_to: null } });
+    const vista = await getDiagnostico();
+    expect(vista).toMatchObject({ estado: 'sin_objetivo', informe: null, objetivo: null });
+    expect(from).toHaveBeenCalledWith('diagnostic_reports');
+    expect(from).not.toHaveBeenCalledWith('reports');
+    expect(eq).toHaveBeenCalledWith('company_id', ID);
+  });
+
+  it('R-01: el catálogo usa la ventana de la elegibilidad (la misma que valida la acción)', async () => {
+    maybeSingle.mockResolvedValue({ data: null, error: null });
+    readDiagnosticStatus.mockResolvedValue({ connection: ACTIVE, settings: { goal_kind: 'traffic', metric_ref: 'inline_link_clicks' },
+      eligibility: { eligible: true, reason: null, available_at: null, sync_finished_at: '2026-11-13T01:02:03.123456Z',
+        window_to: '2026-11-10' } });
+    await getDiagnostico();
+    expect(readActionTypes.mock.calls[0][2]).toMatchObject({ from: '2026-10-14', to: '2026-11-10' });
+  });
+
+  it('sin conexión: estado sin_conexion y sin catálogo', async () => {
+    maybeSingle.mockResolvedValue({ data: null, error: null });
+    const vista = await getDiagnostico();
+    expect(vista).toMatchObject({ estado: 'sin_conexion', opcionesObjetivo: [] });
+    expect(readActionTypes).not.toHaveBeenCalled();
+  });
+
+  it('espera de 24 h con la fecha que calcula la base', async () => {
+    maybeSingle.mockResolvedValue({ data: null, error: null });
+    readDiagnosticStatus.mockResolvedValue({ connection: ACTIVE,
+      settings: { goal_kind: 'traffic', metric_ref: 'inline_link_clicks' },
+      eligibility: { eligible: false, reason: 'too_soon', available_at: '2026-11-14T15:30:00.000000Z',
+        sync_finished_at: null, window_to: null } });
+    const vista = await getDiagnostico();
+    expect(vista).toMatchObject({ estado: 'espera', motivo: 'too_soon', disponibleDesde: '2026-11-14T15:30:00.000000Z',
+      objetivo: { goal_kind: 'traffic', metric_ref: 'inline_link_clicks' } });
   });
 
   it('un error de lectura no se disfraza de estado vacío', async () => {
-    limit.mockResolvedValue({ data: null, error: { message: 'permission denied' } });
+    maybeSingle.mockResolvedValue({ data: null, error: { message: 'permission denied' } });
     await expect(getDiagnostico()).rejects.toThrow(/No se pudo leer el diagnóstico/);
   });
 
-  it('con un reporte listo no dice que no hay diagnóstico', async () => {
-    limit.mockResolvedValue({ data: [{ id: 'r-1' }], error: null });
-    await expect(getDiagnostico()).rejects.toThrow(/todavía no sabe mostrarlo/);
+  it('un informe ilegible tampoco se oculta como vacío', async () => {
+    maybeSingle.mockResolvedValue({ data: { generated_at: 'x' }, error: null });
+    await expect(getDiagnostico()).rejects.toThrow(/No se pudo leer el diagnóstico/);
+  });
+
+  it('sin empresa todavía: estado sin_empresa', async () => {
+    const { NoCompanyError } = await import('@/modules/company/service');
+    requireTenantContext.mockRejectedValueOnce(new NoCompanyError());
+    await expect(getDiagnostico()).resolves.toMatchObject({ estado: 'sin_empresa', informe: null });
   });
 });
 

@@ -6,9 +6,16 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { requireUser } from '@/modules/identity/session';
 import { requireTenantContext } from '@/modules/tenant/context';
 import { readConnectionRecord } from '@/modules/integrations/repository/connections';
+import { NoCompanyError } from '@/modules/company/service';
+import { composeDocument, goalLabel, readStoredReport, type StoredReport } from '@/modules/diagnostics/compose';
+import type { EligibilityReason } from '@/modules/diagnostics/contract';
+import { readDiagnosticStatus, supabaseRpc } from '@/modules/diagnostics/eligibility';
+import { windowsFor } from '@/modules/diagnostics/evidence';
+import { DiagnosticReadError, readActionTypes } from '@/modules/diagnostics/repository';
+import { actionTypeOptions, catalogWindowTo } from '@/modules/diagnostics/settings';
 
 import { INTEGRACIONES_BASE, usoEnCero } from './mock';
-import type { Diagnostico, Empresa, Integracion, Uso, Usuario } from './types';
+import type { DiagnosticoVista, Empresa, EstadoDiagnostico, Integracion, Uso, Usuario } from './types';
 
 export type * from './types';
 
@@ -102,18 +109,63 @@ export async function getUso(): Promise<Uso> {
   return usoEnCero(hoy);
 }
 
+const ESTADO_POR_MOTIVO: Readonly<Record<EligibilityReason, EstadoDiagnostico>> = {
+  no_settings: 'sin_objetivo', connection_not_active: 'sin_conexion', sync_missing: 'sincronizacion_requerida',
+  sync_running: 'sincronizacion_en_curso', sync_not_usable: 'sincronizacion_requerida',
+  sync_stale: 'sincronizacion_requerida', sync_not_after_report: 'sincronizacion_requerida', too_soon: 'espera',
+};
+
 /**
- * Real: el estado vacío sale de una consulta a `reports` bajo RLS (solo los de la empresa
- * del usuario), no de un dato fijo. Hoy la tabla no admite escritura desde la aplicación,
- * así que no hay ninguno listo y devuelve `null`.
- *
- * Todavía no existe el mapeo del contenido de un reporte a esta pantalla. Si aparece uno
- * listo, falla a la vista en lugar de decir que no hay diagnóstico.
+ * Real (M26a): estado del diagnóstico que calcula la base, objetivo, opciones del catálogo
+ * observado y el informe vigente de `diagnostic_reports` bajo RLS (nunca `reports`). Un error de
+ * lectura no se disfraza de estado vacío: lanza y la página muestra el error.
  */
-export async function getDiagnostico(): Promise<Diagnostico | null> {
+export async function getDiagnostico(): Promise<DiagnosticoVista> {
+  let ctx;
+  try { ctx = await requireTenantContext(); }
+  catch (error) {
+    if (error instanceof NoCompanyError) {
+      return { estado: 'sin_empresa', motivo: null, disponibleDesde: null, objetivo: null, opcionesObjetivo: [],
+        informe: null };
+    }
+    throw error;
+  }
+  try {
+    const supabase = await createSupabaseServerClient();
+    const [status, stored] = await Promise.all([readDiagnosticStatus(ctx, { supabase }),
+      readStoredReport(supabase, ctx.company_id)]);
+    const connection = status.connection;
+    const active = connection?.status === 'active';
+    const catalog = active && connection
+      ? actionTypeOptions(await readActionTypes(supabaseRpc(supabase), connection.id,
+        windowsFor(catalogWindowTo(status.eligibility?.window_to ?? null))))
+      : [];
+    let estado: EstadoDiagnostico;
+    if (!active) estado = 'sin_conexion';
+    else if (!status.settings) estado = 'sin_objetivo';
+    else if (!status.eligibility) estado = 'sin_conexion';
+    else estado = status.eligibility.eligible ? 'listo' : ESTADO_POR_MOTIVO[status.eligibility.reason ?? 'connection_not_active'];
+    return {
+      estado,
+      motivo: status.eligibility?.reason ?? null,
+      disponibleDesde: status.eligibility?.available_at ?? null,
+      objetivo: status.settings ? { ...status.settings, etiqueta: goalLabel(status.settings) } : null,
+      opcionesObjetivo: catalog.map((o) => ({ action_type: o.action_type, label: o.label, fit: o.fit })),
+      informe: stored ? composeDocument(stored) : null,
+    };
+  } catch {
+    throw new DiagnosticReadError();
+  }
+}
+
+/** Informe vigente para la descarga del PDF (misma lectura que la pantalla, bajo RLS). */
+export async function getDiagnosticReport(): Promise<StoredReport | null> {
+  let ctx;
+  try { ctx = await requireTenantContext(); }
+  catch (error) {
+    if (error instanceof NoCompanyError) return null;
+    throw error;
+  }
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.from('reports').select('id').eq('status', 'ready').limit(1);
-  if (error) throw new Error(`No se pudo leer el diagnóstico: ${error.message}`);
-  if (!data || data.length === 0) return null;
-  throw new Error('Hay un diagnóstico generado, pero esta versión todavía no sabe mostrarlo.');
+  return readStoredReport(supabase, ctx.company_id);
 }

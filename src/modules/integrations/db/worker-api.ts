@@ -12,7 +12,8 @@ export type WorkerApiFunction =
   | 'begin_disconnect' | 'purge_connection' | 'list_pending_purges'
   | 'count_credentials_by_key_version' | 'rewrap_credential' | 'start_sync_run' | 'publish_snapshot'
   | 'fail_sync_run' | 'record_connection_error' | 'publish_breakdown' | 'record_breakdown_failure'
-  | 'begin_chat_turn' | 'end_chat_turn' | 'record_query' | 'set_feedback';
+  | 'begin_chat_turn' | 'end_chat_turn' | 'record_query' | 'set_feedback'
+  | 'save_diagnostic_settings' | 'reserve_diagnostic' | 'release_diagnostic' | 'publish_diagnostic';
 
 export interface Queryable {
   query<Row extends pg.QueryResultRow = pg.QueryResultRow>(
@@ -89,6 +90,11 @@ const SQL_CASTS: Record<WorkerApiFunction, readonly string[]> = {
   end_chat_turn: ['uuid', 'uuid', 'uuid'],
   record_query: ['uuid', 'uuid', 'uuid', 'uuid', 'integer', 'text', 'text[]', 'text', 'text', 'integer', 'text', 'text'],
   set_feedback: ['uuid', 'uuid', 'uuid', 'text'],
+  save_diagnostic_settings: ['uuid', 'uuid', 'text', 'text'],
+  // p_expected_sync_finished_at viaja como el mismo texto ISO que devolvió la elegibilidad.
+  reserve_diagnostic: ['uuid', 'uuid', 'uuid', 'uuid', 'integer', 'timestamptz', 'integer'],
+  release_diagnostic: ['uuid', 'uuid', 'uuid'],
+  publish_diagnostic: ['uuid', 'uuid', 'uuid', 'uuid', 'integer', 'jsonb'],
 };
 
 const SQL: Record<WorkerApiFunction, string> = Object.fromEntries(

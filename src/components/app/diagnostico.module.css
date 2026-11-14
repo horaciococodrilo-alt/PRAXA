@@ -345,3 +345,250 @@
     padding-left: 22px;
   }
 }
+
+/* M26a: estado, objetivo, generación, avisos e informe compuesto. */
+.controls {
+  margin-top: 24px;
+  padding: 18px 24px 20px 20px;
+}
+
+.controls .p + .form,
+.controls .h + .form {
+  margin-top: 12px;
+}
+
+.status {
+  margin: 20px 0 0;
+  padding: 10px 14px;
+  border: 1px solid var(--dg-sep);
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: var(--dg-t);
+  background: var(--dg-item);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+  max-width: 640px;
+}
+
+/* Objetivo: tres tarjetas elegibles; el radio nativo queda accesible pero invisible. */
+.choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.choices legend {
+  grid-column: 1 / -1;
+  margin-bottom: 8px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dg-t);
+}
+
+.choice {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--dg-item-b);
+  border-radius: 12px;
+  background: var(--dg-item);
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.choice:hover {
+  border-color: var(--dg-tile-b);
+}
+
+.choiceOn {
+  border-color: var(--dg-hl);
+  background: var(--dg-tile);
+  box-shadow: inset 0 0 0 1px var(--dg-hl);
+}
+
+.choice:has(.choiceInput:focus-visible) {
+  outline: 2px solid var(--dg-hl);
+  outline-offset: 2px;
+}
+
+.choiceInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.choiceTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dg-t);
+}
+
+.choiceText {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--dg-t2);
+}
+
+@media (max-width: 560px) {
+  .choices {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.select {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--dg-t2);
+}
+
+.selectTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dg-t);
+}
+
+.select select {
+  width: 100%;
+  max-width: 420px;
+  padding: 9px 10px;
+  border: 1px solid var(--dg-item-b);
+  border-radius: 10px;
+  background: var(--dg-item);
+  color: var(--dg-t);
+  font-size: 13px;
+}
+
+.select select:focus-visible {
+  outline: 2px solid var(--dg-hl);
+  outline-offset: 1px;
+}
+
+.form .secondary {
+  align-self: flex-start;
+  margin-top: 0;
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.primary {
+  border: 1px solid var(--dg-hl);
+  background: var(--dg-hl);
+  color: var(--bg);
+}
+
+.primary:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.secondary {
+  margin-top: 12px;
+  border: 1px solid var(--dg-tile-b);
+  background: var(--dg-tile);
+  color: var(--dg-t);
+}
+
+.hint {
+  display: block;
+  width: 100%;
+  font-size: 11.5px;
+  color: var(--dg-t3);
+}
+
+.details {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--dg-t2);
+}
+
+.details summary {
+  cursor: pointer;
+}
+
+.details .form {
+  margin-top: 10px;
+}
+
+.meta {
+  margin: 4px 0 0;
+  font-size: 11.5px;
+  color: var(--dg-t3);
+}
+
+.label {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 10.5px;
+  font-style: italic;
+  color: var(--dg-t3);
+}
+
+.notice {
+  font-size: 11px;
+  color: var(--dg-t3);
+}
+
+.doc section + section {
+  margin-top: 26px;
+}
+
+.doc ul {
+  margin: 6px 0 0;
+  padding: 0 0 0 20px;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--dg-t2);
+}
+
+.tableWrap {
+  margin-top: 8px;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  color: var(--dg-t2);
+}
+
+.table th,
+.table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--dg-div);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table th {
+  font-weight: 600;
+  color: var(--dg-t);
+}
