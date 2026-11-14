@@ -2,6 +2,14 @@
 
 ## Estado
 
+**Enmienda de conectores Tiendanube y GA4, aprobada por el usuario el 2026-11-14** ([propuesta](revisiones/propuesta-conectores-tiendanube-ga4-2026-11-12.md), [sesión](sesiones/enmienda-conectores-2026-11-14.md)):
+
+- agrega `M16e` (Tiendanube) y `M16f` (GA4 y comparación entre fuentes) después de `G-DIAG`;
+- amplía §1 y §2 y agrega §17;
+- la demo `M28.3a` pasa a mostrar las tres fuentes.
+
+No aprueba las specs ni los planes de esas microfases ni el acta ampliada. Está coordinada con la Parte I, II.14b, II.14c y III de [el plan de la ruta](plan.md).
+
 **Enmienda M26a (diagnóstico de Meta Ads), aprobada por el usuario el 2026-11-11:** agrega la sección 16 con el contrato acotado del diagnóstico y sus excepciones. Mantiene vigentes las exclusiones de recomendaciones, rentabilidad y reportes para `M25a` y el chat. No aprueba la spec ni el plan de `M26a`. Coordinada con la Parte I, II.14 y III de [el plan de la ruta](plan.md).
 
 **Enmienda M25b, aprobada por el usuario el 2026-11-11:** se agrega un detector determinístico
@@ -43,15 +51,17 @@ Bloqueos de entrada, verificados contra `main` en `247cae8`. Los tres se resuelv
 
 Un usuario (el dueño), una empresa y una cuenta publicitaria conectada. El dueño conecta Meta, sincroniza manualmente y consulta sus datos mediante el chat.
 
+**Enmienda de conectores (2026-11-14).** La empresa suma una tienda de Tiendanube (`M16e`) y una propiedad de GA4 (`M16f`), ambas en modo lectura. La demo `M28.3a` las incluye. El criterio de salida de Meta no cambia; los criterios de las nuevas fuentes son los de §17 y las specs de esas microfases.
+
 **Criterio de salida (DEC-01).** El dueño real de la cuenta piloto, con rol de tester en la app de Meta, completa con su propio login el recorrido registro en PRAXA → conexión → sincronización → pregunta al chat, y queda evidencia redactada. Un acceso delegado a otra persona no cuenta.
 
 ## 2. Qué NO se construye
 
-- Escrituras sobre Meta. El permiso objetivo es `ads_read`; que la app tenga otros permisos agregados no implica solicitarlos.
+- Escrituras sobre Meta, Tiendanube o GA4. El permiso objetivo de Meta es `ads_read`; Tiendanube usa solo scopes de lectura y GA4, `analytics.readonly`; que la app tenga otros permisos agregados no implica solicitarlos.
 - Onboarding público. Los dueños sin rol en la app requieren App Review y Business Verification (`M16d`), fuera de esta ruta.
-- Más de una cuenta conectada por empresa. Más de un proveedor.
+- Más de una conexión por proveedor y empresa. Desde la enmienda de conectores se admiten tres proveedores: Meta, Tiendanube y GA4.
 - Workers, colas, reintentos en segundo plano, programación automática. El esquema `worker_api` es un nombre heredado del ROADMAP v2.3 y no implica construir un worker.
-- Tiendanube, GA4, reportes publicados (`reliability`, `catalog`).
+- Reportes publicados (`reliability`, `catalog`). Distribución pública de las apps de Tiendanube y Google. Análisis por persona con eventos crudos de GA4 (BigQuery Export, User-ID).
 - Benchmarks, recomendaciones de presupuesto, explicación causal del rendimiento y evaluación de rentabilidad. Solo se admiten las métricas y tasas del contrato de §11, los cálculos de CA-48 y las comparaciones determinísticas de M25b; el modelo no calcula cifras autoritativas.
 - Base vectorial o RAG.
 
@@ -657,6 +667,22 @@ Contrato nuevo y acotado, separado del chat. La spec de la microfase es [`M26a/s
 - **Reversibilidad.** Al publicar un informe nuevo se elimina el anterior en la misma transacción, y su texto exacto no se puede restaurar. Ninguna otra escritura pierde reversibilidad.
 - **Retención.** Un único informe derivado se conserva sin clave foránea que lo borre con la conexión: se oculta al desconectar y se elimina al reemplazarlo o al borrar la empresa. `purge_connection` y CA-67 siguen borrando los datos de la conexión.
 - **Tercero con datos.** Anthropic es el destino exclusivo del diagnóstico, con su retención estándar y una búsqueda web separada sin datos privados. DeepInfra sigue siendo el destino del chat. Hay que reaprobar el acta `M03a` y avisar al dueño antes de enviar datos reales.
+
+## 17. Conectores Tiendanube y GA4 (M16e, M16f)
+
+Enmienda del 2026-11-14. Los contratos detallados son los de las specs [`M16e/spec.md`](../M16e/spec.md) y [`M16f/spec.md`](../M16f/spec.md), una vez aprobadas. Hasta entonces rigen como marco:
+
+- las reglas de medición de §3 de [la propuesta](revisiones/propuesta-conectores-tiendanube-ga4-2026-11-12.md);
+- las condiciones de datos y privacidad de su §6.
+
+1. **Tres hechos distintos.** Las ventas cobradas y los compradores salen de Tiendanube. El comportamiento medido sale de GA4. La inversión y los resultados atribuidos salen de Meta. Una cifra conserva fuente, período, zona, moneda, definición, cobertura y fecha de extracción. Un resultado de Meta o una compra de GA4 no se rotula como venta cobrada.
+2. **Lectura únicamente.** No se escribe en Tiendanube ni en GA4. Los webhooks de privacidad de Tiendanube se reciben, no se registran desde el runtime.
+3. **Datos mínimos.** De Tiendanube se guarda solo un ID opaco de cliente por empresa. Nombre, email, teléfono, documento, direcciones, notas y payload bruto se descartan. Los datos de clientes no van al modelo.
+4. **El LLM no calcula.** Las cifras, estados y cohortes los calcula SQL o el servidor. El modelo solo elige herramientas de un catálogo cerrado, si la spec de la microfase amplía el chat.
+5. **Uniones solo con clave verificada.** Tiendanube–GA4 por `transaction_id` o `item_id`, y GA4–Meta por `utm_id`, después de comprobar la instrumentación. Sin clave, la comparación es descriptiva y se rotula como asociación débil, sin causalidad.
+6. **Excepciones de borrado.** La supresión por solicitud de privacidad y la purga al desconectar borran datos. Deben autorizarse expresamente en la spec de `M16e` o `M16f`, como CA-67.
+7. **Primer dato real.** Exige un acta ampliada, aprobada y comunicada al dueño (`H-E1-237`).
+8. **Preguntas abiertas de las specs.** Las decisiones 2 a 6 de §7 de la propuesta siguen abiertas: datos de compradores, definiciones de negocio, instrumentación de GA4, análisis entre fuentes, y chat y diagnóstico. Cada una se cierra antes de aprobar la spec que la necesite.
 
 ## Fuentes
 

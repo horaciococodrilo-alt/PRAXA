@@ -36,6 +36,18 @@ Antes de `M04a`, `AGENTS.md` ponía a `docs/ROADMAP.md` por encima de la spec y 
 
 **Enmienda M26a (diagnóstico de Meta Ads), aprobada por el usuario el 2026-11-11** ([propuesta](revisiones/propuesta-enmienda-m26a-diagnostico.md)): se inserta `M26a`, microfase única en tres etapas, con excepción al límite de 8 horas y un solo gate (`G-DIAG`), entre `M25a` y `M28.3a`; `M28.3a` pasa a depender de `G-CHAT` y `G-DIAG`. Cambian la tabla I.1, el mapa y los gates de la Parte I, la ficha de `M26a`, la nueva II.14 (la demo pasa a II.15), III.2, III.3 y III.8, y la spec de la ruta (§16). Esta enmienda **no aprueba la spec ni el plan de `M26a`**: siguen en borrador hasta su auditoría y aprobación, y no autoriza implementación, ni el envío de datos reales a Anthropic, ni la excepción de retención y de reversibilidad hasta la aprobación expresa del acta nueva.
 
+**Enmienda de conectores Tiendanube y GA4, aprobada por el usuario el 2026-11-14** ([propuesta](revisiones/propuesta-conectores-tiendanube-ga4-2026-11-12.md), [sesión](sesiones/enmienda-conectores-2026-11-14.md)). Después de `G-DIAG` se ejecutan dos microfases:
+
+- `M16e`: Tiendanube y cohortes de compradores, con gate `G-TIENDA`.
+- `M16f`: GA4 y comparación entre fuentes, con gate `G-GA4-FUSION`.
+
+Cada una es una microfase única por etapas, con excepción expresa al límite de 8 horas. `M28.3a` pasa a depender también de `G-ANOMALIES`, `G-TIENDA` y `G-GA4-FUSION`. Eso corrige además la omisión de `G-ANOMALIES` en su ficha. Cambian:
+
+- en el plan: I.1, el mapa, los gates, las fichas de `M26a`, `M16e`, `M16f` y `M28.3a`, las nuevas II.14b y II.14c, y III.2, III.3 y III.8;
+- en la spec de la ruta: §1, §2 y la nueva §17.
+
+La enmienda **no aprueba las specs ni los planes de `M16e` y `M16f`**, ni el acta de datos ampliada. Las decisiones 2 a 6 de §7 de la propuesta quedan como preguntas abiertas de esas specs. `SECURITY.md`, `ARCHITECTURE.md` y el acta `M03a` se actualizan dentro de cada microfase, que los lista como archivos previstos. **El texto enmendado es vigente.**
+
 ---
 
 # Parte I — Enmienda 1 al ROADMAP v2.3
@@ -66,6 +78,8 @@ Antes de `M04a`, `AGENTS.md` ponía a `docs/ROADMAP.md` por encima de la spec y 
 | `M25.1` a `M25.5` — Chat | `M25a` | Chat sobre el catálogo de §11 con entidades, atribución, cifras verificadas, cálculos y bloques visuales |
 | — | `M25b` — Detector de anomalías | Nueva; paralela a M25a después de `G-SYNC` |
 | — | `M26a` — Diagnóstico de Meta Ads | Nueva (enmienda del 2026-11-11) |
+| `M16` (Tiendanube) | `M16e` — Conector Tiendanube y cohortes de compradores | Nueva (enmienda del 2026-11-14) |
+| `M16` (GA4) | `M16f` — Conector GA4 y comparación entre fuentes | Nueva (enmienda del 2026-11-14) |
 | `M28.2` — Despliegue | `M28.2a` — Entorno del piloto | Adelanta un despliegue mínimo |
 | `M28.3` — Guion de demostración | `M28.3a` — Demo con el dueño y cierre | Nueva |
 
@@ -73,11 +87,11 @@ Antes de `M04a`, `AGENTS.md` ponía a `docs/ROADMAP.md` por encima de la spec y 
 
 **Lo que la ruta no construye:**
 
-- escrituras sobre Meta;
+- escrituras sobre Meta, Tiendanube o GA4;
 - onboarding público;
-- más de una cuenta por empresa;
+- más de una cuenta de Meta, una tienda de Tiendanube o una propiedad de GA4 por empresa;
 - workers, colas o programación automática;
-- Tiendanube y GA4;
+- distribución pública de las apps de Tiendanube y Google (homologación, verificación de marca) y análisis por persona con eventos crudos de GA4 (BigQuery Export, User-ID);
 - reportes publicados;
 - recomendaciones y explicaciones causales; las comparaciones determinísticas versionadas de M25b son la única ampliación de métricas derivadas;
 - base vectorial.
@@ -99,7 +113,9 @@ flowchart LR
   K --> L["M25a Chat completo: herramientas, modelo, VR-02 y bloques"]
   K --> M["M25b Anomalías determinísticas"]
   L --> P["M26a Diagnóstico de Meta Ads"]
-  P --> N["M28.3a Demo y cierre"]
+  P --> Q["M16e Tiendanube"]
+  Q --> R["M16f GA4 y comparación"]
+  R --> N["M28.3a Demo y cierre"]
   M --> N
   O["M16d App Review — fuera de la ruta"] -.-> N
 ```
@@ -123,8 +139,10 @@ flowchart LR
 | `G-VR01` | `M16.2` | `M16c` |
 | `G-SYNC` | `M16c` | `M25a` y `M25b` en paralelo |
 | `G-CHAT` | `M25a` | `M26a` |
-| `G-ANOMALIES` | `M25b` | `M28.3a`, junto con `G-CHAT` y `G-DIAG` |
-| `G-DIAG` | `M26a` | `M28.3a`, junto con `G-CHAT` y `G-ANOMALIES` |
+| `G-ANOMALIES` | `M25b` | `M28.3a`, junto con `G-CHAT`, `G-DIAG`, `G-TIENDA` y `G-GA4-FUSION` |
+| `G-DIAG` | `M26a` | `M16e` |
+| `G-TIENDA` | `M16e` | `M16f` |
+| `G-GA4-FUSION` | `M16f` | `M28.3a`, junto con `G-CHAT` y `G-ANOMALIES` |
 | `G-DEMO` | `M28.3a`, al completar la demostración | Cierre de la ruta. El piloto sigue hasta su fin, y entonces se ejecuta CA-67 (DEC-20) |
 
 ## I.4 Microfases
@@ -395,9 +413,39 @@ Las tres etapas se ejecutan en orden, en una sola corrida de `/microfase M16c` e
 | **Evidencia de cierre** | `sesiones/M26a.md`: comandos, resultados, fixtures y evaluación sintética; capturas redactadas de estados y PDF; revisión visible del usuario de PDF sintéticos; recorrido real sin actividad registrado sin simular valor comercial. |
 | **Criterio de aceptación** | Informe de 28 días con cobertura y procedencia; ninguna cifra autoritativa sale del modelo; hechos y recomendaciones ligados a evidencia; cero actividad y datos parciales honestos; aislamiento por empresa; reemplazo atómico; PDF fiel; retención y visibilidad decididas; prueba adversaria de web y proveedor. |
 | **Pruebas** | `npm run verify`, `npm run db:check:test`, `npm run test:policies`, `npm run test:app`, `npm run test:eval` para el diagnóstico, inspección manual de PDF y recorrido de UI. Ninguna prueba positiva obligatoria se omite por falta de configuración. |
-| **Condición para avanzar** | `G-DIAG` aprobado por el usuario tras spec/plan auditados, implementación verificada y revisión de PDF. Habilita `M28.3a` junto con `G-CHAT`. La falta de actividad real limita la validación de valor, no se oculta. |
-| **Dependencias / habilita** | `G-SYNC` y `G-CHAT` / `M28.3a`. |
+| **Condición para avanzar** | `G-DIAG` aprobado por el usuario tras spec/plan auditados, implementación verificada y revisión de PDF. Habilita `M16e` (enmienda de conectores del 2026-11-14). La falta de actividad real limita la validación de valor, no se oculta. |
+| **Dependencias / habilita** | `G-SYNC` y `G-CHAT` / `M16e`. |
 | **Intervención requerida del usuario** | Aprobar enmienda de ruta, spec y plan; crear y configurar la cuenta/clave de Anthropic sin compartirla por chat; aprobar acta actualizada y comunicar transferencia al dueño; aplicar migración en desechable y `app`; publicar cuando corresponda; revisar PDFs sintéticos y aprobar `G-DIAG`. |
+
+### M16e — Conector Tiendanube y cohortes de compradores
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M16e`. Microfase única por etapas, con excepción expresa al límite de 8 horas y un solo gate, `G-TIENDA`. |
+| **Objetivo** | Autorizar una tienda por empresa. Extraer de forma repetible pedidos, líneas, clientes mínimos y catálogo. Ofrecer cohortes de compradores y productos vendidos verificables. |
+| **Implementación requerida** | (1) Generalizar `integration_provider`, K02, K03 y K04, y llevar el índice de conexión viva a `(company_id, provider)`, con migraciones nuevas, metadatos por proveedor y funciones `worker_api` que comprueben actor, empresa y conexión (`H-E1-236`). (2) OAuth de instalación y reautorización; selección y verificación de la tienda; cifrado; desconexión y purga idempotentes. (3) Cliente de la API `2025-03`, solo lectura, con `read_orders`, `read_products` y `read_customers`; presupuestos de páginas y tiempo; manejo de 429; errores tipados y reanudación. (4) Tablas privadas de pedidos, líneas, ID mínimo de cliente, catálogo, ejecuciones y cobertura, con proyecciones de solo lectura bajo RLS. (5) Backfill por ventanas de fechas e incremental por `updated_at` con solapamiento; reconciliación de pagos, cancelaciones y reembolsos; borrados de catálogo y checkpoints atómicos. (6) Endpoints de privacidad firmados (`app/store_redact`, `customer/redact`, `customers/data_request`) con borrado o exportación aun después de desconectar, sin persistir el payload bruto. (7) UI de conexión, sincronización, salud, cobertura, cohortes de compradores y productos vendidos. Herramientas cerradas en el chat solo si la spec de la microfase lo aprueba. |
+| **Procedimiento del asistente** | Spec, plan y acta aprobados antes del código; pruebas de contrato y SQL con dos empresas. Migraciones nuevas consecutivas, sin editar las existentes. Etapas: esquema y privilegios; OAuth y ciclo de vida; extracción, reconciliación y privacidad; UI y recorrido real. Cada etapa corre `verify`, pgTAP y `test:app` en el desechable. Publicar solo con autorización. |
+| **Evidencia de cierre** | La evidencia se registra sin montos ni IDs reales. Incluye: tabla de campos extraídos y descartados; respuestas sintéticas; matriz de privilegios; conteos de páginas y ventanas y conciliación; resultados de pruebas; caso real redactado con pedidos pagados y cambios de estado; caso de privacidad ejecutado. |
+| **Criterio de aceptación** | La tienda autorizada se sincroniza por backfill e incremental sin duplicados. Los pedidos pendientes no cuentan como ventas. Las ediciones y los reembolsos corrigen los agregados. Cohortes y ranking se reconstruyen con origen y cobertura. Otra empresa no accede. La desconexión y la solicitud de borrado eliminan lo que corresponde. Errores y token no se filtran. Sin recorrido real con filas, el gate no acredita los campos de producción. |
+| **Pruebas** | Las de §4 de la propuesta, más `npm run verify`, `db:check:test`, `test:policies` y `test:app`. Las definen la spec y el plan de la microfase. |
+| **Condición para avanzar** | `G-TIENDA`, solo con acta ampliada aprobada y comunicada, controles automáticos sin omisiones y validación real con una tienda con datos suficientes. Sin datos o sin permisos, el gate queda bloqueado con diagnóstico, sin simular la aprobación. |
+| **Dependencias / habilita** | `G-DIAG` / `M16f`. |
+| **Intervención requerida del usuario** | Aprobar spec, plan y acta ampliada, y comunicarla al dueño. Crear la app en el Portal de Socios, con scopes y URLs de instalación y privacidad. Cargar credenciales solo en entornos seguros. Obtener la autorización del dueño y acordar el tratamiento de los datos de compradores. Aplicar las migraciones, coordinar la prueba real y publicar. Nunca pegar secretos, identificadores ni montos en el chat. |
+
+### M16f — Conector GA4 y comparación entre fuentes
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M16f`. Microfase única por etapas, con excepción expresa al límite de 8 horas y un solo gate, `G-GA4-FUSION`. |
+| **Objetivo** | Autorizar la propiedad GA4 de la tienda. Extraer informes agregados fiables. Mostrar cohortes de visitantes, productos observados, embudo y comparaciones trazables con Tiendanube y Meta. |
+| **Implementación requerida** | (1) OAuth web de Google con `analytics.readonly`, `state` vinculado, acceso offline y refresh token cifrado; selección, con la Admin API, de la propiedad del sitio del dueño. (2) Data API (`getMetadata`, `checkCompatibility`, `runReport`, `cohortSpec`) con un catálogo cerrado de consultas. (3) Checkpoints, cuotas, frescura y metadatos de muestreo, umbrales y `(other)`; sincronización reanudable. (4) Agregados con fuente, zona, moneda, propiedad, consulta y versión, ventana, cobertura y banderas de calidad; RLS y purga. (5) Preflight de instrumentación ecommerce y UTMs. Cada análisis se habilita solo si pasa su preflight. (6) Mapeo documentado de ítem, pedido y campaña; conciliación; UI y consultas cerradas con las diferencias explícitas. (7) Desconexión, revocación local y reautorización al perder acceso. |
+| **Procedimiento del asistente** | Spec, plan y acta aprobados, con la definición de cada métrica acordada. Etapas: OAuth y propiedad; catálogo y persistencia; comparación y UI; pruebas reales. Verificar la API vigente antes del código y probar en el desechable antes de migrar `app`. |
+| **Evidencia de cierre** | Matriz dimensión × métrica comprobada con `checkCompatibility`. Respuesta sintética y real redactada. Metadatos de calidad, cuotas y reconciliación por consulta. Cobertura y ausencias. Recorrido real con tres fuentes, o degradación explícita donde no se puedan unir. |
+| **Criterio de aceptación** | La propiedad correcta queda conectada, con refresh y pérdida de acceso probados. Los informes son reproducibles y no mezclan zonas, monedas ni identidades. Las cohortes de visitantes no se confunden con las de compradores. La comparación con Tiendanube y Meta se hace solo por claves verificadas. Ninguna cifra autoritativa sale del modelo. La desconexión purga los agregados y la credencial. Sin eventos ecommerce reales, el gate no acredita las funciones ecommerce. |
+| **Pruebas** | Las de §5 de la propuesta, más `npm run verify`, `db:check:test`, `test:policies` y `test:app`. Las definen la spec y el plan de la microfase. |
+| **Condición para avanzar** | `G-GA4-FUSION`, tras acta y controles, con una propiedad real y una lectura real, preflight de eventos y al menos una comparación validada. Lo que no tenga instrumentación se rotula como no disponible. Si es requisito del gate, el gate sigue abierto. |
+| **Dependencias / habilita** | `G-TIENDA` / `M28.3a`, junto con `G-CHAT` y `G-ANOMALIES`. |
+| **Intervención requerida del usuario** | Crear y configurar el proyecto de Google Cloud y la pantalla de consentimiento. Habilitar las APIs Data y Admin. Registrar la URI y el dominio, y agregar testers. Cargar las credenciales fuera del chat. Garantizar acceso de lectura a la propiedad. Revisar con el dueño la medición y el consentimiento. Aprobar acta, spec y plan. Aplicar migraciones y publicar. |
 
 ### M28.3a — Demo con el dueño y cierre del piloto
 
@@ -405,13 +453,13 @@ Las tres etapas se ejecutan en orden, en una sola corrida de `/microfase M16c` e
 |---|---|
 | **ID** | `M28.3a` — ≤8 h |
 | **Objetivo** | Cumplir el criterio de salida (DEC-01). La microfase se cierra al completar la demostración (DEC-20). Al finalizar el piloto, se borra todo con CA-67. |
-| **Implementación requerida** | Guion de la demo. Recorrido completo del dueño con el usuario creado en `M16.2`. Evidencia redactada. Paso a Supabase Pro cuando el dueño use el piloto sin acompañamiento (DEC-08). Procedimiento de cierre del piloto con CA-67, que se ejecuta al finalizar el piloto. |
+| **Implementación requerida** | Guion de la demo. Recorrido completo del dueño con el usuario creado en `M16.2`, incluidas las conexiones de Tiendanube y GA4 (enmienda de conectores del 2026-11-14). El cierre con CA-67 desconecta y purga también Tiendanube y GA4, según lo que fijen las specs de `M16e` y `M16f`. Evidencia redactada. Paso a Supabase Pro cuando el dueño use el piloto sin acompañamiento (DEC-08). Procedimiento de cierre del piloto con CA-67, que se ejecuta al finalizar el piloto. |
 | **Procedimiento del asistente** | Preparar el guion y la lista de verificación. Durante la demo, no tocar datos reales fuera de la aplicación. |
 | **Evidencia de cierre** | Lista de verificación de la demo, redactada. Al finalizar el piloto, lista de verificación de CA-67, incluida la solicitud a Resend y su respuesta o estado pendiente, sin datos de los mensajes. |
 | **Criterio de aceptación** | El dueño completó el recorrido con su propio login. Al finalizar el piloto, y después de los pasos locales de CA-67, no quedan filas de la empresa ni objetos en su carpeta de `avatars`, y el usuario está eliminado. La gestión ante Resend está documentada sin presentar una solicitud pendiente como borrado confirmado. |
 | **Pruebas** | La lista de verificación; `tests/app/closure-storage.test.ts` en el proyecto desechable para el borrado de fotos por Storage API. |
 | **Condición para avanzar** | `G-DEMO` al completar la demostración. |
-| **Dependencias / habilita** | `G-CHAT` y `G-DIAG` / — |
+| **Dependencias / habilita** | `G-CHAT`, `G-ANOMALIES`, `G-DIAG`, `G-TIENDA` y `G-GA4-FUSION` / — (enmienda de conectores del 2026-11-14) |
 | **Intervención requerida del usuario** | Coordinar con el dueño, ejecutar los pasos de CA-67 que requieren dashboard, quitar al dueño como tester y solicitar a Resend el borrado anticipado de los mensajes afectados si aún los conserva. |
 
 ### M16d — App Review y Business Verification (fuera de la ruta)
@@ -850,6 +898,38 @@ Rigen las reglas de corrida única de `M25a`: no se pasa de etapa con pruebas en
 
 ---
 
+## II.14b `M16e` — Conector Tiendanube
+
+Enmienda de conectores del 2026-11-14. Spec: [`M16e/spec.md`](../M16e/spec.md), borrador anterior a la enmienda: hay que revisarla, auditarla y aprobarla. El plan de la microfase se redacta después.
+
+**Etapas:** esquema y privilegios; OAuth y ciclo de vida; extracción, reconciliación y privacidad; UI y recorrido real. Rigen las reglas de corrida única de `M25a`.
+
+**Archivos previstos.** La lista exacta la fija el plan aprobado, antes de ejecutar:
+
+- documentos: `meta_first/{plan,spec}.md`, `M16e/{spec,plan}.md`, acta `M03a` y sesión, `docs/SECURITY.md`, `docs/ARCHITECTURE.md`, `docs/PROJECT_STATE.md`, `docs/HALLAZGOS.md` y `.env.example`;
+- código: `src/modules/integrations/{contract,tiendanube,repository,db,crypto}/`, `src/app/api/integraciones/tiendanube/`, acciones y pantalla en `src/app/(app)/app/integraciones/`, y el módulo de análisis si se aprueba;
+- base y pruebas: migraciones nuevas en `supabase/migrations/` (número según el estado real al implementar), pgTAP nuevo en `supabase/tests/` y suites en `tests/{unit,app,component}/`;
+- `package.json`, solo si una dependencia es necesaria.
+
+---
+
+## II.14c `M16f` — Conector GA4 y comparación entre fuentes
+
+Enmienda de conectores del 2026-11-14. Spec: [`M16f/spec.md`](../M16f/spec.md), borrador. Se revisa después de `G-TIENDA`, o antes si el usuario lo pide; no se implementa antes de `G-TIENDA`.
+
+**Etapas:** OAuth y propiedad; catálogo y persistencia; comparación y UI; pruebas reales.
+
+**Archivos previstos.** La lista exacta la fija el plan aprobado:
+
+- documentos: los de II.14b, con `M16f/{spec,plan}.md`;
+- código: `src/modules/integrations/{contract,ga4,repository,db,crypto}/`, `src/app/api/integraciones/ga4/`, la UI de integraciones y análisis, y el módulo de chat si se amplía;
+- base y pruebas: migraciones nuevas, pgTAP y suites;
+- `package.json`, si corresponde.
+
+No se reutiliza el esquema de Meta mediante `default 'meta'`.
+
+---
+
 ## II.15 `M28.3a` — Demo con el dueño y cierre
 
 > Antes `II.14`; las referencias a `II.14` en documentos anteriores a la enmienda de `M26a` se refieren a esta demo.
@@ -857,7 +937,7 @@ Rigen las reglas de corrida única de `M25a`: no se pasa de etapa con pruebas en
 | Paso | Quién | Acción | Verificación |
 |---:|---|---|---|
 | 1 | Asistente | Guion de la demo y lista de verificación, sin datos reales | `docs/FASES/FASE1/meta_first/demo.md` |
-| 2 | Usuario | Confirmar `G-CHAT` y `G-DIAG`, que el dueño sigue siendo tester y que tiene control total de su portfolio | Checklist |
+| 2 | Usuario | Confirmar `G-CHAT`, `G-ANOMALIES`, `G-DIAG`, `G-TIENDA` y `G-GA4-FUSION`, que el dueño sigue siendo tester y que tiene control total de su portfolio | Checklist |
 | 3 | Dueño | Iniciar sesión con el usuario creado en `M16.2` (no hay alta nueva) | Login sobre el dominio |
 | 4 | Dueño | Verificar la conexión o reconectarla si quedó en `needs_reauth` | Conexión `active` |
 | 5 | Dueño | Sincronizar y consultar el chat | Respuestas con período, zona, cobertura y frescura |
@@ -935,6 +1015,8 @@ El detalle y los criterios de aceptación están en la spec v1.0.
 | `M25a.3` | Aprobar de nuevo el acta y comunicar el cambio al dueño; `db:push` de `0018` y `0019` en orden en `app`, publicar y aprobar `G-CHAT` |
 | `M25b` | Aprobar documentos; hacer commit/push/PR, coordinar la integración con diagnóstico, desplegar y aprobar `G-ANOMALIES` |
 | `M26a` | Aprobar la spec y el plan; crear la cuenta de Anthropic y cargar la clave sin compartirla por chat; aprobar de nuevo el acta y comunicar al dueño la transferencia a Anthropic antes de enviar datos reales; aplicar la migración en el desechable y en `app`; revisar los PDF sintéticos y aprobar `G-DIAG` |
+| `M16e` | Aprobar spec, plan y acta ampliada, y comunicarla al dueño; crear la app en el Portal de Socios de Tiendanube, con scopes y URLs de instalación y privacidad; cargar credenciales fuera del chat; obtener la autorización del dueño; aplicar migraciones, publicar y aprobar `G-TIENDA` |
+| `M16f` | Configurar Google Cloud, la pantalla de consentimiento y las APIs Data y Admin; registrar URI y testers; cargar credenciales fuera del chat; garantizar acceso a la propiedad; revisar medición y consentimiento con el dueño; aprobar documentos, migrar, publicar y aprobar `G-GA4-FUSION` |
 | `M28.3a` | Coordinar la demostración. Pasar a Supabase Pro si el dueño lo va a usar sin acompañamiento |
 | Fin del piloto | Ejecutar los pasos de CA-67 que requieren dashboard y quitar al dueño como tester |
 | Para escalar (fuera de la ruta) | `M16d`: Business Verification, dominio y App Review |
@@ -963,6 +1045,8 @@ Ninguna clave se pega en el chat.
 | `M25a.3` | `test:policies`, `test:app`; evaluación ampliada; recorrido manual |
 | `M25b` | `db:check:test`, `test:app` focalizado; unit/component focalizadas y recorrido real/demo |
 | `M26a` | `test:policies`, `test:app`, `test:eval` del diagnóstico, inspección manual de PDF y recorrido de la pantalla |
+| `M16e` | `db:check:test`, `test:policies`, `test:app` en cada control de etapa; caso real con pedidos y caso de privacidad |
+| `M16f` | `db:check:test`, `test:policies`, `test:app`; `checkCompatibility` y preflight de instrumentación; lectura y comparación reales |
 | `M28.3a` | Checklists de la demo y del cierre |
 
 Toda evidencia registra los comandos y sus resultados reales. Nada se declara probado si no se ejecutó (CB-05). Un gate no se aprueba si una prueba requerida se omitió por falta de configuración (CB-06).
@@ -1055,6 +1139,8 @@ IDs sugeridos. Si chocan con los existentes, se sigue la numeración vigente.
 | `M25a` | El chat completo, con cálculos y bloques, al publicar con `G-CHAT` |
 | `M25b` | Alertas de Meta con comparación, severidad y evidencia; demo sintético rotulado si faltan datos reales |
 | `M26a` | El dueño genera, lee y descarga un diagnóstico de 28 días de su cuenta de Meta, al aprobar `G-DIAG` |
+| `M16e` | La tienda conectada, con ventas pagadas, cohortes de compradores y productos vendidos, con cobertura |
+| `M16f` | Visitas, embudo y cohortes de visitantes de GA4, comparados con la tienda y con Meta solo donde hay clave verificada |
 | `M28.3a` | La demostración con el dueño. El piloto sigue hasta su fin |
 
 Si hay que elegir qué llega primero a una demostración, son `M16.1` y `M16.2`: prueban el conector.

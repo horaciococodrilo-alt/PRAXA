@@ -24,10 +24,24 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 | M16.2 — Selección de cuenta, ciclo de vida, alta del dueño y VR-01 | `G-VR01` | 2026-11-05 (pasos con el dueño acreditados por declaración del usuario; la confirmación final sin logs; cuenta sin actividad, con la validación de campos y Q-04 diferidas a `M16c`; detalle en la sesión) | [sesiones/M16.2.md](FASES/FASE1/meta_first/sesiones/M16.2.md) |
 | M16c — Sincronización manual ampliada de Meta Ads | `G-SYNC` | 2026-11-08 (aprobación explícita del usuario; cuatro niveles completos sobre la versión corregida; cuenta sin actividad, D-M16c-02) | [sesiones/M16c.md](FASES/FASE1/meta_first/sesiones/M16c.md) |
 | M25a — Chat completo: herramientas, modelo, cálculos y bloques | `G-CHAT` | 2026-11-11 (instrucción expresa del usuario, «aprobá y terminá M25a», sin la frase textual del plan; con las excepciones H-E1-222, H-E1-227, H-E1-228 y H-E1-230 y las limitaciones del paso 23, H-E1-229; paso 27 no ejecutado por decisión del usuario; VR-02 base y ampliada no aprobadas; PR #37 integrado el 2026-11-11; detalle en la sesión) | [sesiones/M25a.md](FASES/FASE1/meta_first/sesiones/M25a.md) |
+| M26a — Diagnóstico de Meta Ads | `G-DIAG` | 2026-11-14 (instrucción expresa del usuario; con las excepciones H-E1-242 (sin `test:eval` pago), H-E1-216, H-E1-250 y H-E1-252; revisión abreviada del asistente en lugar de `/implementation-review` y `/qa-review`; publicación, `0022` en `app`, recorrido y comunicación al dueño acreditados por declaración del usuario, sin evidencia verificada; detalle en la sesión) | [sesiones/M26a.md](FASES/FASE1/meta_first/sesiones/M26a.md) |
 
 ## Siguiente habilitada
 
-**M26a — Diagnóstico de Meta Ads: VERIFICADO — PENDIENTE DE APROBACIÓN (2026-11-14).** Commits `.1` `79d877a`, `.2` `209ee7f` y `.3` `6c54f6e` en `mf/M26a`, más las correcciones `b1dc1fc` y `d36ee62`. Rama creada el 2026-11-13 desde `origin/main@88fc5b7`. Acta M03a, ampliación M26a: aprobada el 2026-11-14; falta declarar la comunicación al dueño antes del primer dato real. Sin pruebas pagas con Anthropic (`H-E1-242`): `G-DIAG` solo se puede aprobar con esa excepción. `H-E1-216` se acepta como excepción de entorno. Correcciones commiteadas (`d36ee62`); por decisión del usuario, `/implementation-review` y `/qa-review` se reemplazaron por la revisión abreviada del asistente ([implementation-review-2](FASES/FASE1/M26a/revisiones/implementation-review-2.md), APROBABLE CON EXCEPCIONES). Pendientes: push, vista previa, `db:push` de `0022` en `app` y la clave en Vercel, recorrido y decisión de `G-DIAG`. `G-DIAG` pendiente.** Progreso en [sesiones/M26a.md](FASES/FASE1/meta_first/sesiones/M26a.md). La ruta se enmendó el 2026-11-11 y su §16.2 se alineó con `traffic` el 2026-11-13 por decisión expresa del usuario. La spec se aprobó después de `spec-audit-6` (REQUIERE CAMBIOS) y sin una auditoría posterior a las correcciones (excepción decidida por el usuario; ver «Auditorías» de la spec). El plan cita el hash vigente de la spec. El usuario lo aprobó expresamente después de `plan-audit-4` (REQUIERE CAMBIOS) y de la corrección de sus hallazgos P-01 y P-02, sin una auditoría posterior: es una excepción al paso 7 del pipeline, en el mismo sentido que la de la spec. `M28.3a` espera a `G-CHAT` (aprobado) y a `G-DIAG`. **Pendientes abiertos de M25a, sin bloquear el avance:** VR-02 no aprobada y H-E1-221 y H-E1-224 por revisar antes de la demo; H-E1-229 y H-E1-230; la migración `0021` (H-E1-233) está aplicada en el desechable (acreditado en el paso 2 de M26a) y no tiene acreditada su aplicación en `app`. Evidencia en [sesiones/M25a.md](FASES/FASE1/meta_first/sesiones/M25a.md).
+**M16e — Conector Tiendanube y cohortes de compradores: habilitada por `G-DIAG` y por la [enmienda de conectores](FASES/FASE1/meta_first/sesiones/enmienda-conectores-2026-11-14.md), aprobada por el usuario el 2026-11-14. No iniciada.** La [spec](FASES/FASE1/M16e/spec.md) es un borrador anterior a la enmienda. Antes de escribir código hacen falta:
+
+- revisar la spec, auditarla y aprobarla;
+- redactar el plan, auditarlo y aprobarlo;
+- ampliar el acta de datos, aprobarla y comunicarla al dueño, antes de la primera captura real.
+
+`G-TIENDA` habilita `M16f`. `M28.3a` espera `G-CHAT`, `G-ANOMALIES`, `G-DIAG`, `G-TIENDA` y `G-GA4-FUSION`.
+
+**Pendientes abiertos de M25a y M26a, sin bloquear el avance:**
+
+- **M25a:** VR-02 no aprobada; H-E1-221 y H-E1-224 por revisar antes de la demo; H-E1-229 y H-E1-230. La migración `0021` (H-E1-233) estaba acreditada solo en el desechable; su aplicación en `app` la declaró el usuario al cerrar M26a.
+- **M26a:** sin evaluación paga del diagnóstico (H-E1-242); pasos 24 y 25 sin evidencia verificada por el asistente.
+
+Evidencia en [sesiones/M25a.md](FASES/FASE1/meta_first/sesiones/M25a.md) y [sesiones/M26a.md](FASES/FASE1/meta_first/sesiones/M26a.md).
 
 ## Trabajo paralelo autorizado
 
@@ -47,7 +61,7 @@ bloquea la implementación de la otra. Evidencia en
   Pausada por decisión del usuario (2026-10-20): Business Verification exige una entidad
   legal y PRAXA es por ahora un proyecto; no bloquea el piloto. También espera a
   `H-E1-176`.
-- M03 completa, el resto de M05.1, M05.2 y las fuentes Tiendanube y GA4: pospuestas.
+- M03 completa, el resto de M05.1 y M05.2: pospuestas. Tiendanube y GA4 entraron en la ruta como `M16e` y `M16f` con la enmienda del 2026-11-14.
 - **MF_FRONTEND — Frontend público (landing y pantallas de acceso):** cerrada el 2026-10-09 por
   decisión del usuario, sin gate de la ruta, e integrada en `mf/M28.2a`. Desde esa integración
   el proxy se ejecuta (`src/proxy.ts`). Evidencia en

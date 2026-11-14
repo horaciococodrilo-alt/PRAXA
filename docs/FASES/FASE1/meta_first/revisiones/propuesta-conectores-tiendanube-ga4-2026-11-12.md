@@ -1,6 +1,6 @@
 # Propuesta de enmienda: conectores Tiendanube y GA4
 
-**Estado:** investigación y propuesta; **NO APROBADA, NO HABILITA IMPLEMENTACIÓN**. Fecha de consulta: 2026-11-12. No cambia la ruta, la spec, el acta de datos ni los gates vigentes. Los identificadores `M16e` y `M16f` son propuestos; `M16d` ya está reservado para App Review de Meta.
+**Estado:** **APROBADA por el usuario el 2026-11-14** e integrada en la ruta ([sesión](../sesiones/enmienda-conectores-2026-11-14.md)). No aprueba las specs, los planes ni el acta de `M16e` y `M16f`. Texto original de la propuesta: investigación y propuesta, no aprobada, no habilitaba la implementación. Fecha de consulta: 2026-11-12. No cambia la ruta, la spec, el acta de datos ni los gates vigentes. Los identificadores `M16e` y `M16f` son propuestos; `M16d` ya está reservado para App Review de Meta.
 
 ## 1. Punto de partida y decisión de ruta
 
