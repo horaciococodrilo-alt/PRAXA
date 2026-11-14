@@ -51,31 +51,68 @@ function BotonGenerar({ reemplaza }: { reemplaza: boolean }) {
   );
 }
 
+type TipoObjetivo = 'purchase' | 'inquiry' | 'traffic';
+
+const OBJETIVOS: readonly { valor: TipoObjetivo; titulo: string; detalle: string }[] = [
+  { valor: 'purchase', titulo: 'Ventas', detalle: 'Que más gente compre en tu tienda.' },
+  { valor: 'inquiry', titulo: 'Consultas', detalle: 'Que más gente te escriba o deje sus datos.' },
+  { valor: 'traffic', titulo: 'Tráfico', detalle: 'Que más gente entre a tu sitio desde los anuncios.' },
+];
+
+const PREGUNTA_ACCION: Readonly<Record<'purchase' | 'inquiry', string>> = {
+  purchase: '¿Qué cuenta como una venta?',
+  inquiry: '¿Qué cuenta como una consulta?',
+};
+
 function FormularioObjetivo({ vista }: { vista: DiagnosticoVista }) {
-  const [tipo, setTipo] = useState(vista.objetivo?.goal_kind ?? 'purchase');
-  const accion = vista.objetivo?.metric_ref.startsWith('actions:') ? vista.objetivo.metric_ref.slice('actions:'.length) : '';
+  const opciones = vista.opcionesObjetivo;
+  const sugerida = (t: TipoObjetivo) => opciones.find((o) => o.fit === t)?.action_type ?? '';
+  const guardada = vista.objetivo?.metric_ref.startsWith('actions:') ? vista.objetivo.metric_ref.slice('actions:'.length) : '';
+  const inicial: TipoObjetivo = vista.objetivo?.goal_kind ?? 'purchase';
+  const [tipo, setTipo] = useState<TipoObjetivo>(inicial);
+  const [accion, setAccion] = useState(opciones.some((o) => o.action_type === guardada) ? guardada : sugerida(inicial));
+  const elegirTipo = (t: TipoObjetivo) => {
+    setTipo(t);
+    // Al cambiar de objetivo se sugiere la acción natural, salvo que la elegida ya le corresponda.
+    if (t !== 'traffic' && opciones.find((o) => o.action_type === accion)?.fit !== t) setAccion(sugerida(t));
+  };
+  const recomendadas = tipo === 'traffic' ? [] : opciones.filter((o) => o.fit === tipo);
+  const otras = tipo === 'traffic' ? [] : opciones.filter((o) => o.fit !== tipo);
+  const opcion = (o: (typeof opciones)[number]) => <option key={o.action_type} value={o.action_type}>{o.label}</option>;
   return (
     <form action={guardarObjetivoDiagnostico} className={d.form}>
-      <fieldset>
-        <legend>Qué querés mejorar</legend>
-        {([['purchase', 'Ventas'], ['inquiry', 'Consultas'], ['traffic', 'Tráfico (clics al enlace)']] as const).map(([v, l]) => (
-          <label key={v} className={d.radio}>
-            <input type="radio" name="goal_kind" value={v} checked={tipo === v} onChange={() => setTipo(v)} />
-            {l}
+      <fieldset className={d.choices}>
+        <legend>¿Qué querés mejorar?</legend>
+        {OBJETIVOS.map((o) => (
+          <label key={o.valor} className={cn(d.choice, tipo === o.valor && d.choiceOn)}>
+            <input type="radio" name="goal_kind" value={o.valor} checked={tipo === o.valor}
+              onChange={() => elegirTipo(o.valor)} className={d.choiceInput} />
+            <span className={d.choiceTitle}>{o.titulo}</span>
+            <span className={d.choiceText}>{o.detalle}</span>
           </label>
         ))}
       </fieldset>
       {tipo !== 'traffic' ? (
         <label className={d.select}>
-          Tipo de acción de Meta que cuenta como resultado
-          <select name="action_type" defaultValue={accion}>
-            <option value="">Elegí una acción observada en tu cuenta</option>
-            {vista.opcionesObjetivo.map((o) => <option key={o.action_type} value={o.action_type}>{o.label}</option>)}
+          <span className={d.selectTitle}>{PREGUNTA_ACCION[tipo]}</span>
+          <select name="action_type" value={accion} onChange={(e) => setAccion(e.target.value)}>
+            <option value="">Elegí una opción</option>
+            {recomendadas.length > 0 && otras.length > 0 ? (
+              <>
+                <optgroup label="Recomendadas">{recomendadas.map(opcion)}</optgroup>
+                <optgroup label="Otras acciones de tu cuenta">{otras.map(opcion)}</optgroup>
+              </>
+            ) : [...recomendadas, ...otras].map(opcion)}
           </select>
-          {vista.opcionesObjetivo.length === 0
-            ? <small className={d.hint}>Todavía no hay acciones observadas: podés elegir Tráfico o sincronizar Meta.</small> : null}
+          {opciones.length === 0
+            ? <small className={d.hint}>Todavía no hay acciones registradas en tu cuenta: podés elegir Tráfico o sincronizar Meta.</small>
+            : recomendadas.length > 0
+              ? <small className={d.hint}>Te sugerimos la más común. Cambiala solo si en tu cuenta se registran de otra forma.</small>
+              : <small className={d.hint}>No encontramos una opción típica para este objetivo: elegí la que mejor lo represente.</small>}
         </label>
-      ) : null}
+      ) : (
+        <p className={d.hint}>Se mide con los clics en el enlace de tus anuncios.</p>
+      )}
       <button type="submit" className={d.secondary}>Guardar objetivo</button>
     </form>
   );

@@ -55,13 +55,35 @@ describe('M26a-T-01: objetivo y métrica representativa', () => {
     expect(parseGoalInput({ goal_kind: 'traffic' }, empty).metric_ref).toBe('inline_link_clicks');
   });
 
-  it('el catálogo muestra etiquetas conocidas sin inferir compras de tipos desconocidos', () => {
-    expect(catalog.map((option) => [option.action_type, option.label])).toEqual([
-      ['lead', 'Cliente potencial (lead)'],
-      ['purchase', 'Compra (purchase)'],
+  it('el catálogo muestra nombres para el dueño, sin el código de Meta ni inferir compras de tipos desconocidos', () => {
+    expect(catalog.map((option) => [option.action_type, option.label, option.fit])).toEqual([
+      ['purchase', 'Compras', 'purchase'],
+      ['lead', 'Clientes potenciales', 'inquiry'],
     ]);
-    expect(actionTypeOptions([{ action_type: 'offsite_conversion.fb_pixel_custom',
-      observed_days: 1, total_count: '1' }])[0].label).toBe('offsite_conversion.fb_pixel_custom');
+    const unknown = actionTypeOptions([{ action_type: 'offsite_conversion.fb_pixel_custom_thing',
+      observed_days: 1, total_count: '1' }])[0];
+    expect(unknown).toMatchObject({ label: 'Otra acción: custom thing', fit: null });
+    for (const option of catalog) expect(option.label).not.toContain(option.action_type);
+  });
+
+  it('las acciones recomendadas van primero y dos con el mismo nombre se distinguen sin código', () => {
+    const options = actionTypeOptions([
+      { action_type: 'add_to_cart', observed_days: 5, total_count: '9' },
+      { action_type: 'offsite_conversion.fb_pixel_purchase', observed_days: 5, total_count: '9' },
+      { action_type: 'omni_purchase', observed_days: 5, total_count: '9' },
+      { action_type: 'leadgen_grouped', observed_days: 5, total_count: '9' },
+      { action_type: 'onsite_conversion.lead_grouped', observed_days: 5, total_count: '9' },
+      { action_type: 'offsite_conversion.custom.123456', observed_days: 5, total_count: '9' },
+    ]);
+    expect(options.map((o) => o.label)).toEqual([
+      'Compras en todos los canales (web, app y tienda)',
+      'Compras en tu sitio web',
+      'Formularios completados en Facebook o Instagram',
+      'Formularios completados en Facebook o Instagram (variante 2)',
+      'Productos agregados al carrito',
+      'Conversión personalizada',
+    ]);
+    expect(options.map((o) => o.label).join(' ')).not.toMatch(/[._]|\d{3,}/);
   });
 
   it('el esquema persistido exige el par coherente', () => {

@@ -1,8 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
-import { actionLabel } from '@/modules/chat/tools/action-labels';
-
 import {
   BREAKDOWN_DIMENSIONS,
   attributionWindowSchema,
@@ -21,6 +19,7 @@ import {
   type Metric,
 } from './contract';
 import { DiagnosticReadError } from './repository';
+import { goalActionLabel } from './settings';
 import { formatEvidenceValue } from './validate';
 
 /**
@@ -195,7 +194,7 @@ function statusLabel(status: string | null): string {
 
 export function goalLabel(settings: DiagnosticSettings): string {
   if (settings.goal_kind === 'traffic') return 'Tráfico: clics al enlace';
-  return `${GOAL_LABEL[settings.goal_kind]}: ${actionLabel(settings.metric_ref.replace(/^actions:/, ''))}`;
+  return `${GOAL_LABEL[settings.goal_kind]}: ${goalActionLabel(settings.metric_ref.replace(/^actions:/, ''))}`;
 }
 
 function formatDate(iso: string): string {

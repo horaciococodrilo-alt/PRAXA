@@ -150,7 +150,7 @@ export async function getDiagnostico(): Promise<DiagnosticoVista> {
       motivo: status.eligibility?.reason ?? null,
       disponibleDesde: status.eligibility?.available_at ?? null,
       objetivo: status.settings ? { ...status.settings, etiqueta: goalLabel(status.settings) } : null,
-      opcionesObjetivo: catalog.map((o) => ({ action_type: o.action_type, label: o.label })),
+      opcionesObjetivo: catalog.map((o) => ({ action_type: o.action_type, label: o.label, fit: o.fit })),
       informe: stored ? composeDocument(stored) : null,
     };
   } catch {

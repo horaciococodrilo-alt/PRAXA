@@ -78,6 +78,7 @@ export type DiagnosticoVista = {
   /** Instante ISO desde el que se puede generar (espera de 24 h), calculado por la base. */
   disponibleDesde: string | null;
   objetivo: { goal_kind: 'purchase' | 'inquiry' | 'traffic'; metric_ref: string; etiqueta: string } | null;
-  opcionesObjetivo: { action_type: string; label: string }[];
+  /** `fit`: objetivo para el que la acción es la opción natural (se sugiere primero). */
+  opcionesObjetivo: { action_type: string; label: string; fit: 'purchase' | 'inquiry' | null }[];
   informe: DiagnosticDocument | null;
 };

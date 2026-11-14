@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -42,7 +42,7 @@ const parcial = documento(['Cobertura parcial: hay días sin observar.']);
 function vista(over: Partial<Vista> = {}): Vista {
   return { estado: 'listo', motivo: null, disponibleDesde: null,
     objetivo: { goal_kind: 'purchase', metric_ref: 'actions:purchase', etiqueta: 'Compras' },
-    opcionesObjetivo: [{ action_type: 'purchase', label: 'Compras' }], informe: null, ...over };
+    opcionesObjetivo: [{ action_type: 'purchase', label: 'Compras', fit: 'purchase' }], informe: null, ...over };
 }
 
 beforeEach(() => {
@@ -58,6 +58,28 @@ describe('M26a-T-26: estados visibles', () => {
     expect(new Set(names.filter(Boolean))).toEqual(new Set(['goal_kind', 'action_type']));
     expect(screen.getByRole('option', { name: 'Compras' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Generar diagnóstico/ })).not.toBeInTheDocument();
+  });
+
+  it('objetivo en tarjetas; sugiere la acción del objetivo elegido y nunca muestra el código de Meta', () => {
+    const { container } = render(<Diagnostico vista={vista({ estado: 'sin_objetivo', objetivo: null,
+      opcionesObjetivo: [
+        { action_type: 'omni_purchase', label: 'Compras en todos los canales (web, app y tienda)', fit: 'purchase' },
+        { action_type: 'leadgen_grouped', label: 'Formularios completados en Facebook o Instagram', fit: 'inquiry' },
+        { action_type: 'add_to_cart', label: 'Productos agregados al carrito', fit: null },
+      ] })} />);
+    const select = () => container.querySelector('select[name="action_type"]') as HTMLSelectElement;
+    expect(screen.getByRole('radio', { name: /Ventas/ })).toBeChecked();
+    expect(screen.getByText('¿Qué cuenta como una venta?')).toBeInTheDocument();
+    expect(select().value).toBe('omni_purchase');
+    expect(container.querySelector('optgroup[label="Recomendadas"]')).not.toBeNull();
+
+    fireEvent.click(screen.getByRole('radio', { name: /Consultas/ }));
+    expect(screen.getByText('¿Qué cuenta como una consulta?')).toBeInTheDocument();
+    expect(select().value).toBe('leadgen_grouped');
+
+    fireEvent.click(screen.getByRole('radio', { name: /Tráfico/ }));
+    expect(container.querySelector('select[name="action_type"]')).toBeNull();
+    expect(container.textContent).not.toMatch(/omni_purchase|leadgen_grouped|add_to_cart/);
   });
 
   it('espera de 24 h con la fecha disponible', () => {
