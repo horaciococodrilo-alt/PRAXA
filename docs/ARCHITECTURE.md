@@ -103,9 +103,12 @@ rutas `iniciar` (`POST` del propio origen) y `callback`, y la desconexión de la
 revocación remota; la purga perezosa distingue el proveedor. Desde la etapa .3, el mismo módulo
 tiene la proyección cerrada de pedidos y catálogo, la sincronización por pasos (backfill por
 ventanas de `created_at`, incremental por `updated_at` y catálogo, con lease, checkpoint y
-presupuesto) y el handler de los webhooks de privacidad, con sus tres rutas firmadas. La
-pantalla, el chat y el diagnóstico con la tienda están previstos en las etapas siguientes; GA4,
-en M16f. La ruta no
+presupuesto) y el handler de los webhooks de privacidad, con sus tres rutas firmadas. Desde la
+etapa .4, Integraciones tiene la tarjeta y el panel de Tiendanube (conexión, sincronización
+manual, cobertura, ventas por mes, productos por unidades y cohortes), leídos con
+`tiendanube/analysis` solo por las funciones `get_tn_*` bajo RLS, y la guía de integraciones;
+`getIntegraciones()` lee el estado real de las dos conexiones para Inicio y el menú. El chat y
+el diagnóstico con la tienda están previstos en la etapa .5; GA4, en M16f. La ruta no
 construye reportes publicados ni base vectorial. Solo admite las medidas y tasas del catálogo de la spec de la ruta, sin cálculos autoritativos del modelo.
 
 ## Base de datos

@@ -461,6 +461,26 @@ describe('M16e .3: extracción y privacidad de Tiendanube contra la base real', 
     expect(rows[0].n).toBe(0);
   });
 
+  it('M16e-T-08 (etapa .4): la vista de Integraciones lee los agregados reales con el cliente del usuario', async () => {
+    const owner = await company('m16e-vista');
+    const store = storeId();
+    await connectStore(owner, store);
+    await syncUntilComplete(owner, fakeTiendanube(store, fixture()));
+    const analysis = await import('@/modules/integrations/tiendanube/analysis');
+    const vista = await analysis.loadTiendanubeView({ tenant: async () => owner.ctx,
+      supabase: async () => owner.user.client, now: () => new Date('2026-11-14T15:00:00.000Z') });
+    expect(vista.error).toBe(false);
+    expect(vista.tarjeta).toMatchObject({ kind: 'activa', dominio: 'tienda.test', moneda: 'ARS', zona: TZ });
+    const enero = vista.datos!.ventas.filas.filter((fila) => fila.periodo === '2026-01-01');
+    expect(enero.map((fila) => [fila.moneda, fila.pagados, fila.sinCliente, fila.parciales, fila.cubierto])).toEqual([
+      ['ARS', 3, 1, 1, true], ['USD', 1, 0, 0, true]]);
+    expect(vista.datos!.estado).toMatchObject({ fase: 'incremental', backfillTerminado: true });
+    // Tres clientes: la cohorte de enero queda oculta, sin celdas.
+    expect(vista.datos!.cohortes.filas.find((fila) => fila.mes === '2026-01-01')).toEqual(
+      { mes: '2026-01-01', tamano: null, oculta: true, celdas: [] });
+    expect(JSON.stringify(vista)).not.toContain(store);
+  });
+
   // -------------------------------------------------------------------------
   // Paso 7: medición de presupuestos
   // -------------------------------------------------------------------------

@@ -7,11 +7,13 @@ import { UnauthorizedError } from '@/modules/identity/session';
 import { confirmAccount, disconnect, disconnectTiendanube } from './lifecycle';
 import { syncMetaInsights, type SyncResult } from './meta/insights';
 import type { MetaOAuthOutcome } from './meta/outcomes';
+import { syncTiendanube, type TiendanubeSyncResult } from './tiendanube/sync';
 
 const LOGIN = '/login?next=%2Fapp%2Fintegraciones';
 const RESULT = '/app/integraciones?meta=';
 const SYNC_RESULT = '/app/integraciones?sync=';
 const TIENDANUBE_RESULT = '/app/integraciones?tiendanube=';
+const TIENDANUBE_SYNC_RESULT = '/app/integraciones?tn_sync=';
 
 export async function confirmarCuentaMeta(formData: FormData): Promise<never> {
   let result: MetaOAuthOutcome;
@@ -67,4 +69,18 @@ export async function desconectarTiendanube(): Promise<never> {
   if (login) redirect(LOGIN);
   revalidatePath('/app', 'layout');
   redirect(`${TIENDANUBE_RESULT}${result}`);
+}
+
+/** M16e: un paso de sincronización de Tiendanube; tenant y conexión se resuelven en el servidor. */
+export async function sincronizarTiendanube(): Promise<never> {
+  let result: TiendanubeSyncResult;
+  let login = false;
+  try { result = await syncTiendanube(); }
+  catch (error) {
+    login = error instanceof UnauthorizedError;
+    result = 'error';
+  }
+  if (login) redirect(LOGIN);
+  revalidatePath('/app', 'layout');
+  redirect(`${TIENDANUBE_SYNC_RESULT}${result}`);
 }
