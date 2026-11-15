@@ -16,6 +16,7 @@ import {
   type Manifest,
   type Metric,
   type SectionStatus,
+  type StoreSection,
 } from './contract';
 import { DIAGNOSTIC_LIMITS } from './limits';
 
@@ -113,6 +114,8 @@ export type DiagnosticPackage = Readonly<{
   entities: readonly PackageEntity[];
   candidates: Readonly<Record<EntityLevel, Readonly<Record<string, readonly string[]>>>>;
   breakdowns: Readonly<Record<BreakdownDimension, PackageBreakdown>>;
+  /** Ventas de la tienda (M16e §6): solo agregados por moneda, con sus ids de evidencia. */
+  store?: StoreSection;
 }>;
 
 export type SectionPlan = Readonly<{
@@ -130,6 +133,8 @@ export type PreparedDiagnostic =
     limits: readonly Cause[];
     manifest: Manifest;
     batches: readonly (readonly string[])[];
+    /** Presente solo si el informe lleva la sección de la tienda (v2). */
+    store?: StoreSection;
   }>;
 
 const RAW_METRICS = new Set<Metric>(['spend', 'impressions', 'clicks', 'link_clicks', 'result_count', 'result_value']);
@@ -357,4 +362,124 @@ function splitBatches(pkg: DiagnosticPackage, budget: number): string[][] {
   if (current.length > 0) batches.push(current);
   if (batches.length > DIAGNOSTIC_LIMITS.maxBatches) throw new DiagnosticPreparationError('too_large');
   return batches;
+}
+
+// ---------------------------------------------------------------------------
+// Ventas de la tienda (M16e §6, D-M16e-10). Mismas fechas de calendario que la ventana de Meta
+// y la anterior, cada fuente en su zona. Las cifras son sumas de las filas diarias de
+// `get_tn_sales`, por moneda; nunca se mezclan monedas ni se atribuyen a Meta.
+// ---------------------------------------------------------------------------
+
+type SqlRow = Readonly<Record<string, unknown>>;
+
+export type StoreSalesRead = Readonly<{
+  /** Fila de `get_tn_sync_status`, o null si la tienda nunca se sincronizó. */
+  status: SqlRow | null;
+  current: readonly SqlRow[];
+  previous: readonly SqlRow[];
+}>;
+
+export type PreparedStoreSection = Readonly<{ summary: StoreSection; evidence: readonly Evidence[] }>;
+
+/** Una última extracción de más de 24 horas marca la sección como parcial. */
+const STORE_STALE_MS = 24 * 3_600_000;
+const DECIMAL = /^-?\d+(\.\d+)?$/;
+
+function storeDecimal(value: unknown): string {
+  if (typeof value === 'string' && DECIMAL.test(value)) return value;
+  if (typeof value === 'number' && Number.isFinite(value) && DECIMAL.test(String(value))) return String(value);
+  throw new DiagnosticPreparationError('invalid_window');
+}
+
+/** Suma exacta de decimales en texto (menos los restados), sin coma flotante. */
+function sumDecimals(values: readonly string[], subtract: readonly string[] = []): string {
+  const scale = Math.max(0, ...[...values, ...subtract].map((v) => (v.split('.')[1] ?? '').length));
+  const toInt = (v: string) => {
+    const negative = v.startsWith('-');
+    const [whole, fraction = ''] = v.replace('-', '').split('.');
+    const n = BigInt(`${whole}${fraction.padEnd(scale, '0')}`);
+    return negative ? -n : n;
+  };
+  const total = values.reduce((acc, v) => acc + toInt(v), BigInt(0))
+    - subtract.reduce((acc, v) => acc + toInt(v), BigInt(0));
+  const negative = total < BigInt(0);
+  const abs = (negative ? -total : total).toString().padStart(scale + 1, '0');
+  const body = scale ? `${abs.slice(0, -scale)}.${abs.slice(-scale)}`.replace(/\.?0+$/, '') : abs;
+  return `${negative ? '-' : ''}${body}`;
+}
+
+function instantZ(value: unknown): string | null {
+  if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) return null;
+  return new Date(value).toISOString();
+}
+
+type StoreMetric = 'tn_paid_orders' | 'tn_partially_paid_orders' | 'tn_collected_amount';
+
+export function prepareStoreSection(input: {
+  read: StoreSalesRead;
+  window: DiagnosticWindow;
+  storeTimezone: string;
+  metaTimezone: string | null;
+  now: number;
+  collectedAmountEnabled?: boolean;
+}): PreparedStoreSection | null {
+  const status = input.read.status;
+  const through = status && typeof status.covered_through === 'string' ? status.covered_through.slice(0, 10) : null;
+  // Sin ninguna ventana cubierta no hay sección: el informe sigue siendo v1.
+  if (!through) return null;
+  const w = input.window;
+  const windows = [
+    { tag: 'cur', key: 'current' as const, rows: input.read.current, period: { from: w.from, to: w.to } },
+    { tag: 'prev', key: 'previous' as const, rows: input.read.previous, period: { from: w.prev_from, to: w.prev_to } },
+  ];
+  const fetchedAt = instantZ(status?.last_fetched_at);
+  const covered = (rows: readonly SqlRow[], to: string) => through >= to && rows.every((row) => row.covered === true);
+  const reasons: StoreSection['partial_reasons'] = [];
+  if (!fetchedAt || input.now - Date.parse(fetchedAt) > STORE_STALE_MS) reasons.push('sync_stale');
+  if (!windows.every((x) => covered(x.rows, x.period.to))) reasons.push('window_not_covered');
+
+  const currencies = [...new Set(windows.flatMap((x) => x.rows.map((row) => row.currency)))]
+    .filter((c): c is string => typeof c === 'string' && /^[A-Z]{3}$/.test(c)).sort();
+  const groups: (string | null)[] = currencies.length > 0 ? currencies : [null];
+  const collected = input.collectedAmountEnabled === true;
+  const evidence: Evidence[] = [];
+  type WindowValues = StoreSection['rows'][number]['current'];
+  const rows: StoreSection['rows'] = groups.map((currency) => {
+    const suffix = currency ? currency.toLowerCase() : 'sin_moneda';
+    const values: Partial<Record<'current' | 'previous', WindowValues>> = {};
+    for (const x of windows) {
+      const mine = x.rows.filter((row) => (row.currency ?? null) === currency);
+      const item = (metric: StoreMetric, value: string) => {
+        const id = `ev_tn_${x.tag}_${metric.slice(3)}_${suffix}`;
+        evidence.push({ id, kind: 'system_fact', level: 'store', entity_alias: null, segment: null,
+          period: x.period, metric, value, unit: METRIC_UNITS[metric], currency, attribution: 'unknown',
+          coverage: { window_covered: covered(x.rows, x.period.to) ? 1 : 0 }, sample: 'ok',
+          provenance: { fn: 'get_tn_sales', window: x.period, fetched_at_min: fetchedAt, fetched_at_max: fetchedAt } });
+        return { id, value };
+      };
+      values[x.key] = {
+        paid_orders: item('tn_paid_orders', sumDecimals(mine.map((row) => storeDecimal(row.paid_orders)))),
+        partially_paid_orders: item('tn_partially_paid_orders',
+          sumDecimals(mine.map((row) => storeDecimal(row.partially_paid_orders)))),
+        ...(collected && currency ? { collected_amount: item('tn_collected_amount',
+          sumDecimals(mine.map((row) => storeDecimal(row.paid_amount)),
+            mine.map((row) => storeDecimal(row.refunded_amount)))) } : {}),
+      };
+    }
+    return { currency, current: values.current!, previous: values.previous! };
+  });
+  return {
+    summary: { source: 'tiendanube', timezone: input.storeTimezone, meta_timezone: input.metaTimezone,
+      window: { from: w.from, to: w.to, prev_from: w.prev_from, prev_to: w.prev_to },
+      partial: reasons.length > 0, partial_reasons: reasons, covered_through: through, fetched_at: fetchedAt, rows },
+    evidence,
+  };
+}
+
+type Ready = Extract<PreparedDiagnostic, { status: 'ready' }>;
+
+/** Suma la sección al paquete y a la evidencia; el informe pasa a v2 al publicarse. */
+export function attachStoreSection(prepared: Ready, section: PreparedStoreSection): Ready {
+  return { ...prepared, evidence: [...prepared.evidence, ...section.evidence],
+    package: { ...prepared.package, store: section.summary }, store: section.summary };
 }

@@ -3,7 +3,8 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { WorkerApiError, type WorkerApi } from '@/modules/integrations/db/worker-api';
-import { readLiveConnection } from '@/modules/integrations/repository/connections';
+import { readConnectionRecord, readLiveConnection } from '@/modules/integrations/repository/connections';
+import { TN_COLLECTED_AMOUNT_ENABLED } from '@/modules/integrations/tiendanube/limits';
 import type { TenantContext } from '@/modules/tenant/context';
 
 import {
@@ -11,6 +12,8 @@ import {
   METHODOLOGY_VERSION,
   reportJsonSchema,
   SCHEMA_VERSION,
+  STORE_METHODOLOGY_VERSION,
+  STORE_SCHEMA_VERSION,
   type BatchNotes,
   type AttributionWindow,
   type DiagnosticSettings,
@@ -22,7 +25,8 @@ import {
   type UsageStep,
 } from './contract';
 import { readDiagnosticSettings } from './eligibility';
-import { DiagnosticPreparationError, prepareDiagnostic, windowsFor, type PreparedDiagnostic } from './evidence';
+import { attachStoreSection, DiagnosticPreparationError, prepareDiagnostic, prepareStoreSection, windowsFor,
+  type PreparedDiagnostic } from './evidence';
 import { DIAGNOSTIC_LIMITS } from './limits';
 import {
   DIAGNOSTIC_MODEL_ID,
@@ -41,6 +45,7 @@ import {
   readAllEntities,
   readBreakdowns,
   readEligibility,
+  readStoreSales,
   releaseDiagnostic,
   reserveDiagnostic,
   type Rpc,
@@ -83,6 +88,10 @@ export type GenerationContext = Readonly<{
   levelStatus: Readonly<Record<'account' | EntityLevel, string>> | null;
   /** `finished_at` del mismo resumen del que salió `levelStatus`. */
   syncFinishedAt: string | null;
+  /** Zona de la cuenta de Meta: se muestra junto a la de la tienda (A-10). */
+  metaTimezone?: string | null;
+  /** Conexión viva de Tiendanube; solo con `active` el informe suma la sección (M16e §6). */
+  store?: Readonly<{ id: string; status: string; timezone: string | null }> | null;
 }>;
 
 export type StructuredStep = 'report' | 'repair' | 'batch' | 'synthesis';
@@ -107,6 +116,8 @@ export type DiagnosticDeps = Readonly<{
   now?: () => number;
   /** Solo pruebas: presupuesto de lotes menor que el real. */
   budgetTokens?: number;
+  /** Solo pruebas: por defecto, `TN_COLLECTED_AMOUNT_ENABLED`. */
+  collectedAmountEnabled?: boolean;
 }>;
 
 class GenerationFailure extends Error {
@@ -159,6 +170,12 @@ const REPORT_SYSTEM = [
   'breakdowns: exactamente una entrada por cada dimensión de secciones_evaluables.breakdowns, ni más ni menos.',
   'opportunities: de cero a tres. Cada una con una acción sugerida (PRAXA nunca ejecuta cambios), un plan de comprobación, la incertidumbre y su evidencia. kind = fact solo si la evidencia lo respalda y ninguna evidencia citada es de baja muestra (low_sample); si no, hypothesis. No afirmes causalidad como hecho.',
   'web_notes: solo con las fuentes de fuentes_web, por su índice; si no hay fuentes, lista vacía.',
+].join('\n');
+
+/** Solo cuando el paquete trae la sección de la tienda (M16e §6). */
+const STORE_RULE = [
+  'El paquete trae store: ventas de la tienda en Tiendanube para las mismas fechas de calendario, cada fuente en su zona horaria. Son pedidos pagados y pagos parciales por moneda, solo agregados.',
+  'Las ventas de la tienda y la publicidad de Meta son dos series distintas: no las atribuyas a Meta, no infieras que el gasto las causó y no calcules retornos con ellas. Si las mencionás, citá su evidencia ev_tn_* y presentalas como ventas de la tienda.',
 ].join('\n');
 
 const BATCH_SYSTEM = [
@@ -318,11 +335,12 @@ export async function runModelSteps(input: {
   // Informe o síntesis, con una sola reparación.
   const step: StructuredStep = batched ? 'synthesis' : 'report';
   const user = batched ? synthesisUser(prepared, ctx, web, notes) : reportUser(prepared, ctx, web);
-  let raw = await call(step, REPORT_SYSTEM, user, schema);
+  const reportSystem = prepared.package.store ? `${REPORT_SYSTEM}\n${STORE_RULE}` : REPORT_SYSTEM;
+  let raw = await call(step, reportSystem, user, schema);
   let checked = raw === undefined ? { ok: false as const, reason: 'shape' as const } : validateReportOutput(raw, ctx);
   observe(step, checked.ok ? 'accepted' : checked.reason);
   if (!checked.ok) {
-    raw = await call('repair', REPORT_SYSTEM, repairUser(user, checked.reason), schema);
+    raw = await call('repair', reportSystem, repairUser(user, checked.reason), schema);
     checked = raw === undefined ? { ok: false as const, reason: 'shape' as const } : validateReportOutput(raw, ctx);
     observe('repair', checked.ok ? 'accepted' : checked.reason);
     if (!checked.ok) throw new GenerationFailure('repair', 'invalid_output');
@@ -351,13 +369,15 @@ export function buildReport(input: { prepared: Ready; run: ModelRun; syncFinishe
   for (const m of JSON.stringify(raw).matchAll(MARKER)) cited.add(m[1]);
   const shownAliases = new Set(output.top_entities.map((e) => e.alias));
   const items: Evidence[] = prepared.evidence.filter((e) => cited.has(e.id) || e.level === 'account'
-    || (e.entity_alias !== null && shownAliases.has(e.entity_alias)));
+    || e.level === 'store' || (e.entity_alias !== null && shownAliases.has(e.entity_alias)));
+  const store = prepared.store;
   const entities = Object.fromEntries(pkg.entities.filter((e) => shownAliases.has(e.alias)
     || items.some((i) => i.entity_alias === e.alias)).map((e) => [e.alias, { level: e.level, name: e.name,
     status: e.status, low_sample: e.low_sample }]));
   return {
-    schema_version: SCHEMA_VERSION,
-    methodology_version: METHODOLOGY_VERSION,
+    // Con la sección de la tienda, v2 (la base exige la pareja exacta y la conexión de la tienda).
+    schema_version: store ? STORE_SCHEMA_VERSION : SCHEMA_VERSION,
+    methodology_version: store ? STORE_METHODOLOGY_VERSION : METHODOLOGY_VERSION,
     window: { from: pkg.window.from, to: pkg.window.to,
       prev_from: pkg.comparison ? pkg.window.prev_from : null, prev_to: pkg.comparison ? pkg.window.prev_to : null },
     settings: { goal_kind: pkg.goal.goal_kind, metric_ref: pkg.goal.metric_ref },
@@ -373,6 +393,7 @@ export function buildReport(input: { prepared: Ready; run: ModelRun; syncFinishe
         entities,
       },
       manifest: prepared.manifest,
+      ...(store ? { store } : {}),
     },
     output,
     web_sources: run.web.sources,
@@ -453,11 +474,28 @@ export async function generateDiagnostic(deps: DiagnosticDeps): Promise<Generati
     }
 
     step = 'prepare';
-    const prepared = prepareDiagnostic({ settings: context.settings, window, account, entities, breakdowns,
+    const base = prepareDiagnostic({ settings: context.settings, window, account, entities, breakdowns,
       levelStatus: context.levelStatus, pagesRead, budgetTokens: deps.budgetTokens });
-    if (prepared.status === 'insufficient') {
+    if (base.status === 'insufficient') {
       await release();
-      return { code: prepared.cause === 'no_activity' ? 'sin_actividad' : 'sin_cobertura' };
+      return { code: base.cause === 'no_activity' ? 'sin_actividad' : 'sin_cobertura' };
+    }
+
+    // Ventas de la tienda: solo con Tiendanube activa y alguna ventana cubierta. Tiendanube no
+    // bloquea la generación: un fallo de lectura deja el informe sin la sección (v1).
+    let prepared: Ready = base;
+    let storeConnectionId: string | null = null;
+    const store = context.store;
+    if (store && store.status === 'active' && store.timezone) {
+      try {
+        const section = prepareStoreSection({ read: await readStoreSales(deps.rpc, store.id, window), window,
+          storeTimezone: store.timezone, metaTimezone: context.metaTimezone ?? null, now: now(),
+          collectedAmountEnabled: deps.collectedAmountEnabled ?? TN_COLLECTED_AMOUNT_ENABLED });
+        if (section) {
+          prepared = attachStoreSection(base, section);
+          storeConnectionId = store.id;
+        }
+      } catch { /* Sin sección de tienda. */ }
     }
 
     const run = await runModelSteps({ prepared, profile: context.profile, model: deps.model,
@@ -467,7 +505,7 @@ export async function generateDiagnostic(deps: DiagnosticDeps): Promise<Generati
     const report = buildReport({ prepared, run, syncFinishedAt: eligibility.sync_finished_at,
       attributionWindows });
     const published = await publishDiagnostic(deps.worker as WorkerApi, deps.ctx, { connectionId: connection.id,
-      generation: connection.credentialGeneration, report });
+      generation: connection.credentialGeneration, report, storeConnectionId });
     if (published === 'published' || published === 'already_published') {
       reserved = false;
       return { code: 'generado' };
@@ -516,10 +554,13 @@ export async function loadGenerationContext(ctx: TenantContext, supabase: Supaba
     industry: typeof row.industry === 'string' ? row.industry : null };
   let levelStatus: GenerationContext['levelStatus'] = null;
   let syncFinishedAt: string | null = null;
+  let metaTimezone: string | null = null;
   if (connection) {
-    const summary = await supabase.from('integration_connections').select('meta_sync_summary')
+    const summary = await supabase.from('integration_connections').select('meta_sync_summary, timezone')
       .eq('id', connection.id).maybeSingle();
     if (summary.error) throw new DiagnosticReadError();
+    const timezone = (summary.data as { timezone?: unknown } | null)?.timezone;
+    metaTimezone = typeof timezone === 'string' ? timezone : null;
     const projected = (summary.data as { meta_sync_summary?: { finished_at?: unknown;
       levels?: Record<string, { status?: unknown }> } } | null)?.meta_sync_summary;
     const levels = projected?.levels;
@@ -529,5 +570,12 @@ export async function loadGenerationContext(ctx: TenantContext, supabase: Supaba
         Record<'account' | EntityLevel, string>;
     }
   }
-  return { connection, settings, profile, levelStatus, syncFinishedAt };
+  // La tienda se lee aparte: un error de lectura deja el informe sin la sección, nunca lo bloquea.
+  let store: GenerationContext['store'] = null;
+  try {
+    const found = await readConnectionRecord(ctx, { supabase }, 'tiendanube');
+    store = found && found.status !== 'disconnected' ?
+      { id: found.id, status: found.status, timezone: found.timezone } : null;
+  } catch { store = null; }
+  return { connection, settings, profile, levelStatus, syncFinishedAt, metaTimezone, store };
 }

@@ -205,9 +205,37 @@ export async function releaseDiagnostic(worker: WorkerApi, ctx: TenantContext): 
   return value;
 }
 
+/**
+ * Publica el informe. `storeConnectionId` va solo con la sección de la tienda (v2); la base
+ * exige que la versión y la conexión coincidan y que la tienda siga activa (0024).
+ */
 export async function publishDiagnostic(worker: WorkerApi, ctx: TenantContext, args: {
-  connectionId: string; generation: number; report: unknown }): Promise<PublishOutcome> {
+  connectionId: string; generation: number; report: unknown; storeConnectionId?: string | null }):
+  Promise<PublishOutcome> {
   const found = await worker.call('publish_diagnostic', [ctx.user_id, ctx.company_id, ctx.request_id,
-    args.connectionId, args.generation, JSON.stringify(args.report)]);
+    args.connectionId, args.generation, JSON.stringify(args.report), args.storeConnectionId ?? null]);
   return single(found, 'publish_diagnostic', PUBLISH_OUTCOMES);
+}
+
+// ---------------------------------------------------------------------------
+// Ventas de la tienda (M16e §6): solo `get_tn_*`, con el JWT del dueño y bajo RLS.
+// ---------------------------------------------------------------------------
+
+async function storeRows(rpc: Rpc, fn: string, args: Record<string, unknown>): Promise<Record<string, unknown>[]> {
+  const { data, error } = await rpc(fn, args);
+  if (error || !Array.isArray(data) || data.some((row) => !row || typeof row !== 'object' || Array.isArray(row))) {
+    throw new DiagnosticReadError();
+  }
+  return data as Record<string, unknown>[];
+}
+
+/** Estado y ventas diarias de la tienda para la ventana del informe y la anterior. */
+export async function readStoreSales(rpc: Rpc, connectionId: string, window: DiagnosticWindow) {
+  const [status] = await storeRows(rpc, 'get_tn_sync_status', { p_connection_id: connectionId });
+  if (!status) return { status: null, current: [], previous: [] };
+  const current = await storeRows(rpc, 'get_tn_sales', { p_connection_id: connectionId,
+    p_from: window.from, p_to: window.to, p_grain: 'day' });
+  const previous = await storeRows(rpc, 'get_tn_sales', { p_connection_id: connectionId,
+    p_from: window.prev_from, p_to: window.prev_to, p_grain: 'day' });
+  return { status, current, previous };
 }

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { CHAT_LIMITS } from './limits';
-import { TOOL_NAMES } from './tools/schema';
+import { TOOL_NAMES, type ToolName } from './tools/schema';
 
 const jsonObject = (properties: Record<string, unknown>) => ({
   type: 'object', properties, required: Object.keys(properties), additionalProperties: false,
@@ -16,22 +16,32 @@ const toolArgsProperties = {
   period: nullablePeriod, period_a: nullablePeriod, period_b: nullablePeriod,
   action_type: nullableString, order: nullableString, limit: nullableInteger,
   include_trend: { type: ['boolean', 'null'] }, dimension: nullableString,
+  granularity: nullableString, from_month: nullableString, to_month: nullableString,
+  max_offset: nullableInteger,
 };
 
-export const CHOICE_FORMAT = {
-  type: 'json_schema',
-  json_schema: {
-    name: 'chat_choice', strict: true,
-    schema: jsonObject({
-      action: { type: 'string', enum: ['call_tools', 'answer', 'clarify', 'abstain'] },
-      calls: { type: 'array', maxItems: CHAT_LIMITS.maxToolCallsPerTurn,
-        items: jsonObject({ name: { type: 'string', enum: [...TOOL_NAMES] },
-          args: jsonObject(toolArgsProperties) }) },
-      clarification_text: nullableString,
-      abstain_reason: { type: ['string', 'null'], enum: ['out_of_scope', null] },
-    }),
-  },
-} as const;
+/** `connection_not_active`: la pregunta es de una fuente que no está conectada (M16e §6). */
+export const ABSTAIN_REASONS = ['out_of_scope', 'connection_not_active'] as const;
+
+/** Formato estricto de la elección, con el catálogo de las fuentes activas del turno. */
+export function choiceFormat(tools: readonly ToolName[]) {
+  return {
+    type: 'json_schema',
+    json_schema: {
+      name: 'chat_choice', strict: true,
+      schema: jsonObject({
+        action: { type: 'string', enum: ['call_tools', 'answer', 'clarify', 'abstain'] },
+        calls: { type: 'array', maxItems: CHAT_LIMITS.maxToolCallsPerTurn,
+          items: jsonObject({ name: { type: 'string', enum: [...tools] },
+            args: jsonObject(toolArgsProperties) }) },
+        clarification_text: nullableString,
+        abstain_reason: { type: ['string', 'null'], enum: [...ABSTAIN_REASONS, null] },
+      }),
+    },
+  } as const;
+}
+
+export const CHOICE_FORMAT = choiceFormat(TOOL_NAMES);
 
 const periodSchema = z.strictObject({ from: z.iso.date(), to: z.iso.date() });
 const nullablePeriodSchema = periodSchema.nullable();
@@ -42,6 +52,9 @@ const toolArgsSchema = z.strictObject({
   action_type: z.string().nullable(), order: z.string().nullable(),
   limit: z.number().int().nullable(), include_trend: z.boolean().nullable(),
   dimension: z.string().nullable(),
+  // Claves de Tiendanube: el formato estricto las exige; una salida sin ellas equivale a nulas.
+  granularity: z.string().nullable().default(null), from_month: z.string().nullable().default(null),
+  to_month: z.string().nullable().default(null), max_offset: z.number().int().nullable().default(null),
 });
 
 export const choiceSchema = z.strictObject({
@@ -49,7 +62,7 @@ export const choiceSchema = z.strictObject({
   calls: z.array(z.strictObject({ name: z.enum(TOOL_NAMES), args: toolArgsSchema }))
     .max(CHAT_LIMITS.maxToolCallsPerTurn),
   clarification_text: z.string().max(CHAT_LIMITS.maxClarificationChars).nullable(),
-  abstain_reason: z.enum(['out_of_scope']).nullable(),
+  abstain_reason: z.enum(ABSTAIN_REASONS).nullable(),
 }).superRefine((choice, ctx) => {
   if ((choice.action === 'clarify' && choice.clarification_text === null) ||
       (choice.action === 'abstain' && choice.abstain_reason === null) ||

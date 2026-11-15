@@ -16,6 +16,7 @@ const lecturas = vi.fn();
 const lectura = (nombre: string) => () => (lecturas(nombre), Promise.resolve(null));
 const tenant = vi.fn();
 const connection = vi.fn();
+const storeDomain = vi.fn();
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/modules/app-data', () => ({
@@ -53,6 +54,9 @@ vi.mock('@/modules/identity/actions', () => ({
 }));
 vi.mock('@/modules/company/actions', () => ({ guardarPerfilEmpresa: vi.fn() }));
 vi.mock('@/modules/chat/actions', () => ({ preguntarChat: vi.fn(), votarRespuesta: vi.fn() }));
+vi.mock('@/modules/chat/tools/tiendanube', () => ({
+  readStoreDomain: (...args: unknown[]) => storeDomain(...args),
+}));
 vi.mock('@/modules/diagnostics/actions', () => ({ guardarObjetivoDiagnostico: vi.fn(), generarDiagnostico: vi.fn() }));
 vi.mock('@/lib/supabase/client', () => ({ createSupabaseBrowserClient: vi.fn() }));
 
@@ -133,5 +137,41 @@ describe('verificación de sesión en cada página de /app', () => {
     const noConnection = await ChatPage();
     expect(noConnection.props).toMatchObject({ tieneEmpresa: true,
       conexionActiva: false });
+  });
+
+  it('M16e-C-15/CA-52: con solo Tiendanube activa habilita el chat y lista la tienda por su dominio acortado', async () => {
+    const { default: ChatPage } = await import('@/app/(app)/app/chat/page');
+    requireAppSession.mockResolvedValue(undefined);
+    const context = { user_id: 'a0000000-0000-4000-8000-000000000001',
+      company_id: 'c0000000-0000-4000-8000-000000000001' };
+    tenant.mockResolvedValue(context);
+    connection.mockImplementation(async (_ctx: unknown, _deps: unknown, provider?: string) =>
+      provider === 'tiendanube' ? { id: 'd0000000-0000-4000-8000-0000000000e5', status: 'active' } : null);
+    storeDomain.mockResolvedValueOnce('tienda-sintetica-de-prueba-larga.mitiendanube.com');
+    const onlyStore = await ChatPage();
+    expect(onlyStore.props).toMatchObject({ tieneEmpresa: true, conexionActiva: true,
+      conectadas: [{ id: 'tiendanube', nombre: 'Tiendanube · tienda-sintetica-de-prueba-larg…' }] });
+    expect(connection).toHaveBeenCalledWith(context, {}, 'tiendanube');
+
+    connection.mockImplementation(async (_ctx: unknown, _deps: unknown, provider?: string) =>
+      provider === 'tiendanube' ? { id: 'd0000000-0000-4000-8000-0000000000e5', status: 'needs_reauth' }
+        : { status: 'active' });
+    const onlyMeta = await ChatPage();
+    expect(onlyMeta.props).toMatchObject({ conexionActiva: true,
+      conectadas: [{ id: 'meta_ads', nombre: 'Meta Ads' }] });
+
+    connection.mockImplementation(async (_ctx: unknown, _deps: unknown, provider?: string) =>
+      provider === 'tiendanube' ? { id: 'd0000000-0000-4000-8000-0000000000e5', status: 'active' }
+        : { status: 'active' });
+    storeDomain.mockRejectedValueOnce(new Error('synthetic'));
+    const both = await ChatPage();
+    expect(both.props).toMatchObject({ conexionActiva: true, conectadas: [
+      { id: 'meta_ads', nombre: 'Meta Ads' }, { id: 'tiendanube', nombre: 'Tiendanube' }] });
+
+    connection.mockImplementation(async () => null);
+    const none = await ChatPage();
+    expect(none.props).toMatchObject({ conexionActiva: false, conectadas: [] });
+    connection.mockReset();
+    tenant.mockReset();
   });
 });

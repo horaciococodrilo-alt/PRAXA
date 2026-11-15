@@ -847,3 +847,143 @@ describe('M25a-T-35/59/66/69/70/73/75/80/87–89/91/94: turno', () => {
     expect(dep.log.mock.calls[0][0].tool_count).toBe(5);
   });
 });
+
+describe('M16e-T-11: fuentes activas, abstención y conexión del registro (D-M16e-24)', () => {
+  const storeId = 'd0000000-0000-4000-8000-0000000000e5';
+  type Conn = { id: string; status: 'active' | 'needs_reauth' | 'pending_selection';
+    credential_generation: number; external_account_id: string; timezone: string; currency: string };
+  const store: Conn = { id: storeId, status: 'active', credential_generation: 4,
+    external_account_id: '123456', timezone: 'America/Argentina/Buenos_Aires', currency: 'ARS' };
+  const meta: Conn = { id: connectionId, status: 'active', credential_generation: 1,
+    external_account_id: 'act_0000000000151', timezone: 'UTC', currency: 'USD' };
+  const flat = { level: null, entity_ref: null, metric: null, period: null, period_a: null,
+    period_b: null, action_type: null, order: null, limit: null, include_trend: null,
+    dimension: null, granularity: null, from_month: null, to_month: null, max_offset: null };
+  const tnResult = parseToolResult({ status: 'ok', reason: null,
+    scope: { level: null, entity_ref: null, entity_name: null, period, period_a: null, period_b: null,
+      period_defaulted: false, entity_defaulted: false, timezone: store.timezone, currency: 'ARS' },
+    values: [], composition: null, extra: { source: 'tiendanube' } }, 't1', null, 'tn_ventas');
+
+  function sources(metaConn: Conn | null, storeConn: Conn | null) {
+    const h = harness();
+    const dep = { ...h.dep,
+      connection: vi.fn(async () => metaConn as never),
+      storeConnection: vi.fn(async () => storeConn as never),
+      resolve: vi.fn(async (name: string) => ({ name: name as never, args: {},
+        periodDefaulted: false, entityDefaulted: false })),
+      execute: vi.fn(async (call: { name: string }) => call.name.startsWith('tn_') ? tnResult : toolResult),
+    } satisfies ChatDependencies;
+    return { dep, events: h.events };
+  }
+  const sent = (dep: { choose: { mock: { calls: unknown[][] } } }) =>
+    dep.choose.mock.calls[0][0] as { content: string }[];
+  const offered = (dep: { choose: { mock: { calls: unknown[][] } } }) =>
+    JSON.parse(sent(dep)[1].content).catalog as string[];
+  const calls = (...names: string[]) => names.map((name) => ({ name, args: flat }));
+  const abstainInactive = () => choiceSchema.parse({ action: 'abstain', calls: [],
+    clarification_text: null, abstain_reason: 'connection_not_active' });
+  const TN = ['tn_ventas', 'tn_cohortes', 'tn_productos', 'tn_cobertura'];
+
+  it('solo Tiendanube activa: ofrece solo sus herramientas, ejecuta con la tienda y registra la tienda', async () => {
+    const { dep } = sources(null, store);
+    dep.choose.mockResolvedValueOnce({ output: choice('call_tools', calls('tn_ventas')), reportedModelId: 'choice' })
+      .mockResolvedValueOnce({ output: choice('answer'), reportedModelId: 'choice' });
+    const view = await runChatTurn({ question: '¿Cuántos pedidos pagados tuve?' }, dep);
+    expect(view.kind).toBe('answer');
+    expect(offered(dep)).toEqual(TN);
+    expect((dep.choose.mock.calls[0] as unknown[])[3]).toEqual(TN);
+    expect((dep.execute.mock.calls[0] as unknown[])[1]).toMatchObject({ store: { id: storeId, status: 'active' } });
+    expect(dep.record.mock.calls[0][1]).toMatchObject({ connectionId: storeId, generation: 4,
+      toolNames: ['tn_ventas'], outcome: 'answered' });
+    expect(JSON.parse(sent(dep)[1].content).connected_sources).toEqual(['tiendanube']);
+    expect(sent(dep)[0].content).toContain('tn_ventas');
+  });
+
+  it('solo Tiendanube activa: una pregunta de Meta se abstiene con connection_not_active y registra la tienda', async () => {
+    const { dep } = sources(null, store);
+    dep.choose.mockResolvedValueOnce({ output: abstainInactive(), reportedModelId: 'choice' });
+    const view = await runChatTurn({ question: '¿Cuánto gasté en Meta?' }, dep);
+    expect(view).toMatchObject({ kind: 'abstention', link_to_integrations: true });
+    expect(view.segments.map((s) => s.text).join('')).toContain('no está conectada');
+    expect(dep.record.mock.calls[0][1]).toMatchObject({ connectionId: storeId, generation: 4,
+      outcome: 'not_answered', reason: 'connection_not_active', toolNames: [] });
+  });
+
+  it('solo Meta activa: una pregunta de la tienda se abstiene y registra Meta; sus herramientas no se ofrecen', async () => {
+    const { dep } = sources(meta, null);
+    dep.choose.mockResolvedValueOnce({ output: abstainInactive(), reportedModelId: 'choice' });
+    await runChatTurn({ question: '¿Qué productos vendí?' }, dep);
+    expect(offered(dep)).not.toContain('tn_ventas');
+    expect(offered(dep)).toContain('total');
+    expect(JSON.parse(sent(dep)[1].content).connected_sources).toEqual(['meta']);
+    expect(dep.record.mock.calls[0][1]).toMatchObject({ connectionId, generation: 1,
+      reason: 'connection_not_active' });
+  });
+
+  it('una herramienta no ofrecida se rechaza como inválida y no se ejecuta', async () => {
+    const { dep } = sources(meta, null);
+    dep.choose.mockResolvedValueOnce({ output: choice('call_tools', calls('tn_ventas')), reportedModelId: 'choice' });
+    const view = await runChatTurn({ question: '¿Qué vendí?' }, dep);
+    expect(view.kind).toBe('abstention');
+    expect(dep.execute).not.toHaveBeenCalled();
+    expect(dep.record.mock.calls[0][1]).toMatchObject({ reason: 'tool_error', connectionId, toolNames: [] });
+    const tnOnly = sources(null, store);
+    tnOnly.dep.choose.mockResolvedValueOnce({ output: choice('call_tools', calls('total')), reportedModelId: 'choice' });
+    await runChatTurn({ question: '¿Cuánto gasté?' }, tnOnly.dep);
+    expect(tnOnly.dep.execute).not.toHaveBeenCalled();
+    expect(tnOnly.dep.record.mock.calls[0][1]).toMatchObject({ reason: 'tool_error', connectionId: storeId });
+  });
+
+  it('ambas activas: turno mixto → Meta; sin herramientas → Meta; solo la tienda → Tiendanube', async () => {
+    const mixed = sources(meta, store);
+    mixed.dep.choose.mockResolvedValueOnce({ output: choice('call_tools', calls('total', 'tn_ventas')),
+      reportedModelId: 'choice' }).mockResolvedValueOnce({ output: choice('answer'), reportedModelId: 'choice' });
+    await runChatTurn({ question: 'Gasto y ventas' }, mixed.dep);
+    expect(offered(mixed.dep)).toHaveLength(17);
+    expect(JSON.parse(sent(mixed.dep)[1].content).connected_sources).toEqual(['meta', 'tiendanube']);
+    expect((mixed.dep.execute.mock.calls[0] as unknown[])[1]).toMatchObject({ connection: { id: connectionId } });
+    expect(mixed.dep.record.mock.calls[0][1]).toMatchObject({ connectionId, generation: 1,
+      toolNames: ['total', 'tn_ventas'] });
+
+    const none = sources(meta, store);
+    none.dep.choose.mockResolvedValueOnce({ output: choice('abstain'), reportedModelId: 'choice' });
+    await runChatTurn({ question: '¿Qué tiempo hace?' }, none.dep);
+    expect(none.dep.record.mock.calls[0][1]).toMatchObject({ connectionId, reason: 'out_of_scope' });
+
+    const shop = sources(meta, store);
+    shop.dep.choose.mockResolvedValueOnce({ output: choice('call_tools', calls('tn_cobertura')),
+      reportedModelId: 'choice' }).mockResolvedValueOnce({ output: choice('answer'), reportedModelId: 'choice' });
+    await runChatTurn({ question: '¿Está al día la tienda?' }, shop.dep);
+    expect(shop.dep.record.mock.calls[0][1]).toMatchObject({ connectionId: storeId, generation: 4,
+      toolNames: ['tn_cobertura'] });
+  });
+
+  it('sin ninguna activa corta antes del modelo y registra la viva de Meta, si no la de la tienda, si no ninguna', async () => {
+    const both = sources({ ...meta, status: 'needs_reauth' }, { ...store, status: 'needs_reauth' });
+    await runChatTurn({ question: 'Gasto' }, both.dep);
+    expect(both.dep.choose).not.toHaveBeenCalled();
+    expect(both.dep.record.mock.calls[0][1]).toMatchObject({ connectionId, reason: 'connection_not_active' });
+
+    const shopOnly = sources(null, { ...store, status: 'needs_reauth' });
+    const view = await runChatTurn({ question: 'Ventas' }, shopOnly.dep);
+    expect(shopOnly.dep.choose).not.toHaveBeenCalled();
+    expect(shopOnly.dep.record.mock.calls[0][1]).toMatchObject({ connectionId: storeId, generation: 4,
+      reason: 'connection_not_active' });
+    expect(view.segments.map((s) => s.text).join('')).toContain('Tiendanube');
+
+    const nothing = sources(null, null);
+    await runChatTurn({ question: 'Ventas' }, nothing.dep);
+    expect(nothing.dep.record.mock.calls[0][1]).toMatchObject({ connectionId: null, generation: null,
+      reason: 'connection_not_active' });
+  });
+
+  it('un fallo al leer la tienda no impide responder con Meta', async () => {
+    const { dep } = sources(meta, null);
+    dep.storeConnection.mockRejectedValueOnce(new Error('lectura'));
+    dep.choose.mockResolvedValueOnce({ output: choice('call_tools', calls('total')), reportedModelId: 'choice' })
+      .mockResolvedValueOnce({ output: choice('answer'), reportedModelId: 'choice' });
+    const view = await runChatTurn({ question: 'Gasto' }, dep);
+    expect(view.kind).toBe('answer');
+    expect(offered(dep)).not.toContain('tn_ventas');
+  });
+});

@@ -10,12 +10,13 @@ import { requireTenantContext } from '@/modules/tenant/context';
 import { CHAT_DEFAULT_PERIOD_DAYS, CHAT_LIMITS } from './limits';
 import { CHAT_MODEL_ID, ChatModelError, requestChatModel,
   type ChatMessage } from './llm';
-import { choiceMessages, answerMessages } from './prompt';
+import { choiceMessages, answerMessages, type ChatSource } from './prompt';
 import { redactQuestion } from './redaction';
 import { renderTurn, type ChatTurnView } from './render';
 import { projectOutput, type FlatChatAnswer, type ChatChoice } from './output-schema';
 import type { ToolResult } from './tools/results';
-import { ToolEntityNotFoundError, type ProjectedToolCall } from './tools/schema';
+import { isTiendanubeTool, META_TOOL_NAMES, TN_TOOL_NAMES, ToolEntityNotFoundError,
+  type ProjectedToolCall, type ToolName } from './tools/schema';
 import { executeTool, missingAccountEntityResult, resolveToolCall,
   type TurnContext } from './tools/execute';
 import { maskExternalAccountId } from '@/modules/integrations/contract';
@@ -38,12 +39,14 @@ export type ChatDependencies = Readonly<{
   begin: (ctx: TenantContext, turnId: string) => Promise<void>;
   end: (ctx: TenantContext, turnId: string) => Promise<boolean>;
   connection: (ctx: TenantContext) => Promise<ChatConnection | null>;
+  /** Conexión viva de Tiendanube; sin esta dependencia el chat solo conoce Meta. */
+  storeConnection?: (ctx: TenantContext) => Promise<ChatConnection | null>;
   readCoverage?: (connectionId: string, level: 'account' | 'campaign' | 'adset' | 'ad',
     period: { from: string; to: string }, signal: AbortSignal) =>
     Promise<{ history_from?: string | null; history_to?: string | null;
       nearest_before?: string | null; nearest_after?: string | null }>;
   choose: (messages: ChatMessage[], timeoutMs: number,
-    signal: AbortSignal) => Promise<ModelReply<ChatChoice>>;
+    signal: AbortSignal, tools: readonly ToolName[]) => Promise<ModelReply<ChatChoice>>;
   answer: (messages: ChatMessage[], timeoutMs: number,
     signal: AbortSignal) => Promise<ModelReply<FlatChatAnswer>>;
   resolve: (name: string, args: Record<string, unknown>, ctx: TurnContext,
@@ -80,6 +83,12 @@ export function createChatDependencies(): ChatDependencies {
         external_account_id: found.external_account_id,
         currency: found.currency, timezone: found.timezone } : null;
     },
+    storeConnection: async (ctx) => {
+      const found = await readConnectionRecord(ctx, {}, 'tiendanube');
+      if (!found || found.status === 'disconnected') return null;
+      return { id: found.id, status: found.status, credential_generation: found.credential_generation,
+        external_account_id: null, currency: found.currency, timezone: found.timezone };
+    },
     readCoverage: async (connectionId, level, period, signal) => {
       const supabase = await createSupabaseServerClient();
       const { data, error } = await supabase.rpc('chat_coverage', {
@@ -92,8 +101,8 @@ export function createChatDependencies(): ChatDependencies {
       return data.extra as { history_from?: string | null; history_to?: string | null;
         nearest_before?: string | null; nearest_after?: string | null };
     },
-    choose: async (messages, timeoutMs, signal) => requestChatModel({ phase: 'choice',
-      messages, timeoutMs, signal }),
+    choose: async (messages, timeoutMs, signal, tools) => requestChatModel({ phase: 'choice',
+      messages, timeoutMs, signal, tools }),
     answer: async (messages, timeoutMs, signal) => requestChatModel({ phase: 'answer',
       messages, timeoutMs, signal }),
     resolve: (name, args, ctx, period) => resolveToolCall(name, args, ctx, period),
@@ -199,8 +208,10 @@ function partialAnswer(answer: ReturnType<typeof projectOutput>,
       }
     }
   }
+  // En la tienda, un período sin cobertura completa llega como `captured_partial` (M16e §3).
   if (paths.size) return results.some((result) => result.values.some((value) =>
-    paths.has(`${result.tool_call_id}:${value.path}`) && value.composition?.partial));
+    paths.has(`${result.tool_call_id}:${value.path}`) && (value.composition?.partial ||
+      (value.metric.startsWith('tn_') && value.captured_partial))));
   return false;
 }
 
@@ -226,21 +237,39 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
   const toolNames: string[] = [];
   // Al modelo viaja la pregunta tal cual; el registro persistido sigue redactado.
   const question = typeof input.question === 'string' ? input.question.trim() : '';
+  let store: ChatConnection | null = null;
+  let sources: ChatSource[] = [];
+  // Conexión del corte sin fuentes activas (A-14); `undefined` aplica la regla de D-M16e-24.
+  let cutConnection: ChatConnection | null | undefined;
+  const recordConnection = (): ChatConnection | null => {
+    if (cutConnection !== undefined) return cutConnection;
+    const meta = connection?.status === 'active' ? connection : null;
+    const shop = store?.status === 'active' ? store : null;
+    if (toolNames.some((name) => !isTiendanubeTool(name))) return meta;
+    if (toolNames.length > 0) return shop;
+    return meta ?? shop;
+  };
+  const view = (kind: Finish['kind'], extra: Partial<Parameters<typeof renderTurn>[0]>,
+    id: string | null) => {
+    const target = recordConnection();
+    const metaUsed = results.length === 0 || results.some((r) => !isTiendanubeTool(r.tool_name ?? ''));
+    return renderTurn({ kind, results, recordId: id,
+      accountRef: metaUsed ? connection?.external_account_id ?? null : null,
+      connectionStatus: target?.status ?? connection?.status ?? null,
+      connectionProvider: target && target === store ? 'tiendanube' : 'meta',
+      connectedSources: sources, ...extra });
+  };
   const finish = async (result: Finish): Promise<ChatTurnView> => {
     reason = result.reason ?? null;
     outcome = result.kind === 'answer' ?
       partialAnswer(result.answer!, results) ? 'answered_partial_coverage' : 'answered' :
       'not_answered';
-    if (!ctx || result.kind === 'notice') return renderTurn({ kind: result.kind,
-      reason: result.reason, text: result.text, answer: result.answer,
-      results, accountRef: connection?.external_account_id ?? null,
-      connectionStatus: connection?.status ?? null, recordId: null });
+    if (!ctx || result.kind === 'notice') return view(result.kind, { reason: result.reason,
+      text: result.text, answer: result.answer }, null);
     let prepared: ChatTurnView;
     try {
-      prepared = renderTurn({ kind: result.kind, reason: result.reason,
-        text: result.text, answer: result.answer, results,
-        accountRef: connection?.external_account_id ?? null,
-        connectionStatus: connection?.status ?? null, recordId });
+      prepared = view(result.kind, { reason: result.reason, text: result.text,
+        answer: result.answer }, recordId);
     } catch {
       detail = 'render_failed';
       reason = 'guard_rejected';
@@ -248,10 +277,11 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
       prepared = renderTurn({ kind: 'abstention', reason, results: [],
         accountRef: connection?.external_account_id ?? null, recordId });
     }
+    const target = recordConnection();
     try {
       const written = await within(() => deps.record(ctx!, {
-        recordId, connectionId: connection?.id ?? null,
-        generation: connection?.credential_generation ?? null,
+        recordId, connectionId: target?.id ?? null,
+        generation: target?.credential_generation ?? null,
         question: redactQuestion(question), toolNames, outcome: outcome as RecordPayload['outcome'],
         reason, latencyMs: Math.max(0, Math.round(deps.now() - start)),
         requestedModelId: CHAT_MODEL_ID, reportedModelId, correctionCount,
@@ -297,28 +327,47 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
     }
     try { connection = await within(() => deps.connection(ctx!), workDeadline, deps.now); }
     catch { return finish({ kind: 'abstention', reason: 'record_failed' }); }
-    if (connection?.status !== 'active') {
+    // Un fallo al leer la tienda no impide responder con Meta: la tienda queda fuera del turno.
+    if (deps.storeConnection) {
+      try { store = await within(() => deps.storeConnection!(ctx!), workDeadline, deps.now); }
+      catch { store = null; }
+    }
+    const metaActive = connection?.status === 'active';
+    const storeActive = store?.status === 'active';
+    if (!metaActive && !storeActive) {
+      cutConnection = connection ?? store ?? null;
       return finish({ kind: 'abstention', reason: 'connection_not_active' });
     }
-    const current = { connection };
-    const timezone = connection.timezone ?? 'UTC';
+    sources = [...(metaActive ? ['meta' as const] : []), ...(storeActive ? ['tiendanube' as const] : [])];
+    const catalog: ToolName[] = [...(metaActive ? META_TOOL_NAMES : []), ...(storeActive ? TN_TOOL_NAMES : [])];
+    const shop = storeActive ? store! : null;
+    const current = { connection: metaActive ? connection : null,
+      store: shop ? { id: shop.id, status: shop.status, currency: shop.currency, timezone: shop.timezone } : null };
+    const primary = metaActive ? connection! : shop!;
+    const timezone = primary.timezone ?? 'UTC';
     const date = deps.wallTime();
     const defaults = defaultPeriod(date, timezone);
+    const dayIn = (zone: string) => new Intl.DateTimeFormat('en-CA', { timeZone: zone,
+      year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+    const storeTimezone = shop?.timezone ?? 'UTC';
+    const storeDefaults = shop ? { ...defaultPeriod(date, storeTimezone),
+      month: dayIn(storeTimezone).slice(0, 7) } : null;
     const history = prepareHistory(input.previous, input.pendingClarification);
     const promptContext = { question, ...history,
-      today: new Intl.DateTimeFormat('en-CA', { timeZone: timezone,
-        year: 'numeric', month: '2-digit', day: '2-digit' }).format(date),
-      timezone, currency: connection.currency,
-      accountRef: connection.external_account_id ?
-        maskExternalAccountId(connection.external_account_id) : null,
-      defaultPeriod: defaults };
+      today: dayIn(timezone), timezone, currency: primary.currency,
+      accountRef: metaActive && connection!.external_account_id ?
+        maskExternalAccountId(connection!.external_account_id) : null,
+      defaultPeriod: defaults, sources, catalog,
+      store: shop && storeDefaults ? { today: dayIn(storeTimezone), timezone: storeTimezone,
+        currency: shop.currency, defaultPeriod: { from: storeDefaults.from, to: storeDefaults.to },
+        currentMonth: storeDefaults.month } : null };
     for (;;) {
       let decision: ModelReply<ChatChoice>;
       try {
         const remaining = Math.min(CHAT_LIMITS.modelCallTimeoutMs,
           Math.max(1, workDeadline - deps.now()));
         decision = await within((signal) => deps.choose(
-          choiceMessages(promptContext, results), remaining, signal),
+          choiceMessages(promptContext, results), remaining, signal, catalog),
         workDeadline, deps.now);
         reportedModelId = decision.reportedModelId;
       } catch (error) {
@@ -333,10 +382,13 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
           return finish({ kind: 'abstention', reason: 'guard_rejected' });
         }
         for (const call of selected.calls) {
+          // Una herramienta de una fuente no activa no se ofreció: es una herramienta inválida.
+          if (!catalog.includes(call.name)) return finish({ kind: 'abstention', reason: 'tool_error' });
           let resolved: ProjectedToolCall;
           try {
+            const periodFor = isTiendanubeTool(call.name) ? storeDefaults! : defaults;
             resolved = await within((signal) => deps.resolve(call.name,
-              call.args, current, defaults, signal), workDeadline, deps.now);
+              call.args, current, periodFor, signal), workDeadline, deps.now);
           } catch (error) {
             if (error instanceof ToolEntityNotFoundError) {
               try {
@@ -358,10 +410,10 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
         continue;
       }
       if (selected.action === 'abstain') {
-        if (selected.abstain_reason !== 'out_of_scope') {
+        if (selected.abstain_reason !== 'out_of_scope' && selected.abstain_reason !== 'connection_not_active') {
           return finish({ kind: 'abstention', reason: 'guard_rejected' });
         }
-        return finish({ kind: 'abstention', reason: 'out_of_scope' });
+        return finish({ kind: 'abstention', reason: selected.abstain_reason });
       }
       if (selected.action === 'clarify') {
         return finish({ kind: 'clarification', reason: 'needs_clarification',
@@ -371,7 +423,7 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
         return finish({ kind: 'abstention', reason: 'guard_rejected' });
       }
       if (noCoverage(results)) {
-        await enrichNoCoverage(results, connection, deps, workDeadline);
+        if (metaActive) await enrichNoCoverage(results, connection!, deps, workDeadline);
         return finish({ kind: 'abstention', reason: 'no_coverage' });
       }
       let drafted: ModelReply<FlatChatAnswer>;

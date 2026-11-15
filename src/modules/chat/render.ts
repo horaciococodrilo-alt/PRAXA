@@ -22,7 +22,9 @@ export type BlockView = Readonly<{ type: string; title: string;
   aria_label: string; items?: { segments: Segment[]; provenance: string }[];
   suggestions?: { id: string; text: string }[];
   children?: { parent: string; rows: string[][] }[]; stack_ratios?: number[] }>;
-export type Footer = Readonly<{ account: string | null; period: string | null;
+export type Footer = Readonly<{ account: string | null;
+  /** Dominio acortado de la tienda (CA-52), solo si la respuesta usa datos de Tiendanube. */
+  store?: string | null; period: string | null;
   defaulted: boolean; entity_defaulted: boolean; timezone: string | null;
   coverage: string | null; freshness: string | null;
   no_account_text: string | null; data_limits: string[] }>;
@@ -34,7 +36,36 @@ export type ChatTurnView = Readonly<{ kind: 'answer' | 'clarification' | 'absten
 export type RenderInput = Readonly<{ kind: ChatTurnView['kind'];
   answer?: { text: string; blocks: Record<string, unknown>[] }; text?: string; results: ToolResult[];
   accountRef: string | null; recordId: string | null; reason?: string;
-  connectionStatus?: string | null }>;
+  connectionStatus?: string | null;
+  /** Proveedor de la conexión del registro: cambia el texto de reautorización. */
+  connectionProvider?: 'meta' | 'tiendanube';
+  /** Fuentes activas del turno: con alguna, «connection_not_active» habla de la otra fuente. */
+  connectedSources?: readonly string[] }>;
+
+// Textos fijos de Tiendanube (M16e §5 y §6). Ninguno rotula una cifra como ingreso.
+const STORE_PARTIAL = 'Algunos períodos de la tienda todavía no están cubiertos por completo: sus cifras son parciales.';
+const FEWER_THAN_5 = 'Los grupos de menos de 5 clientes se ocultan por privacidad y se muestran como «menos de 5».';
+const COHORT_EXCLUSION = 'Las cohortes no incluyen los pedidos sin cliente identificado.';
+const STORE_SOURCE = 'Las ventas de la tienda vienen de Tiendanube y son otra fuente que Meta: no se atribuyen a la publicidad.';
+const SOURCE_NOT_CONNECTED = 'Esa fuente no está conectada. Podés conectarla desde Integraciones.';
+const OUT_OF_SCOPE_BOTH = 'Con eso no te puedo ayudar: PRAXA solo lee tus datos de Meta Ads y de tu tienda en Tiendanube y no responde temas ajenos. Sí puedo mostrarte y comentar tus campañas, tus ventas, tus productos más vendidos y la retención de tus compradores.';
+const OUT_OF_SCOPE_STORE = 'Con eso no te puedo ayudar: PRAXA solo lee los datos de tu tienda en Tiendanube y no responde temas ajenos. Sí puedo mostrarte y comentar tus ventas, tus productos más vendidos y la retención de tus compradores.';
+const STORE_DOMAIN_MAX = 32;
+
+function isStoreValue(value: { metric: string }): boolean {
+  return value.metric.startsWith('tn_');
+}
+
+function isStoreResult(result: ToolResult): boolean {
+  return (result.tool_name ?? '').startsWith('tn_');
+}
+
+function storeDomain(results: ToolResult[]): string | null {
+  const domain = results.filter(isStoreResult).map((result) => result.extra.store_domain)
+    .find((value): value is string => typeof value === 'string' && value.length > 0);
+  if (!domain) return null;
+  return domain.length <= STORE_DOMAIN_MAX ? domain : `${domain.slice(0, STORE_DOMAIN_MAX - 1)}…`;
+}
 
 const UNKNOWN = 'Meta no informa con qué atribución contó estos resultados: pueden mezclar ventanas distintas.';
 const INCOMPATIBLE = 'No puedo sumar estos resultados: Meta los contó con configuraciones de atribución distintas. Puedo mostrarlos día por día.';
@@ -90,6 +121,30 @@ const TOOL_LABELS: Record<string, string> = {
   daily_average: 'Promedio diario', ranking: 'Ranking',
   cost_per_result: 'Costo por resultado', share: 'Participación',
   percent_change: 'Variación porcentual', breakdown: 'Desglose',
+  tn_ventas: 'Ventas de la tienda', tn_cohortes: 'Cohortes de compradores',
+  tn_productos: 'Productos vendidos', tn_cobertura: 'Cobertura de la tienda',
+};
+/** Filas que cada bloque toma de un resultado de la tienda. */
+const STORE_ROWS: Record<string, readonly string[]> = {
+  lineas: ['day'], barras: ['day', 'total'], ranking: ['product'],
+};
+const STORE_METHODS: Record<string, string> = {
+  tn_paid_orders: 'Pedidos pagados: pedidos con pago «pagado» o «reembolsado parcialmente», no cancelados, contados en el día de pago en la zona de la tienda. Cada moneda va por separado.',
+  tn_partially_paid_orders: 'Pagos parciales: pedidos con pago parcial; se informan aparte y no cuentan como pagados.',
+  tn_collected_amount: 'Monto cobrado: total pagado por el cliente menos los reembolsos verificados, por moneda. No descuenta costos, envíos ni impuestos.',
+  tn_units: 'Unidades: suma de las cantidades de las líneas de pedidos pagados, por producto y variante.',
+  tn_cohort_size: 'Cohorte: clientes cuyo primer pedido pagado cae en ese mes.',
+  tn_cohort_active: 'Clientes activos: clientes de la cohorte con al menos un pedido pagado en el mes N.',
+  tn_cohort_retention: 'Retención = clientes activos en el mes N / clientes de la cohorte. En el mes 0 es 100 %.',
+};
+const STORE_METRIC_LABELS: Record<string, string> = {
+  tn_paid_orders: 'Pedidos pagados', tn_partially_paid_orders: 'Pagos parciales',
+  tn_collected_amount: 'Monto cobrado', tn_units: 'Unidades', tn_cohort_size: 'Clientes de la cohorte',
+  tn_cohort_active: 'Clientes activos', tn_cohort_retention: 'Retención',
+};
+const RUN_STATUS: Record<string, string> = {
+  complete: 'Completa', incomplete: 'Parcial: hay que volver a sincronizar', failed: 'Falló',
+  running: 'En curso', superseded: 'Reemplazada',
 };
 const METRIC_METHODS: Record<string, string> = {
   ctr: 'CTR = 100 × clics / impresiones; solo días con ambas bases informadas.',
@@ -108,6 +163,7 @@ const METRIC_LABELS: Record<string, string> = {
 };
 
 function metricLabel(value: ToolResult['values'][number]): string {
+  if (isStoreValue(value)) return STORE_METRIC_LABELS[value.metric] ?? value.metric;
   const base = METRIC_LABELS[value.metric] ?? value.metric;
   return value.action_type ? `${base} (${value.action_type})` : base;
 }
@@ -122,6 +178,11 @@ function dateDisplay(iso: string): string {
   return `${day}/${month}/${year}`;
 }
 
+function monthDisplay(month: string): string {
+  const [year, number] = month.split('-');
+  return `${number}/${year}`;
+}
+
 function maskedAccount(value: string | null): string | null {
   if (!value) return null;
   if (value.startsWith('…')) return `…${value.slice(-4)}`;
@@ -131,6 +192,7 @@ function maskedAccount(value: string | null): string | null {
 function unique(items: string[]): string[] { return [...new Set(items)]; }
 
 function scopePhrase(result: ToolResult): string {
+  if (isStoreResult(result)) return 'de la tienda';
   const level = result.scope.level;
   if (result.tool_name === 'breakdown') {
     const dimension = result.extra.dimension;
@@ -236,6 +298,15 @@ function dataLimits(results: ToolResult[], blocks: Record<string, unknown>[]): s
   }
   if (results.some((result) => result.values.some((value) =>
     value.composition?.partial === true))) warnings.push(PARTIAL);
+  if (results.some(isStoreResult)) {
+    if (results.some((result) => result.values.some((value) =>
+      isStoreValue(value) && value.captured_partial))) warnings.push(STORE_PARTIAL);
+    if (results.some((result) => result.values.some((value) => value.absence === 'menos_de_5'))) {
+      warnings.push(FEWER_THAN_5);
+    }
+    if (results.some((result) => result.tool_name === 'tn_cohortes')) warnings.push(COHORT_EXCLUSION);
+    if (results.some((result) => !isStoreResult(result))) warnings.push(STORE_SOURCE);
+  }
   for (const result of results) {
     const pairs = [[result.scope.period, result.composition],
       [result.scope.period_a, extraComposition(result.extra.composition_a)],
@@ -260,15 +331,28 @@ function footer(input: RenderInput): Footer | null {
   if (input.kind === 'notice' || (input.reason === 'connection_not_active' &&
       input.connectionStatus !== 'needs_reauth')) return null;
   const account = maskedAccount(input.accountRef ?? input.results[0]?.account_ref ?? null);
-  if (!account) return null;
   const full = input.kind === 'answer';
   const selected = full ? citedResults(input) : [];
+  const store = storeDomain(selected);
+  if (!account && !store) return null;
   const periods: string[] = [];
   const coverage: string[] = [];
   const fetched: string[] = [];
   for (const result of selected) {
     for (const p of [result.scope.period, result.scope.period_a, result.scope.period_b]) {
       if (p) periods.push(`${dateDisplay(p.from)} al ${dateDisplay(p.to)}`);
+    }
+    if (isStoreResult(result)) {
+      const from = result.extra.from_month;
+      const to = result.extra.to_month;
+      if (typeof from === 'string' && typeof to === 'string') {
+        periods.push(`cohortes de ${monthDisplay(from)} a ${monthDisplay(to)}`);
+      }
+      const through = result.extra.covered_through;
+      coverage.push(typeof through === 'string' ? `tienda cubierta hasta el ${dateDisplay(through)}` :
+        'la tienda todavía no tiene cobertura completa');
+      if (typeof result.extra.last_fetched_at === 'string') fetched.push(result.extra.last_fetched_at);
+      continue;
     }
     const comp = formatComposition(result);
     if (comp && result.scope.period) coverage.push(`${dateDisplay(result.scope.period.from)}: ${comp}`);
@@ -293,7 +377,7 @@ function footer(input: RenderInput): Footer | null {
   if (entityDefaulted) coverageText = coverageText ?
     `${coverageText}; toda la cuenta` : 'toda la cuenta';
   fetched.sort();
-  return { account, period: periods.length ? unique(periods).join('; ') : null,
+  return { account, store, period: periods.length ? unique(periods).join('; ') : null,
     defaulted, entity_defaulted: entityDefaulted,
     timezone: periods.length ? selected.find((result) => result.scope.timezone)?.scope.timezone ?? null : null,
     coverage: coverageText,
@@ -302,7 +386,23 @@ function footer(input: RenderInput): Footer | null {
     no_account_text: null, data_limits: limits };
 }
 
-function rowLabel(value: ToolResult['values'][number]): string {
+function storeRowLabel(value: ToolResult['values'][number], withMetric: boolean): string {
+  if (value.path_key === 'product') {
+    const detail = [value.segment_primary, value.segment_secondary].filter(Boolean).join(' · ');
+    return `${value.entity_name ?? 'Producto'}${detail ? ` (${detail})` : ''}`;
+  }
+  if (value.path_key === 'cohort_cell') {
+    const head = `Cohorte ${monthDisplay(value.cohort_month ?? '')}`;
+    return value.month_offset === null ? `${head} · ${metricLabel(value)}` :
+      `${head} · mes ${value.month_offset} · ${metricLabel(value)}`;
+  }
+  const when = value.day ? dateDisplay(value.day) :
+    value.period ? `${dateDisplay(value.period.from)} al ${dateDisplay(value.period.to)}` : '';
+  return [when, value.currency, withMetric ? metricLabel(value) : null].filter(Boolean).join(' · ');
+}
+
+function rowLabel(value: ToolResult['values'][number], withMetric = true): string {
+  if (isStoreValue(value)) return storeRowLabel(value, withMetric);
   if (value.day) return dateDisplay(value.day);
   if (value.path_key === 'entity') return value.entity_name ?? 'Entidad';
   if (value.path_key === 'segment' || value.path_key === 'segment_share') {
@@ -331,7 +431,13 @@ function barGroup(value: ToolResult['values'][number]): { group: string | null; 
 function rowText(value: ToolResult['values'][number]): string {
   if (value.value === null) return value.absence === 'sin_fila_reportada' ?
     'Sin fila reportada' : value.absence === 'no_observado' ? 'No observado' :
-      value.absence === 'no_informado' ? 'No informado' : 'No calculable';
+      value.absence === 'no_informado' ? 'No informado' :
+        value.absence === 'menos_de_5' ? 'menos de 5' : 'No calculable';
+  if (isStoreValue(value)) {
+    const unit = value.unit === 'percent' ? ' %' : '';
+    const currency = value.unit === 'money' && value.currency ? `${value.currency} ` : '';
+    return `${currency}${value.value}${unit}${value.captured_partial ? ' (parcial)' : ''}`;
+  }
   const partial = value.composition?.partial ?
     ` (parcial: ${value.composition.days_with_value} de ${value.composition.days_total} días)` : '';
   return value.value + partial;
@@ -352,9 +458,12 @@ function selectedValues(block: Record<string, unknown>, result: ToolResult) {
   const sources = block.sources as { tool_call_id: string; path_prefix: string }[];
   const paths = sources.filter((source) => source.tool_call_id === result.tool_call_id)
     .map((source) => source.path_prefix);
-  const allowed = ROWS[String(block.type)];
+  const type = String(block.type);
+  const allowed = isStoreResult(result) ? STORE_ROWS[type] ?? ROWS[type] : ROWS[type];
+  // Una serie de la tienda muestra solo los pedidos pagados: los pagos parciales van en la tabla.
+  const serie = isStoreResult(result) && (type === 'lineas' || type === 'barras');
   return result.values.filter((value) => (paths.includes('/values') || paths.includes(value.path)) &&
-    (!allowed || allowed.includes(value.path_key)));
+    (!allowed || allowed.includes(value.path_key)) && (!serie || value.metric === 'tn_paid_orders'));
 }
 
 function noCoverageText(results: ToolResult[]): string {
@@ -418,6 +527,22 @@ function renderBlock(block: Record<string, unknown>, results: ToolResult[]): Blo
   }
   if (type === 'estado_datos' || type === 'fuentes_metodologia') {
     const rows = selected.flatMap((result) => {
+      if (isStoreResult(result)) {
+        const fetched = typeof result.extra.last_fetched_at === 'string' ?
+          dateDisplay(result.extra.last_fetched_at) : 'Sin fecha de extracción';
+        if (type === 'fuentes_metodologia') {
+          return [['Fuente', 'Tiendanube'], [TOOL_LABELS[result.tool_name ?? ''] ?? 'Consulta', fetched]];
+        }
+        const through = result.extra.covered_through;
+        const status = result.extra.last_run_status;
+        return [['Fuente', 'Tiendanube'],
+          ['Histórico', result.extra.backfill_done === true ? 'Leído completo' : 'Todavía en lectura'],
+          ['Cubierto hasta', typeof through === 'string' ? dateDisplay(through) : 'Sin cobertura completa todavía'],
+          ...(typeof result.extra.last_finished_at === 'string' ?
+            [['Última sincronización', dateDisplay(result.extra.last_finished_at)]] : []),
+          ...(typeof status === 'string' ? [['Resultado', RUN_STATUS[status] ?? status]] : []),
+          ['Última extracción', fetched]];
+      }
       if (type === 'fuentes_metodologia') return [[TOOL_LABELS[result.tool_name ?? ''] ?? 'Consulta',
         result.composition?.fetched_at_max ?
           dateDisplay(result.composition.fetched_at_max) : 'Sin fecha de captura']];
@@ -437,7 +562,8 @@ function renderBlock(block: Record<string, unknown>, results: ToolResult[]): Blo
     });
     if (type === 'fuentes_metodologia') {
       const methods = unique(selected.flatMap((result) => result.values.flatMap((value) =>
-        [value.metric, value.path_key].map((key) => METRIC_METHODS[key]).filter(
+        (isStoreValue(value) ? [STORE_METHODS[value.metric]] :
+          [value.metric, value.path_key].map((key) => METRIC_METHODS[key])).filter(
           (method): method is string => !!method))));
       rows.push(...methods.map((method) => ['Cálculo', method]));
     }
@@ -551,12 +677,13 @@ function renderBlock(block: Record<string, unknown>, results: ToolResult[]): Blo
   }
   const ratios = type === 'dona' ? shareOfTotal(donutShares) :
     relativeToMax(values.map((value) => value.value));
-  const points = values.map((value, index) => ({ x: rowLabel(value),
+  const withMetric = type !== 'lineas' && type !== 'barras';
+  const points = values.map((value, index) => ({ x: rowLabel(value, withMetric),
     text: value.value, ratio: ratios[index], absence: value.absence,
     ...(type === 'barras_agrupadas' ? barGroup(value) : {}) }));
   const rows = values.map((value, index) => type === 'dona' ?
     [rowLabel(value), rowText(value), `${donutShares[index]}%`] :
-    [rowLabel(value), rowText(value)]);
+    [rowLabel(value, withMetric), rowText(value)]);
   const notes = dataLimits(selected, [block]);
   if (type === 'embudo') notes.push('Los pasos son conteos separados; no son tasas de paso.');
   if (type === 'periodo_contra_periodo' && selected[0]?.scope.period_a &&
@@ -582,11 +709,15 @@ function renderBlock(block: Record<string, unknown>, results: ToolResult[]): Blo
 
 export function renderTurn(input: RenderInput): ChatTurnView {
   const reason = input.reason ?? '';
+  const connected = input.connectedSources ?? [];
+  const fixed = reason === 'connection_not_active' && connected.length > 0 ? SOURCE_NOT_CONNECTED :
+    reason === 'out_of_scope' && connected.includes('tiendanube') ?
+      connected.includes('meta') ? OUT_OF_SCOPE_BOTH : OUT_OF_SCOPE_STORE : FIXED[reason];
   const text = input.kind === 'answer' ? input.answer?.text ?? '' :
     input.kind === 'clarification' ? input.text ?? '' :
       reason === 'connection_not_active' && input.connectionStatus === 'needs_reauth' ?
-        'Meta pidió volver a autorizar a Praxa.' : reason === 'no_coverage' ?
-          noCoverageText(input.results) : FIXED[reason] ?? 'No pudimos procesar la consulta.';
+        `${input.connectionProvider === 'tiendanube' ? 'Tiendanube' : 'Meta'} pidió volver a autorizar a Praxa.` :
+        reason === 'no_coverage' ? noCoverageText(input.results) : fixed ?? 'No pudimos procesar la consulta.';
   const blocks = input.kind === 'answer' ? (input.answer?.blocks ?? []).map((block) =>
     renderBlock(block, input.results)) : [];
   const visibleSegments = input.kind === 'answer' ?

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { projectOutput, OutputProjectionError, type FlatChatAnswer } from '@/modules/chat/output-schema';
+import { CHOICE_FORMAT, choiceFormat, choiceSchema, projectOutput, OutputProjectionError,
+  type FlatChatAnswer } from '@/modules/chat/output-schema';
 
 const block = (type: string, sources: { tool_call_id: string; path_prefix: string }[],
   extra: Record<string, unknown> = {}) => ({ type, sources, options: null, items: null,
@@ -40,5 +41,38 @@ describe('forma de la salida del modelo (sin verificación de contenido)', () =>
       expect(projectOutput(answer('texto', [block(type, sources, extra)])).blocks[0].type)
         .toBe(type);
     }
+  });
+});
+
+describe('M16e-T-11: elección con las herramientas de Tiendanube', () => {
+  const flat = { level: null, entity_ref: null, metric: null, period: null, period_a: null,
+    period_b: null, action_type: null, order: null, limit: null, include_trend: null, dimension: null };
+
+  it('el formato estricto suma cuatro claves anulables y limita el catálogo a lo ofrecido', () => {
+    const format = choiceFormat(['tn_ventas', 'tn_cobertura']);
+    const schema = format.json_schema.schema as unknown as { properties: { calls: { items: {
+      properties: { name: { enum: string[] }; args: { properties: Record<string, unknown>; required: string[] } } } } } };
+    const item = schema.properties.calls.items.properties;
+    expect(item.name.enum).toEqual(['tn_ventas', 'tn_cobertura']);
+    for (const key of ['granularity', 'from_month', 'to_month', 'max_offset']) {
+      expect(item.args.required).toContain(key);
+    }
+    const all = CHOICE_FORMAT.json_schema.schema as unknown as typeof schema;
+    expect(all.properties.calls.items.properties.name.enum).toHaveLength(17);
+  });
+
+  it('acepta abstain con connection_not_active y los argumentos nuevos, y sigue aceptando la forma vieja', () => {
+    expect(choiceSchema.parse({ action: 'abstain', calls: [], clarification_text: null,
+      abstain_reason: 'connection_not_active' }).abstain_reason).toBe('connection_not_active');
+    const parsed = choiceSchema.parse({ action: 'call_tools', clarification_text: null, abstain_reason: null,
+      calls: [{ name: 'tn_cohortes', args: { ...flat, granularity: null, from_month: '2026-01',
+        to_month: '2026-03', max_offset: 2 } }] });
+    expect(parsed.calls[0].args).toMatchObject({ from_month: '2026-01', to_month: '2026-03', max_offset: 2 });
+    const legacy = choiceSchema.parse({ action: 'call_tools', clarification_text: null, abstain_reason: null,
+      calls: [{ name: 'total', args: flat }] });
+    expect(legacy.calls[0].args).toMatchObject({ granularity: null, from_month: null, to_month: null,
+      max_offset: null });
+    expect(() => choiceSchema.parse({ action: 'abstain', calls: [], clarification_text: null,
+      abstain_reason: 'no_coverage' })).toThrow();
   });
 });

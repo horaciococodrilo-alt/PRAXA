@@ -56,6 +56,10 @@ nada hasta que exista.
    evidencia ya calculada, los alias de entidades con sus nombres capturados (truncados y
    marcados no confiables) y los extractos web validados; nunca IDs de cuenta, negocio, empresa,
    conexión ni token. Su salida es no confiable y **se valida** antes de publicar (sección 8).
+   Con Tiendanube activa y cubierta (M16e, etapa .5), el paso de informe recibe además las
+   ventas de la tienda de las dos ventanas, sumadas por moneda (pedidos pagados y pagos
+   parciales), con las dos zonas horarias; nunca pedidos, clientes, productos, el dominio ni el
+   ID de la tienda.
 6. **Entorno de ejecución (Vercel) y panel de Supabase.** Quien los controla controla todo
    lo anterior. Están fuera del modelo de amenazas que la aplicación puede mitigar.
 7. **Entorno de pruebas → proyecto desechable.** Las pruebas destructivas nunca cruzan hacia
@@ -206,6 +210,10 @@ Garantías de la base, vigentes y probadas en pgTAP:
   reconectar a otra conexión, el informe sigue en la tabla pero ni la pantalla ni la descarga lo
   devuelven; se borra con la empresa. La publicación verifica reserva, conexión, generación y
   sincronización después de los bloqueos y reemplaza el anterior en una sola transacción.
+  El informe con sección de tienda (v2, M16e) exige además que su conexión de Tiendanube, de la
+  misma empresa, esté `active` o `needs_reauth`; la base admite solo las parejas de versión
+  aprobadas, exige la conexión de la tienda si y solo si el informe es v2 y la publicación la
+  vuelve a comprobar activa después de los bloqueos (`0024`, pgTAP `17`).
 
 La matriz exacta de privilegios vive en cada migración y en su pgTAP. No se copia acá.
 
@@ -349,6 +357,14 @@ servidor trata ese contexto del navegador como no confiable.
 Las instrucciones incluidas en nombres o metadatos no amplían permisos ni el catálogo de
 herramientas, pero pueden degradar la respuesta del modelo.
 
+Con Tiendanube conectada (M16e, etapa .5), el modelo recibe solo las herramientas de las fuentes
+activas, y una llamada a otra se rechaza en el servidor. Las cuatro herramientas de la tienda leen
+solo agregados con las funciones `get_tn_*` bajo RLS: pedidos y pagos parciales por día o mes y
+moneda, unidades por producto (con su nombre y SKU, texto no confiable) y cohortes con la regla
+de cinco aplicada en SQL. Nunca viajan IDs de tienda, pedidos, clientes ni las claves internas de
+producto, ni el dominio de la tienda, que solo ve la pantalla. Vigente en código, con pruebas
+unitarias y de app con datos sintéticos.
+
 **Diagnóstico de Meta Ads (M26a), con Anthropic.** Vigente en el código y probado con un
 proveedor simulado; la evaluación con el modelo real no se ejecutó por decisión del usuario
 (`H-E1-242`), y los datos reales esperan la aprobación del acta y la comunicación al dueño:
@@ -379,7 +395,7 @@ Estado de cada pieza, sin repetir los plazos (la fuente es la spec):
 | Foto de perfil | Al reemplazarla o eliminarla se borra el archivo de Storage. Si ese borrado falla, el archivo puede quedar sin referencia en la carpeta del usuario. Con la baja de cuenta, igual que el resto (`H-E1-06`) |
 | Correos de Auth en Resend | El proveedor conserva los mensajes de confirmación y recuperación durante su retención; el borrado de la base activa no los alcanza. Al cerrar el piloto se pide su borrado anticipado (CA-67). Alcance y procedimiento en el [acta de datos reales](FASES/FASE1/M03a/acta-meta.md) |
 | Datos de Tiendanube (M16e) | Pedidos, líneas, ID opaco de cliente y catálogo en `private`, sin grants; los usuarios leen solo agregados, por RLS y con la conexión vigente. Solo el estado vigente de cada pedido (D-M16e-16). La purga al desconectar y `app/store_redact` borran todo lo de la conexión; `customer/redact` borra los pedidos del cliente y deja una marca de supresión por pedido, sin PII, que cae con la purga. Excepciones de reversibilidad en `meta_first/spec.md` §17.6. Vigente en la base (`0023`, pgTAP `18`) y en código desde la etapa .3: la extracción proyecta en memoria solo la lista cerrada de campos y los webhooks borran por tienda o por cliente (pruebas unitarias y de app con datos sintéticos). Sin datos reales hasta la primera publicación y el acta |
-| Informe del diagnóstico (M26a) | Uno por empresa. Se conserva tras desconectar, oculto por la política de lectura (excepción de retención de `meta_first/spec.md` §16); se borra al publicar uno nuevo (excepción de reversibilidad) o al borrar la empresa. `purge_connection` no lo toca. Un PDF descargado no se revoca. Vigente en la base, probado en pgTAP y en `test:app` |
+| Informe del diagnóstico (M26a) | Uno por empresa. Se conserva tras desconectar, oculto por la política de lectura (excepción de retención de `meta_first/spec.md` §16); se borra al publicar uno nuevo (excepción de reversibilidad) o al borrar la empresa. La purga de Meta no lo toca. El informe con sección de tienda (v2, M16e) cuelga además de la conexión de Tiendanube: se oculta al desconectarla y la purga o `app/store_redact` lo borran por cascada (nota «Enmienda D-M16e-15» de §16); `customer/redact` no lo toca, porque solo tiene totales. Un PDF descargado no se revoca. Vigente en la base, probado en pgTAP y en `test:app` (v2 desde `0024`) |
 | Reserva técnica del diagnóstico | Vence sola; se libera al terminar o fallar la generación |
 | Copias de seguridad del proveedor | Un dato borrado de la base activa puede seguir en las copias durante su plazo (CA-38b). Es un límite declarado, no se mitiga |
 

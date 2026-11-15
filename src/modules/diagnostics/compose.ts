@@ -11,12 +11,14 @@ import {
   manifestSchema,
   METHODOLOGY_VERSION,
   METRIC_LABELS,
+  storeSectionSchema,
   type BreakdownDimension,
   type Cause,
   type DiagnosticSettings,
   type EntityLevel,
   type Evidence,
   type Metric,
+  type StoreSection,
 } from './contract';
 import { DiagnosticReadError } from './repository';
 import { goalActionLabel } from './settings';
@@ -79,8 +81,12 @@ export const storedReportSchema = z.object({
   prev_from: isoDate.nullable(),
   prev_to: isoDate.nullable(),
   sync_finished_at: instant,
+  // Ausentes en lecturas anteriores a 0024: se tratan como v1.
+  schema_version: z.union([z.literal(1), z.literal(2)]).optional(),
+  methodology_version: z.enum(['meta-diag-1', 'meta-tn-diag-1']).optional(),
   settings: z.object({ goal_kind: z.enum(GOAL_KINDS), metric_ref: z.string() }),
-  evidence: z.object({ items: z.array(evidenceSchema), totals: totalsSchema, manifest: manifestSchema }),
+  evidence: z.object({ items: z.array(evidenceSchema), totals: totalsSchema, manifest: manifestSchema,
+    store: storeSectionSchema.optional() }),
   output: storedOutputSchema,
   web_sources: z.array(z.object({ index: z.number().int(), url: z.string(), title: z.string(),
     page_age: z.string(), domain: z.string() })),
@@ -91,7 +97,7 @@ export const storedReportSchema = z.object({
 export type StoredReport = z.infer<typeof storedReportSchema>;
 
 export const STORED_REPORT_COLUMNS = 'generated_at, window_from, window_to, prev_from, prev_to, sync_finished_at, '
-  + 'settings, evidence, output, web_sources, model_requested, model_reported, usage';
+  + 'schema_version, methodology_version, settings, evidence, output, web_sources, model_requested, model_reported, usage';
 
 export function parseStoredReport(raw: unknown): StoredReport {
   const parsed = storedReportSchema.safeParse(raw);
@@ -173,9 +179,44 @@ const LIMIT_TEXT: Readonly<Record<Cause, string>> = {
 const DIMENSION_LABEL: Readonly<Record<BreakdownDimension, string>> = {
   age_gender: 'Edad y género', country: 'País', region: 'Región',
 };
-const LEVEL_LABEL: Readonly<Record<'account' | EntityLevel, string>> = {
-  account: 'Cuenta', campaign: 'Campaña', adset: 'Conjunto de anuncios', ad: 'Anuncio',
+const LEVEL_LABEL: Readonly<Record<'account' | 'store' | EntityLevel, string>> = {
+  account: 'Cuenta', campaign: 'Campaña', adset: 'Conjunto de anuncios', ad: 'Anuncio', store: 'Tienda',
 };
+
+// Sección «Ventas de la tienda» (M16e §6, A-09, A-10). Textos fijos del servidor: ninguno
+// rotula una cifra como ingreso ni atribuye ventas a Meta.
+const STORE_INTRO = 'Ventas de la tienda en Tiendanube para las mismas fechas de calendario que el informe, cada fuente en su propia zona horaria. Son dos series distintas: las ventas no se atribuyen a Meta ni indican que el gasto las haya causado.';
+const STORE_DEFINITIONS: Readonly<Record<'paid_orders' | 'partially_paid_orders' | 'collected_amount', string>> = {
+  paid_orders: 'Pedidos pagados: pedidos con pago «pagado» o «reembolsado parcialmente», no cancelados, contados en el día de pago en la zona de la tienda.',
+  partially_paid_orders: 'Pagos parciales: pedidos con pago parcial; se informan aparte y no cuentan como pagados.',
+  collected_amount: 'Monto cobrado: total pagado por el cliente menos los reembolsos verificados. No descuenta costos, envíos ni impuestos.',
+};
+const STORE_PARTIAL_TEXT: Readonly<Record<StoreSection['partial_reasons'][number], string>> = {
+  sync_stale: 'la última extracción de Tiendanube tiene más de 24 horas',
+  window_not_covered: 'la ventana no tiene cobertura completa de Tiendanube',
+};
+
+function storeSection(store: StoreSection, value: (id: string | undefined) => string): DocSection {
+  const metrics = (['paid_orders', 'partially_paid_orders', 'collected_amount'] as const)
+    .filter((metric) => store.rows.some((row) => row.current[metric]));
+  const label = { paid_orders: METRIC_LABELS.tn_paid_orders, partially_paid_orders: METRIC_LABELS.tn_partially_paid_orders,
+    collected_amount: METRIC_LABELS.tn_collected_amount } as const;
+  const rows = store.rows.flatMap((row) => metrics.map((metric) => [row.currency ?? 'Sin moneda', label[metric],
+    value(row.current[metric]?.id), value(row.previous[metric]?.id)]));
+  const w = store.window;
+  return { id: 'store', title: 'Ventas de la tienda', blocks: [
+    { kind: 'paragraph', text: STORE_INTRO },
+    { kind: 'table', columns: ['Moneda', 'Métrica', 'Período actual', 'Período anterior'], rows },
+    { kind: 'notice', text: `Períodos: del ${formatDate(w.from)} al ${formatDate(w.to)} y, el anterior, del ${formatDate(w.prev_from)} al ${formatDate(w.prev_to)}.` },
+    { kind: 'notice', text: `Zona horaria de Meta: ${store.meta_timezone ?? 'no informada'}. Zona horaria de la tienda: ${store.timezone}.` },
+    { kind: 'list', items: metrics.map((metric) => STORE_DEFINITIONS[metric]) },
+    { kind: 'notice', text: store.fetched_at
+      ? `Última extracción de Tiendanube: ${formatInstant(store.fetched_at)} (hora de Argentina).`
+      : 'Última extracción de Tiendanube: sin fecha informada.' },
+    ...(store.partial ? [{ kind: 'notice' as const,
+      text: `Sección parcial: ${store.partial_reasons.map((r) => STORE_PARTIAL_TEXT[r]).join('; ')}.` }] : []),
+  ] };
+}
 const PRIORITY_LABEL = { high: 'Prioridad alta', medium: 'Prioridad media', low: 'Prioridad baja' } as const;
 const GOAL_LABEL = { purchase: 'Ventas', inquiry: 'Consultas', traffic: 'Tráfico' } as const;
 
@@ -247,6 +288,9 @@ export function composeDocument(report: StoredReport): DiagnosticDocument {
   const totals = report.evidence.totals;
   const plan = totals.section_plan;
   const out = report.output;
+  // Un informe v1 (con o sin columnas de versión) no tiene sección de tienda.
+  const store = report.evidence.store ?? null;
+  const methodology = report.methodology_version ?? (store ? 'meta-tn-diag-1' : METHODOLOGY_VERSION);
   const currentAttribution = attributionLabel(items, report.window_from, report.window_to);
   const value = (id: string | undefined) => {
     const evidence = id ? byId.get(id) : undefined;
@@ -369,7 +413,7 @@ export function composeDocument(report: StoredReport): DiagnosticDocument {
     ['Lotes de análisis', String(report.usage.batches || 1)],
     ['Páginas leídas', String(manifest.pages_read)],
     ['Sincronización usada', `${formatInstant(report.sync_finished_at)} (hora de Argentina)`],
-    ['Metodología', `${METHODOLOGY_VERSION} (la versión la exige la base al publicar)`],
+    ['Metodología', `${methodology} (la versión la exige la base al publicar)`],
     ['Modelo', `${report.model_requested}${report.model_reported && report.model_reported !== report.model_requested ? ` (informado: ${report.model_reported})` : ''}`],
   ] }] };
 
@@ -398,11 +442,14 @@ export function composeDocument(report: StoredReport): DiagnosticDocument {
       { label: 'Moneda', value: totals.currency && totals.currency !== 'mixed' ? totals.currency : 'sin moneda única' },
       { label: 'Atribución', value: currentAttribution },
       { label: 'Ventanas de atribución', value: attributionWindowsLabel(totals.attribution_windows, currentAttribution) },
+      ...(store ? [{ label: 'Fuentes', value: 'Meta Ads y Tiendanube (dos series distintas)' }] : []),
     ],
     summary: out.executive_summary.text,
     opportunities: out.opportunities.map((o) => ({ title: o.title, priority: PRIORITY_LABEL[o.priority] })),
-    sections: [summary, performance, comparison, entities, breakdowns, opportunities, web, limits, method, evidence],
-    footer: 'PRAXA · Diagnóstico de Meta Ads · metodología meta-diag-1. Las acciones son sugerencias: PRAXA no cambia nada en Meta.',
+    // La sección de la tienda va al lado del rendimiento de Meta, como otra serie (M16e §6).
+    sections: [summary, performance, ...(store ? [storeSection(store, value)] : []), comparison, entities, breakdowns,
+      opportunities, web, limits, method, evidence],
+    footer: `PRAXA · Diagnóstico de Meta Ads · metodología ${methodology}. Las acciones son sugerencias: PRAXA no cambia nada en Meta${store ? ' ni en Tiendanube' : ''}.`,
   };
 }
 
