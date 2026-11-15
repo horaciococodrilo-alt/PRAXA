@@ -4,12 +4,16 @@ export { actionTypeOptions, GoalInputError, parseGoalInput, type ActionTypeOptio
 export {
   DiagnosticPreparationError,
   estimateTokens,
+  attachStoreSection,
   isLowSample,
   prepareDiagnostic,
+  prepareStoreSection,
   windowsFor,
   type DiagnosticPackage,
   type PreparedDiagnostic,
   type PrepareInput,
+  type PreparedStoreSection,
+  type StoreSalesRead,
 } from './evidence';
 export {
   DiagnosticReadError,
@@ -21,6 +25,7 @@ export {
   readAllEntities,
   readBreakdowns,
   readEligibility,
+  readStoreSales,
   releaseDiagnostic,
   reserveDiagnostic,
   saveSettings,

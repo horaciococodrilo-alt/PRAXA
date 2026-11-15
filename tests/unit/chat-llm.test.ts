@@ -16,7 +16,8 @@ const answer = { text: 'No puedo responder esa consulta.', blocks: [] };
 const toolCall = { name: 'total', args: { level: null, entity_ref: null,
   metric: 'spend', period: { from: '2026-02-01', to: '2026-02-02' },
   period_a: null, period_b: null, action_type: null, order: null,
-  limit: null, include_trend: null, dimension: null } };
+  limit: null, include_trend: null, dimension: null, granularity: null,
+  from_month: null, to_month: null, max_offset: null } };
 const flatChoice = (action: string, fields: Record<string, unknown> = {}) => ({
   action, calls: [], clarification_text: null, abstain_reason: null, ...fields,
 });
@@ -70,7 +71,8 @@ describe('M25a-T-33/T-34: adaptador DeepInfra', () => {
     const args = { level: null, entity_ref: null, metric: 'spend',
       period: { from: '2026-02-01', to: '2026-02-02' },
       period_a: null, period_b: null, action_type: null, order: null,
-      limit: null, include_trend: null, dimension: null };
+      limit: null, include_trend: null, dimension: null, granularity: null,
+      from_month: null, to_month: null, max_offset: null };
     const raw = { action: 'answer', calls: [{ name: 'total', args }],
       clarification_text: null, abstain_reason: null };
     const selected = await requestChatModel({ phase: 'choice', messages: [],

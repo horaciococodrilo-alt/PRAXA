@@ -12,6 +12,9 @@ import { DIAGNOSTIC_LIMITS } from './limits';
 
 export const SCHEMA_VERSION = 1 as const;
 export const METHODOLOGY_VERSION = 'meta-diag-1' as const;
+/** Informe con la sección «Ventas de la tienda» (M16e §6, A-04): la base exige la pareja exacta. */
+export const STORE_SCHEMA_VERSION = 2 as const;
+export const STORE_METHODOLOGY_VERSION = 'meta-tn-diag-1' as const;
 
 export const GOAL_KINDS = ['purchase', 'inquiry', 'traffic'] as const;
 export type GoalKind = (typeof GOAL_KINDS)[number];
@@ -115,7 +118,7 @@ export type BreakdownMetricsRow = z.infer<typeof breakdownMetricsRowSchema>;
 export const METRICS = [
   'spend', 'impressions', 'clicks', 'link_clicks', 'result_count', 'result_value', 'ctr', 'cpc',
   'cpm', 'cost_per_result', 'attributed_return', 'var_spend', 'var_ctr', 'var_cost_per_result',
-  'var_attributed_return',
+  'var_attributed_return', 'tn_paid_orders', 'tn_partially_paid_orders', 'tn_collected_amount',
 ] as const;
 export type Metric = (typeof METRICS)[number];
 
@@ -127,6 +130,7 @@ export const METRIC_UNITS: Readonly<Record<Metric, Unit>> = {
   result_count: 'count', result_value: 'money', ctr: 'percent', cpc: 'money', cpm: 'money',
   cost_per_result: 'money', attributed_return: 'ratio', var_spend: 'variation',
   var_ctr: 'variation', var_cost_per_result: 'variation', var_attributed_return: 'variation',
+  tn_paid_orders: 'count', tn_partially_paid_orders: 'count', tn_collected_amount: 'money',
 };
 
 /** Rótulos fijos. El retorno es siempre «atribuido por Meta»; nunca ganancia. */
@@ -139,9 +143,33 @@ export const METRIC_LABELS: Readonly<Record<Metric, string>> = {
   var_spend: 'Variación del gasto', var_ctr: 'Variación del CTR',
   var_cost_per_result: 'Variación del costo por resultado',
   var_attributed_return: 'Variación del retorno atribuido por Meta',
+  tn_paid_orders: 'Pedidos pagados', tn_partially_paid_orders: 'Pagos parciales',
+  tn_collected_amount: 'Monto cobrado',
 };
 
-export const evidenceLevelSchema = z.enum(['account', 'campaign', 'adset', 'ad']);
+export const evidenceLevelSchema = z.enum(['account', 'campaign', 'adset', 'ad', 'store']);
+
+/** Parcialidad de la sección de la tienda (M16e §6). */
+export const STORE_PARTIAL_REASONS = ['sync_stale', 'window_not_covered'] as const;
+const storeMetricRef = z.strictObject({ id: z.string(), value: decimal });
+const storeWindowValues = z.strictObject({
+  paid_orders: storeMetricRef, partially_paid_orders: storeMetricRef,
+  collected_amount: storeMetricRef.optional(),
+});
+/** Resumen persistido en `evidence.store` de un informe v2: solo agregados por moneda. */
+export const storeSectionSchema = z.strictObject({
+  source: z.literal('tiendanube'),
+  timezone: z.string().min(1).max(64),
+  meta_timezone: z.string().min(1).max(64).nullable(),
+  window: z.strictObject({ from: isoDateSchema, to: isoDateSchema, prev_from: isoDateSchema, prev_to: isoDateSchema }),
+  partial: z.boolean(),
+  partial_reasons: z.array(z.enum(STORE_PARTIAL_REASONS)),
+  covered_through: isoDateSchema,
+  fetched_at: isoInstantTextSchema.nullable(),
+  rows: z.array(z.strictObject({ currency: z.string().regex(/^[A-Z]{3}$/).nullable(),
+    current: storeWindowValues, previous: storeWindowValues })),
+});
+export type StoreSection = z.infer<typeof storeSectionSchema>;
 
 export const evidenceSchema = z.strictObject({
   id: evidenceIdSchema,

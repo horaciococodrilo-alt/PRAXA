@@ -141,3 +141,32 @@ describe('M25a-T-47/48/68/95: pantalla de chat', () => {
     expect(votarRespuesta).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('M16e-C-15: chat con la tienda conectada', () => {
+  beforeEach(() => { vi.clearAllMocks(); preguntarChat.mockResolvedValue(answer); });
+
+  it('con solo Tiendanube lista la tienda, sugiere preguntas de la tienda y no las de Meta', () => {
+    render(<Chat iniciales="GM" conectadas={[{ id: 'tiendanube', nombre: 'Tiendanube · tienda.test' }]}
+      tieneEmpresa conexionActiva />);
+    expect(screen.getByRole('list', { name: 'Fuentes conectadas' })).toHaveTextContent('Tiendanube · tienda.test');
+    const sugerencias = screen.getByRole('group', { name: 'Preguntas sugeridas' });
+    expect(sugerencias).toHaveTextContent('¿Cuántos pedidos pagados tuve este mes?');
+    expect(sugerencias).not.toHaveTextContent('¿Cuánto gasté en los últimos siete días?');
+    expect(screen.queryByText(/Todavía no hay una cuenta conectada/)).not.toBeInTheDocument();
+  });
+
+  it('con las dos fuentes combina las sugerencias y el pie muestra la tienda', async () => {
+    const user = userEvent.setup();
+    preguntarChat.mockResolvedValueOnce({ ...answer, footer: { account: null, store: 'tienda.test',
+      period: '01/02/2026 al 07/02/2026', defaulted: false, entity_defaulted: false,
+      timezone: 'America/Argentina/Buenos_Aires', coverage: null, freshness: null, no_account_text: null,
+      data_limits: [] } });
+    render(<Chat iniciales="GM" conectadas={[{ id: 'meta_ads', nombre: 'Meta Ads' },
+      { id: 'tiendanube', nombre: 'Tiendanube · tienda.test' }]} tieneEmpresa conexionActiva />);
+    const sugerencias = screen.getByRole('group', { name: 'Preguntas sugeridas' });
+    expect(sugerencias).toHaveTextContent('¿Cuánto gasté en los últimos siete días?');
+    expect(sugerencias).toHaveTextContent('¿Qué productos vendí más en los últimos 28 días?');
+    await user.type(screen.getByRole('textbox', { name: 'Tu pregunta' }), 'Ventas{Enter}');
+    expect(await screen.findByText('Tienda tienda.test')).toBeInTheDocument();
+  });
+});

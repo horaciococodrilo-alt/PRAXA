@@ -482,6 +482,84 @@ describe('M16e .3: extracción y privacidad de Tiendanube contra la base real', 
   });
 
   // -------------------------------------------------------------------------
+  // Etapa .5: chat y diagnóstico
+  // -------------------------------------------------------------------------
+
+  it('M16e-T-11: las herramientas del chat devuelven las cifras de SQL con el cliente del usuario, sin IDs', async () => {
+    const owner = await company('m16e-chat');
+    const intruder = await company('m16e-chat-intruso');
+    const store = storeId();
+    const connectionId = await connectStore(owner, store);
+    await syncUntilComplete(owner, fakeTiendanube(store, fixture()));
+    const { projectToolArgs } = await import('@/modules/chat/tools/schema');
+    const { executeTiendanubeTool, supabaseRpc } = await import('@/modules/chat/tools/tiendanube');
+    const conn = { id: connectionId, status: 'active' as const, currency: 'ARS', timezone: TZ };
+    const defaults = { period: { from: '2026-01-01', to: '2026-01-31' }, accountEntityRef: null, month: '2026-02' };
+    const run = (name: string, flat: Record<string, unknown>, client = owner.user.client) =>
+      executeTiendanubeTool(projectToolArgs(name, flat, defaults), conn, 't1', { rpc: supabaseRpc(client) });
+
+    const ventas = await run('tn_ventas', { period: { from: '2026-01-01', to: '2026-02-28' }, granularity: 'month' });
+    const fromSql = (await sales(owner, connectionId, '2026-01-01', '2026-02-28', 'month'))
+      .filter((row) => row[1] !== null);
+    expect(ventas.values.filter((v) => v.metric === 'tn_paid_orders' && v.currency !== null)
+      .map((v) => [v.period!.from, v.currency, Number(v.value)])).toEqual(fromSql.map((row) => [row[0], row[1], row[2]]));
+    expect(ventas.values.filter((v) => v.metric === 'tn_partially_paid_orders' && v.currency !== null)
+      .map((v) => Number(v.value))).toEqual(fromSql.map((row) => row[4]));
+
+    const productos = await run('tn_productos', { period: { from: '2026-01-01', to: '2026-02-28' }, limit: 10 });
+    const { data: units } = await owner.user.client.rpc('get_tn_product_units', { p_connection_id: connectionId,
+      p_from: '2026-01-01', p_to: '2026-02-28', p_limit: 10 });
+    expect(productos.values.map((v) => [v.entity_name, Number(v.value)]))
+      .toEqual((units as Array<{ name: string; units: number }>).map((row) => [row.name, Number(row.units)]));
+
+    const cohortes = await run('tn_cohortes', { from_month: '2026-01', to_month: '2026-02', max_offset: 3 });
+    const { data: cells } = await owner.user.client.rpc('get_tn_cohorts', { p_connection_id: connectionId,
+      p_from_month: '2026-01-01', p_to_month: '2026-02-01', p_max_offset: 3 });
+    const hidden = (cells as Array<{ cohort_month: string; size_hidden: boolean }>).filter((c) => c.size_hidden);
+    expect(cohortes.values.filter((v) => v.metric === 'tn_cohort_size' && v.absence === 'menos_de_5')
+      .map((v) => `${v.cohort_month}-01`)).toEqual([...new Set(hidden.map((c) => c.cohort_month))]);
+    expect(cohortes.values.every((v) => v.value === null || v.unit !== 'count' || Number(v.value) >= 5)).toBe(true);
+
+    const cobertura = await run('tn_cobertura', {});
+    expect(cobertura.extra).toMatchObject({ source: 'tiendanube', backfill_done: true });
+
+    const serialized = JSON.stringify([ventas, productos, cohortes, cobertura]);
+    expect(serialized).not.toContain(store);
+    expect(serialized).not.toContain(connectionId);
+    const { rows } = await sql!.query<{ id: string }>(
+      'select id::text from private.tn_products where connection_id = $1', [connectionId]);
+    for (const row of rows) expect(serialized).not.toContain(row.id);
+
+    // Otra empresa: RLS deja la lectura vacía, sin cifras.
+    const ajena = await run('tn_ventas', { period: { from: '2026-01-01', to: '2026-01-31' } }, intruder.user.client);
+    expect(ajena.values).toEqual([]);
+  });
+
+  it('M16e-T-06/T-12: store_redact borra el informe del diagnóstico con sección de tienda (cascada de 0024)', async () => {
+    const owner = await company('m16e-diag-v2');
+    const store = storeId();
+    const metaId = await connectMeta(owner);
+    const storeConnection = await connectStore(owner, store);
+    await sql!.query(
+      `insert into public.diagnostic_reports (company_id, connection_id, credential_generation, request_id,
+         generated_at, window_from, window_to, sync_finished_at, schema_version, methodology_version,
+         store_connection_id, settings, evidence, output, web_sources, model_requested, usage)
+       values ($1, $2, 0, $3, now(), current_date - 28, current_date - 1, now(), 2, 'meta-tn-diag-1', $4,
+         '{"goal_kind":"traffic","metric_ref":"inline_link_clicks"}', $5, '{}', '[]', 'modelo_sintetico',
+         '{"calls":1,"batches":0,"steps":[]}')`,
+      [owner.ctx.company_id, metaId, randomUUID(), storeConnection,
+        JSON.stringify({ items: [], totals: {}, manifest: {}, store: { source: 'tiendanube' } })]);
+    const { data: visible } = await owner.user.client.from('diagnostic_reports').select('schema_version');
+    expect(visible).toEqual([{ schema_version: 2 }]);
+
+    expect((await webhook('store_redact', { store_id: Number(store) })).status).toBe(200);
+    const { rows } = await sql!.query('select count(*)::int as n from public.diagnostic_reports where company_id = $1',
+      [owner.ctx.company_id]);
+    expect(rows[0].n).toBe(0);
+    expect(await rowsOf([storeConnection])).toBe(0);
+  });
+
+  // -------------------------------------------------------------------------
   // Paso 7: medición de presupuestos
   // -------------------------------------------------------------------------
 

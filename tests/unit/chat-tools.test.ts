@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { CHAT_LIMITS } from '@/modules/chat/limits';
-import { projectToolArgs, TOOL_NAMES, ToolArgumentError, ToolEntityNotFoundError } from '@/modules/chat/tools/schema';
+import { META_TOOL_NAMES, projectToolArgs, TOOL_NAMES, ToolArgumentError, ToolEntityNotFoundError } from '@/modules/chat/tools/schema';
 import { parseToolResult, toModelView, ToolResultError } from '@/modules/chat/tools/results';
 import { actionLabel } from '@/modules/chat/tools/action-labels';
 import { executeTool, missingAccountEntityResult, resolveToolCall,
@@ -34,15 +34,15 @@ describe('M25a — catálogo de herramientas', () => {
   };
 
   it('fija los trece nombres exactos y proyecta una llamada válida de cada uno', () => {
-    expect(TOOL_NAMES).toHaveLength(13);
-    expect(Object.keys(valid)).toEqual([...TOOL_NAMES]);
-    for (const name of TOOL_NAMES) {
+    expect(META_TOOL_NAMES).toHaveLength(13);
+    expect(Object.keys(valid)).toEqual([...META_TOOL_NAMES]);
+    for (const name of META_TOOL_NAMES) {
       expect(projectToolArgs(name, valid[name], defaults).name).toBe(name);
     }
   });
 
   it('rechaza argumentos ajenos en cada herramienta, también company_id y SQL', () => {
-    for (const name of TOOL_NAMES) {
+    for (const name of META_TOOL_NAMES) {
       expect(() => projectToolArgs(name, { ...valid[name], company_id: entity }, defaults))
         .toThrow(ToolArgumentError);
       expect(() => projectToolArgs(name, { ...valid[name], sql: 'select 1' }, defaults))

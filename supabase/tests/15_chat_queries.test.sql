@@ -1,7 +1,7 @@
 -- M25a: registro, arriendo, privilegios y lecturas del chat. Datos sintéticos.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(165);
+select plan(171);
 
 create function pg_temp.sqlstate_of(p_sql text) returns text language plpgsql as $f$
 begin execute p_sql; return null;
@@ -974,5 +974,46 @@ select is((select count(*)::int from public.chat_query_records where id =
 select is(worker_api.purge_connection(
   'aaaaaaaa-0000-4000-8000-000000000151','c0a00000-0000-4000-8000-000000000151',
   'cc000000-0000-4000-8000-000000000151'),false,'T-06: purga repetida es false');
+
+-- M16e-T-11 (D-M16e-24): el registro acepta la conexión de Tiendanube con las mismas reglas.
+select 1 from worker_api.create_pending_connection(
+  'aaaaaaaa-0000-4000-8000-000000000152','c0a00000-0000-4000-8000-000000000152',
+  'cc000000-0000-4000-8000-0000000001e2','tiendanube',null,'AAAA','AAAAAAAAAAAAAAAA',
+  'AAAAAAAAAAAAAAAAAAAAAA==',1,'store_app_token','12345','{read_orders,read_customers,read_products}',null);
+select 1 from worker_api.confirm_connection(
+  'aaaaaaaa-0000-4000-8000-000000000152','c0a00000-0000-4000-8000-000000000152',
+  'cc000000-0000-4000-8000-0000000001e2','777152','ARS','America/Argentina/Buenos_Aires',true);
+select is((select written from worker_api.record_query(
+  'aaaaaaaa-0000-4000-8000-000000000152','c0a00000-0000-4000-8000-000000000152',
+  'fa000000-0000-4000-8000-0000000001e1','cc000000-0000-4000-8000-0000000001e2',
+  0,'Pregunta sintética de la tienda','{tn_ventas,tn_cohortes}','answered',null,12,
+  'modelo_sintetico',null)),true,
+  'M16e-T-11: un turno solo con herramientas de la tienda se registra en la conexión de Tiendanube');
+select is((select written from worker_api.record_query(
+  'aaaaaaaa-0000-4000-8000-000000000152','c0a00000-0000-4000-8000-000000000152',
+  'fa000000-0000-4000-8000-0000000001e2','cc000000-0000-4000-8000-0000000001e2',
+  0,'Pregunta sintética de Meta','{}','not_answered','connection_not_active',12,
+  'modelo_sintetico',null)),true,
+  'M16e-T-11: con solo la tienda activa, una pregunta de Meta se registra como connection_not_active');
+update public.integration_connections set status = 'needs_reauth', last_error_class = 'authentication', last_error_message = 'Autorización sintética vencida.'
+ where id = 'cc000000-0000-4000-8000-0000000001e2';
+select is((select written from worker_api.record_query(
+  'aaaaaaaa-0000-4000-8000-000000000152','c0a00000-0000-4000-8000-000000000152',
+  'fa000000-0000-4000-8000-0000000001e3','cc000000-0000-4000-8000-0000000001e2',
+  0,'Pregunta sintética','{}','not_answered','connection_not_active',12,'modelo_sintetico',null)),true,
+  'M16e-T-11: sin fuentes activas, el corte se registra en la tienda viva');
+select is((select written from worker_api.record_query(
+  'aaaaaaaa-0000-4000-8000-000000000152','c0a00000-0000-4000-8000-000000000152',
+  'fa000000-0000-4000-8000-0000000001e4','cc000000-0000-4000-8000-0000000001e2',
+  0,'Pregunta sintética','{tn_ventas}','answered',null,12,'modelo_sintetico',null)),false,
+  'M16e-T-11: una respuesta sobre una tienda que no está activa no se registra');
+select 1 from worker_api.begin_disconnect('aaaaaaaa-0000-4000-8000-000000000152',
+  'c0a00000-0000-4000-8000-000000000152','cc000000-0000-4000-8000-0000000001e2');
+select is(worker_api.purge_connection(
+  'aaaaaaaa-0000-4000-8000-000000000152','c0a00000-0000-4000-8000-000000000152',
+  'cc000000-0000-4000-8000-0000000001e2'),true,'M16e-C-08: la purga de la tienda procede');
+select is((select count(*)::int from public.chat_query_records where connection_id =
+  'cc000000-0000-4000-8000-0000000001e2'),0,
+  'M16e-C-08: la purga de la tienda borra los registros del chat de esa conexión');
 
 rollback;

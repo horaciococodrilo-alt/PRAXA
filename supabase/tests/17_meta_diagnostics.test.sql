@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(127);
+select plan(150);
 
 create function pg_temp.sqlstate_of(p_sql text) returns text language plpgsql as $f$
 begin execute p_sql; return null;
@@ -346,9 +346,10 @@ select results_eq(
      where c.contype = 'f' and c.conrelid in ('public.diagnostic_settings'::regclass,
        'public.diagnostic_reports'::regclass,'private.meta_diagnostic_reservations'::regclass)
      order by 1, 2$$,
-  $$values ('diagnostic_reports','companies','c'),('diagnostic_settings','companies','c'),
+  $$values ('diagnostic_reports','companies','c'),('diagnostic_reports','integration_connections','c'),
+           ('diagnostic_settings','companies','c'),
            ('private.meta_diagnostic_reservations','companies','c')$$,
-  'T-02/T-22: las tres tablas solo referencian companies, en cascada (el informe no tiene FK a la conexión)');
+  'T-02/T-22/M16e-T-12: las tablas referencian companies en cascada; el informe solo referencia la conexión de la tienda (0024), nunca la de Meta');
 
 select has_function('worker_api','save_diagnostic_settings',array['uuid','uuid','text','text'],
   'T-02: save_diagnostic_settings existe');
@@ -357,8 +358,8 @@ select has_function('worker_api','reserve_diagnostic',
   'T-02: reserve_diagnostic existe');
 select has_function('worker_api','release_diagnostic',array['uuid','uuid','uuid'],
   'T-02: release_diagnostic existe');
-select has_function('worker_api','publish_diagnostic',array['uuid','uuid','uuid','uuid','integer','jsonb'],
-  'T-02: publish_diagnostic existe');
+select has_function('worker_api','publish_diagnostic',array['uuid','uuid','uuid','uuid','integer','jsonb','uuid'],
+  'T-02/M16e-T-12: publish_diagnostic existe con la conexión de la tienda (0024)');
 
 select results_eq(
   $$select p.proname::text collate "default", p.prosecdef, p.proconfig = array['search_path=""']
@@ -623,6 +624,138 @@ select is(pg_temp.as_user('aaaaaaaa-0000-4000-8000-000000000172',
   $$select count(*)::text::jsonb from public.diagnostic_reports
      where company_id = 'c0a00000-0000-4000-8000-000000000171'$$),'0'::jsonb,
   'C-15: otro tenant no ve el informe ajeno');
+
+-- ===========================================================================
+-- M16e-T-12 (0024): versión 2 con sección de la tienda, conexión de Tiendanube y cascada
+-- ===========================================================================
+
+-- Tienda de C1 (activa) y de C2 (otra empresa).
+select 1 from worker_api.create_pending_connection(
+  'aaaaaaaa-0000-4000-8000-000000000171','c0a00000-0000-4000-8000-000000000171',
+  'cc000000-0000-4000-8000-0000000001e1','tiendanube',null,'AAAA','AAAAAAAAAAAAAAAA',
+  'AAAAAAAAAAAAAAAAAAAAAA==',1,'store_app_token','12345','{read_orders,read_customers,read_products}',null);
+select 1 from worker_api.confirm_connection(
+  'aaaaaaaa-0000-4000-8000-000000000171','c0a00000-0000-4000-8000-000000000171',
+  'cc000000-0000-4000-8000-0000000001e1','777171','ARS','America/Argentina/Buenos_Aires',true);
+select 1 from worker_api.create_pending_connection(
+  'aaaaaaaa-0000-4000-8000-000000000172','c0a00000-0000-4000-8000-000000000172',
+  'cc000000-0000-4000-8000-0000000001e2','tiendanube',null,'AAAA','AAAAAAAAAAAAAAAA',
+  'AAAAAAAAAAAAAAAAAAAAAA==',1,'store_app_token','12345','{read_orders,read_customers,read_products}',null);
+select 1 from worker_api.confirm_connection(
+  'aaaaaaaa-0000-4000-8000-000000000172','c0a00000-0000-4000-8000-000000000172',
+  'cc000000-0000-4000-8000-0000000001e2','777172','ARS','America/Argentina/Buenos_Aires',true);
+
+create function pg_temp.payload_v2(p_marker text default 'tienda') returns jsonb language sql as $f$
+  select pg_temp.payload(p_marker) || jsonb_build_object('schema_version',2,
+    'methodology_version','meta-tn-diag-1',
+    'evidence',jsonb_build_object('items','[]'::jsonb,'totals','{}'::jsonb,'manifest','{}'::jsonb,
+      'store',jsonb_build_object('source','tiendanube'))) $f$;
+create function pg_temp.publish_store(p_req uuid, p_payload jsonb, p_store uuid) returns text
+language sql as $f$
+  select worker_api.publish_diagnostic('aaaaaaaa-0000-4000-8000-000000000171',
+    'c0a00000-0000-4000-8000-000000000171',p_req,'cc000000-0000-4000-8000-000000000171',0,p_payload,p_store) $f$;
+create function pg_temp.v2_row(p_store uuid, p_version integer default 2,
+  p_method text default 'meta-tn-diag-1') returns text language plpgsql as $f$
+begin
+  -- C2 ya puede tener un informe: se borra dentro del bloque, que se deshace al fallar.
+  delete from public.diagnostic_reports where company_id = 'c0a00000-0000-4000-8000-000000000172';
+  insert into public.diagnostic_reports (company_id,connection_id,credential_generation,request_id,
+    generated_at,window_from,window_to,prev_from,prev_to,sync_finished_at,schema_version,
+    methodology_version,store_connection_id,settings,evidence,output,web_sources,model_requested,
+    model_reported,usage)
+  values ('c0a00000-0000-4000-8000-000000000172','cc000000-0000-4000-8000-000000000172',0,
+    gen_random_uuid(),now(),pg_temp.d()-27,pg_temp.d(),null,null,now(),p_version,p_method,p_store,
+    '{"goal_kind":"purchase","metric_ref":"actions:purchase"}'::jsonb,
+    '{"items":[],"totals":{},"manifest":{}}'::jsonb,'{}'::jsonb,'[]'::jsonb,'modelo_sintetico',null,
+    '{"calls":1,"batches":0,"steps":[]}'::jsonb);
+  return null;
+exception when others then return sqlstate;
+end $f$;
+
+-- Restricciones de la tabla: solo (1,'meta-diag-1') sin tienda y (2,'meta-tn-diag-1') con tienda.
+select is(pg_temp.v2_row(null),'23514','M16e-T-12: un v2 sin store_connection_id se rechaza');
+select is(pg_temp.v2_row('cc000000-0000-4000-8000-0000000001e2',1,'meta-diag-1'),'23514',
+  'M16e-T-12: un v1 con conexión de tienda se rechaza');
+select is(pg_temp.v2_row('cc000000-0000-4000-8000-0000000001e2',2,'meta-diag-1'),'23514',
+  'M16e-T-12: una pareja de versión distinta de las dos admitidas se rechaza');
+select is(pg_temp.v2_row('cc000000-0000-4000-8000-000000000172'),'PX001',
+  'M16e-T-12: la conexión de la tienda no puede ser una conexión de Meta');
+select is(pg_temp.v2_row('cc000000-0000-4000-8000-0000000001e1'),'23503',
+  'M16e-T-12: la conexión de la tienda tiene que ser de la misma empresa');
+select is_empty(
+  $$select r.name from unnest(array['anon','authenticated','service_role','praxa_integrations']) r(name)
+     where has_function_privilege(r.name, 'private.diagnostic_reports_store_only()', 'EXECUTE')
+        or not has_function_privilege('praxa_integrations',
+             'worker_api.publish_diagnostic(uuid,uuid,uuid,uuid,integer,jsonb,uuid)', 'EXECUTE')
+        or (r.name <> 'praxa_integrations' and has_function_privilege(r.name,
+             'worker_api.publish_diagnostic(uuid,uuid,uuid,uuid,integer,jsonb,uuid)', 'EXECUTE'))$$,
+  'M16e-T-12: el trigger nuevo no se ejecuta por nadie y la publicación sigue siendo solo del rol de C');
+
+-- Nueva oportunidad de publicar: el informe vigente tiene más de 24 h y hay una sincronización posterior.
+update public.diagnostic_reports set generated_at = now() - interval '2 days'
+ where company_id = 'c0a00000-0000-4000-8000-000000000171';
+update public.integration_connections
+   set meta_sync_summary = jsonb_set(meta_sync_summary,'{finished_at}',
+         to_jsonb(private.meta_iso(now() - interval '1 minute')))
+ where id = 'cc000000-0000-4000-8000-000000000171';
+select is(pg_temp.reserve('d1a00000-0000-4000-8000-0000000000e1'),'reserved',
+  'M16e-T-12: reserva para el informe con sección de tienda');
+select is(pg_temp.sqlstate_of($$select pg_temp.publish_store('d1a00000-0000-4000-8000-0000000000e1',
+  pg_temp.payload_v2(),null)$$),'22023','M16e-T-12: un v2 sin conexión de tienda no se publica');
+select is(pg_temp.sqlstate_of($$select pg_temp.publish_store('d1a00000-0000-4000-8000-0000000000e1',
+  pg_temp.payload(),'cc000000-0000-4000-8000-0000000001e1')$$),'22023',
+  'M16e-T-12: un v1 con conexión de tienda no se publica');
+select is(pg_temp.sqlstate_of($$select pg_temp.publish_store('d1a00000-0000-4000-8000-0000000000e1',
+  pg_temp.payload_v2() #- '{evidence,store}','cc000000-0000-4000-8000-0000000001e1')$$),'22023',
+  'M16e-T-12: un v2 sin la sección de tienda no se publica');
+select is(pg_temp.publish_store('d1a00000-0000-4000-8000-0000000000e1',pg_temp.payload_v2(),
+  'cc000000-0000-4000-8000-0000000001e2'),'connection_changed',
+  'M16e-T-12: la tienda de otra empresa no se acepta');
+select is(pg_temp.publish_store('d1a00000-0000-4000-8000-0000000000e1',pg_temp.payload_v2(),
+  'cc000000-0000-4000-8000-000000000171'),'connection_changed',
+  'M16e-T-12: una conexión de Meta no sirve como tienda');
+select is(pg_temp.publish_store('d1a00000-0000-4000-8000-0000000000e1',pg_temp.payload_v2(),
+  'cc000000-0000-4000-8000-0000000001e1'),'published','M16e-T-12: el v2 con tienda activa se publica');
+select results_eq($$select schema_version, methodology_version, store_connection_id, output->>'marker'
+    from public.diagnostic_reports where company_id = 'c0a00000-0000-4000-8000-000000000171'$$,
+  $$values (2,'meta-tn-diag-1'::text,'cc000000-0000-4000-8000-0000000001e1'::uuid,'tienda'::text)$$,
+  'M16e-T-12: el informe vigente es v2 y apunta a la tienda');
+select is(pg_temp.as_user('aaaaaaaa-0000-4000-8000-000000000171',
+  $$select count(*)::text::jsonb from public.diagnostic_reports$$),'1'::jsonb,
+  'M16e-T-12: con Meta y la tienda vigentes, el dueño ve el v2');
+update public.integration_connections set status = 'needs_reauth', last_error_class = 'authentication', last_error_message = 'Autorización sintética vencida.'
+ where id = 'cc000000-0000-4000-8000-0000000001e1';
+select is(pg_temp.as_user('aaaaaaaa-0000-4000-8000-000000000171',
+  $$select count(*)::text::jsonb from public.diagnostic_reports$$),'1'::jsonb,
+  'M16e-T-12: con la tienda en needs_reauth el v2 sigue visible');
+update public.integration_connections set status = 'active', last_error_class = null, last_error_message = null
+ where id = 'cc000000-0000-4000-8000-0000000001e1';
+select 1 from worker_api.begin_disconnect('aaaaaaaa-0000-4000-8000-000000000171',
+  'c0a00000-0000-4000-8000-000000000171','cc000000-0000-4000-8000-0000000001e1');
+select is(pg_temp.as_user('aaaaaaaa-0000-4000-8000-000000000171',
+  $$select count(*)::text::jsonb from public.diagnostic_reports$$),'0'::jsonb,
+  'M16e-C-12: al desconectar la tienda el v2 deja de leerse aunque Meta siga activa');
+select is(worker_api.purge_connection('aaaaaaaa-0000-4000-8000-000000000171',
+  'c0a00000-0000-4000-8000-000000000171','cc000000-0000-4000-8000-0000000001e1'),true,
+  'M16e-C-12: la purga de la tienda procede');
+select is((select count(*)::int from public.diagnostic_reports
+  where company_id = 'c0a00000-0000-4000-8000-000000000171'),0,
+  'M16e-C-08/C-12: la purga de la tienda borra el informe con sección por cascada');
+-- Un v1 sigue publicándose y leyéndose igual después de la migración 2.
+update public.integration_connections
+   set meta_sync_summary = jsonb_set(meta_sync_summary,'{finished_at}',
+         to_jsonb(private.meta_iso(now() - interval '30 seconds')))
+ where id = 'cc000000-0000-4000-8000-000000000171';
+select is(pg_temp.reserve('d1a00000-0000-4000-8000-0000000000e2'),'reserved',
+  'M16e-T-12: tras borrar el v2 la empresa vuelve a ser elegible');
+select is(pg_temp.publish('d1a00000-0000-4000-8000-0000000000e2',pg_temp.payload('nuevo')),'published',
+  'M16e-T-12: un v1 sigue publicándose con la firma de seis argumentos');
+select results_eq($$select schema_version, methodology_version, store_connection_id is null
+    from public.diagnostic_reports where company_id = 'c0a00000-0000-4000-8000-000000000171'$$,
+  $$values (1,'meta-diag-1'::text,true)$$, 'M16e-T-12: el v1 queda sin conexión de tienda');
+select is(pg_temp.as_user('aaaaaaaa-0000-4000-8000-000000000171',
+  $$select count(*)::text::jsonb from public.diagnostic_reports$$),'1'::jsonb,
+  'M16e-T-12: el v1 se lee igual que antes de la migración 2');
 
 -- ===========================================================================
 -- T-12 y T-13: cifras de cuenta

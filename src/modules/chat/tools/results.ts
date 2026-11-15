@@ -27,11 +27,17 @@ const compositionSchema = z.strictObject({
   }
 });
 
+/** Métricas de la tienda (M16e §6). Los conteos de ventas llevan su moneda: nunca se suman monedas. */
+export const TN_METRICS = ['tn_paid_orders', 'tn_partially_paid_orders', 'tn_collected_amount', 'tn_units',
+  'tn_cohort_size', 'tn_cohort_active', 'tn_cohort_retention'] as const;
+const TN_COUNTS_WITH_CURRENCY = new Set<string>(['tn_paid_orders', 'tn_partially_paid_orders']);
+
 const valueSchema = z.strictObject({
   path_key: z.enum(['day', 'total', 'daily_average', 'cost_per_result', 'share', 'a', 'b',
     'difference', 'change', 'entity', 'segment', 'segment_share', 'action_count',
-    'action_value', 'list_count', 'excluded_count']),
-  metric: z.union([chatMetricSchema, z.enum(['cost_per_result', 'share', 'list_count', 'excluded_count'])]),
+    'action_value', 'list_count', 'excluded_count', 'product', 'cohort_cell']),
+  metric: z.union([chatMetricSchema, z.enum(['cost_per_result', 'share', 'list_count', 'excluded_count']),
+    z.enum(TN_METRICS)]),
   unit: z.enum(['money', 'count', 'percent', 'ratio']),
   currency: z.string().nullable(),
   action_type: z.string().nullable(),
@@ -46,20 +52,29 @@ const valueSchema = z.strictObject({
   segment_primary: z.string().nullable(),
   segment_secondary: z.string().nullable(),
   value: signedDecimalText.nullable(),
-  absence: z.enum(['no_informado', 'sin_fila_reportada', 'no_observado', 'no_calculable']).nullable(),
+  absence: z.enum(['no_informado', 'sin_fila_reportada', 'no_observado', 'no_calculable',
+    'menos_de_5']).nullable(),
   presence: z.enum(['con_datos', 'sin_fila_reportada', 'no_observado']).nullable(),
   temporal_status: z.enum(['abierto', 'cerrado']).nullable(),
   captured_partial: z.boolean(),
   fetched_at: nullableInstant,
   composition: compositionSchema.nullable(),
+  // Solo cohortes de la tienda; los resultados de Meta los omiten.
+  cohort_month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).nullable().default(null),
+  month_offset: z.number().int().min(0).max(60).nullable().default(null),
 }).superRefine((value, ctx) => {
   const hasA = value.period_a !== null;
   const hasB = value.period_b !== null;
+  const isStore = (TN_METRICS as readonly string[]).includes(value.metric);
   if ((value.value === null) === (value.absence === null) ||
       (value.day !== null) !== (value.presence !== null) ||
       hasA !== hasB || (value.period !== null && hasA) ||
       (value.day !== null && (value.period === null || value.composition !== null)) ||
-      (value.unit !== 'money' && value.currency !== null) ||
+      (value.unit !== 'money' && value.currency !== null && !TN_COUNTS_WITH_CURRENCY.has(value.metric)) ||
+      (value.absence === 'menos_de_5' && !value.metric.startsWith('tn_cohort_')) ||
+      ((value.path_key === 'cohort_cell') !== (value.cohort_month !== null)) ||
+      (value.month_offset !== null && value.path_key !== 'cohort_cell') ||
+      (isStore && (value.entity_ref !== null || value.parent_ref !== null)) ||
       (value.metric === 'action_count' || value.metric === 'action_value' ||
         value.metric === 'cost_per_result' ? value.action_type === null :
         value.metric !== 'share' && value.action_type !== null) ||
@@ -176,7 +191,7 @@ export function modelMarkers(results: ToolResult[]): ModelMarkers {
             entry.entity_name : (entry as { name: string }).name);
       }
     }
-    for (const key of ['history_from', 'history_to', 'last_finished_at']) {
+    for (const key of DATE_KEYS) {
       const date = result.extra[key];
       if (typeof date === 'string') markerFor(markers, 'FECHA', displayDate(date));
     }
@@ -184,16 +199,20 @@ export function modelMarkers(results: ToolResult[]): ModelMarkers {
   return markers;
 }
 
+const DATE_KEYS = ['history_from', 'history_to', 'last_finished_at', 'covered_through', 'last_fetched_at'];
+/** Datos que solo usa la pantalla: el dominio de la tienda nunca viaja al modelo. */
+const SCREEN_ONLY_KEYS = ['trends', 'last_result', 'nearest_before', 'nearest_after', 'store_domain'];
+
 export function toModelView(result: ToolResult, markers: ModelMarkers = modelMarkers([result])) {
   const extra = { ...result.extra };
-  for (const key of ['trends', 'last_result', 'nearest_before', 'nearest_after']) delete extra[key];
+  for (const key of SCREEN_ONLY_KEYS) delete extra[key];
   const aliasFor = (entityName: string | null) => markerFor(markers, 'ENTIDAD', entityName);
   const displayDate = (date: string) => {
     const [year, month, day] = date.slice(0, 10).split('-');
     return `${day}/${month}/${year}`;
   };
   const visibleExtra = { ...extra };
-  for (const key of ['history_from', 'history_to', 'last_finished_at']) {
+  for (const key of DATE_KEYS) {
     const date = visibleExtra[key];
     if (typeof date === 'string') {
       visibleExtra[`${key}_alias`] = markerFor(markers, 'FECHA', displayDate(date));

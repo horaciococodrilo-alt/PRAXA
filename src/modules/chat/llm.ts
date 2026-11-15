@@ -3,8 +3,9 @@ import 'server-only';
 import { z } from 'zod';
 
 import { CHAT_LIMITS } from './limits';
-import { ANSWER_FORMAT, answerSchema, CHOICE_FORMAT, choiceSchema,
+import { ANSWER_FORMAT, answerSchema, CHOICE_FORMAT, choiceFormat, choiceSchema,
   type ChatChoice, type FlatChatAnswer } from './output-schema';
+import type { ToolName } from './tools/schema';
 
 export const CHAT_MODEL_ID = 'deepseek-ai/DeepSeek-V4.1-Flash';
 const CHAT_COMPLETIONS_URL = 'https://api.deepinfra.com/v1/openai/chat/completions';
@@ -29,6 +30,8 @@ type RequestOptions = {
   fetchImpl?: FetchLike;
   /** Solo se inyecta en pruebas; en producción se lee la variable del servidor. */
   apiKey?: string;
+  /** Catálogo de las fuentes activas del turno; sin él, el completo. */
+  tools?: readonly ToolName[];
 };
 type ModelResponse<T> = {
   output: T;
@@ -56,7 +59,8 @@ export async function requestChatModel(options: RequestOptions): Promise<ModelRe
     CHAT_LIMITS.modelCallTimeoutMs));
   const timeout = AbortSignal.timeout(timeoutMs);
   const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
-  const format = options.phase === 'choice' ? CHOICE_FORMAT : ANSWER_FORMAT;
+  const format = options.phase === 'choice' ?
+    options.tools ? choiceFormat(options.tools) : CHOICE_FORMAT : ANSWER_FORMAT;
   const body = {
     model: CHAT_MODEL_ID,
     messages: options.messages,

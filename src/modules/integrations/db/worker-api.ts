@@ -97,7 +97,8 @@ const SQL_CASTS: Record<WorkerApiFunction, readonly string[]> = {
   // p_expected_sync_finished_at viaja como el mismo texto ISO que devolvió la elegibilidad.
   reserve_diagnostic: ['uuid', 'uuid', 'uuid', 'uuid', 'integer', 'timestamptz', 'integer'],
   release_diagnostic: ['uuid', 'uuid', 'uuid'],
-  publish_diagnostic: ['uuid', 'uuid', 'uuid', 'uuid', 'integer', 'jsonb'],
+  // M16e (0024): la conexión de la tienda, nula para un informe v1.
+  publish_diagnostic: ['uuid', 'uuid', 'uuid', 'uuid', 'integer', 'jsonb', 'uuid'],
   // Tiendanube (0023): las seis primeras posiciones son actor, empresa, conexión,
   // generación, ejecución y lease.
   tn_start_sync: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'uuid', 'timestamptz'],

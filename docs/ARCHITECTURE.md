@@ -107,8 +107,12 @@ presupuesto) y el handler de los webhooks de privacidad, con sus tres rutas firm
 etapa .4, Integraciones tiene la tarjeta y el panel de Tiendanube (conexión, sincronización
 manual, cobertura, ventas por mes, productos por unidades y cohortes), leídos con
 `tiendanube/analysis` solo por las funciones `get_tn_*` bajo RLS, y la guía de integraciones;
-`getIntegraciones()` lee el estado real de las dos conexiones para Inicio y el menú. El chat y
-el diagnóstico con la tienda están previstos en la etapa .5; GA4, en M16f. La ruta no
+`getIntegraciones()` lee el estado real de las dos conexiones para Inicio y el menú. Desde la
+etapa .5, el chat ofrece al modelo solo las herramientas de las fuentes activas: suma cuatro
+herramientas cerradas de la tienda (`chat/tools/tiendanube`, solo `get_tn_*`), se habilita con
+cualquiera de las dos conexiones y registra cada turno en la conexión de la fuente usada. El
+diagnóstico suma «Ventas de la tienda» con Tiendanube activa y cubierta: el informe pasa a la
+versión 2, que cuelga también de la conexión de la tienda (`0024`). GA4 queda para M16f. La ruta no
 construye reportes publicados ni base vectorial. Solo admite las medidas y tasas del catálogo de la spec de la ruta, sin cálculos autoritativos del modelo.
 
 ## Base de datos

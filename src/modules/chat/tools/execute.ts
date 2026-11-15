@@ -5,9 +5,10 @@ import type { MetaCapturedEntity, MetaSyncStatus } from '@/modules/integrations/
 
 import { CHAT_LIMITS } from '../limits';
 import { parseToolResult, type ToolResult } from './results';
-import { projectToolArgs, ToolArgumentError, ToolEntityNotFoundError, TOOL_NAMES,
+import { isTiendanubeTool, projectToolArgs, ToolArgumentError, ToolEntityNotFoundError, TOOL_NAMES,
   type ProjectedToolCall,
   type ToolName } from './schema';
+import { executeTiendanubeTool, supabaseRpc, type StoreConnection } from './tiendanube';
 
 type Period = { from: string; to: string };
 
@@ -20,6 +21,8 @@ export type TurnContext = Readonly<{
     currency: string | null;
     timezone: string | null;
   }> | null;
+  /** Conexión de Tiendanube; solo la usan las herramientas `tn_*` (M16e §6). */
+  store?: StoreConnection | null;
 }>;
 
 type ToolDeps = {
@@ -27,6 +30,7 @@ type ToolDeps = {
   rpc?: (fn: string, args: Record<string, unknown>) => Promise<unknown>;
   listEntities?: (connectionId: string, level: 'account' | 'campaign' | 'adset' | 'ad') => Promise<MetaCapturedEntity[]>;
   readStatus?: (connectionId: string) => Promise<MetaSyncStatus | null>;
+  collectedAmountEnabled?: boolean;
 };
 
 export class ToolExecutionError extends Error {
@@ -58,7 +62,11 @@ const DEFAULT_ENTITY_TOOLS = new Set<ToolName>([
 
 /** Resolver asincrónico de la entidad de cuenta, con lectura paginada completa bajo RLS. */
 export async function resolveToolCall(name: string, flat: Record<string, unknown>,
-  ctx: TurnContext, period: Period, deps: ToolDeps = {}): Promise<ProjectedToolCall> {
+  ctx: TurnContext, period: Period & { month?: string }, deps: ToolDeps = {}): Promise<ProjectedToolCall> {
+  if (isTiendanubeTool(name)) {
+    return projectToolArgs(name, flat, { period: { from: period.from, to: period.to },
+      accountEntityRef: null, month: period.month });
+  }
   let accountEntityRef: string | null = null;
   if ((TOOL_NAMES as readonly string[]).includes(name) && DEFAULT_ENTITY_TOOLS.has(name as ToolName) &&
       (flat.entity_ref === null || flat.entity_ref === undefined)) {
@@ -136,6 +144,13 @@ function rpcArgs(call: ProjectedToolCall, connectionId: string): Record<string, 
 
 export async function executeTool(call: ProjectedToolCall, ctx: TurnContext, toolCallId: string,
   deps: ToolDeps = {}, signal?: AbortSignal): Promise<ToolResult> {
+  if (isTiendanubeTool(call.name)) {
+    try {
+      const rpc = deps.rpc ?? supabaseRpc(await client(deps), signal);
+      return await executeTiendanubeTool(call, ctx.store, toolCallId,
+        { rpc, collectedAmountEnabled: deps.collectedAmountEnabled });
+    } catch { throw new ToolExecutionError(); }
+  }
   const accountRef = ctx.connection?.external_account_id
     ? maskExternalAccountId(ctx.connection.external_account_id) : null;
   try {

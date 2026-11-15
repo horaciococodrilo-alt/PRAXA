@@ -13,12 +13,26 @@ import { IconEnviar, IconSubir, MarcaPraxa } from './icons';
 import { IntegracionLogo } from './integracion-logo';
 import { Avatar, Img } from './ui';
 
-const SUGERENCIAS = [
+const SUGERENCIAS_META = [
   '¿Cuánto gasté en los últimos siete días?',
   '¿Cuántos clics tuvieron mis campañas?',
   'Mostrame el gasto por día',
   '¿Qué datos tengo por edad y género?',
 ];
+const SUGERENCIAS_TIENDA = [
+  '¿Cuántos pedidos pagados tuve este mes?',
+  '¿Qué productos vendí más en los últimos 28 días?',
+  '¿Cuántos compradores vuelven a comprar?',
+  '¿Hasta qué día están actualizados los datos de la tienda?',
+];
+
+/** Sugerencias de las fuentes conectadas; sin ninguna, las de Meta, como antes (M16e-C-15). */
+function sugerenciasPara(conectadas: Pick<Integracion, 'id'>[]): string[] {
+  const meta = conectadas.some((fuente) => fuente.id === 'meta_ads');
+  const tienda = conectadas.some((fuente) => fuente.id === 'tiendanube');
+  if (meta && tienda) return [...SUGERENCIAS_META.slice(0, 2), ...SUGERENCIAS_TIENDA.slice(0, 2)];
+  return tienda ? SUGERENCIAS_TIENDA : SUGERENCIAS_META;
+}
 
 type Message = { id: number; kind: 'user' | 'assistant'; text?: string;
   time?: string; view?: ChatTurnView; question?: string };
@@ -137,6 +151,7 @@ export function Chat({ iniciales, conectadas, tieneEmpresa = false,
               onSuggestion={(text) => { setTexto(text); ta.current?.focus(); }} />)}
           {message.view.footer ? <div className={c.footer}>
             {message.view.footer.account ? <p>Cuenta {message.view.footer.account}</p> : null}
+            {message.view.footer.store ? <p>Tienda {message.view.footer.store}</p> : null}
             {message.view.footer.period ? <p>Período: {message.view.footer.period}
               {message.view.footer.defaulted ? ' (por defecto)' : ''}</p> : null}
             {message.view.footer.coverage ? <p>Cobertura: {message.view.footer.coverage}</p> : null}
@@ -179,7 +194,7 @@ export function Chat({ iniciales, conectadas, tieneEmpresa = false,
       </div>
     </form>
     <div className={c.sugs} role="group" aria-label="Preguntas sugeridas">
-      {SUGERENCIAS.map((suggestion) => <button key={suggestion} type="button"
+      {sugerenciasPara(conectadas).map((suggestion) => <button key={suggestion} type="button"
         className={c.sug} onClick={() => { setTexto(suggestion); ta.current?.focus(); }}>
         <span>{suggestion}</span><IconSubir size={17} stroke={1.9} />
       </button>)}
