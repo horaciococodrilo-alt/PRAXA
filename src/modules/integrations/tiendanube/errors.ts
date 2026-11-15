@@ -56,13 +56,16 @@ export class TiendanubeApiError extends Error {
   readonly kind: TiendanubeErrorKind;
   readonly errorClass: IntegrationErrorClass | null;
   readonly status: number | null;
+  /** Solo en `429`: espera indicada por `x-rate-limit-reset`. */
+  readonly retryAfterMs: number | null;
 
-  constructor(failure: TiendanubeFailure, status: number | null = null) {
+  constructor(failure: TiendanubeFailure, status: number | null = null, retryAfterMs: number | null = null) {
     super(MESSAGES[failure.kind]);
     this.name = 'TiendanubeApiError';
     this.kind = failure.kind;
     this.errorClass = failure.errorClass;
     this.status = status;
+    this.retryAfterMs = retryAfterMs;
   }
 
   /** Texto fijo, apto para `last_error_message`. */

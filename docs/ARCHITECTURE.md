@@ -100,7 +100,10 @@ privadas de la tienda, los agregados públicos, las funciones de sincronización
 las lecturas `get_tn_*` (`0023`). Desde la etapa .2 existen además el módulo
 `integrations/tiendanube` (configuración, cliente HTTP de solo lectura, errores y OAuth), las
 rutas `iniciar` (`POST` del propio origen) y `callback`, y la desconexión de la tienda sin
-revocación remota; la purga perezosa distingue el proveedor. La extracción, los webhooks, la
+revocación remota; la purga perezosa distingue el proveedor. Desde la etapa .3, el mismo módulo
+tiene la proyección cerrada de pedidos y catálogo, la sincronización por pasos (backfill por
+ventanas de `created_at`, incremental por `updated_at` y catálogo, con lease, checkpoint y
+presupuesto) y el handler de los webhooks de privacidad, con sus tres rutas firmadas. La
 pantalla, el chat y el diagnóstico con la tienda están previstos en las etapas siguientes; GA4,
 en M16f. La ruta no
 construye reportes publicados ni base vectorial. Solo admite las medidas y tasas del catálogo de la spec de la ruta, sin cálculos autoritativos del modelo.

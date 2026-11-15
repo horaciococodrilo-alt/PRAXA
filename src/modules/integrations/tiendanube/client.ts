@@ -21,7 +21,10 @@ import {
  * - Los errores se clasifican por estado HTTP; ni la URL ni el cuerpo llegan al error, y el
  *   cliente no escribe en consola.
  *
- * La paginación, la cuota y los reintentos se agregan en la etapa .3.
+ * Las rutas son una lista cerrada (§3): `store`, `orders`, `orders/{id}/history/values` y
+ * `products`. La paginación sigue `Link rel="next"`, que se valida igual que una URL armada
+ * acá. Un `429` lleva la espera de `x-rate-limit-reset`. El cliente no reintenta: los
+ * reintentos y la espera los decide la sincronización con su presupuesto.
  */
 
 export type TiendanubeFetch = (input: URL, init: RequestInit) => Promise<Response>;
@@ -37,6 +40,9 @@ export type TiendanubeHttpClient = {
     token: SecretValue,
     resource: TiendanubeResource,
   ): Promise<TiendanubeJson>;
+  /** Sigue un `Link rel="next"`: misma tienda, versión y ruta que la página anterior. */
+  getNext(storeId: string, path: string, next: string, token: SecretValue, resource: TiendanubeResource):
+  Promise<TiendanubeJson>;
 };
 
 /** Petición rechazada antes de enviar: un defecto de PRAXA, no un error de Tiendanube. */
@@ -50,7 +56,7 @@ export class TiendanubeRequestRejectedError extends Error {
 export const TIENDANUBE_HTTP_TIMEOUT_MS = 10_000;
 
 const STORE_ID = /^[1-9][0-9]{0,19}$/;
-const PATH = /^[a-z_]+(?:\/[0-9a-z_]+)*$/;
+const PATH = /^(?:store|orders|products|orders\/[1-9][0-9]{0,19}\/history\/values)$/;
 const FORBIDDEN_PARAMS = new Set(['access_token', 'client_secret', 'client_id', 'code', 'token']);
 
 function reject(): never {
@@ -98,7 +104,8 @@ TiendanubeHttpClient {
     if (!response.ok) {
       // El cuerpo de un error no se lee: puede traer datos de la tienda.
       try { await response.body?.cancel(); } catch { /* sin efecto */ }
-      throw new TiendanubeApiError(classifyTiendanubeStatus(response.status, resource), response.status);
+      throw new TiendanubeApiError(classifyTiendanubeStatus(response.status, resource), response.status,
+        response.status === 429 ? rateLimitResetMs(response.headers) : null);
     }
     let text: string;
     try {
@@ -111,6 +118,18 @@ TiendanubeHttpClient {
     } catch {
       throw new TiendanubeApiError({ kind: 'desconocido', errorClass: 'unknown' }, response.status);
     }
+  }
+
+  async function get(url: URL, storeId: string, path: string, token: SecretValue, resource: TiendanubeResource) {
+    if (url.origin !== TIENDANUBE_API_ORIGIN || url.username !== '' || url.password !== '' || url.hash !== '' ||
+        url.pathname !== `/${TIENDANUBE_API_VERSION}/${storeId}/${path}`) reject();
+    for (const name of url.searchParams.keys()) {
+      if (FORBIDDEN_PARAMS.has(name.toLowerCase())) reject();
+    }
+    const bearer = token.reveal();
+    if (bearer === '' || /[\s]/.test(bearer)) reject();
+    assertNoSecret(url, [bearer]);
+    return request(url, { method: 'GET', headers: { authorization: `Bearer ${bearer}` } }, resource);
   }
 
   return {
@@ -130,15 +149,43 @@ TiendanubeHttpClient {
     async getJson(storeId, path, query, token, resource) {
       if (!STORE_ID.test(storeId) || !PATH.test(path)) reject();
       const url = new URL(`${TIENDANUBE_API_ORIGIN}/${TIENDANUBE_API_VERSION}/${storeId}/${path}`);
-      if (url.origin !== TIENDANUBE_API_ORIGIN || url.pathname !== `/${TIENDANUBE_API_VERSION}/${storeId}/${path}`) reject();
-      for (const [name, value] of Object.entries(query)) {
-        if (FORBIDDEN_PARAMS.has(name.toLowerCase())) reject();
-        url.searchParams.set(name, value);
+      for (const [name, value] of Object.entries(query)) url.searchParams.set(name, value);
+      return get(url, storeId, path, token, resource);
+    },
+
+    async getNext(storeId, path, next, token, resource) {
+      if (!STORE_ID.test(storeId) || !PATH.test(path)) reject();
+      let url: URL;
+      try {
+        url = new URL(next);
+      } catch {
+        reject();
       }
-      const bearer = token.reveal();
-      if (bearer === '' || /[\s]/.test(bearer)) reject();
-      assertNoSecret(url, [bearer]);
-      return request(url, { method: 'GET', headers: { authorization: `Bearer ${bearer}` } }, resource);
+      return get(url, storeId, path, token, resource);
     },
   };
+}
+
+/** `x-rate-limit-reset`: milisegundos hasta que el balde se vacía. Sin el header, `null`. */
+export function rateLimitResetMs(headers: Headers): number | null {
+  const value = Number(headers.get('x-rate-limit-reset'));
+  return Number.isFinite(value) && value >= 0 ? Math.min(value, 60_000) : null;
+}
+
+/** `x-total-count` de una página; `null` si falta o no es un entero. */
+export function totalCount(headers: Headers): number | null {
+  const raw = headers.get('x-total-count');
+  if (raw === null || !/^[0-9]{1,9}$/.test(raw.trim())) return null;
+  return Number(raw.trim());
+}
+
+/** URL de `Link: <…>; rel="next"`, o `null`. */
+export function nextLink(headers: Headers): string | null {
+  const header = headers.get('link');
+  if (!header) return null;
+  for (const part of header.split(',')) {
+    const match = /^\s*<([^>]+)>\s*;(.*)$/.exec(part);
+    if (match && /(?:^|;)\s*rel\s*=\s*"?next"?\s*(?:;|$)/i.test(match[2])) return match[1];
+  }
+  return null;
 }
