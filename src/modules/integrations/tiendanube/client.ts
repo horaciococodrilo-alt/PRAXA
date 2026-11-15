@@ -57,6 +57,8 @@ export const TIENDANUBE_HTTP_TIMEOUT_MS = 10_000;
 
 const STORE_ID = /^[1-9][0-9]{0,19}$/;
 const PATH = /^(?:store|orders|products|orders\/[1-9][0-9]{0,19}\/history\/values)$/;
+/** Listados: un 404 es una página vacía (H-E1-256). */
+const LIST_PATHS = new Set(['orders', 'products']);
 const FORBIDDEN_PARAMS = new Set(['access_token', 'client_secret', 'client_id', 'code', 'token']);
 
 function reject(): never {
@@ -85,7 +87,8 @@ TiendanubeHttpClient {
   const send: TiendanubeFetch = deps.fetch ?? ((input, init) => fetch(input, init));
   const timeoutMs = deps.timeoutMs ?? TIENDANUBE_HTTP_TIMEOUT_MS;
 
-  async function request(url: URL, init: RequestInit, resource: TiendanubeResource): Promise<TiendanubeJson> {
+  async function request(url: URL, init: RequestInit, resource: TiendanubeResource, list = false):
+  Promise<TiendanubeJson> {
     let response: Response;
     try {
       response = await send(url, {
@@ -100,6 +103,13 @@ TiendanubeHttpClient {
         throw tiendanubeTimeoutError();
       }
       throw tiendanubeTransportError();
+    }
+    if (!response.ok && list && response.status === 404) {
+      // H-E1-256: Tiendanube responde 404 a un listado sin resultados (o pasada la última
+      // página) en lugar de una lista vacía. La tienda ya se confirmó con `GET /store` y la
+      // ruta es fija, así que en `orders` y `products` es una página vacía, sin siguiente.
+      try { await response.body?.cancel(); } catch { /* sin efecto */ }
+      return { body: [], headers: new Headers({ 'x-total-count': '0' }) };
     }
     if (!response.ok) {
       // El cuerpo de un error no se lee: puede traer datos de la tienda.
@@ -129,7 +139,8 @@ TiendanubeHttpClient {
     const bearer = token.reveal();
     if (bearer === '' || /[\s]/.test(bearer)) reject();
     assertNoSecret(url, [bearer]);
-    return request(url, { method: 'GET', headers: { authorization: `Bearer ${bearer}` } }, resource);
+    return request(url, { method: 'GET', headers: { authorization: `Bearer ${bearer}` } }, resource,
+      LIST_PATHS.has(path));
   }
 
   return {
