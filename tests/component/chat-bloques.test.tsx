@@ -43,6 +43,37 @@ describe('M25a-T-56/57: seis bloques básicos', () => {
   });
 });
 
+describe('Gráfico de líneas legible (pedido del usuario, 2026-11-15)', () => {
+  const serie = (n: number): BlockView => ({ ...block('lineas'), series: [{ label: 'Valores',
+    points: Array.from({ length: n }, (_, i) => ({ x: `0${(i % 9) + 1}/11/2026 · ARS`,
+      text: String(10 + i), ratio: i === n - 1 ? 10000 : 5000 + i * 100, absence: null })) }] });
+
+  it('muestra el máximo, fechas de los extremos y el valor de cada punto, sin rotular un cero', () => {
+    const { container } = render(<BasicBlock block={serie(5)} />);
+    const axis = container.querySelector('[data-chart-type="lineas"]')!;
+    expect(axis.querySelector('[data-axis="max"]')).toHaveTextContent('Máx. 14');
+    expect(screen.queryByText(/^0$/)).not.toBeInTheDocument();
+    expect(axis.querySelector('[data-axis="desde"]')).toHaveTextContent('01/11/2026 · ARS');
+    expect(axis.querySelector('[data-axis="hasta"]')).toHaveTextContent('05/11/2026 · ARS');
+    expect([...container.querySelectorAll('svg circle title')].map((t) => t.textContent))
+      .toContain('03/11/2026 · ARS: 12');
+    // Área bajo la línea y sin la lista de barras por punto, que repetía la tabla.
+    expect(container.querySelector('svg polygon')).toBeInTheDocument();
+    expect(container.querySelectorAll('[data-block-type="lineas"] [class*="track"]')).toHaveLength(0);
+  });
+
+  it('mantiene los puntos redondos: el SVG no se deforma', () => {
+    const { container } = render(<BasicBlock block={serie(3)} />);
+    expect(container.querySelector('svg')).not.toHaveAttribute('preserveAspectRatio', 'none');
+  });
+
+  it('los días sin dato quedan listados, no como cero', () => {
+    render(<BasicBlock block={block('lineas')} />);
+    expect(screen.getByText('Sin dato:')).toBeInTheDocument();
+    expect(screen.getByText('No observado')).toBeInTheDocument();
+  });
+});
+
 describe('M25a.3 T-56/57: catálogo completo', () => {
   it.each(['resumen_variacion', 'periodo_contra_periodo', 'barras_apiladas',
     'ranking', 'tabla_tendencia', 'tabla_desplegable', 'embudo',

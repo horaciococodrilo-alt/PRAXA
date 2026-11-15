@@ -280,7 +280,8 @@ describe('M16e-T-11/C-13: presentación con bloques del catálogo', () => {
     expect(metodo.table.rows.some(([kind, text]) => kind === 'Cálculo' && /Unidades/u.test(text))).toBe(true);
     expect(metodo.table.rows.some(([kind, text]) => kind === 'Cálculo' && /Retención/u.test(text))).toBe(true);
     expect(view.footer?.account).toBeNull();
-    expect(view.footer?.store).toBe('tienda-sintetica-de-prueba-larg…');
+    expect(view.footer?.store).toBe('Tiendanube');
+    expect(JSON.stringify(view)).not.toContain('mitiendanube');
     expect(view.footer?.timezone).toBe(TZ);
     const serialized = JSON.stringify(view);
     for (const key of [PRODUCT_KEY, VARIANT_KEY, DELETED_KEY, CONNECTION_ID]) expect(serialized).not.toContain(key);

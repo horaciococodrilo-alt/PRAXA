@@ -151,7 +151,7 @@ export function Chat({ iniciales, conectadas, tieneEmpresa = false,
               onSuggestion={(text) => { setTexto(text); ta.current?.focus(); }} />)}
           {message.view.footer ? <div className={c.footer}>
             {message.view.footer.account ? <p>Cuenta {message.view.footer.account}</p> : null}
-            {message.view.footer.store ? <p>Tienda {message.view.footer.store}</p> : null}
+            {message.view.footer.store ? <p>Fuente: {message.view.footer.store}</p> : null}
             {message.view.footer.period ? <p>Período: {message.view.footer.period}
               {message.view.footer.defaulted ? ' (por defecto)' : ''}</p> : null}
             {message.view.footer.coverage ? <p>Cobertura: {message.view.footer.coverage}</p> : null}
