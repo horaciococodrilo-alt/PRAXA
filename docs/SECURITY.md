@@ -455,8 +455,14 @@ Cubierto por `05_delete_carveout.test.sql`.
 - **Sin limitación de intentos de inicio de sesión** propia, más allá de la de Supabase Auth.
 - **El registro revela si un correo ya tiene cuenta.** Crear cuenta con un correo registrado
   muestra un aviso en vez de la respuesta neutra de Supabase, así que cualquiera puede comprobar
-  si un correo es usuario de PRAXA. Lo aceptó el usuario por claridad (`H-E1-73`). Recuperar la
-  contraseña e iniciar sesión siguen respondiendo igual exista o no la cuenta.
+  si un correo es usuario de PRAXA. Lo aceptó el usuario por claridad (`H-E1-73`). **Recuperar
+  la contraseña también lo revela** desde el 2026-11-15: con un correo sin cuenta, la pantalla
+  avisa «No hay ninguna cuenta con ese correo» en lugar de la respuesta neutra (decisión del
+  usuario, `H-E1-259`). La consulta es `worker_api.email_has_account`, que solo devuelve un
+  booleano, no está expuesta por la Data API y la llama el servidor con el rol acotado, antes
+  de iniciar sesión y sin actor. No hay límite de intentos propio, así que se puede comprobar
+  una lista de correos a mano o con un script contra la pantalla. Iniciar sesión sigue
+  respondiendo igual, exista o no la cuenta.
 - **Sin registro de auditoría** de accesos ni de cambios, más allá de las versiones de
   contexto, las marcas de tiempo y los registros por consulta del chat.
 - **Retención del host del modelo** (sección 8) y **copias de seguridad** (sección 9).
