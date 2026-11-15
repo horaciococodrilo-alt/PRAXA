@@ -13,7 +13,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(69);
+select plan(70);
 
 -- Ejecuta una sentencia con el rol pedido y devuelve el SQLSTATE del error, o null si no
 -- hubo error. El bloque `exception` revierte la subtransacción, incluido el cambio de
@@ -178,8 +178,8 @@ select results_eq(
 -- T-06: enums (C-06)
 -- ---------------------------------------------------------------------------
 
-select enum_has_labels('public', 'integration_provider', array['meta'],
-  'T-06: integration_provider tiene exactamente meta');
+select enum_has_labels('public', 'integration_provider', array['meta', 'tiendanube'],
+  'T-06: integration_provider tiene exactamente meta y tiendanube (M16e, CA-05 enmendado)');
 select enum_has_labels('public', 'connection_status',
   array['pending_selection', 'active', 'needs_reauth', 'disconnected'],
   'T-06: connection_status tiene exactamente los cuatro estados');
@@ -249,7 +249,7 @@ select results_eq(
 
 select columns_are('private', 'integration_credentials', array[
   'connection_id', 'company_id', 'ciphertext', 'iv', 'auth_tag', 'key_version',
-  'token_type', 'issued_for_app_id', 'granted_scopes', 'expires_at'],
+  'token_type', 'issued_for_app_id', 'granted_scopes', 'expires_at', 'provider'],
   'T-07: columnas de integration_credentials (K04), sin texto plano');
 
 select results_eq(
@@ -267,6 +267,7 @@ select results_eq(
            ('issued_for_app_id', 'text', true),
            ('iv', 'text', true),
            ('key_version', 'int4', true),
+           ('provider', 'integration_provider', true),
            ('token_type', 'text', true)$$,
   'T-07: tipos y nulabilidad de integration_credentials');
 
@@ -379,13 +380,16 @@ select results_eq(
   $$values ('integration_connections', 'public.companies', 'c'),
            ('integration_connections', 'public.meta_sync_runs', 'a'),
            ('integration_credentials', 'public.integration_connections', 'c'),
+           ('integration_credentials', 'public.integration_connections', 'c'),
            ('oauth_attempts', 'auth.users', 'c'),
            ('oauth_attempts', 'public.companies', 'c'),
+           ('oauth_attempts', 'public.integration_connections', 'c'),
            ('oauth_attempts', 'public.integration_connections', 'c')$$,
   'T-11: todas las FK de las tres tablas son on delete cascade, salvo el puntero de ejecución, que la purga anula primero');
 
 -- ---------------------------------------------------------------------------
--- T-12: las veintiséis funciones de worker_api (C-15, M16c-C-17, H-E1-202, M25a-C-09, M26a-T-02)
+-- T-12: las treinta y tres funciones de worker_api (C-15, M16c-C-17, H-E1-202, M25a-C-09,
+-- M26a-T-02, M16e-T-01)
 -- ---------------------------------------------------------------------------
 
 select functions_are('worker_api', array[
@@ -396,13 +400,14 @@ select functions_are('worker_api', array[
   'publish_snapshot', 'fail_sync_run', 'record_connection_error', 'publish_breakdown',
   'record_breakdown_failure', 'begin_chat_turn', 'end_chat_turn', 'record_query',
   'set_feedback', 'save_diagnostic_settings', 'reserve_diagnostic', 'release_diagnostic',
-  'publish_diagnostic'],
-  'T-12: worker_api tiene exactamente las doce funciones de II.4, las cuatro de M16c, las dos de desgloses, las cuatro de chat y las cuatro de diagnóstico');
+  'publish_diagnostic', 'tn_start_sync', 'tn_publish_orders', 'tn_publish_catalog',
+  'tn_finish_sync', 'tn_fail_sync', 'tn_privacy_store_redact', 'tn_privacy_customer_redact'],
+  'T-12: worker_api tiene exactamente las doce funciones de II.4, las cuatro de M16c, las dos de desgloses, las cuatro de chat, las cuatro de diagnóstico y las siete de Tiendanube');
 
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'worker_api'),
-  26, 'T-12: veintiséis funciones, sin sobrecargas');
+  33, 'T-12: treinta y tres funciones, sin sobrecargas');
 
 select is_empty(
   $$select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -438,7 +443,7 @@ select is_empty(
   $$select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'worker_api'
        and not has_function_privilege('praxa_integrations', p.oid, 'EXECUTE')$$,
-  'T-12: praxa_integrations tiene EXECUTE sobre las veintiséis');
+  'T-12: praxa_integrations tiene EXECUTE sobre las treinta y tres');
 
 select is(
   (select p.pronargs::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -448,13 +453,26 @@ select is(
 select is_empty(
   $$select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'worker_api'
-       and p.proname <> 'count_credentials_by_key_version'
+       and p.proname not in ('count_credentials_by_key_version', 'tn_privacy_store_redact',
+                             'tn_privacy_customer_redact')
        and (p.pronargs < 2
             or p.proargnames[1] is distinct from 'p_actor_user_id'
             or p.proargnames[2] is distinct from 'p_company_id'
             or p.proargtypes[0] <> 'uuid'::regtype
             or p.proargtypes[1] <> 'uuid'::regtype)$$,
-  'T-12: las otras veinticinco reciben p_actor_user_id y p_company_id primero');
+  'T-12: las otras treinta reciben p_actor_user_id y p_company_id primero');
+
+-- Excepción acotada a INV-01 (D-M16e-14): las dos de privacidad no reciben actor ni empresa,
+-- solo el ID de la tienda (verificado por firma en el servidor).
+select results_eq(
+  $$select p.proname::text collate "default", pg_catalog.oidvectortypes(p.proargtypes)::text collate "default",
+           pg_catalog.format_type(p.prorettype, null)::text collate "default"
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'worker_api' and p.proname like 'tn\_privacy\_%'
+     order by 1$$,
+  $$values ('tn_privacy_customer_redact', 'text, text, text[]', 'text'),
+           ('tn_privacy_store_redact', 'text, integer', 'text')$$,
+  'M16e-T-01: las funciones de privacidad reciben solo la tienda y devuelven solo la fase');
 
 -- Los helpers privados tampoco tienen EXECUTE para nadie más que su dueño (C-03).
 select is_empty(
@@ -487,7 +505,7 @@ select is(
 select is(
   pg_temp.sqlstate_as('praxa_integrations',
     $$select * from worker_api.create_oauth_attempt(
-        'aaaaaaaa-0000-4000-8000-000000000301', 'c0a00000-0000-4000-8000-000000000301',
+        'aaaaaaaa-0000-4000-8000-000000000301', 'c0a00000-0000-4000-8000-000000000301', 'meta',
         'initial', repeat('3', 64), repeat('4', 64), '/app/integraciones',
         now() + interval '5 minutes')$$),
   null, 'T-13: praxa_integrations ejecuta create_oauth_attempt');
@@ -522,12 +540,12 @@ select ok(
 select is(
   (select count(*)::int from pg_temp.worker_api_calls() c
     where pg_temp.sqlstate_as('authenticated', c.call) = '42501'),
-  26, 'T-13: authenticated no ejecuta ninguna de las veintiséis funciones, aun con USAGE (42501)');
+  33, 'T-13: authenticated no ejecuta ninguna de las treinta y tres funciones, aun con USAGE (42501)');
 
 select is(
   (select count(*)::int from pg_temp.worker_api_calls() c
     where pg_temp.sqlstate_as('anon', c.call) = '42501'),
-  26, 'T-13: anon no ejecuta ninguna de las veintiséis funciones, aun con USAGE (42501)');
+  33, 'T-13: anon no ejecuta ninguna de las treinta y tres funciones, aun con USAGE (42501)');
 
 -- El USAGE temporal se revoca apenas termina T-13: si quedara hasta el rollback final,
 -- cualquier aserción posterior sobre el ACL del esquema (T-04 ya afirma lo contrario para
@@ -557,7 +575,7 @@ select is(
      join pg_namespace n on n.oid = p.pronamespace
      join pg_roles r on r.oid = p.proowner
     where n.nspname = 'worker_api' and r.rolbypassrls),
-  26, 'T-15: el dueño de las veintiséis funciones tiene rolbypassrls');
+  33, 'T-15: el dueño de las treinta y tres funciones tiene rolbypassrls');
 
 -- ---------------------------------------------------------------------------
 -- M16c-T-25: rol sintético limpio y bloques reales (H-E1-35, H-E1-36)
@@ -618,7 +636,7 @@ select ok(has_schema_privilege('praxa_integrations', 'worker_api', 'USAGE'),
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'worker_api' and has_function_privilege('praxa_integrations', p.oid, 'EXECUTE')),
-  26, 'M16c-T-25: el rol de C conserva EXECUTE función por función');
+  33, 'M16c-T-25: el rol de C conserva EXECUTE función por función');
 select is(
   (select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'public' and c.relname like 'meta\_%'

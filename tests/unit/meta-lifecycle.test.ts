@@ -291,10 +291,10 @@ describe('M16.2: adaptadores de ciclo de vida', () => {
       .toEqual({ connectionId: CONNECTION_ID, credentialGeneration: 2 });
     const purged = worker([{ purge_connection: true }]);
     expect(await purgeConnection(CTX, CONNECTION_ID, { workerApi: purged.workerApi })).toBe(true);
-    const listed = worker([{ connection_id: CONNECTION_ID, status: 'pending_selection', reason: 'pending_expired',
+    const listed = worker([{ connection_id: CONNECTION_ID, status: 'pending_selection', provider: 'meta', reason: 'pending_expired',
       has_credential: true, pending_expires_at: new Date('2026-10-17T00:00:00.000Z'), purge_requested_at: null }]);
     expect(await listPendingPurges(CTX, { workerApi: listed.workerApi })).toEqual([{
-      connectionId: CONNECTION_ID, status: 'pending_selection', reason: 'pending_expired', hasCredential: true,
+      connectionId: CONNECTION_ID, status: 'pending_selection', provider: 'meta', reason: 'pending_expired', hasCredential: true,
     }]);
   });
 });
@@ -307,10 +307,10 @@ describe('M16.2: purga reanudable', () => {
     const workerApi = { call: (async (fn: string) => {
       events.push(fn);
       if (fn === 'list_pending_purges') return [
-        { connection_id: CONNECTION_ID, status: 'pending_selection', reason: 'pending_expired',
+        { connection_id: CONNECTION_ID, status: 'pending_selection', provider: 'meta', reason: 'pending_expired',
           has_credential: true, pending_expires_at: new Date(), purge_requested_at: null },
         ...Array.from({ length: 6 }, () => ({ connection_id: randomUUID(), status: 'disconnected',
-          reason: 'disconnect_requested', has_credential: false,
+          provider: 'meta', reason: 'disconnect_requested', has_credential: false,
           pending_expires_at: null, purge_requested_at: new Date() })),
       ];
       if (fn === 'begin_disconnect') return [{ connection_id: CONNECTION_ID, status: 'disconnected',
@@ -336,9 +336,9 @@ describe('M16.2: purga reanudable', () => {
     const workerApi = { call: (async (fn: string, args: readonly unknown[]) => {
       events.push(fn);
       if (fn === 'list_pending_purges') return [
-        { connection_id: first, status: 'pending_selection', reason: 'pending_expired',
+        { connection_id: first, status: 'pending_selection', provider: 'meta', reason: 'pending_expired',
           has_credential: false, pending_expires_at: new Date(), purge_requested_at: null },
-        { connection_id: second, status: 'disconnected', reason: 'disconnect_requested',
+        { connection_id: second, status: 'disconnected', provider: 'meta', reason: 'disconnect_requested',
           has_credential: false, pending_expires_at: null, purge_requested_at: new Date() },
       ];
       if (fn === 'begin_disconnect') return [{ connection_id: args[2], status: 'disconnected',
@@ -357,7 +357,7 @@ describe('M16.2: purga reanudable', () => {
     const workerApi = { call: (async (fn: string) => {
       events.push(fn);
       if (fn === 'list_pending_purges') return [{ connection_id: CONNECTION_ID,
-        status: 'pending_selection', reason: 'pending_expired', has_credential: false,
+        status: 'pending_selection', provider: 'meta', reason: 'pending_expired', has_credential: false,
         pending_expires_at: new Date(), purge_requested_at: null }];
       throw new Error('Fallo simulado.');
     }) as WorkerApi['call'] };
@@ -377,7 +377,7 @@ describe('M16.2: purga reanudable', () => {
       const workerApi = { call: (async (fn: string) => {
         calls.push(fn);
         if (fn === 'list_pending_purges') return [{ connection_id: CONNECTION_ID,
-          status: 'disconnected', reason: 'disconnect_requested', has_credential: true,
+          status: 'disconnected', provider: 'meta', reason: 'disconnect_requested', has_credential: true,
           pending_expires_at: null, purge_requested_at: new Date() }];
         if (fn === 'get_credential') return scenario === 'missing' ? []
           : [{ ...credentialRow(), status: 'disconnected' }];
@@ -554,7 +554,7 @@ describe('M16.2: selección y estado de la tarjeta', () => {
     const workerApi = { call: (async (fn: string) => {
       calls.push(fn);
       if (fn === 'list_pending_purges') return [{ connection_id: CONNECTION_ID,
-        status: 'pending_selection', reason: 'pending_expired', has_credential: false,
+        status: 'pending_selection', provider: 'meta', reason: 'pending_expired', has_credential: false,
         pending_expires_at: new Date('2026-10-17T00:00:00.000Z'), purge_requested_at: null }];
       if (fn === 'begin_disconnect') return [{ connection_id: CONNECTION_ID, status: 'disconnected',
         credential_generation: 1, purge_requested_at: new Date() }];

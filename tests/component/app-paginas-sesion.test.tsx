@@ -35,7 +35,12 @@ vi.mock('@/modules/tenant/context', () => ({ requireTenantContext: () => tenant(
 vi.mock('@/modules/integrations/repository/connections', () => ({
   readConnectionRecord: (...args: unknown[]) => connection(...args),
 }));
-vi.mock('@/modules/integrations/actions', () => ({ confirmarCuentaMeta: vi.fn(), desconectarMeta: vi.fn() }));
+vi.mock('@/modules/integrations/actions', () => ({ confirmarCuentaMeta: vi.fn(), desconectarMeta: vi.fn(),
+  desconectarTiendanube: vi.fn(), sincronizarTiendanube: vi.fn() }));
+vi.mock('@/modules/integrations/tiendanube/analysis', () => ({ loadTiendanubeView: lectura('loadTiendanubeView') }));
+vi.mock('@/modules/integrations/tiendanube/oauth', () => ({ TIENDANUBE_OAUTH_MESSAGES: {},
+  parseTiendanubeOAuthOutcome: () => null }));
+vi.mock('@/modules/integrations/tiendanube/sync', () => ({ TN_SYNC_MESSAGES: {}, parseTiendanubeSyncResult: () => null }));
 vi.mock('@/modules/integrations/meta/insights', () => ({ loadMetaSyncView: lectura('loadMetaSyncView'),
   parseMetaSyncResult: () => null, syncNotice: () => null }));
 vi.mock('next/navigation', () => ({ usePathname: () => '/app' }));

@@ -63,7 +63,7 @@ select ('c0a00000-0000-4000-8000-00000000017'||n)::uuid,'Diagnóstico sintético
 
 select 1 from generate_series(1,3) n, lateral worker_api.create_pending_connection(
   ('aaaaaaaa-0000-4000-8000-00000000017'||n)::uuid,('c0a00000-0000-4000-8000-00000000017'||n)::uuid,
-  ('cc000000-0000-4000-8000-00000000017'||n)::uuid,'negocio_sintetico','AAAA','AAAAAAAAAAAAAAAA',
+  ('cc000000-0000-4000-8000-00000000017'||n)::uuid, 'meta','negocio_sintetico','AAAA','AAAAAAAAAAAAAAAA',
   'AAAAAAAAAAAAAAAAAAAAAA==',1,'system_user','app_sintetica','{ads_read}',null) x;
 select 1 from generate_series(1,2) n, lateral worker_api.confirm_connection(
   ('aaaaaaaa-0000-4000-8000-00000000017'||n)::uuid,('c0a00000-0000-4000-8000-00000000017'||n)::uuid,
@@ -855,7 +855,7 @@ select is((select count(*)::int from public.diagnostic_reports
   'T-22: tras la purga el informe sigue en la tabla');
 select 1 from worker_api.create_pending_connection(
   'aaaaaaaa-0000-4000-8000-000000000171','c0a00000-0000-4000-8000-000000000171',
-  'cc000000-0000-4000-8000-0000000001a1','negocio_sintetico','AAAA','AAAAAAAAAAAAAAAA',
+  'cc000000-0000-4000-8000-0000000001a1', 'meta','negocio_sintetico','AAAA','AAAAAAAAAAAAAAAA',
   'AAAAAAAAAAAAAAAAAAAAAA==',1,'system_user','app_sintetica','{ads_read}',null);
 select 1 from worker_api.confirm_connection(
   'aaaaaaaa-0000-4000-8000-000000000171','c0a00000-0000-4000-8000-000000000171',

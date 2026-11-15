@@ -73,7 +73,7 @@ as $fn$
 begin
   perform pg_temp.new_company(n);
   perform worker_api.create_pending_connection(
-    pg_temp.uid(n), pg_temp.cid(n), pg_temp.kid(n), 'negocio_sintetico', 'AAAA',
+    pg_temp.uid(n), pg_temp.cid(n), pg_temp.kid(n), 'meta', 'negocio_sintetico', 'AAAA',
     'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica',
     '{ads_read}', null);
   perform worker_api.confirm_connection(
@@ -858,7 +858,7 @@ select is((pg_temp.conn(31)).external_account_id, pg_temp.acct(31), 'T-36: la co
 
 -- El prefijo más 60 dígitos es válido, aunque no sea un ID numérico de 32 caracteres.
 select pg_temp.new_company(36);
-select worker_api.create_pending_connection(pg_temp.uid(36), pg_temp.cid(36), pg_temp.kid(36), 'negocio_sintetico', 'AAAA',
+select worker_api.create_pending_connection(pg_temp.uid(36), pg_temp.cid(36), pg_temp.kid(36), 'meta', 'negocio_sintetico', 'AAAA',
   'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null);
 select worker_api.confirm_connection(pg_temp.uid(36), pg_temp.cid(36), pg_temp.kid(36), 'act_' || repeat('7', 60), 'USD', 'UTC', true);
 select pg_temp.start(36, 361);
@@ -1101,7 +1101,7 @@ select is_empty(format($$select 1 from public.get_meta_daily_coverage(%L, 'accou
 select pg_temp.logout();
 
 select pg_temp.new_company(45);
-select worker_api.create_pending_connection(pg_temp.uid(45), pg_temp.cid(45), pg_temp.kid(45), 'negocio_sintetico', 'AAAA',
+select worker_api.create_pending_connection(pg_temp.uid(45), pg_temp.cid(45), pg_temp.kid(45), 'meta', 'negocio_sintetico', 'AAAA',
   'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica', '{ads_read}', null);
 select pg_temp.login(45);
 select is_empty(format($$select 1 from public.get_meta_sync_status(%L)$$, pg_temp.kid(45)), 'T-35: pending_selection no devuelve estado');

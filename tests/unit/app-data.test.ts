@@ -182,9 +182,30 @@ describe('getIntegraciones', () => {
   it.each([
     ['active', true], ['pending_selection', false], ['needs_reauth', false],
   ])('T-46 Meta %s se proyecta como conectada=%s', async (status, connected) => {
-    readConnectionRecord.mockResolvedValue({ status });
+    // M16e: Meta se lee sin proveedor (por defecto); Tiendanube, con el suyo.
+    readConnectionRecord.mockImplementation(async (_ctx: unknown, _deps?: unknown, provider = 'meta') =>
+      provider === 'meta' ? { status } : null);
     expect((await getIntegraciones())[0].conectada).toBe(connected);
     expect((await getIntegraciones()).slice(1).map((item) => item.conectada)).toEqual([false, false]);
+  });
+
+  it.each([
+    ['active', true], ['pending_selection', false], ['needs_reauth', false], ['disconnected', false],
+  ])('M16e-T-08 Tiendanube %s se proyecta como conectada=%s, sin depender de Meta', async (status, connected) => {
+    readConnectionRecord.mockImplementation(async (_ctx: unknown, _deps?: unknown, provider = 'meta') =>
+      provider === 'tiendanube' ? { status } : null);
+    const integraciones = await getIntegraciones();
+    expect(integraciones.map((item) => [item.id, item.conectada])).toEqual([
+      ['meta_ads', false], ['google_analytics', false], ['tiendanube', connected]]);
+    expect(readConnectionRecord).toHaveBeenCalledWith(expect.anything(), {}, 'tiendanube');
+  });
+
+  it('M16e-T-08 un error al leer Tiendanube la deja no conectada sin afectar a Meta', async () => {
+    readConnectionRecord.mockImplementation(async (_ctx: unknown, _deps?: unknown, provider = 'meta') => {
+      if (provider === 'tiendanube') throw new Error('fallo sintético');
+      return { status: 'active' };
+    });
+    expect((await getIntegraciones()).map((item) => item.conectada)).toEqual([true, false, false]);
   });
 
   it('T-46 falla cerrado sin propagar errores de tenant ni lectura', async () => {

@@ -88,7 +88,7 @@ function resolveDeps(partial: Partial<MetaOAuthDeps> = {}) {
     tenant: partial.tenant ?? requireTenantContext,
     config: partial.config ?? getMetaOAuthConfig,
     http: partial.http ?? createMetaHttpClient(),
-    readLiveConnection: partial.readLiveConnection ?? ((ctx: TenantContext) => readLiveConnection(ctx)),
+    readLiveConnection: partial.readLiveConnection ?? ((ctx: TenantContext) => readLiveConnection(ctx, 'meta')),
     readConnection: partial.readConnection ?? ((ctx: TenantContext) => readConnectionRecord(ctx)),
     now: partial.now ?? (() => new Date()),
     randomBytes: partial.randomBytes ?? nodeRandomBytes,
@@ -222,6 +222,7 @@ export async function handleMetaStart(request: NextRequest, partial?: Partial<Me
       await createOAuthAttempt(
         ctx,
         {
+          provider: 'meta',
           purpose,
           stateHash: sha256Hex(state),
           bindingHash: sha256Hex(nonce),
@@ -304,7 +305,7 @@ export async function handleMetaCallback(request: NextRequest, partial?: Partial
         try {
           await consumeOAuthAttempt(
             ctx,
-            { stateHash: sha256Hex(validState), bindingHash: sha256Hex(validNonce) },
+            { provider: 'meta', stateHash: sha256Hex(validState), bindingHash: sha256Hex(validNonce) },
             { workerApi: deps.workerApi() },
           );
         } catch {
@@ -323,7 +324,7 @@ export async function handleMetaCallback(request: NextRequest, partial?: Partial
     try {
       attempt = await consumeOAuthAttempt(
         ctx,
-        { stateHash: sha256Hex(validState), bindingHash: sha256Hex(validNonce) },
+        { provider: 'meta', stateHash: sha256Hex(validState), bindingHash: sha256Hex(validNonce) },
         { workerApi: deps.workerApi() },
       );
     } catch (error) {
@@ -367,6 +368,7 @@ export async function handleMetaCallback(request: NextRequest, partial?: Partial
       const operation = preparePendingConnectionWithCredential(
         ctx,
         {
+          provider: 'meta',
           token: token.reveal(),
           tokenType: validated.tokenType,
           issuedForAppId: validated.issuedForAppId,

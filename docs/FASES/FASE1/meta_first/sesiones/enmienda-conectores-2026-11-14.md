@@ -28,6 +28,64 @@
 
 `SECURITY.md`, `ARCHITECTURE.md` y el acta `M03a` no se tocan ahora: cambian dentro de `M16e` y `M16f`, que los listan como archivos previstos, cuando cambien la frontera o el control.
 
+## Ampliación D-M16e-10 (mismo día)
+
+El usuario decidió, al cerrar las preguntas de la spec de `M16e`, que el chat y el diagnóstico usen los datos de Tiendanube dentro de `M16e`. Confirmó la opción «Sí, ambos en M16e», que incluía la mini enmienda de la ruta. Cambian:
+
+- la ficha de `M16e` (punto 8 de «Implementación requerida») y II.14b del plan;
+- §16 (nota de la enmienda) y §17, puntos 4 y 8, de la spec de la ruta.
+
+Las decisiones de la spec están en `M16e/spec.md` (D-M16e-04 a D-M16e-11).
+
+## Correcciones de `spec-audit-1` de M16e (mismo día)
+
+La [auditoría de la spec de M16e](../../M16e/revisiones/spec-audit-1.md) dio REQUIERE CAMBIOS. El usuario respondió las decisiones pendientes (D-M16e-12 a D-M16e-20 en `M16e/spec.md`). Las que tocan la ruta:
+
+- **Spec de la ruta:**
+  - §17.4: la regla de cinco aplica a cohortes;
+  - §17.6: remite a las excepciones de la spec;
+  - §17.9: excepciones acotadas a CB-04, INV-10 e INV-01;
+  - §17.10: CA-05, CA-11c, CA-18, CA-28, CA-52, CA-62 y CA-70 enmendados para Tiendanube, con una referencia en cada CA y en CB-04.
+- **Plan de la ruta:**
+  - ficha de `M16e`: punto 6, sin exportación, y quinta etapa;
+  - II.14b: quinta etapa y archivos `meta/oauth.ts`, preflight, `entorno.md` y pantalla del diagnóstico.
+- **`PROJECT_STATE.md`:** el acta se aprueba antes del código.
+
+## Correcciones de `spec-audit-2` de M16e (mismo día)
+
+La [segunda auditoría](../../M16e/revisiones/spec-audit-2.md) dio REQUIERE CAMBIOS. El usuario aprobó en el chat estas enmiendas de ruta (D-M16e-21 a D-M16e-25 en `M16e/spec.md`):
+
+- **Chat, para Meta y Tiendanube (D-M16e-21):** nota «Enmienda H-E1-228» en §12 de la spec de la ruta, con referencias en DEC-11, DEC-19, CA-50, CA-50b, CA-50c, CA-66 y la fila «Chat» de §14. Resuelve `H-E1-234`.
+- **Archivos (D-M16e-22):** II.14b suma la página y el componente del chat, `app-data` y los pgTAP `08`, `09`, `09b` y `10`.
+- **Informe del diagnóstico (D-M16e-23):** nota «Enmienda D-M16e-15» en §16, con salvedades en el punto 6 y en «Retención».
+- **Registro del chat (D-M16e-24):** CA-62 completado en §17.10.
+- **Publicación (D-M16e-25):** dos publicaciones en `app` antes del gate, al terminar las etapas 4 y 5, en la ficha y en II.14b.
+
+Además, §17.10 remite a las dos notas nuevas y `HALLAZGOS.md` marca `H-E1-234` como resuelto en la ruta.
+
+## Correcciones de `spec-audit-3` de M16e (mismo día)
+
+La [tercera auditoría](../../M16e/revisiones/spec-audit-3.md) dio REQUIERE CAMBIOS. El usuario aprobó en el chat ampliar §17.9: las funciones de privacidad sin sesión pueden marcar conexiones como desconectadas y borrar, nunca activar ni devolver datos (D-M16e-27). También aceptó como riesgo que un aviso de desinstalación atrasado borre una conexión reinstalada dentro de las 48 horas (D-M16e-28), que solo cambia la spec de `M16e`.
+
+## Correcciones de `spec-audit-4` de M16e (mismo día)
+
+La [cuarta auditoría](../../M16e/revisiones/spec-audit-4.md) dio REQUIERE CAMBIOS. Decisiones del usuario:
+
+- **D-M16e-29:** agregar a `AGENTS.md` una línea de excepción de reversibilidad para Tiendanube, que remite a §17.6, como se hizo en M26a. II.14b autoriza ese archivo, y la línea se agregó ya.
+- **D-M16e-30:** alcance de `customer/redact` según la recomendación de la auditoría. El usuario lo considera improbable.
+- **D-M16e-31:** las pruebas manuales en `app` usan la cuenta y la empresa sintéticas de DEC-18.
+
+## Aprobación de la spec de M16e (mismo día)
+
+El usuario aprobó la spec de `M16e` sin una quinta auditoría, como excepción a la regla de aprobar solo con auditoría APROBABLE. Las correcciones de `spec-audit-4` quedan integradas sin volver a auditarse. El detalle está en el encabezado de `M16e/spec.md`.
+
+## Correcciones de `plan-audit-1` de M16e (mismo día)
+
+La [auditoría del plan](../../M16e/revisiones/plan-audit-1.md) dio REQUIERE CAMBIOS. Decisiones del usuario:
+
+- **P-01:** se suman a II.14b `src/modules/integrations/lifecycle.ts` y `actions.ts`. La spec de `M16e` los atribuía a II.14b sin que la ruta los nombrara; desde esta enmienda la atribución es correcta, sin cambiar la spec aprobada.
+- **P-02:** la instrucción para desinstalar la app de Tiendanube va en la «Guía de integraciones» de la pantalla de Integraciones. La guía es un modal con dos páginas, «Conectar» y «Desconectar», con el estilo de la imagen que dio el usuario. La desconexión de Tiendanube enlaza a la página «Desconectar». Los archivos quedan dentro de `src/app/(app)/app/integraciones/`, que II.14b ya autoriza.
+
 ## Verificación
 
 Revisión del diff y `git diff --check`. Es un cambio documental: no hay código ni pruebas.

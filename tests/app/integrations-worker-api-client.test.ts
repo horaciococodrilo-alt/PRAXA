@@ -11,7 +11,7 @@ import { blockedReason, cleanupRun, createConfirmedUser, pendingCleanupCount, re
 vi.mock('server-only', () => ({}));
 
 const token = 'token-sintetico-cliente-rol';
-const input = { token, tokenType: 'system_user' as const, issuedForAppId: 'app_sintetica', grantedScopes: ['ads_read'], expiresAt: null, clientBusinessId: 'business_sintetico' };
+const input = { provider: 'meta' as const, token, tokenType: 'system_user' as const, issuedForAppId: 'app_sintetica', grantedScopes: ['ads_read'], expiresAt: null, clientBusinessId: 'business_sintetico' };
 
 describe('M06.3a: cliente real praxa_integrations → worker_api', () => {
   let keyringApi: typeof import('@/modules/integrations/crypto/keyring');
@@ -103,7 +103,7 @@ describe('M06.3a: cliente real praxa_integrations → worker_api', () => {
     const raw = (await client!.call<Record<string, unknown>>('get_credential', [a.user_id, a.company_id, created.connectionId]))[0];
     const foreignId = randomUUID();
     await client!.call('create_pending_connection', [
-      b.user_id, b.company_id, foreignId, 'business_sintetico', raw.ciphertext, raw.iv,
+      b.user_id, b.company_id, foreignId, 'meta', 'business_sintetico', raw.ciphertext, raw.iv,
       raw.auth_tag, raw.key_version, raw.token_type, raw.issued_for_app_id, raw.granted_scopes, raw.expires_at,
     ]);
     await expect(repository.readCredential(b, foreignId, { workerApi: client!, keyring })).rejects.toBeInstanceOf(sealApi.CredentialDecryptionError);

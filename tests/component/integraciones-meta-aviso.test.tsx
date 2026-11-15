@@ -23,7 +23,14 @@ vi.mock('@/modules/app-data', () => ({
   ],
 }));
 vi.mock('@/modules/integrations/lifecycle', () => ({ loadMetaCardState: async () => ({ kind: 'sin_conexion' }) }));
-vi.mock('@/modules/integrations/actions', () => ({ confirmarCuentaMeta: vi.fn(), desconectarMeta: vi.fn() }));
+vi.mock('@/modules/integrations/actions', () => ({ confirmarCuentaMeta: vi.fn(), desconectarMeta: vi.fn(),
+  desconectarTiendanube: vi.fn(), sincronizarTiendanube: vi.fn() }));
+vi.mock('server-only', () => ({}));
+vi.mock('@/modules/integrations/tiendanube/analysis', () => ({
+  loadTiendanubeView: async () => ({ tarjeta: { kind: 'sin_conexion' }, datos: null, error: false }) }));
+vi.mock('@/modules/integrations/tiendanube/oauth', () => ({ TIENDANUBE_OAUTH_MESSAGES: {},
+  parseTiendanubeOAuthOutcome: () => null }));
+vi.mock('@/modules/integrations/tiendanube/sync', () => ({ TN_SYNC_MESSAGES: {}, parseTiendanubeSyncResult: () => null }));
 vi.mock('@/modules/integrations/meta/insights', () => ({ loadMetaSyncView: async () => null,
   parseMetaSyncResult: () => null, syncNotice: () => null }));
 
@@ -84,12 +91,15 @@ describe('aviso del resultado de Meta en /app/integraciones', () => {
     }
   });
 
-  it('Conectar Meta está habilitado y los otros conectores siguen deshabilitados', async () => {
+  it('Conectar Meta y Tiendanube están habilitados (M16e); Google Analytics sigue deshabilitado', async () => {
     await renderPage({ meta: 'pendiente' });
     const buttons = screen.getAllByRole('button', { name: 'Conectar' });
+    expect(buttons).toHaveLength(3);
     expect(buttons[0]).toBeEnabled();
-    expect(buttons[1]).toBeDisabled();
+    expect(buttons[1]).toBeEnabled();
+    expect(buttons[1].closest('form')).toHaveAttribute('action', '/api/integraciones/tiendanube/iniciar');
     expect(buttons[2]).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Ver guía de integraciones' })).toBeEnabled();
   });
 
   it('sin sesión rechaza antes de leer searchParams', async () => {

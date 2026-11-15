@@ -22,22 +22,61 @@ import {
 export const GCM_IV_BYTES = 12;
 export const GCM_AUTH_TAG_BYTES = 16;
 
-/** CA-32: sin `ads_read` no hay credencial que sirva. */
+/** CA-32: sin `ads_read` no hay credencial de Meta que sirva. */
 export const REQUIRED_SCOPE = 'ads_read';
 
 /**
- * CA-11c: tipo de token. DEC-02 fija el token de system user de integración. La forma
- * en que `debug_token` lo informa es H-02; M16.1 traduce esa respuesta a este valor.
+ * M16e §1: Tiendanube recibe exactamente estos tres permisos de lectura, en cualquier
+ * orden. Cualquier otro conjunto, con uno de más o de menos, se rechaza.
  */
-export const tokenTypeSchema = z.enum(['system_user']);
+export const TIENDANUBE_SCOPES = Object.freeze(['read_customers', 'read_orders', 'read_products'] as const);
+
+/**
+ * CA-11c (enmendado por M16e): tipo de token por proveedor. DEC-02 fija el token de system
+ * user de integración para Meta (H-02; M16.1 traduce `debug_token` a este valor); Tiendanube
+ * entrega un token de la app para la tienda, sin vencimiento.
+ */
+export const tokenTypeSchema = z.enum(['system_user', 'store_app_token']);
 export type TokenType = z.infer<typeof tokenTypeSchema>;
 
+export const TOKEN_TYPE_BY_PROVIDER: Readonly<Record<IntegrationProvider, TokenType>> = Object.freeze({
+  meta: 'system_user',
+  tiendanube: 'store_app_token',
+});
+
 const scopeSchema = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/);
+
+/** Los permisos son exactamente los tres de Tiendanube, sin repetir. */
+export function isExactTiendanubeScopes(scopes: readonly string[]): boolean {
+  return scopes.length === TIENDANUBE_SCOPES.length && new Set(scopes).size === scopes.length &&
+    scopes.every((scope) => (TIENDANUBE_SCOPES as readonly string[]).includes(scope));
+}
+
+/**
+ * Reglas de K04 que dependen del proveedor, espejo de `integration_credentials_token_type` y
+ * `private.valid_provider_scopes` (0023): Meta exige `system_user` y `ads_read`; Tiendanube,
+ * `store_app_token`, los tres `read_*` exactos y ningún vencimiento.
+ */
+export function credentialProviderIssues(input: {
+  provider: IntegrationProvider; token_type: TokenType; granted_scopes: readonly string[];
+  expires_at: string | null;
+}): string[] {
+  const issues: string[] = [];
+  if (input.token_type !== TOKEN_TYPE_BY_PROVIDER[input.provider]) issues.push('token_type');
+  if (input.provider === 'meta' && !input.granted_scopes.includes(REQUIRED_SCOPE)) issues.push('granted_scopes');
+  if (input.provider === 'tiendanube') {
+    if (!isExactTiendanubeScopes(input.granted_scopes)) issues.push('granted_scopes');
+    if (input.expires_at !== null) issues.push('expires_at');
+  }
+  return issues;
+}
 
 export const secretCredentialSchema = z.strictObject({
   /** CA-13: toda credencial referencia una conexión. */
   connection_id: uuidSchema,
   company_id: uuidSchema,
+  /** M16e: la credencial guarda su proveedor, igual al de su conexión (FK compuesta). */
+  provider: integrationProviderSchema,
   /** CA-10 y CA-11: solo material cifrado, con su IV, etiqueta y versión de clave. */
   ciphertext: base64Schema.min(1),
   iv: base64OfBytes(GCM_IV_BYTES),
@@ -51,12 +90,13 @@ export const secretCredentialSchema = z.strictObject({
     .min(1)
     .refine((scopes) => new Set(scopes).size === scopes.length, {
       message: 'los permisos no se repiten',
-    })
-    .refine((scopes) => scopes.includes(REQUIRED_SCOPE), {
-      message: `falta el permiso ${REQUIRED_SCOPE}`,
     }),
-  /** Expiración real informada por Meta, o `null` si no la informa (CA-31). */
+  /** Expiración real informada por Meta, o `null` si no la informa (CA-31). Tiendanube: siempre `null`. */
   expires_at: isoDateTimeSchema.nullable(),
+}).superRefine((credential, ctx) => {
+  for (const field of credentialProviderIssues(credential)) {
+    ctx.addIssue({ code: 'custom', path: [field], message: `${field} no corresponde a ${credential.provider}` });
+  }
 });
 
 export type SecretCredential = z.infer<typeof secretCredentialSchema>;

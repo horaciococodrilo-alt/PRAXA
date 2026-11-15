@@ -6,8 +6,13 @@ import { getIntegraciones, requireAppSession } from '@/modules/app-data';
 import { META_OAUTH_MESSAGES, parseMetaOAuthOutcome } from '@/modules/integrations/meta/outcomes';
 import { loadMetaSyncView, parseMetaSyncResult, syncNotice, type MetaSyncView } from '@/modules/integrations/meta/insights';
 import { loadMetaCardState } from '@/modules/integrations/lifecycle';
+import { loadTiendanubeView } from '@/modules/integrations/tiendanube/analysis';
+import { TIENDANUBE_OAUTH_MESSAGES, parseTiendanubeOAuthOutcome } from '@/modules/integrations/tiendanube/oauth';
+import { TN_SYNC_MESSAGES, parseTiendanubeSyncResult } from '@/modules/integrations/tiendanube/sync';
+import { GuiaIntegraciones } from './guia-integraciones';
 import { MetaSyncButton, MetaSyncPanel } from './meta-sync-control';
 import { MetaTarjeta } from './meta-tarjeta';
+import { TiendanubePanel, TiendanubeTarjeta } from './tiendanube-tarjeta';
 
 export const metadata = { title: 'Integraciones' };
 
@@ -15,12 +20,14 @@ export const metadata = { title: 'Integraciones' };
 export const maxDuration = 300;
 
 /**
- * Meta tiene su propia tarjeta con selección, reautorización y desconexión. Las demás
- * integraciones siguen como tarjetas informativas; "Ver guía" aún está deshabilitado.
+ * Meta y Tiendanube tienen tarjetas propias con conexión, reautorización, sincronización y
+ * desconexión; Google Analytics sigue como tarjeta informativa. La guía de integraciones
+ * explica cómo conectar y desconectar (M16e, DP-02).
  *
- * El callback de Meta vuelve acá con `?meta=<resultado>` (D-M16.1-01). Solo se muestra el
- * texto de la lista cerrada: ningún otro parámetro de la URL llega a la pantalla. Las props
- * no se desestructuran en la firma: la sesión se verifica antes de leer `searchParams`.
+ * Los callbacks vuelven acá con `?meta=<resultado>` o `?tiendanube=<resultado>`, y las
+ * sincronizaciones con `?sync=` o `?tn_sync=`. Solo se muestra el texto de cada lista
+ * cerrada: ningún otro parámetro de la URL llega a la pantalla. Las props no se
+ * desestructuran en la firma: la sesión se verifica antes de leer `searchParams`.
  */
 export default async function IntegracionesPage(props: PageProps<'/app/integraciones'>) {
   await requireAppSession('/app/integraciones');
@@ -37,13 +44,18 @@ export default async function IntegracionesPage(props: PageProps<'/app/integraci
   }
   const notice = syncNotice(parseMetaSyncResult(searchParams.sync), syncView?.status.effective_status ?? null);
   const integraciones = await getIntegraciones();
+  const tiendanube = await loadTiendanubeView();
+  const tnResultado = parseTiendanubeOAuthOutcome(searchParams.tiendanube);
+  const tnSync = parseTiendanubeSyncResult(searchParams.tn_sync);
+  const avisosTiendanube = [tnResultado === null ? null : TIENDANUBE_OAUTH_MESSAGES[tnResultado],
+    tnSync === null ? null : TN_SYNC_MESSAGES[tnSync]].filter((a) => a !== null);
 
   return (
     <>
       <PageHeader
         className={i.head}
         title="Integraciones"
-        subtitle="Conectá tus canales y sistemas para que Praxa analice tu operación en tiempo real."
+        subtitle="Conectá tus canales y sistemas para que Praxa analice tu operación."
       />
 
       {aviso ? (
@@ -51,6 +63,11 @@ export default async function IntegracionesPage(props: PageProps<'/app/integraci
           <p>{aviso.text}</p>
         </Card>
       ) : null}
+      {avisosTiendanube.map((a) => (
+        <Card key={a.text} as="div" role={a.tone === 'error' ? 'alert' : 'status'}>
+          <p>{a.text}</p>
+        </Card>
+      ))}
 
       <section className={i.ban} aria-label="Guía de integraciones">
         <Img className={i.robot} src="/app/robot-praxa.png" alt="" width={44} height={44} />
@@ -61,10 +78,7 @@ export default async function IntegracionesPage(props: PageProps<'/app/integraci
             visión completa de tu negocio y detectar oportunidades automáticamente.
           </p>
         </div>
-        <Button variant="secondary" disabled title="Todavía no disponible">
-          <span>Ver guía de integraciones</span>
-          <IconFlecha size={13} stroke={2.3} />
-        </Button>
+        <GuiaIntegraciones />
       </section>
 
       <section className={i.sec} aria-labelledby="integraciones-marketing">
@@ -72,7 +86,8 @@ export default async function IntegracionesPage(props: PageProps<'/app/integraci
         <p>Conectá tus herramientas de marketing y analítica para medir el rendimiento.</p>
         <div className={i.cards}>
           <MetaTarjeta state={metaState} syncControl={syncView?.canSync ? <MetaSyncButton /> : undefined} />
-          {integraciones.filter((int) => int.id !== 'meta_ads').map((int) => (
+          <TiendanubeTarjeta state={tiendanube.tarjeta} />
+          {integraciones.filter((int) => int.id !== 'meta_ads' && int.id !== 'tiendanube').map((int) => (
             <article key={int.id} className={i.card}>
               <div className={i.cardTop}>
                 <span className={i.logo}>
@@ -108,6 +123,7 @@ export default async function IntegracionesPage(props: PageProps<'/app/integraci
 
       {syncView ? <MetaSyncPanel view={syncView} notice={notice} /> : null}
       {syncError ? <Card as="div" role="alert"><p>No pudimos leer los datos de Meta. Probá de nuevo más tarde.</p></Card> : null}
+      <TiendanubePanel datos={tiendanube.datos} error={tiendanube.error} />
     </>
   );
 }

@@ -84,7 +84,14 @@ spec, con decisión del usuario.
 
 - **INV-01 — Tenant del servidor.** La empresa de una operación se resuelve en el servidor a
   partir de la identidad verificada y la membresía. Ningún `company_id` enviado por el
-  navegador decide acceso.
+  navegador decide acceso. **Excepción acotada (M16e, D-M16e-14 y D-M16e-27):** los
+  webhooks de privacidad de Tiendanube no tienen sesión. Con la firma verificada, dos
+  funciones de `worker_api` sin actor resuelven por (proveedor, ID de tienda) todas las
+  conexiones de esa tienda, en cualquier empresa y estado. Solo pueden marcarlas como
+  desconectadas, quitar la credencial y borrar; nunca activan ni devuelven datos, solo la
+  fase. Vigentes en la base (`0023`, pgTAP `09` y `18`) y en el handler firmado de las rutas
+  `privacidad/*` (etapa .3, pruebas unitarias y de app con firma sintética). La codificación real
+  de la firma (M16e-H-09) se verifica en T-15.
 - **INV-02 — Aislamiento en la base.** Un usuario solo ve o modifica filas de empresas donde
   es miembro, aunque el código del servidor tenga un error. Lo garantizan `GRANT` + RLS en
   el camino interactivo y el chequeo de pertenencia dentro de cada función en el camino
@@ -125,6 +132,8 @@ spec, con decisión del usuario.
 |---|---|---|---|
 | Navegador manipulado (cookies, formularios, rutas alteradas) | Verificación de identidad con `getClaims()` en cada página, Server Action y Route Handler; K01 construido solo en el servidor | Vigente para el camino interactivo; K01 existe (`src/modules/tenant/context.ts`) | `proxy.ts` no es frontera: un cambio de `matcher` puede dejar una ruta sin refresco, y la verificación tiene que estar en el handler |
 | `company_id` o `connection_id` manipulados | INV-01; RLS con `private.is_company_member()`; en `worker_api`, pertenencia del actor y propiedad de la conexión verificadas dentro de cada función (errores indistinguibles entre "ajena" e "inexistente") | Vigente en la base (`0001`–`0012`, pgTAP `01`, `08`, `09`) | — |
+| Mezcla de proveedores: un id de conexión de Tiendanube usado en un flujo de Meta, o al revés (M16e) | Proveedor explícito en intentos, conexiones y credenciales, sin default; FK compuestas que fijan el proveedor de la credencial y del intento de reautorización; las funciones de Tiendanube rechazan una conexión de otro proveedor y la sincronización y el diagnóstico de Meta, una de Tiendanube (PX001) | Vigente en la base (`0023`, pgTAP `18`) y en K02–K04. Vigente en código desde la etapa .2: el OAuth de Tiendanube consume solo intentos de Tiendanube, y la purga perezosa destruye una credencial de Tiendanube sin leerla ni llamar a Meta (pruebas unitarias y de app de M16e, con Tiendanube simulada) | — |
+| Webhook de privacidad falsificado, repetido o desordenado (M16e) | Firma HMAC del cuerpo crudo antes de parsear; funciones de privacidad idempotentes, en transacciones cortas, que solo marcan y borran; cerrojo de empresa compartido con la publicación | Vigente: funciones en la base (`0023`, pgTAP `18`) y handler firmado con tope de 64 KB y presupuesto de 2 s (etapa .3, pruebas unitarias y de app). Falta la verificación con un webhook real (H-09, T-15) | Un aviso de desinstalación atrasado puede borrar una conexión reinstalada dentro de las 48 horas (D-M16e-28) |
 | Acceso cross-tenant por error del servidor | RLS (camino interactivo) y chequeo por actor/empresa en `worker_api` (camino privilegiado) | Vigente | En el camino privilegiado la base confía en el actor y la empresa que manda el servidor; protege contra **mezclarlos**, no contra un servidor que mienta |
 | Escalada por membresías | Sin privilegio de escritura sobre `company_members`; la membresía inicial la crea un trigger `SECURITY DEFINER` en la misma transacción que el alta; `owner_id` inmutable | Vigente | Una cuenta administra una sola empresa (ver "Limitaciones") |
 | Exposición de tokens por la Data API | Credenciales en `private` (no expuesto); `worker_api` no expuesto; `revoke all` explícito antes de cada grant; RLS forzada en las tablas de integraciones | Vigente en la base y en `supabase/config.toml` | En el proyecto remoto, la lista de esquemas expuestos se verifica en el panel (intervención del usuario al preparar el entorno) |
@@ -304,7 +313,7 @@ vencimiento, cookies, clasificación de errores) están en CA-01 a CA-05 y CA-28
 
 Vigente: tabla de intentos, creación y consumo atómico en `worker_api`, rutas `iniciar` y
 `callback`, canje, inspección del token, selección de cuenta, reautorización y desconexión.
-El inicio solo acepta `POST` desde el propio origen. El reemplazo exige la conexión y su
+El inicio solo acepta `POST` desde el propio origen, también en Tiendanube (M16e, DP-04). El reemplazo exige la conexión y su
 generación esperadas; los rechazos del token nuevo intentan revocarlo. La revocación es de
 mejor esfuerzo: un fallo de Meta no impide purgar la credencial local. Con el token del
 system user, Meta rechaza la revocación por esta vía, así que quitar a Praxa del negocio
@@ -369,6 +378,7 @@ Estado de cada pieza, sin repetir los plazos (la fuente es la spec):
 | Flujo de baja de cuenta desde la aplicación | No existe (`H-E1-06`). El cierre del piloto es un procedimiento administrativo con orden obligatorio (CA-67) |
 | Foto de perfil | Al reemplazarla o eliminarla se borra el archivo de Storage. Si ese borrado falla, el archivo puede quedar sin referencia en la carpeta del usuario. Con la baja de cuenta, igual que el resto (`H-E1-06`) |
 | Correos de Auth en Resend | El proveedor conserva los mensajes de confirmación y recuperación durante su retención; el borrado de la base activa no los alcanza. Al cerrar el piloto se pide su borrado anticipado (CA-67). Alcance y procedimiento en el [acta de datos reales](FASES/FASE1/M03a/acta-meta.md) |
+| Datos de Tiendanube (M16e) | Pedidos, líneas, ID opaco de cliente y catálogo en `private`, sin grants; los usuarios leen solo agregados, por RLS y con la conexión vigente. Solo el estado vigente de cada pedido (D-M16e-16). La purga al desconectar y `app/store_redact` borran todo lo de la conexión; `customer/redact` borra los pedidos del cliente y deja una marca de supresión por pedido, sin PII, que cae con la purga. Excepciones de reversibilidad en `meta_first/spec.md` §17.6. Vigente en la base (`0023`, pgTAP `18`) y en código desde la etapa .3: la extracción proyecta en memoria solo la lista cerrada de campos y los webhooks borran por tienda o por cliente (pruebas unitarias y de app con datos sintéticos). Sin datos reales hasta la primera publicación y el acta |
 | Informe del diagnóstico (M26a) | Uno por empresa. Se conserva tras desconectar, oculto por la política de lectura (excepción de retención de `meta_first/spec.md` §16); se borra al publicar uno nuevo (excepción de reversibilidad) o al borrar la empresa. `purge_connection` no lo toca. Un PDF descargado no se revoca. Vigente en la base, probado en pgTAP y en `test:app` |
 | Reserva técnica del diagnóstico | Vence sola; se libera al terminar o fallar la generación |
 | Copias de seguridad del proveedor | Un dato borrado de la base activa puede seguir en las copias durante su plazo (CA-38b). Es un límite declarado, no se mitiga |
@@ -434,6 +444,13 @@ Cubierto por `05_delete_carveout.test.sql`.
 - **Sin registro de auditoría** de accesos ni de cambios, más allá de las versiones de
   contexto, las marcas de tiempo y los registros por consulta del chat.
 - **Retención del host del modelo** (sección 8) y **copias de seguridad** (sección 9).
+- **Tiendanube (M16e), riesgos aceptados por el usuario.** `customers/data_request` se
+  acusa sin exportar ni avisar (D-M16e-07). Reconectar una tienda puede reimportar pedidos
+  suprimidos, porque la marca cae con la purga (D-M16e-17). Si fallan los 16 reintentos de un
+  `redact`, los datos quedan ocultos y sin credencial, no borrados, hasta que el dueño abre
+  Integraciones o hasta el cierre del piloto; en `customer/redact`, hasta la siguiente
+  sincronización (D-M16e-26). Un aviso de desinstalación atrasado puede borrar una conexión
+  reinstalada dentro de las 48 horas (D-M16e-28).
 - **Diagnóstico sin evaluación con el modelo real** (`H-E1-242`): la calidad interpretativa y los
   umbrales de C-17 no se midieron con Anthropic; la validación de cifras y referencias sí está
   probada con un proveedor simulado.

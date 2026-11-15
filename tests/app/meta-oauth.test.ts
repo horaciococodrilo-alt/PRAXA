@@ -155,7 +155,7 @@ describe('M16.1: OAuth con Meta simulada contra la base real', () => {
       http: meta.http,
       workerApi: workerApi!,
       keyring: keyringModule.getCredentialKeyring(),
-      readLiveConnection: (ctx: TenantContext) => connections.readLiveConnection(ctx, { supabase: owner.user.client }),
+      readLiveConnection: (ctx: TenantContext) => connections.readLiveConnection(ctx, 'meta', { supabase: owner.user.client }),
       readConnection: (ctx: TenantContext) => connections.readConnectionRecord(ctx, { supabase: owner.user.client }),
       log: () => {},
       ...over,
@@ -265,7 +265,7 @@ describe('M16.1: OAuth con Meta simulada contra la base real', () => {
     const nonce = state43();
     await attempts.createOAuthAttempt(
       owner.ctx,
-      {
+      { provider: 'meta',
         purpose: 'initial',
         stateHash: sha256(state),
         bindingHash: sha256(nonce),
@@ -352,13 +352,14 @@ describe('M16.1: OAuth con Meta simulada contra la base real', () => {
     const reauth = await start(owner, fakeMeta(), { workerApi: recording });
     expect(reauth.location.startsWith('https://www.facebook.com/')).toBe(true);
     expect(created).toHaveLength(1);
-    expect(created[0][2]).toBe('reauth');
-    expect(created[0][7]).toBe(pending.id);
+    expect(created[0][2]).toBe('meta');
+    expect(created[0][3]).toBe('reauth');
+    expect(created[0][8]).toBe(pending.id);
 
     await expect(
       attempts.createOAuthAttempt(
         owner.ctx,
-        {
+        { provider: 'meta',
           purpose: 'initial',
           stateHash: sha256(state43()),
           bindingHash: sha256(state43()),
@@ -394,7 +395,7 @@ describe('M16.1: OAuth con Meta simulada contra la base real', () => {
     const nonce = state43();
     await attempts.createOAuthAttempt(
       owner.ctx,
-      {
+      { provider: 'meta',
         purpose: 'reauth',
         stateHash: sha256(state),
         bindingHash: sha256(nonce),
@@ -406,13 +407,13 @@ describe('M16.1: OAuth con Meta simulada contra la base real', () => {
     );
     const consumed = await attempts.consumeOAuthAttempt(
       owner.ctx,
-      { stateHash: sha256(state), bindingHash: sha256(nonce) },
+      { provider: 'meta', stateHash: sha256(state), bindingHash: sha256(nonce) },
       { workerApi: workerApi! },
     );
     const keyring = keyringModule.getCredentialKeyring();
     await credentials.replaceCredential(
       owner.ctx,
-      {
+      { provider: 'meta',
         token: 'token-sint-nuevo',
         tokenType: 'system_user',
         issuedForAppId: APP_ID,

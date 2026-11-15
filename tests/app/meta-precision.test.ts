@@ -51,7 +51,7 @@ describe('M16c-T-13: precisión de punta a punta', () => {
     const ctx: TenantContext = { user_id: user.id, company_id: data.id, role: 'owner', request_id: randomUUID() };
     const keyring = keyrings.getCredentialKeyring();
     const created = await credentials.executePreparedCredentialOperation(ctx, credentials.preparePendingConnectionWithCredential(ctx,
-      { token: 'token-sint', tokenType: 'system_user', issuedForAppId: 'app_sintetica', grantedScopes: ['ads_read'], expiresAt: null,
+      { provider: 'meta', token: 'token-sint', tokenType: 'system_user', issuedForAppId: 'app_sintetica', grantedScopes: ['ads_read'], expiresAt: null,
         clientBusinessId: 'negocio_sint' }, { keyring }), { workerApi: worker! });
     const account = `act_${randomInt(1_000_000, 2_000_000_000)}`;
     await worker!.call('confirm_connection', [ctx.user_id, ctx.company_id, created.connectionId, account, 'USD', 'UTC', true]);

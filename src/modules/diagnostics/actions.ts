@@ -32,7 +32,7 @@ export async function guardarObjetivoDiagnostico(formData: FormData): Promise<ne
   try {
     const ctx = await requireTenantContext();
     const supabase = await createSupabaseServerClient();
-    const connection = await readLiveConnection(ctx, { supabase });
+    const connection = await readLiveConnection(ctx, 'meta', { supabase });
     // Misma ventana que muestra la pantalla (`getDiagnostico`): la de la elegibilidad o, sin ella, ayer.
     const rpc = supabaseRpc(supabase);
     const catalog = connection?.status === 'active'

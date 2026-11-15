@@ -67,7 +67,7 @@ describe('M16c: sincronización con base desechable y Meta simulada', () => {
     const base = await company(label);
     const keyring = keyrings.getCredentialKeyring();
     const created = await credentials.executePreparedCredentialOperation(base.ctx, credentials.preparePendingConnectionWithCredential(base.ctx,
-      { token: 'token-sint', tokenType: 'system_user', issuedForAppId: 'app_sintetica', grantedScopes: ['ads_read'], expiresAt: null,
+      { provider: 'meta', token: 'token-sint', tokenType: 'system_user', issuedForAppId: 'app_sintetica', grantedScopes: ['ads_read'], expiresAt: null,
         clientBusinessId: 'negocio_sint' }, { keyring }), { workerApi: worker! });
     return { ...base, connectionId: created.connectionId };
   }
@@ -331,12 +331,12 @@ describe('M16c: sincronización con base desechable y Meta simulada', () => {
     const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
     const state = randomBytes(32).toString('base64url');
     const nonce = randomBytes(32).toString('base64url');
-    await attempts.createOAuthAttempt(owner.ctx, { purpose: 'reauth', stateHash: sha256(state), bindingHash: sha256(nonce), returnPath: '/app/integraciones',
+    await attempts.createOAuthAttempt(owner.ctx, { provider: 'meta', purpose: 'reauth', stateHash: sha256(state), bindingHash: sha256(nonce), returnPath: '/app/integraciones',
       expiresAt: new Date(Date.now() + 5 * 60_000), expectedConnectionId: owner.connectionId }, { workerApi: worker! });
-    const consumed = await attempts.consumeOAuthAttempt(owner.ctx, { stateHash: sha256(state), bindingHash: sha256(nonce) }, { workerApi: worker! });
+    const consumed = await attempts.consumeOAuthAttempt(owner.ctx, { provider: 'meta', stateHash: sha256(state), bindingHash: sha256(nonce) }, { workerApi: worker! });
     const keyring = keyrings.getCredentialKeyring();
     const graph = meta(owner, { [edge]: async () => {
-      await credentials.replaceCredential(owner.ctx, { token: 'token-sint-nuevo', tokenType: 'system_user', issuedForAppId: 'app_sintetica',
+      await credentials.replaceCredential(owner.ctx, { provider: 'meta', token: 'token-sint-nuevo', tokenType: 'system_user', issuedForAppId: 'app_sintetica',
         grantedScopes: ['ads_read'], expiresAt: null, connectionId: owner.connectionId, attemptId: consumed.attemptId }, { workerApi: worker!, keyring });
       return json({ data: [] });
     } });

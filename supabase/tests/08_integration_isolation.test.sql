@@ -60,46 +60,46 @@ values
   ('c0a00000-0000-4000-8000-000000000083', 'Empresa C', 'aaaaaaaa-0000-4000-8000-000000000083');
 
 insert into public.integration_connections
-  (id, company_id, status, external_account_id, client_business_id, currency, timezone)
+  (provider, id, company_id, status, external_account_id, client_business_id, currency, timezone)
 values
-  ('cc000000-0000-4000-8000-000000000081', 'c0a00000-0000-4000-8000-000000000081',
+  ('meta', 'cc000000-0000-4000-8000-000000000081', 'c0a00000-0000-4000-8000-000000000081',
    'active', 'cuenta_sintetica_0081', 'negocio_sintetico', 'USD', 'UTC'),
-  ('cc000000-0000-4000-8000-000000000082', 'c0a00000-0000-4000-8000-000000000082',
+  ('meta', 'cc000000-0000-4000-8000-000000000082', 'c0a00000-0000-4000-8000-000000000082',
    'active', 'cuenta_sintetica_0082', 'negocio_sintetico', 'USD', 'UTC');
 
 insert into public.integration_connections
-  (id, company_id, status, credential_generation, purge_requested_at)
+  (provider, id, company_id, status, credential_generation, purge_requested_at)
 values
-  ('cc000000-0000-4000-8000-000000000182', 'c0a00000-0000-4000-8000-000000000082',
+  ('meta', 'cc000000-0000-4000-8000-000000000182', 'c0a00000-0000-4000-8000-000000000082',
    'disconnected', 1, now());
 
 insert into private.integration_credentials
-  (connection_id, company_id, ciphertext, iv, auth_tag, key_version, token_type,
+  (provider, connection_id, company_id, ciphertext, iv, auth_tag, key_version, token_type,
    issued_for_app_id, granted_scopes)
 values
-  ('cc000000-0000-4000-8000-000000000081', 'c0a00000-0000-4000-8000-000000000081',
+  ('meta', 'cc000000-0000-4000-8000-000000000081', 'c0a00000-0000-4000-8000-000000000081',
    'AAAA', 'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user',
    'app_sintetica', '{ads_read}'),
-  ('cc000000-0000-4000-8000-000000000082', 'c0a00000-0000-4000-8000-000000000082',
+  ('meta', 'cc000000-0000-4000-8000-000000000082', 'c0a00000-0000-4000-8000-000000000082',
    'AAAA', 'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user',
    'app_sintetica', '{ads_read}'),
-  ('cc000000-0000-4000-8000-000000000182', 'c0a00000-0000-4000-8000-000000000082',
+  ('meta', 'cc000000-0000-4000-8000-000000000182', 'c0a00000-0000-4000-8000-000000000082',
    'AAAA', 'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user',
    'app_sintetica', '{ads_read}');
 
 insert into public.oauth_attempts
-  (id, company_id, actor_user_id, purpose, expected_connection_id, expected_generation,
+  (provider, id, company_id, actor_user_id, purpose, expected_connection_id, expected_generation,
    state_hash, browser_binding_hash, return_path, expires_at)
 values
-  ('a7000000-0000-4000-8000-000000000081', 'c0a00000-0000-4000-8000-000000000081',
+  ('meta', 'a7000000-0000-4000-8000-000000000081', 'c0a00000-0000-4000-8000-000000000081',
    'aaaaaaaa-0000-4000-8000-000000000081', 'reauth', 'cc000000-0000-4000-8000-000000000081', 0,
    repeat('8', 63) || '1', repeat('9', 63) || '1', '/app/integraciones',
    now() + interval '5 minutes'),
-  ('a7000000-0000-4000-8000-000000000082', 'c0a00000-0000-4000-8000-000000000082',
+  ('meta', 'a7000000-0000-4000-8000-000000000082', 'c0a00000-0000-4000-8000-000000000082',
    'aaaaaaaa-0000-4000-8000-000000000082', 'reauth', 'cc000000-0000-4000-8000-000000000082', 0,
    repeat('8', 63) || '2', repeat('9', 63) || '2', '/app/integraciones',
    now() + interval '5 minutes'),
-  ('a7000000-0000-4000-8000-000000000182', 'c0a00000-0000-4000-8000-000000000082',
+  ('meta', 'a7000000-0000-4000-8000-000000000182', 'c0a00000-0000-4000-8000-000000000082',
    'aaaaaaaa-0000-4000-8000-000000000082', 'reauth', 'cc000000-0000-4000-8000-000000000182', 0,
    repeat('8', 63) || '3', repeat('9', 63) || '3', '/app/integraciones',
    now() + interval '5 minutes');
@@ -124,8 +124,8 @@ select is_empty(
   'T-16: A filtrando por las conexiones de B obtiene cero filas');
 
 select throws_ok(
-  $$insert into public.integration_connections (company_id, status, pending_expires_at)
-    values ('c0a00000-0000-4000-8000-000000000081', 'pending_selection', now() + interval '1 hour')$$,
+  $$insert into public.integration_connections (provider, company_id, status, pending_expires_at)
+    values ('meta', 'c0a00000-0000-4000-8000-000000000081', 'pending_selection', now() + interval '1 hour')$$,
   '42501', null, 'T-16: A no inserta conexiones (42501, no en silencio)');
 
 select throws_ok(
@@ -191,7 +191,7 @@ select throws_ok(
 
 select throws_ok(
   $$select * from worker_api.create_oauth_attempt('aaaaaaaa-0000-4000-8000-000000000081',
-      'c0a00000-0000-4000-8000-000000000081', 'reauth', repeat('8', 63) || '4',
+      'c0a00000-0000-4000-8000-000000000081', 'meta', 'reauth', repeat('8', 63) || '4',
       repeat('9', 63) || '4', '/app/integraciones', now() + interval '5 minutes',
       'cc000000-0000-4000-8000-000000000082')$$,
   'PX001', null, 'T-16: create_oauth_attempt reauth con conexión de B → PX001');
@@ -221,13 +221,13 @@ select results_eq(
 -- Empresa de B con el actor de A.
 select throws_ok(
   $$select * from worker_api.create_oauth_attempt('aaaaaaaa-0000-4000-8000-000000000081',
-      'c0a00000-0000-4000-8000-000000000082', 'initial', repeat('8', 63) || '5',
+      'c0a00000-0000-4000-8000-000000000082', 'meta', 'initial', repeat('8', 63) || '5',
       repeat('9', 63) || '5', '/app/integraciones', now() + interval '5 minutes')$$,
   'PX001', null, 'T-16: create_oauth_attempt en la empresa de B → PX001');
 
 select throws_ok(
   $$select * from worker_api.create_pending_connection('aaaaaaaa-0000-4000-8000-000000000081',
-      'c0a00000-0000-4000-8000-000000000082', 'cc000000-0000-4000-8000-000000000281',
+      'c0a00000-0000-4000-8000-000000000082', 'cc000000-0000-4000-8000-000000000281', 'meta',
       'negocio_sintetico', 'AAAA', 'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 1,
       'system_user', 'app_sintetica', '{ads_read}', null)$$,
   'PX001', null, 'T-16: create_pending_connection en la empresa de B → PX001');
@@ -246,7 +246,7 @@ select is_empty(
 
 select throws_ok(
   $$select * from worker_api.consume_oauth_attempt('aaaaaaaa-0000-4000-8000-000000000081',
-      'c0a00000-0000-4000-8000-000000000082', repeat('8', 63) || '2', repeat('9', 63) || '2')$$,
+      'c0a00000-0000-4000-8000-000000000082', 'meta', repeat('8', 63) || '2', repeat('9', 63) || '2')$$,
   'PX001', null, 'T-16: consume_oauth_attempt con los hashes de B y actor no miembro → PX001');
 
 select is(
@@ -262,7 +262,7 @@ select results_eq(
   $$select sqlstate, message, coalesce(detail, ''), coalesce(hint, '')
       from pg_temp.error_of($q$select * from worker_api.create_pending_connection(
         'aaaaaaaa-0000-4000-8000-000000000083', 'c0a00000-0000-4000-8000-000000000083',
-        'cc000000-0000-4000-8000-000000000082', 'negocio_sintetico', 'AAAA',
+        'cc000000-0000-4000-8000-000000000082', 'meta', 'negocio_sintetico', 'AAAA',
         'AAAAAAAAAAAAAAAA', 'AAAAAAAAAAAAAAAAAAAAAA==', 1, 'system_user', 'app_sintetica',
         '{ads_read}', null)$q$)$$,
   $$values ('PX001', 'praxa: operación no autorizada', '', '')$$,

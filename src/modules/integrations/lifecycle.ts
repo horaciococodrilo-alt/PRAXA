@@ -83,7 +83,12 @@ Promise<{ purged: number; revokeFailed: number; remaining: boolean }> {
   for (const entry of pending.slice(0, PURGE_MAX_PER_RUN)) {
     try {
       if (entry.status === 'pending_selection') await beginDisconnect(ctx, entry.connectionId, { workerApi: deps.workerApi() });
-      if (entry.hasCredential) {
+      // A-13: Tiendanube no tiene revocación remota. Su credencial se destruye con la purga,
+      // sin leerla: un token de Tiendanube nunca llega al cliente de Meta.
+      if (entry.hasCredential && entry.provider !== 'meta') {
+        log(deps, ctx, { etapa: 'revocacion', resultado: 'omitida' });
+      }
+      if (entry.hasCredential && entry.provider === 'meta') {
         let token: Awaited<ReturnType<typeof readCredential>>['token'] | null = null;
         try {
           token = (await readCredential(ctx, entry.connectionId,
@@ -143,6 +148,16 @@ export async function disconnect(partial: Partial<LifecycleDeps> = {}): Promise<
     log(deps, ctx, { etapa: 'desconexion', resultado: 'fallida' });
     return 'desconexion_en_curso';
   }
+}
+
+/**
+ * M16e: desconecta solo la tienda; Meta no se toca. PRAXA deja de leer, destruye la
+ * credencial y purga, sin llamada a Tiendanube: el token sigue válido allá hasta que el dueño
+ * desinstala la app (la guía de Integraciones lo explica, etapa .4).
+ */
+export async function disconnectTiendanube(partial: Partial<LifecycleDeps> = {}): Promise<DisconnectOutcome> {
+  return disconnect({ ...partial,
+    readConnection: partial.readConnection ?? ((ctx) => readConnectionRecord(ctx, {}, 'tiendanube')) });
 }
 
 export type AccountOption = Readonly<{ selectionKey: string; name: string | null; maskedId: string;
@@ -404,7 +419,7 @@ export async function completeReauth(
   const write = () => {
     const keyring = deps.keyring();
     const operation = prepareReplaceCredential(ctx, {
-      connectionId: connection.id, attemptId: attempt.attemptId, token: token.reveal(),
+      provider: 'meta', connectionId: connection.id, attemptId: attempt.attemptId, token: token.reveal(),
       tokenType: validated.tokenType, issuedForAppId: validated.issuedForAppId,
       grantedScopes: validated.grantedScopes, expiresAt: validated.expiresAt,
     }, { keyring });

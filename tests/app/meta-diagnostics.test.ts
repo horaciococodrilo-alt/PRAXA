@@ -31,7 +31,7 @@ async function seedCompany(admin: pg.Client, prefix: string): Promise<Seeded> {
   if (created.error || !created.data) throw new Error('No se pudo crear la empresa sintética.');
   const connectionId = randomUUID();
   const companyId = created.data.id;
-  await admin.query(`select 1 from worker_api.create_pending_connection($1,$2,$3,'negocio_sintetico',
+  await admin.query(`select 1 from worker_api.create_pending_connection($1,$2,$3,'meta','negocio_sintetico',
     'AAAA','AAAAAAAAAAAAAAAA','AAAAAAAAAAAAAAAAAAAAAA==',1,'system_user','app_sintetica','{ads_read}',null)`,
   [user.id, companyId, connectionId]);
   await admin.query(`select 1 from worker_api.confirm_connection($1,$2,$3,$4,'USD','UTC',true)`,

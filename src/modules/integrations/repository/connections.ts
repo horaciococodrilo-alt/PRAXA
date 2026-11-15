@@ -2,15 +2,18 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { uuidSchema } from '@/modules/integrations/contract/primitives';
+import { integrationProviderSchema, uuidSchema, type IntegrationProvider } from '@/modules/integrations/contract/primitives';
 import { integrationConnectionRecordSchema, type IntegrationConnectionRecord } from '@/modules/integrations/contract';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { tenantContextSchema, type TenantContext } from '@/modules/tenant/context';
 
 /**
- * Lectura de la conexión viva de la empresa, con el JWT del usuario y bajo RLS (camino A,
- * DEC-04). `worker_api` no tiene una función de lectura de estado: la base sigue siendo la
- * autoridad, porque `create_oauth_attempt` vuelve a verificar el propósito.
+ * Lectura de la conexión viva de la empresa para UN proveedor, con el JWT del usuario y bajo
+ * RLS (camino A, DEC-04). Desde M16e una empresa puede tener una viva de Meta y otra de
+ * Tiendanube: el proveedor es obligatorio en `readLiveConnection`, porque sin él la segunda
+ * fila haría fallar `.maybeSingle()`. `worker_api` no tiene una función de lectura de estado:
+ * la base sigue siendo la autoridad, porque `create_oauth_attempt` vuelve a verificar el
+ * propósito y el proveedor.
  */
 
 export type LiveConnection = Readonly<{
@@ -23,25 +26,28 @@ const LIVE_STATUSES = ['pending_selection', 'active', 'needs_reauth'] as const;
 
 export class ConnectionReadError extends Error {
   constructor() {
-    super('No se pudo leer la conexión con Meta.');
+    super('No se pudo leer la conexión.');
     this.name = 'ConnectionReadError';
   }
 }
 
 export async function readLiveConnection(
   ctx: TenantContext,
+  provider: IntegrationProvider,
   deps: { supabase?: SupabaseClient } = {},
 ): Promise<LiveConnection | null> {
   const parsedContext = tenantContextSchema.safeParse(ctx);
-  if (!parsedContext.success) throw new ConnectionReadError();
+  const parsedProvider = integrationProviderSchema.safeParse(provider);
+  if (!parsedContext.success || !parsedProvider.success) throw new ConnectionReadError();
   const actor = parsedContext.data;
   const supabase = deps.supabase ?? (await createSupabaseServerClient());
 
   // El filtro por empresa sale de K01, resuelto en el servidor.
   const { data, error } = await supabase
     .from('integration_connections')
-    .select('id, status, credential_generation, company_id')
+    .select('id, status, credential_generation, company_id, provider')
     .eq('company_id', actor.company_id)
+    .eq('provider', parsedProvider.data)
     .in('status', [...LIVE_STATUSES])
     .maybeSingle();
   // Error fijo, sin el mensaje de PostgREST.
@@ -53,6 +59,7 @@ export async function readLiveConnection(
   const generation = row.credential_generation;
   if (
     row.company_id !== actor.company_id ||
+    row.provider !== parsedProvider.data ||
     !uuidSchema.safeParse(row.id).success ||
     status === undefined ||
     !Number.isInteger(generation) ||
@@ -63,24 +70,30 @@ export async function readLiveConnection(
   return Object.freeze({ id: row.id as string, status, credentialGeneration: generation as number });
 }
 
-/** Registro completo de la conexión viva, leído con el JWT del usuario y RLS. */
+/**
+ * Registro completo de la conexión viva de un proveedor, leído con el JWT del usuario y RLS.
+ * Sin proveedor lee la de Meta, como antes de M16e: así no cambian sus llamadores.
+ */
 export async function readConnectionRecord(
   ctx: TenantContext,
   deps: { supabase?: SupabaseClient } = {},
+  provider: IntegrationProvider = 'meta',
 ): Promise<IntegrationConnectionRecord | null> {
   const parsedContext = tenantContextSchema.safeParse(ctx);
-  if (!parsedContext.success) throw new ConnectionReadError();
+  const parsedProvider = integrationProviderSchema.safeParse(provider);
+  if (!parsedContext.success || !parsedProvider.success) throw new ConnectionReadError();
   const supabase = deps.supabase ?? (await createSupabaseServerClient());
   const { data, error } = await supabase.from('integration_connections')
     .select('id, company_id, provider, client_business_id, credential_generation, current_sync_run_id, last_error_class, last_error_message, created_at, updated_at, external_account_id, currency, timezone, status, pending_expires_at, purge_requested_at')
     .eq('company_id', parsedContext.data.company_id)
-    .eq('provider', 'meta')
+    .eq('provider', parsedProvider.data)
     .in('status', [...LIVE_STATUSES])
     .maybeSingle();
   if (error) throw new ConnectionReadError();
   if (data === null) return null;
   const parsed = integrationConnectionRecordSchema.safeParse(data);
-  if (!parsed.success || parsed.data.company_id !== parsedContext.data.company_id || parsed.data.provider !== 'meta') {
+  if (!parsed.success || parsed.data.company_id !== parsedContext.data.company_id ||
+      parsed.data.provider !== parsedProvider.data) {
     throw new ConnectionReadError();
   }
   return parsed.data;

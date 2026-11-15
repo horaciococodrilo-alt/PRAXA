@@ -79,7 +79,7 @@ Un usuario (el dueño), una empresa y una cuenta publicitaria conectada. El due�
 | DEC-08 | Costos del piloto. Supabase: Free hasta que pase VR-01; Pro desde que el dueño usa el piloto sin acompañamiento. Vercel: Hobby, por decisión del usuario, con el riesgo de términos declarado en la sección 5b | Cerrada |
 | DEC-09 | Retención: al desconectar se borran la credencial, los snapshots, las observaciones y las ejecuciones de esa conexión (CA-38, CA-38b) | Cerrada; `M03a` la ratifica |
 | DEC-10 | Chat sin historial persistente. Por consulta se registra: la pregunta, los nombres de las herramientas llamadas, el resultado con motivo estructurado si no respondió, la fecha y la latencia (CA-62 a CA-65) | Cerrada |
-| DEC-11 | La pregunta se guarda redactada con patrones inequívocos, y la misma redacción se aplica antes de enviarla al modelo (CA-66) | Cerrada |
+| DEC-11 | La pregunta se guarda redactada con patrones inequívocos, y la misma redacción se aplica antes de enviarla al modelo (CA-66) | Cerrada; enmendada el 2026-11-14: la pregunta ya no se redacta antes de enviarla al modelo (§12, enmienda H-E1-228 de «Afirmaciones numéricas») |
 | DEC-12 | Los registros por consulta no tienen plazo propio: se borran por DEC-09. Al finalizar el piloto, el dueño y toda su información se eliminan con el procedimiento de CA-67 (DEC-20) | Cerrada |
 | DEC-13 | Cada respuesta del chat ofrece dos botones, "útil" y "no útil". El valor se guarda en el registro de esa consulta, sin texto libre (CA-69) | Cerrada |
 | DEC-14 | Modelo del chat: DeepSeek V4.1 Flash (CA-53b) | Cerrada |
@@ -87,7 +87,7 @@ Un usuario (el dueño), una empresa y una cuenta publicitaria conectada. El due�
 | DEC-16 | Host: DeepInfra, modelo `deepseek-ai/DeepSeek-V4.1-Flash`. Fireworks queda como alternativa si VR-02 falla, usando chat completions y nunca la Responses API | Cerrada |
 | DEC-17 | Una conexión en `pending_selection` vence a los 30 minutos. La purga sigue la secuencia de CA-38: bloqueo, intento de revocación en Meta y destrucción de la credencial (CA-37b) | Cerrada |
 | DEC-18 | Registro del dueño con SMTP propio, sobre el dominio del piloto verificado con SPF y DKIM. El registro público queda abierto solo mientras el dueño se registra en `M16.2` y después se cierra desde el dashboard. Excepción acotada aprobada por el usuario en el grill de `M28.2a` (2026-10-03): abrirlo durante el registro manual de la cuenta de prueba con casilla externa al equipo de Supabase y cerrarlo inmediatamente después de la comprobación; la recuperación se prueba con registro cerrado. La empresa sintética se crea por onboarding. Cuenta y empresa se conservan, se documentan sin datos personales y se eliminan con CA-67 al cierre del piloto, conforme a [II.7 del plan](plan.md#ii7-m282a--entorno-del-piloto). No autoriza suites ni fixtures contra `app`, ni adelanta el alta del dueño. No requiere cambios de código | Cerrada; excepción ya aprobada incorporada al corregir A-01 de la auditoría de M28.2a |
-| DEC-19 | Las respuestas del chat pueden incluir cifras en lenguaje natural. Cada afirmación numérica se vincula a un resultado de herramienta del turno actual y el servidor la verifica antes de mostrarla (CA-50). Reemplaza la prohibición de dígitos | Cerrada |
+| DEC-19 | Las respuestas del chat pueden incluir cifras en lenguaje natural. Cada afirmación numérica se vincula a un resultado de herramienta del turno actual y el servidor la verifica antes de mostrarla (CA-50). Reemplaza la prohibición de dígitos | Cerrada; enmendada el 2026-11-14: sin claims ni verificación del texto libre (§12, enmienda H-E1-228 de «Afirmaciones numéricas») |
 | DEC-20 | `M28.3a` se cierra al completar la demostración. CA-67 se ejecuta al finalizar el piloto, no al terminar la demo | Cerrada |
 | DEC-21 | Los umbrales propuestos para VR-02 se adoptan como criterios iniciales de aprobación | Cerrada |
 | DEC-22 | Insights diarios de cuenta, campaña, conjunto y anuncio, catálogo y reglas de agregación de §11; chat sobre datos persistidos y verificados. Aprobada por el usuario el 2026-11-06 | Cerrada |
@@ -154,7 +154,7 @@ Variables del servidor. Ninguna es `NEXT_PUBLIC_`. En `.env.example` van sin val
 
 ## 6. OAuth (M16.1)
 
-- **CA-28** El inicio crea un intento K02 con su propósito (CA-02c) y redirige al diálogo de Meta con `config_id` y `response_type=code`. No envía `scope`. Una conexión inicial solo se puede iniciar si la empresa no tiene una conexión viva. Si la tiene, el único propósito admitido es reautorizar esa conexión.
+- **CA-28** El inicio crea un intento K02 con su propósito (CA-02c) y redirige al diálogo de Meta con `config_id` y `response_type=code`. No envía `scope`. Una conexión inicial solo se puede iniciar si la empresa no tiene una conexión viva. Si la tiene, el único propósito admitido es reautorizar esa conexión. *(Enmendado para Tiendanube en §17.10.)*
 - **CA-29** El callback rechaza el intento si el `state` falta, es desconocido, venció, ya fue consumido o pertenece a otro actor o a otra empresa. También lo rechaza si el hash del nonce de la cookie no coincide con el del intento. Todo eso se valida en la misma sentencia atómica que consume el intento (CA-03); no alcanza con comprobar que la cookie exista. El error que se muestra es comprensible y no tiene detalles internos.
 - **CA-29b** *(enmendado en M16.1)* El callback sigue el camino que indica el propósito del intento:
   - `initial` crea la conexión pendiente (CA-35);
@@ -233,7 +233,7 @@ Reglas para las funciones y el rol:
 - **CA-02c** *(propósito)* El intento declara su propósito: `initial` o `reauth`. Un intento `reauth` guarda además la conexión esperada y la generación de credencial esperada.
 - **CA-03** El consumo es único y atómico. Una sola sentencia valida el hash del `state`, el actor, la empresa, el hash de vinculación al navegador, el vencimiento y que el intento no haya sido consumido, y en esa misma sentencia lo marca consumido. Un segundo consumo es un error tipado.
 - **CA-04** La URI de retorno está en una allowlist y se valida antes de tocar la base.
-- **CA-05** El proveedor es un enum cerrado, con único valor `meta`.
+- **CA-05** El proveedor es un enum cerrado, con único valor `meta`. *(Enmendado para Tiendanube en §17.10.)*
 
 ### K03 `IntegrationConnection`
 
@@ -255,7 +255,7 @@ Reglas para las funciones y el rol:
 - **CA-10** Solo texto cifrado. No existe ningún campo de texto plano.
 - **CA-11** Exige IV, etiqueta de autenticación y versión de clave.
 - **CA-11b** El cifrado usa `company_id`, `connection_id` y proveedor como datos autenticados (AAD). Un texto cifrado movido a otra fila no descifra.
-- **CA-11c** Guarda tipo de token, app emisora, permisos concedidos y, si existe, la expiración real (campo nullable).
+- **CA-11c** Guarda tipo de token, app emisora, permisos concedidos y, si existe, la expiración real (campo nullable). *(Enmendado para Tiendanube en §17.10.)*
 - **CA-12** Ningún fixture contiene un token, ni real ni con forma de real.
 - **CA-13** Toda credencial referencia una conexión.
 
@@ -267,7 +267,7 @@ Reglas para las funciones y el rol:
 - **CA-15** `private.integration_credentials` no tiene grants para nadie salvo el dueño de las funciones.
 - **CA-16** La matriz de la sección 7 queda documentada en el encabezado de la migración.
 - **CA-17** Antes de cada grant hay un `revoke all` explícito sobre la tabla o la función.
-- **CA-18** Un índice único parcial garantiza una sola conexión viva (`pending_selection`, `active` o `needs_reauth`) por empresa. La unicidad `(company_id, provider, external_account_id)` aplica a las filas existentes. Como la purga elimina la fila (CA-38), reconectar la misma cuenta después de una desconexión completada crea una fila nueva. Si queda una conexión `disconnected` con la purga sin terminar, reconectar primero reanuda esa purga.
+- **CA-18** *(Enmendado para Tiendanube en §17.10.)* Un índice único parcial garantiza una sola conexión viva (`pending_selection`, `active` o `needs_reauth`) por empresa. La unicidad `(company_id, provider, external_account_id)` aplica a las filas existentes. Como la purga elimina la fila (CA-38), reconectar la misma cuenta después de una desconexión completada crea una fila nueva. Si queda una conexión `disconnected` con la purga sin terminar, reconectar primero reanuda esa purga.
 - **CA-19** Aislamiento entre dos empresas sintéticas, probado en pgTAP.
 - **CA-20** Las políticas de lectura resuelven la pertenencia con `private.is_company_member()`. Ninguna acepta un `company_id` provisto por el cliente.
 - **CA-21** Ningún usuario lee credenciales por ninguna vía, ni directa ni a través de una función.
@@ -411,7 +411,7 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
 
   El modelo no elige empresa, tabla ni SQL.
 - **CA-49** El tenant y la conexión se resuelven en el servidor. Las herramientas leen con el JWT del usuario, bajo RLS.
-- **CA-70** *(límites del chat)* Valores iniciales configurables, a confirmar al implementar:
+- **CA-70** *(límites del chat)* *(Enmendado para Tiendanube en §17.10.)* Valores iniciales configurables, a confirmar al implementar:
   - período máximo consultable: 93 días;
   - hasta 4 llamadas a herramientas por turno;
   - hasta 800 tokens de salida por llamada al modelo;
@@ -432,7 +432,15 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
 
 ### Afirmaciones numéricas (DEC-19)
 
-- **CA-50** *(salida estructurada con afirmaciones verificadas)* El modelo redacta en lenguaje natural y puede incluir cifras. Su salida estructurada tiene dos partes: `text` y `claims`.
+**Enmienda H-E1-228, aprobada por el usuario el 2026-11-14 (D-M16e-21; resuelve H-E1-234).** Describe el chat tal como funciona desde la decisión del usuario del 2026-11-10 y vale para Meta y para Tiendanube. Prevalece sobre DEC-11, DEC-19, CA-50, CA-50b, CA-50c y CA-66 donde se contradigan:
+
+- las cifras, tablas y gráficos de los bloques los arma el servidor desde los resultados de herramientas del turno; el modelo no los escribe;
+- el texto libre y las conclusiones del modelo **no se verifican**: no hay `claims` ni guarda, y pueden contener cifras erróneas. La interfaz los rotula como lectura del asistente, no verificada. Es un riesgo aceptado (INV-08 de `SECURITY.md`);
+- la pregunta y el historial llegan al modelo sin redactar. La redacción de CA-66 se aplica antes de persistir y en los logs, y el texto original no se persiste;
+- `guard_rejected` sigue siendo un valor admitido del registro, sin uso;
+- dejan de aplicar las pruebas obligatorias de CA-50b y la medida «cero cifras sin respaldo» de VR-02. Siguen vigentes las de bloques, aislamiento, límites y redacción al persistir.
+
+- **CA-50** *(salida estructurada con afirmaciones verificadas)* El modelo redacta en lenguaje natural y puede incluir cifras. Su salida estructurada tiene dos partes: `text` y `claims`. *(Sin efecto desde la enmienda H-E1-228 de este apartado.)*
   - Cada afirmación numérica de `text` sobre los datos del negocio tiene un `claim` que la vincula a un resultado de herramienta del turno actual.
   - Un claim contiene: `span` (el fragmento citado y su número de aparición en el texto; el servidor obtiene la posición exacta y rechaza si no aparece), `kind`, `tool_call_id` con la ruta del valor dentro del resultado, y los campos declarados `metric`, `unit`, `currency` (cuando corresponde), `account_ref`, `level`, `entity_ref`, `action_type` y `attribution_ref` (cuando corresponden), y `period`.
   - Tipos de claim:
@@ -461,7 +469,7 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
   5. **Variaciones y ratios cuantitativos.** Solo se aceptan las tasas de §11 cuando una herramienta las devuelve y se verifican con su unidad, entidad, período y fuente. Una variación o una participación solo se acepta si la devolvió una herramienta de CA-48 para esos períodos y entidades. Sin esa herramienta, "se duplicó" o "subió un 20 %" siguen rechazadas. Una operación no soportada no se presenta como calculada.
   6. **`user_provided`.** La cifra tiene que aparecer en la pregunta redactada del turno. La UI la muestra diferenciada de las cifras observadas en Meta, por ejemplo "según lo que mencionaste".
   7. **Rechazo.** Si algo no valida, la respuesta no se muestra como un hecho: se registra como `guard_rejected` y el dueño ve una abstención controlada.
-- **CA-50b** *(qué se garantiza y qué se prueba)*
+- **CA-50b** *(qué se garantiza y qué se prueba)* *(Sin efecto desde la enmienda H-E1-228 de este apartado.)*
   - **Garantías determinísticas:**
     - ninguna cifra, cantidad en palabras, variación ni comparativo llega a la pantalla sin un claim válido;
     - todo `observed_value` coincide en valor, métrica, unidad, moneda, cuenta, nivel, entidad, tipo de acción, atribución y período con un resultado del turno actual;
@@ -481,13 +489,13 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
     - cantidad escrita con palabras sin claim;
     - cifra del dueño presentada como observada;
     - herramienta elegida incorrectamente. Este caso lo tiene que detectar la evaluación, no la guarda.
-- **CA-50c** Las referencias de los claims solo resuelven contra resultados de herramientas del turno actual. Un historial manipulado, en el cliente o en el servidor, no puede introducir cifras.
+- **CA-50c** *(Sin efecto desde la enmienda H-E1-228 de este apartado.)* Las referencias de los claims solo resuelven contra resultados de herramientas del turno actual. Un historial manipulado, en el cliente o en el servidor, no puede introducir cifras.
 
 ### Presentación y modelo
 
 - **CA-51** Toda respuesta con datos declara período, zona horaria, cobertura (presencia, estado temporal y captura parcial) y frescura. Si los días provienen de extracciones distintas, se informa el rango de `fetched_at`, no solo la última sincronización.
 - **CA-51b** Los totales sobre períodos con días `sin_fila_reportada`, `no_observado`, `abierto` o con captura parcial se presentan como parciales, mostrando la composición.
-- **CA-52** La interfaz muestra la cuenta (truncada) siempre que haya una conectada, y el período en toda respuesta con datos. Sin cuenta conectada, lo dice con un texto fijo. Una aclaración o una abstención muestra solo lo que existe en ese momento (D-M25a-15).
+- **CA-52** *(Enmendado para Tiendanube en §17.10.)* La interfaz muestra la cuenta (truncada) siempre que haya una conectada, y el período en toda respuesta con datos. Sin cuenta conectada, lo dice con un texto fijo. Una aclaración o una abstención muestra solo lo que existe en ese momento (D-M25a-15).
 - **CA-53** *(P01)* El identificador de modelo es fijo. No equivale a un despliegue inmutable: el host puede cambiar la precisión o la forma de servir el modelo sin cambiar el identificador. Para el piloto se acepta esa limitación con dos mitigaciones: VR-02 se repite antes de la demo, y cada registro guarda el identificador informado por la respuesta (CA-53b). Con el modelo caído, el chat muestra un mensaje claro, conserva la pregunta en la sesión y permite reintentar sin volver a escribirla.
 - **CA-53b** *(modelo, DEC-14 y DEC-15)* DeepSeek V4.1 Flash, con sus pesos abiertos servidos por DeepInfra (DEC-16) bajo el identificador `deepseek-ai/DeepSeek-V4.1-Flash`. Según la ficha del modelo al 2026-09-23, se sirve en precisión fp8. No tiene un identificador fechado, a diferencia de `DeepSeek-V4-Flash-0731`.
   - La salida estructurada de CA-50 usa el mecanismo de esquema estricto del host: `response_format` de tipo `json_schema` con `strict`, o una herramienta en modo `strict`. El modo `json_object` no alcanza, porque garantiza JSON válido pero no el esquema.
@@ -499,7 +507,7 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
 ### Registro por consulta (DEC-10)
 
 - **CA-61** La conversación visible vive solo durante la sesión del navegador. Esta versión no incluye listado de conversaciones, búsqueda ni memoria entre sesiones.
-- **CA-62** Cada consulta genera un registro con:
+- **CA-62** *(Enmendado para Tiendanube en §17.10.)* Cada consulta genera un registro con:
   - la pregunta, redactada según CA-66;
   - los nombres de las herramientas llamadas, sin sus resultados ni argumentos que contengan identificadores;
   - el resultado: `answered`, `answered_partial_coverage` o `not_answered`;
@@ -509,7 +517,7 @@ Este es el catálogo único de datos de Insights. Las specs de implementación l
   - la conexión a la que se refiere, o nula si todavía no hay conexión. Sin conexión, el resultado es `not_answered` con motivo `connection_not_active`, y ese registro se borra por CA-67.
 
   No se guardan respuestas, cifras de resultados de herramientas ni credenciales. La pregunta redactada sí puede conservar montos y fechas que escribió el dueño (CA-66). Cada reintento es un registro aparte. `record_query` cumple CA-38c. Excepciones: un turno rechazado por otro en curso, una entrada inválida o un mensaje de un usuario sin empresa (D-M25a-20) no llegaron a ser una consulta y no generan registro; una escritura descartada por CA-38c o un fallo al registrar tampoco lo dejan, y en esos dos casos **la respuesta no se muestra** (D-M25a-12).
-- **CA-66** *(redacción, DEC-11)* Una única función determinística redacta la pregunta antes de persistirla y antes de enviarla al modelo. El texto original no se persiste en ningún lado.
+- **CA-66** *(redacción, DEC-11)* *(Enmendado por la enmienda H-E1-228 de «Afirmaciones numéricas»: la redacción ya no se aplica antes de enviar al modelo.)* Una única función determinística redacta la pregunta antes de persistirla y antes de enviarla al modelo. El texto original no se persiste en ningún lado.
   - **Se reemplaza por un marcador:**
     - email → `[EMAIL]`;
     - teléfono en formato internacional → `[TELEFONO]`;
@@ -624,7 +632,7 @@ Ningún secreto se pega en el chat ni se guarda en el repositorio.
 | OAuth | `test:app`: callback de otro actor o de otra empresa, `state` vencido o reutilizado, hash de vinculación distinto, intento `reauth` con generación vieja (en `M16.1`, rechazado sin canje), URL limpia después del callback. Sin autorización real |
 | Ciclo de vida | `test:policies`: transiciones, pendiente → desconectada sin metadatos, confirmación vencida rechazada en la base, purga reanudable e idempotente, reconexión después de una purga, cierre (CA-67, CA-68). `test:app`: desconexión durante una confirmación y durante una reautorización, con Meta simulada. VR-01 |
 | Sincronización | `test:policies`, `test:app` de revocación y desconexión durante una sincronización, más pruebas unitarias con Meta simulada: paginación completa, fallo en una página intermedia, resincronización sin duplicados y con valores actualizados, ejecución desplazada (A vence, B publica, A es rechazada), snapshot nuevo sin fila donde el anterior tenía valor, captura parcial vista al día siguiente sin resincronizar, precisión SQL → API → TypeScript |
-| Chat | Pruebas obligatorias de CA-50b, aislamiento (CA-54), límites (CA-70), redacción (CA-66), escritura en vuelo (CA-38c), VR-02 y transcripciones reproducibles con fixtures sintéticos |
+| Chat | Pruebas obligatorias de CA-50b (sin efecto desde la enmienda H-E1-228 de «Afirmaciones numéricas»), aislamiento (CA-54), límites (CA-70), redacción (CA-66), escritura en vuelo (CA-38c), VR-02 y transcripciones reproducibles con fixtures sintéticos |
 | Anomalías | Pruebas unitarias de CA-74 a CA-78, componentes de CA-79/80, aplicación focalizada de CA-81 contra el desechable y recorrido real/demo |
 
 Criterios transversales:
@@ -632,7 +640,7 @@ Criterios transversales:
 - **CB-01** `verify` y las suites del corte pasan.
 - **CB-02** Ningún diff contiene secretos, tokens, montos reales ni identificadores completos de cuentas.
 - **CB-03** Ninguna migración existente se modifica.
-- **CB-04** Ninguna prueba se ejecuta contra producción, salvo el recorrido manual acotado de `M28.2a` aprobado por el usuario y descrito en DEC-18 e II.7 del plan. Ninguna suite automatizada ni fixture se ejecuta contra `app`.
+- **CB-04** Ninguna prueba se ejecuta contra producción, salvo el recorrido manual acotado de `M28.2a` aprobado por el usuario y descrito en DEC-18 e II.7 del plan, y las pruebas manuales con la tienda de demostración de `M16e` (§17.9). Ninguna suite automatizada ni fixture se ejecuta contra `app`.
 - **CB-05** La evidencia registra comandos y resultados reales, redactados.
 - **CB-06** *(precisado en M16.1; resuelve `H-E1-23`)* Un gate obligatorio no se aprueba si una prueba requerida se omitió por falta de configuración. Una prueba omitida cuenta como no ejecutada.
   - **Qué es requerida:** toda prueba de las suites que la microfase exige en III.3 del plan y todo caso que la spec de la microfase lista. Ninguna de ellas puede omitirse por falta de configuración.
@@ -652,6 +660,10 @@ Criterios transversales:
 
 Contrato nuevo y acotado, separado del chat. La spec de la microfase es [`M26a/spec.md`](../M26a/spec.md).
 
+**Enmienda D-M16e-10, aprobada por el usuario el 2026-11-14:** desde `M16e`, con Tiendanube conectada, el diagnóstico suma una sección de ventas de la tienda para los mismos 28 días. Usa agregados calculados por PRAXA, nunca datos de compradores individuales, y los presenta al lado del gasto de Meta, sin atribuir ventas ni inferir causalidad. Sin Tiendanube, rige §16 tal como está. El punto 1 sigue valiendo para los datos de Meta: de Meta no se infieren cohortes ni productos vendidos. Antes de enviar estos agregados a Anthropic hace falta el acta ampliada.
+
+**Enmienda D-M16e-15, aprobada por el usuario el 2026-11-14 (D-M16e-23):** un informe con sección de Tiendanube guarda la referencia a esa conexión y se borra con ella, al purgarla después de desconectar o al recibir `app/store_redact`. Un informe sin sección de tienda sigue el punto 6 y la excepción «Retención» sin cambios.
+
 **Enmienda correctiva del 2026-11-13:** por decisión expresa del usuario de conservar `traffic` (D-M26a-R8) y alinear la ruta, §16.2 distingue los objetivos basados en acciones del objetivo de tráfico. No cambia los demás puntos de §16.
 
 1. `M26a` usa únicamente los datos persistidos del catálogo §11. Se admiten 28 días actuales, 28 anteriores si hay cobertura, cuatro niveles y desgloses disponibles. Ausencia, cero y falta de cobertura son distintos. No se infieren cohortes de compradores, productos vendidos ni ganancia neta desde Meta.
@@ -659,13 +671,13 @@ Contrato nuevo y acotado, separado del chat. La spec de la microfase es [`M26a/s
 3. La búsqueda en vivo se ejecuta por separado, con consultas genéricas de rubro/país/tema sin cifras, identificadores ni nombres de campañas. Solo entran fuentes originales con URL y fecha comprobables; si falta contexto pertinente, se omite. El texto web no ordena al sistema ni modifica cálculos.
 4. Claude recibe evidencia estructurada y acotada procedente de todos los anuncios elegibles; PRAXA calcula y presenta las cifras. La salida del modelo usa estructura validada, referencias a evidencia, interpretaciones marcadas y hasta tres oportunidades. Una muestra pequeña permite hipótesis, no una certeza inventada.
 5. Una generación se bloquea sin objetivo, conexión activa, sincronización de menos de 24 horas, sincronización posterior al informe o intervalo de 24 horas entre informes. Sin actividad no llama al modelo. Datos parciales permiten informe parcial.
-6. Solo hay un informe vigente visible. Se publica el nuevo y se elimina el anterior en la misma transacción; fallas conservan el anterior. Es una excepción expresa a reversibilidad. El PDF se genera bajo autorización desde el informe vigente y no se guarda como objeto persistente. El informe se oculta tras desconexión, pero se conserva hasta reemplazo o borrado de empresa.
+6. Solo hay un informe vigente visible. Se publica el nuevo y se elimina el anterior en la misma transacción; fallas conservan el anterior. Es una excepción expresa a reversibilidad. El PDF se genera bajo autorización desde el informe vigente y no se guarda como objeto persistente. El informe se oculta tras desconexión, pero se conserva hasta reemplazo o borrado de empresa (salvo el informe con sección de Tiendanube: enmienda D-M16e-15).
 7. La cuenta piloto sin actividad se prueba con estado insuficiente y fixtures sintéticos. `G-DIAG` acredita funcionamiento técnico y calidad revisada; no acredita impacto en ventas.
 
 **Excepciones expresas, aprobadas por el usuario el 2026-11-11 con la enmienda y vigentes solo cuando se apruebe el acta nueva y la spec de `M26a`:**
 
 - **Reversibilidad.** Al publicar un informe nuevo se elimina el anterior en la misma transacción, y su texto exacto no se puede restaurar. Ninguna otra escritura pierde reversibilidad.
-- **Retención.** Un único informe derivado se conserva sin clave foránea que lo borre con la conexión: se oculta al desconectar y se elimina al reemplazarlo o al borrar la empresa. `purge_connection` y CA-67 siguen borrando los datos de la conexión.
+- **Retención.** Un único informe derivado se conserva sin clave foránea que lo borre con la conexión: se oculta al desconectar y se elimina al reemplazarlo o al borrar la empresa. `purge_connection` y CA-67 siguen borrando los datos de la conexión. Salvedad: el informe con sección de Tiendanube se borra con esa conexión (enmienda D-M16e-15).
 - **Tercero con datos.** Anthropic es el destino exclusivo del diagnóstico, con su retención estándar y una búsqueda web separada sin datos privados. DeepInfra sigue siendo el destino del chat. Hay que reaprobar el acta `M03a` y avisar al dueño antes de enviar datos reales.
 
 ## 17. Conectores Tiendanube y GA4 (M16e, M16f)
@@ -678,11 +690,26 @@ Enmienda del 2026-11-14. Los contratos detallados son los de las specs [`M16e/sp
 1. **Tres hechos distintos.** Las ventas cobradas y los compradores salen de Tiendanube. El comportamiento medido sale de GA4. La inversión y los resultados atribuidos salen de Meta. Una cifra conserva fuente, período, zona, moneda, definición, cobertura y fecha de extracción. Un resultado de Meta o una compra de GA4 no se rotula como venta cobrada.
 2. **Lectura únicamente.** No se escribe en Tiendanube ni en GA4. Los webhooks de privacidad de Tiendanube se reciben, no se registran desde el runtime.
 3. **Datos mínimos.** De Tiendanube se guarda solo un ID opaco de cliente por empresa. Nombre, email, teléfono, documento, direcciones, notas y payload bruto se descartan. Los datos de clientes no van al modelo.
-4. **El LLM no calcula.** Las cifras, estados y cohortes los calcula SQL o el servidor. El modelo solo elige herramientas de un catálogo cerrado, si la spec de la microfase amplía el chat.
+4. **El LLM no calcula.** Las cifras, estados y cohortes los calcula SQL o el servidor. Por D-M16e-10, `M16e` amplía el chat con herramientas cerradas y el diagnóstico con una sección de ventas (§16). Al modelo solo llegan agregados, nunca cohortes ni celdas de cohorte de menos de cinco clientes.
 5. **Uniones solo con clave verificada.** Tiendanube–GA4 por `transaction_id` o `item_id`, y GA4–Meta por `utm_id`, después de comprobar la instrumentación. Sin clave, la comparación es descriptiva y se rotula como asociación débil, sin causalidad.
-6. **Excepciones de borrado.** La supresión por solicitud de privacidad y la purga al desconectar borran datos. Deben autorizarse expresamente en la spec de `M16e` o `M16f`, como CA-67.
+6. **Excepciones de borrado.** La supresión por solicitud de privacidad y la purga al desconectar borran datos. Deben autorizarse expresamente en la spec de `M16e` o `M16f`, como CA-67. Para Tiendanube, las autoriza la sección «Excepciones expresas» de `M16e/spec.md` (D-M16e-04, D-M16e-16).
 7. **Primer dato real.** Exige un acta ampliada, aprobada y comunicada al dueño (`H-E1-237`).
-8. **Preguntas abiertas de las specs.** Las decisiones 2 a 6 de §7 de la propuesta siguen abiertas: datos de compradores, definiciones de negocio, instrumentación de GA4, análisis entre fuentes, y chat y diagnóstico. Cada una se cierra antes de aprobar la spec que la necesite.
+8. **Decisiones de §7 de la propuesta.** Para Tiendanube, las decisiones 2, 3 y 6 se cerraron el 2026-11-14 (D-M16e-04 a D-M16e-11). Las decisiones 4 (instrumentación de GA4) y 5 (análisis entre fuentes) quedan abiertas para la spec de `M16f`.
+9. **Excepciones acotadas de M16e, aprobadas por el usuario el 2026-11-14.**
+   - **CB-04 e INV-10 (D-M16e-12).** Se permiten pruebas **manuales** en `app` solo con la tienda de demostración de Tiendanube y pedidos sintéticos, sin suites automatizadas. Al terminar, la tienda se desconecta y se verifica la purga.
+   - **INV-01 (D-M16e-14).** Los webhooks de privacidad de Tiendanube no tienen sesión. Con la firma verificada, dos funciones de `worker_api` sin actor resuelven por ID de tienda todas sus conexiones. Solo pueden marcarlas como desconectadas (estado `disconnected`, generación incrementada y credencial destruida) y borrar; nunca activan una conexión ni devuelven datos. *(Ampliado el 2026-11-14, D-M16e-27: antes decía «solo borran».)*
+
+   Las dos se registran en `SECURITY.md` dentro de `M16e`.
+10. **CA enmendados para Tiendanube (M16e, 2026-11-14).** Para Meta, cada CA conserva su texto.
+    - **CA-05:** el enum admite `meta` y `tiendanube`.
+    - **CA-11c:** el tipo de token admite `store_app_token`, solo para `tiendanube`, sin expiración. Los permisos concedidos se validan por proveedor: `ads_read` para Meta; exactamente `read_customers`, `read_orders` y `read_products` para Tiendanube.
+    - **CA-18:** la conexión viva es única por empresa **y proveedor**.
+    - **CA-28:** una conexión inicial se puede iniciar si la empresa no tiene una conexión viva **del mismo proveedor**.
+    - **CA-52:** con Tiendanube conectada, la interfaz muestra también la tienda, por su dominio truncado.
+    - **CA-62 (completado el 2026-11-14, D-M16e-24):** la conexión del registro es la de Meta si el turno usó alguna herramienta de Meta; la de Tiendanube si solo usó herramientas de Tiendanube; si no usó herramientas, la de Meta si está activa y, si no, la de Tiendanube. El modelo recibe solo las herramientas de las conexiones activas. Una pregunta sobre una fuente no conectada se abstiene con `connection_not_active`.
+    - **CA-70:** el tope de 93 días no aplica a la herramienta `tn_cohortes`, que puede usar todo el histórico con un máximo de 24 cohortes y 12 meses.
+    - **§16, punto 6, y excepción «Retención»:** el informe con sección de Tiendanube se borra con esa conexión (enmienda D-M16e-15 de §16).
+    - **DEC-11, DEC-19, CA-50, CA-50b, CA-50c y CA-66:** rige para todo el chat la enmienda H-E1-228 de §12 (D-M16e-21).
 
 ## Fuentes
 

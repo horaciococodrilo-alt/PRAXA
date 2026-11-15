@@ -179,7 +179,7 @@ describe('M06.3a paso 1 RED: llavero y cifrado', () => {
     const sealed = sealCredential(sample, aad, ring);
     expect(sealed.key_version).toBe(2);
     expect(secretCredentialSchema.safeParse({
-      ...sealed, company_id: companyId, connection_id: connectionId,
+      ...sealed, company_id: companyId, connection_id: connectionId, provider: 'meta',
       token_type: 'system_user', issued_for_app_id: 'app_sintetica',
       granted_scopes: ['ads_read'], expires_at: null,
     }).success).toBe(true);
@@ -342,16 +342,16 @@ describe('M06.3a paso 2 RED: repositorio', () => {
   it('T-19 valida K01 antes de consultas y genera conexión nueva con AAD propio', async () => {
     const ring = keyring();
     const workerApi = api(async (_fn, args) => [{ connection_id: args[2], status: 'pending_selection', pending_expires_at: new Date(), credential_generation: 1 }]);
-    await expect(createPendingConnectionWithCredential({ ...ctx, company_id: 'inválido' }, { ...writeInput, clientBusinessId: 'business_sintetico' }, { workerApi, keyring: ring }))
+    await expect(createPendingConnectionWithCredential({ ...ctx, company_id: 'inválido' }, { provider: 'meta', ...writeInput, clientBusinessId: 'business_sintetico' }, { workerApi, keyring: ring }))
       .rejects.toMatchObject({ code: 'invalid_input' });
     expect(workerApi.call).not.toHaveBeenCalled();
-    const created = await createPendingConnectionWithCredential(ctx, { ...writeInput, clientBusinessId: 'business_sintetico' }, { workerApi, keyring: ring });
+    const created = await createPendingConnectionWithCredential(ctx, { provider: 'meta', ...writeInput, clientBusinessId: 'business_sintetico' }, { workerApi, keyring: ring });
     expect(created.connectionId).toMatch(/^[0-9a-f-]{36}$/);
     const args = workerApi.call.mock.calls[0][1] as unknown[];
-    expect(args.slice(0, 3)).toEqual([actorId, companyId, created.connectionId]);
+    expect(args.slice(0, 4)).toEqual([actorId, companyId, created.connectionId, 'meta']);
     const newAad = { ...aad, connection_id: created.connectionId };
-    expect(openCredential({ ciphertext: args[4], iv: args[5], auth_tag: args[6], key_version: args[7] } as ReturnType<typeof sealCredential>, newAad, ring).reveal()).toBe(sample);
-    expect(() => openCredential({ ciphertext: args[4], iv: args[5], auth_tag: args[6], key_version: args[7] } as ReturnType<typeof sealCredential>, aad, ring))
+    expect(openCredential({ ciphertext: args[5], iv: args[6], auth_tag: args[7], key_version: args[8] } as ReturnType<typeof sealCredential>, newAad, ring).reveal()).toBe(sample);
+    expect(() => openCredential({ ciphertext: args[5], iv: args[6], auth_tag: args[7], key_version: args[8] } as ReturnType<typeof sealCredential>, aad, ring))
       .toThrow(CredentialDecryptionError);
   });
 
@@ -365,8 +365,8 @@ describe('M06.3a paso 2 RED: repositorio', () => {
         ? [{ connection_id: args[2], status: 'pending_selection', pending_expires_at: new Date(), credential_generation: 1 }]
         : [{ connection_id: args[2], status: 'active', credential_generation: 2 }];
     });
-    const create = preparePendingConnectionWithCredential(ctx, { ...writeInput, clientBusinessId: 'business_sintetico' }, { keyring: ring });
-    const replace = prepareReplaceCredential(ctx, { ...writeInput, connectionId, attemptId }, { keyring: ring });
+    const create = preparePendingConnectionWithCredential(ctx, { provider: 'meta', ...writeInput, clientBusinessId: 'business_sintetico' }, { keyring: ring });
+    const replace = prepareReplaceCredential(ctx, { provider: 'meta', ...writeInput, connectionId, attemptId }, { keyring: ring });
     expect(JSON.stringify(create)).not.toContain(sample);
     expect(Object.isFrozen(create)).toBe(true);
     await expect(executePreparedCredentialOperation(ctx, create, { workerApi })).rejects.toMatchObject({ code: 'unavailable' });
@@ -379,7 +379,7 @@ describe('M06.3a paso 2 RED: repositorio', () => {
     await executePreparedCredentialOperation(ctx, replace, { workerApi });
     expect(workerApi.call.mock.calls[0]).toEqual(workerApi.call.mock.calls[1]);
     expect(workerApi.call.mock.calls[2]).toEqual(workerApi.call.mock.calls[3]);
-    expect((workerApi.call.mock.calls[0][1] as unknown[])[7]).toBe(1);
+    expect((workerApi.call.mock.calls[0][1] as unknown[])[8]).toBe(1);
     expect((workerApi.call.mock.calls[2][1] as unknown[])[7]).toBe(1);
     expect(workerApi.call).toHaveBeenCalledTimes(4);
     await expect(executePreparedCredentialOperation({ ...ctx, user_id: otherConnectionId }, replace, { workerApi }))
@@ -514,7 +514,7 @@ describe('M06.3a paso 2 RED: repositorio', () => {
     const forgedError = await rejection(executePreparedCredentialOperation(ctx, {} as never, { workerApi }));
     expect(forgedError).toBeInstanceOf(CredentialRepositoryError);
     expectRedacted(forgedError, 'invalid_prepared_operation', 'Operación de credenciales preparada inválida.');
-    const authentic = preparePendingConnectionWithCredential(ctx, { ...writeInput, clientBusinessId: 'business_sintetico' }, { keyring: ring });
+    const authentic = preparePendingConnectionWithCredential(ctx, { provider: 'meta', ...writeInput, clientBusinessId: 'business_sintetico' }, { keyring: ring });
     for (const other of [{ ...ctx, user_id: otherConnectionId }, { ...ctx, company_id: otherCompanyId }]) {
       const error = await rejection(executePreparedCredentialOperation(other, authentic, { workerApi }));
       expect(error).toBeInstanceOf(CredentialRepositoryError);
@@ -569,10 +569,12 @@ describe('M06.3a paso 2 RED: cliente worker_api', () => {
     } as unknown as Queryable & { on: ReturnType<typeof vi.fn>; end: ReturnType<typeof vi.fn> };
     const client = createWorkerApi({ pool });
     const arities = {
-      create_oauth_attempt: 8, consume_oauth_attempt: 4, create_pending_connection: 12,
+      create_oauth_attempt: 9, consume_oauth_attempt: 5, create_pending_connection: 13,
       get_credential: 3, confirm_connection: 7, replace_credential: 12,
       mark_needs_reauth: 6, begin_disconnect: 3, purge_connection: 3,
       list_pending_purges: 2, count_credentials_by_key_version: 0, rewrap_credential: 9,
+      tn_start_sync: 7, tn_publish_orders: 9, tn_publish_catalog: 9, tn_finish_sync: 8,
+      tn_fail_sync: 8, tn_privacy_store_redact: 2, tn_privacy_customer_redact: 3,
     } as const;
     for (const [fn, arity] of Object.entries(arities)) {
       const args = Array.from({ length: arity }, (_, i) => `arg${i}`);
@@ -712,8 +714,8 @@ describe('M06.3a paso 2 RED: cliente worker_api', () => {
 
   it('T-53 valida respuestas create/replace/rewrap y conteos con errores redactados', async () => {
     const ring = keyring(2);
-    const create = preparePendingConnectionWithCredential(ctx, { ...writeInput, clientBusinessId: 'business_sintetico' }, { keyring: ring });
-    const replace = prepareReplaceCredential(ctx, { ...writeInput, connectionId, attemptId }, { keyring: ring });
+    const create = preparePendingConnectionWithCredential(ctx, { provider: 'meta', ...writeInput, clientBusinessId: 'business_sintetico' }, { keyring: ring });
+    const replace = prepareReplaceCredential(ctx, { provider: 'meta', ...writeInput, connectionId, attemptId }, { keyring: ring });
     for (const operation of [create, replace]) {
       const variations: ((base: Record<string, unknown>) => unknown[])[] = [
         () => [], (base) => [base, base], () => [null],
