@@ -430,6 +430,45 @@ describe('M16e-T-04: backfill, incremental y presupuesto', () => {
     }
   });
 
+  it('H-E1-256: Tiendanube responde 404 a un listado sin resultados; se toma como vacío y el backfill avanza', async () => {
+    // Como en `app` (T-15): sin pedidos en el rango o pasada la última página, `GET /orders` y
+    // `GET /products` responden 404 en lugar de una lista vacía.
+    const orders = janToMar(4);
+    const tn = fakeTiendanube(orders, [], (url) => {
+      const path = url.pathname.split('/').pop();
+      if (path !== 'orders' && path !== 'products') return null;
+      const p = url.searchParams;
+      const within = (value: string, min: string | null, max: string | null) =>
+        (min === null || Date.parse(value) >= Date.parse(min)) && (max === null || Date.parse(value) <= Date.parse(max));
+      const matches = path === 'products' ? 0 : orders.filter((o) =>
+        within(o.created_at, p.get('created_at_min'), p.get('created_at_max')) &&
+        within(o.updated_at, p.get('updated_at_min'), p.get('updated_at_max'))).length;
+      return matches === 0 ? json({ code: 404, message: 'Not Found', description: 'Last page is 0' }, 404) : null;
+    });
+    const db = fakeDb();
+    expect(await sync.syncTiendanube(deps(tn, db))).toBe('parcial');
+    expect(db.failures).toEqual([]);
+    expect(db.status.phase).toBe('incremental');
+    expect(db.orders.size).toBe(4);
+    clock += 60_000;
+    expect(await sync.syncTiendanube(deps(tn, db))).toBe('completa');
+  });
+
+  it('H-E1-256: un 404 en la tienda o en el historial de un pedido sigue siendo error, no vacío', async () => {
+    const client404 = client.createTiendanubeHttpClient({ userAgent: 'PRAXA (x)', fetch: async () => json({}, 404) });
+    const { SecretValue } = await import('@/modules/integrations/crypto/seal');
+    const token = new SecretValue(TOKEN);
+    for (const path of ['store', 'orders/1/history/values']) {
+      const failure = await client404.getJson(STORE, path, {}, token, path === 'store' ? 'store' : 'order').catch((e) => e);
+      expect(failure.kind).toBe('no_encontrado');
+    }
+    expect((await client404.getJson(STORE, 'orders', {}, token, 'order')).body).toEqual([]);
+    expect((await client404.getJson(STORE, 'products', {}, token, 'product')).body).toEqual([]);
+    const next = await client404.getNext(STORE, 'orders', `https://api.tiendanube.com/2025-03/${STORE}/orders?page=9`,
+      token, 'order');
+    expect([next.body, client.totalCount(next.headers), client.nextLink(next.headers)]).toEqual([[], 0, null]);
+  });
+
   it('un producto sin ID válido se omite y se cuenta, sin frenar el catálogo', async () => {
     const db = fakeDb();
     await sync.syncTiendanube(deps(fakeTiendanube(janToMar(2), [{ id: 'x', name: 'Roto' },
