@@ -15,7 +15,7 @@ export type WorkerApiFunction =
   | 'begin_chat_turn' | 'end_chat_turn' | 'record_query' | 'set_feedback'
   | 'save_diagnostic_settings' | 'reserve_diagnostic' | 'release_diagnostic' | 'publish_diagnostic'
   | 'tn_start_sync' | 'tn_publish_orders' | 'tn_publish_catalog' | 'tn_finish_sync' | 'tn_fail_sync'
-  | 'tn_privacy_store_redact' | 'tn_privacy_customer_redact';
+  | 'tn_privacy_store_redact' | 'tn_privacy_customer_redact' | 'email_has_account';
 
 export interface Queryable {
   query<Row extends pg.QueryResultRow = pg.QueryResultRow>(
@@ -109,6 +109,8 @@ const SQL_CASTS: Record<WorkerApiFunction, readonly string[]> = {
   // Privacidad sin sesión (D-M16e-14): solo la tienda, verificada por firma en el servidor.
   tn_privacy_store_redact: ['text', 'integer'],
   tn_privacy_customer_redact: ['text', 'text', 'text[]'],
+  // H-E1-259 (0025): sin actor, se usa antes de iniciar sesión; devuelve solo un booleano.
+  email_has_account: ['text'],
 };
 
 const SQL: Record<WorkerApiFunction, string> = Object.fromEntries(
