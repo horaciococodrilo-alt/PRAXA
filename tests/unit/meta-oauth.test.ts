@@ -1417,8 +1417,8 @@ describe('M16.2: registros cerrados y frontera de servidor', () => {
     }
     const actions = sources.get('src/modules/integrations/actions.ts') ?? '';
     expect(actions.trimStart().startsWith("'use server';")).toBe(true);
-    // M16e suma `desconectarTiendanube` y `sincronizarTiendanube`.
-    expect(actions.match(/export (?:async )?function /g)).toEqual(Array(5).fill('export async function '));
+    // M16e suma `desconectarTiendanube` y `sincronizarTiendanube`; la sincronización continua, `pasoSincronizacionTiendanube`.
+    expect(actions.match(/export (?:async )?function /g)).toEqual(Array(6).fill('export async function '));
     expect(actions).not.toMatch(/export (?:const|class|type|interface) /);
   });
 });

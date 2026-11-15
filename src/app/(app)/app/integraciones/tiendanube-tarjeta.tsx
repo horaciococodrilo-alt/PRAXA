@@ -1,13 +1,14 @@
 'use client';
 
-import { useFormStatus } from 'react-dom';
+import { useRouter } from 'next/navigation';
+import { useRef, useState } from 'react';
 
 import { cantidad, porcentaje } from '@/components/app/format';
 import { IconFlecha } from '@/components/app/icons';
 import { IntegracionLogo } from '@/components/app/integracion-logo';
 import i from '@/components/app/integraciones.module.css';
 import { Badge, Button, DisclosureButton } from '@/components/app/ui';
-import { desconectarTiendanube, sincronizarTiendanube } from '@/modules/integrations/actions';
+import { desconectarTiendanube, pasoSincronizacionTiendanube } from '@/modules/integrations/actions';
 import type { TiendanubeCardState, TiendanubeDatos, VentaPeriodo } from '@/modules/integrations/tiendanube/analysis';
 import { abrirGuiaIntegraciones } from './guia-integraciones';
 import t from './tiendanube-tarjeta.module.css';
@@ -24,7 +25,7 @@ import t from './tiendanube-tarjeta.module.css';
 const START = '/api/integraciones/tiendanube/iniciar';
 export const TN_RETENTION = 'Se borran la credencial y los datos de la tienda de la base activa: pedidos, catálogo y cohortes. Esta acción no se puede deshacer; para volver a usar Tiendanube hay que conectar y sincronizar de nuevo. Si el proyecto usa Supabase Pro, las copias nocturnas pueden conservarlos hasta 7 días.';
 export const TN_UNINSTALL = 'Desconectar no desinstala la app: el acceso sigue habilitado en Tiendanube hasta que desinstales Praxa desde el administrador de tu tienda.';
-export const TN_MANUAL = 'La sincronización es manual: los datos se actualizan cuando pulsás Sincronizar. La primera vez se lee todo el histórico y puede llevar varios pasos.';
+export const TN_MANUAL = 'La sincronización es manual: los datos se actualizan cuando pulsás Sincronizar. La primera vez se lee todo el histórico; la sincronización sigue sola, paso a paso, hasta terminar.';
 export const MENOS_DE_5 = 'menos de 5';
 
 function StartControl({ label }: { label: string }) {
@@ -38,12 +39,45 @@ function StartControl({ label }: { label: string }) {
   );
 }
 
-function SyncSubmit() {
-  const { pending } = useFormStatus();
+const SYNC_RESULT = '/app/integraciones?tn_sync=';
+const SYNC_LOGIN = '/login?next=%2Fapp%2Fintegraciones';
+/** Tope de pasos de una pulsación, por si una tienda no terminara nunca. */
+const MAX_PASOS = 60;
+
+/** Una pulsación encadena los pasos parciales hasta terminar, con avance visible y opción de detener. */
+function SyncControl() {
+  const router = useRouter();
+  const [paso, setPaso] = useState(0);
+  const detener = useRef(false);
+  const corriendo = paso > 0;
+
+  async function sincronizar() {
+    detener.current = false;
+    let resultado: string = 'error';
+    for (let n = 1; n <= MAX_PASOS; n += 1) {
+      setPaso(n);
+      resultado = await pasoSincronizacionTiendanube();
+      if (resultado !== 'parcial' || detener.current) break;
+    }
+    setPaso(0);
+    router.replace(resultado === 'login' ? SYNC_LOGIN : `${SYNC_RESULT}${resultado}`);
+  }
+
   return (
-    <Button type="submit" variant="small" className={i.act} disabled={pending}>
-      {pending ? 'Sincronizando…' : 'Sincronizar ahora'}
-    </Button>
+    <div className={i.actForm}>
+      <Button type="button" variant="small" className={i.act} disabled={corriendo}
+        onClick={() => { void sincronizar(); }}>
+        {corriendo ? 'Sincronizando…' : 'Sincronizar ahora'}
+      </Button>
+      {corriendo ? <>
+        <p role="status" aria-label="Avance de la sincronización">
+          Sincronizando, paso {paso}. Sigue sola hasta terminar; no cierres esta página.
+        </p>
+        <Button type="button" variant="small" className={i.act} onClick={() => { detener.current = true; }}>
+          Detener
+        </Button>
+      </> : null}
+    </div>
   );
 }
 
@@ -90,9 +124,7 @@ export function TiendanubeTarjeta({ state }: { state: TiendanubeCardState }) {
           <p>{state.dominio ? `Tienda ${state.dominio}` : 'Tienda conectada'} · {state.moneda} · {state.zona}</p>
           {state.aviso ? <p role={state.kind === 'requiere_reauth' ? 'alert' : 'status'}>{state.aviso}</p> : null}
           {state.kind === 'activa' ? (
-            <form action={sincronizarTiendanube} className={i.actForm}>
-              <SyncSubmit />
-            </form>
+            <SyncControl />
           ) : <StartControl label="Volver a autorizar" />}
           <DisconnectControl />
         </>

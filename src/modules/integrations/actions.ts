@@ -72,6 +72,22 @@ export async function desconectarTiendanube(): Promise<never> {
 }
 
 /** M16e: un paso de sincronización de Tiendanube; tenant y conexión se resuelven en el servidor. */
+/**
+ * Un paso de sincronización sin redirigir, para que la tarjeta encadene los pasos hasta
+ * terminar con una sola pulsación (pedido del usuario, 2026-11-15). Cada paso sigue siendo una
+ * llamada propia, acotada por `maxDuration`; no hay trabajo en segundo plano.
+ */
+export async function pasoSincronizacionTiendanube(): Promise<TiendanubeSyncResult | 'login'> {
+  let result: TiendanubeSyncResult;
+  try { result = await syncTiendanube(); }
+  catch (error) {
+    if (error instanceof UnauthorizedError) return 'login';
+    result = 'error';
+  }
+  revalidatePath('/app', 'layout');
+  return result;
+}
+
 export async function sincronizarTiendanube(): Promise<never> {
   let result: TiendanubeSyncResult;
   let login = false;
