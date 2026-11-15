@@ -79,6 +79,67 @@ function lineRuns(points: BlockView['series'][number]['points']) {
   return runs;
 }
 
+// Gráfico de líneas: lienzo fijo para que los puntos sigan redondos; los rótulos van en HTML.
+const LINE_W = 600;
+const LINE_H = 200;
+const LINE_PAD = { left: 10, right: 10, top: 12, bottom: 12 };
+
+function linePosition(index: number, count: number, ratio: number) {
+  const width = LINE_W - LINE_PAD.left - LINE_PAD.right;
+  const height = LINE_H - LINE_PAD.top - LINE_PAD.bottom;
+  const x = LINE_PAD.left + (count === 1 ? width / 2 : index * width / (count - 1));
+  const y = LINE_PAD.top + height - ratio * height / 10000;
+  return { x, y };
+}
+
+/** Línea con área, eje con el máximo y el cero, fechas de los extremos y el valor de cada punto. */
+function LineChart({ points }: { points: Point[] }) {
+  const runs: { x: number; y: number; point: Point }[][] = [];
+  let current: { x: number; y: number; point: Point }[] = [];
+  points.forEach((point, index) => {
+    if (point.ratio === null) { if (current.length) runs.push(current); current = []; return; }
+    current.push({ ...linePosition(index, points.length, point.ratio), point });
+  });
+  if (current.length) runs.push(current);
+  const top = points.find((point) => point.ratio === 10000)?.text ?? null;
+  const missing = points.filter((point) => point.ratio === null);
+  const base = LINE_H - LINE_PAD.bottom;
+  const mid = points[Math.floor((points.length - 1) / 2)];
+  return (
+    <div className={styles.lineChart} data-chart-type="lineas">
+      <div className={styles.lineAxisY} aria-hidden="true">
+        <span data-axis="max">{top ? `Máx. ${top}` : ''}</span>
+      </div>
+      <svg aria-hidden="true" className={styles.line} viewBox={`0 0 ${LINE_W} ${LINE_H}`}>
+        <line className={styles.lineGrid} x1={LINE_PAD.left} x2={LINE_W - LINE_PAD.right}
+          y1={LINE_PAD.top} y2={LINE_PAD.top} />
+        <line className={styles.lineGrid} x1={LINE_PAD.left} x2={LINE_W - LINE_PAD.right}
+          y1={(LINE_PAD.top + base) / 2} y2={(LINE_PAD.top + base) / 2} />
+        <line className={styles.lineBase} x1={LINE_PAD.left} x2={LINE_W - LINE_PAD.right} y1={base} y2={base} />
+        {runs.map((run, index) => run.length > 1 ? <polygon key={`a${index}`} className={styles.lineArea}
+          points={[`${run[0].x},${base}`, ...run.map((p) => `${p.x},${p.y}`),
+            `${run[run.length - 1].x},${base}`].join(' ')} /> : null)}
+        {runs.map((run, index) => <polyline key={`l${index}`} points={run.map((p) => `${p.x},${p.y}`).join(' ')}
+          fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />)}
+        {runs.flat().map((p, index) => <circle key={index} cx={p.x} cy={p.y}
+          r={points.length > 31 ? 2.5 : 4} fill="currentColor">
+          <title>{`${p.point.x}: ${p.point.text ?? ''}`}</title>
+        </circle>)}
+      </svg>
+      <div className={styles.lineAxisX} aria-hidden="true">
+        <span data-axis="desde">{points[0]?.x ?? ''}</span>
+        {points.length > 2 && mid ? <span>{mid.x}</span> : null}
+        <span data-axis="hasta">{points.length > 1 ? points[points.length - 1].x : ''}</span>
+      </div>
+      {missing.length ? <ul className={styles.lineMissing}>
+        <li><span>Sin dato:</span></li>
+        {missing.map((point, index) => <li key={`${point.x}-${index}`}>
+          <span>{point.x}</span> · <span>{pointText(point)}</span></li>)}
+      </ul> : null}
+    </div>
+  );
+}
+
 function donutFill(points: BlockView['series'][number]['points']) {
   const colors = ['var(--accent)', 'var(--accent-busy)', 'var(--focus)',
     'var(--accent-text)', 'var(--text-strong-muted)', 'var(--line-strong)'];
@@ -108,15 +169,7 @@ export function BasicBlock({ block, onSuggestion }: { block: BlockView;
         </>
       ) : graph ? (
         <div role="img" aria-label={block.aria_label} className={styles.graph}>
-          {block.type === 'lineas' ? <svg aria-hidden="true" className={styles.line}
-            viewBox="0 0 100 100" preserveAspectRatio="none">
-            {lineRuns(points).map((run, index) => <polyline key={index} points={run}
-              fill="none" stroke="currentColor" strokeWidth="2" />)}
-            {points.map((point, index) => point.ratio === null ? null :
-              <circle key={index} r="2" fill="currentColor"
-                cx={points.length === 1 ? 50 : 5 + index * 90 / (points.length - 1)}
-                cy={95 - point.ratio * 90 / 10000} />)}
-          </svg> : null}
+          {block.type === 'lineas' ? <LineChart points={points} /> : null}
           {BAR_TYPES.has(block.type) ?
             <HorizontalBars points={points} grouped={block.type === 'barras_agrupadas'} /> : null}
           {block.type === 'dona' ? <div data-chart-type="dona" aria-hidden="true"
@@ -165,7 +218,7 @@ export function BasicBlock({ block, onSuggestion }: { block: BlockView;
                 { opacity: 0.2 + point.ratio * 0.8 / 10000 }}
               title={`${point.x}: ${point.text ?? 'No observado'}`} />)}
           </div> : null}
-          {!['barras', 'barras_agrupadas', 'barras_apiladas', 'tabla_tendencia',
+          {!['lineas', 'barras', 'barras_agrupadas', 'barras_apiladas', 'tabla_tendencia',
             'calendario_calor'].includes(block.type) ?
           points.map((point, index) => (
             <div className={styles.point} key={`${point.x}-${index}`}>

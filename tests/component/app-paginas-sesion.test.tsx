@@ -139,7 +139,7 @@ describe('verificación de sesión en cada página de /app', () => {
       conexionActiva: false });
   });
 
-  it('M16e-C-15/CA-52: con solo Tiendanube activa habilita el chat y lista la tienda por su dominio acortado', async () => {
+  it('M16e-C-15: con solo Tiendanube activa habilita el chat y la lista como «Tiendanube», sin el nombre de la tienda', async () => {
     const { default: ChatPage } = await import('@/app/(app)/app/chat/page');
     requireAppSession.mockResolvedValue(undefined);
     const context = { user_id: 'a0000000-0000-4000-8000-000000000001',
@@ -147,10 +147,10 @@ describe('verificación de sesión en cada página de /app', () => {
     tenant.mockResolvedValue(context);
     connection.mockImplementation(async (_ctx: unknown, _deps: unknown, provider?: string) =>
       provider === 'tiendanube' ? { id: 'd0000000-0000-4000-8000-0000000000e5', status: 'active' } : null);
-    storeDomain.mockResolvedValueOnce('tienda-sintetica-de-prueba-larga.mitiendanube.com');
     const onlyStore = await ChatPage();
     expect(onlyStore.props).toMatchObject({ tieneEmpresa: true, conexionActiva: true,
-      conectadas: [{ id: 'tiendanube', nombre: 'Tiendanube · tienda-sintetica-de-prueba-larg…' }] });
+      conectadas: [{ id: 'tiendanube', nombre: 'Tiendanube' }] });
+    expect(storeDomain).not.toHaveBeenCalled();
     expect(connection).toHaveBeenCalledWith(context, {}, 'tiendanube');
 
     connection.mockImplementation(async (_ctx: unknown, _deps: unknown, provider?: string) =>
@@ -163,7 +163,6 @@ describe('verificación de sesión en cada página de /app', () => {
     connection.mockImplementation(async (_ctx: unknown, _deps: unknown, provider?: string) =>
       provider === 'tiendanube' ? { id: 'd0000000-0000-4000-8000-0000000000e5', status: 'active' }
         : { status: 'active' });
-    storeDomain.mockRejectedValueOnce(new Error('synthetic'));
     const both = await ChatPage();
     expect(both.props).toMatchObject({ conexionActiva: true, conectadas: [
       { id: 'meta_ads', nombre: 'Meta Ads' }, { id: 'tiendanube', nombre: 'Tiendanube' }] });

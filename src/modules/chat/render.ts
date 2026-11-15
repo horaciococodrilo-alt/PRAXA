@@ -23,7 +23,7 @@ export type BlockView = Readonly<{ type: string; title: string;
   suggestions?: { id: string; text: string }[];
   children?: { parent: string; rows: string[][] }[]; stack_ratios?: number[] }>;
 export type Footer = Readonly<{ account: string | null;
-  /** Dominio acortado de la tienda (CA-52), solo si la respuesta usa datos de Tiendanube. */
+  /** «Tiendanube» si la respuesta usa datos de la tienda; nunca su nombre ni su dominio. */
   store?: string | null; period: string | null;
   defaulted: boolean; entity_defaulted: boolean; timezone: string | null;
   coverage: string | null; freshness: string | null;
@@ -50,7 +50,6 @@ const STORE_SOURCE = 'Las ventas de la tienda vienen de Tiendanube y son otra fu
 const SOURCE_NOT_CONNECTED = 'Esa fuente no está conectada. Podés conectarla desde Integraciones.';
 const OUT_OF_SCOPE_BOTH = 'Con eso no te puedo ayudar: PRAXA solo lee tus datos de Meta Ads y de tu tienda en Tiendanube y no responde temas ajenos. Sí puedo mostrarte y comentar tus campañas, tus ventas, tus productos más vendidos y la retención de tus compradores.';
 const OUT_OF_SCOPE_STORE = 'Con eso no te puedo ayudar: PRAXA solo lee los datos de tu tienda en Tiendanube y no responde temas ajenos. Sí puedo mostrarte y comentar tus ventas, tus productos más vendidos y la retención de tus compradores.';
-const STORE_DOMAIN_MAX = 32;
 
 function isStoreValue(value: { metric: string }): boolean {
   return value.metric.startsWith('tn_');
@@ -60,11 +59,9 @@ function isStoreResult(result: ToolResult): boolean {
   return (result.tool_name ?? '').startsWith('tn_');
 }
 
-function storeDomain(results: ToolResult[]): string | null {
-  const domain = results.filter(isStoreResult).map((result) => result.extra.store_domain)
-    .find((value): value is string => typeof value === 'string' && value.length > 0);
-  if (!domain) return null;
-  return domain.length <= STORE_DOMAIN_MAX ? domain : `${domain.slice(0, STORE_DOMAIN_MAX - 1)}…`;
+/** La fuente se nombra sin la tienda: ni su nombre ni su dominio (decisión del usuario, 2026-11-15). */
+function storeSource(results: ToolResult[]): string | null {
+  return results.some(isStoreResult) ? 'Tiendanube' : null;
 }
 
 const UNKNOWN = 'Meta no informa con qué atribución contó estos resultados: pueden mezclar ventanas distintas.';
@@ -333,7 +330,7 @@ function footer(input: RenderInput): Footer | null {
   const account = maskedAccount(input.accountRef ?? input.results[0]?.account_ref ?? null);
   const full = input.kind === 'answer';
   const selected = full ? citedResults(input) : [];
-  const store = storeDomain(selected);
+  const store = storeSource(selected);
   if (!account && !store) return null;
   const periods: string[] = [];
   const coverage: string[] = [];

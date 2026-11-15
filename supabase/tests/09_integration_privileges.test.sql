@@ -455,13 +455,13 @@ select is_empty(
   $$select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'worker_api'
        and p.proname not in ('count_credentials_by_key_version', 'tn_privacy_store_redact',
-                             'tn_privacy_customer_redact')
+                             'tn_privacy_customer_redact', 'email_has_account')
        and (p.pronargs < 2
             or p.proargnames[1] is distinct from 'p_actor_user_id'
             or p.proargnames[2] is distinct from 'p_company_id'
             or p.proargtypes[0] <> 'uuid'::regtype
             or p.proargtypes[1] <> 'uuid'::regtype)$$,
-  'T-12: las otras treinta reciben p_actor_user_id y p_company_id primero');
+  'T-12: las otras treinta reciben p_actor_user_id y p_company_id primero (email_has_account no tiene actor: se usa antes de iniciar sesión, H-E1-259)');
 
 -- Excepción acotada a INV-01 (D-M16e-14): las dos de privacidad no reciben actor ni empresa,
 -- solo el ID de la tienda (verificado por firma en el servidor).
