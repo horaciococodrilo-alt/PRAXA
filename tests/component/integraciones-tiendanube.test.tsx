@@ -3,9 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
+const pasoSincronizacionTiendanube = vi.fn();
+const navegar = vi.fn();
 vi.mock('@/modules/integrations/actions', () => ({
   desconectarTiendanube: vi.fn(), sincronizarTiendanube: vi.fn(),
+  pasoSincronizacionTiendanube: (...args: unknown[]) => pasoSincronizacionTiendanube(...args),
 }));
+vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: navegar }) }));
 
 import { GuiaIntegraciones, PASOS_CONECTAR, PASOS_DESCONECTAR, abrirGuiaIntegraciones } from
   '@/app/(app)/app/integraciones/guia-integraciones';
@@ -227,5 +231,52 @@ describe('M16e (DP-02): guía de integraciones', () => {
     render(<GuiaIntegraciones />);
     act(() => abrirGuiaIntegraciones('desconectar'));
     expect(screen.getByRole('tab', { name: 'Desconectar' })).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
+describe('Sincronización que sigue sola hasta terminar (pedido del usuario, 2026-11-15)', () => {
+  it('una pulsación encadena los pasos parciales, muestra el avance y termina en el resultado', async () => {
+    pasoSincronizacionTiendanube.mockReset().mockResolvedValueOnce('parcial').mockResolvedValueOnce('parcial')
+      .mockResolvedValueOnce('completa');
+    navegar.mockReset();
+    const user = userEvent.setup();
+    render(<TiendanubeTarjeta state={ACTIVA} />);
+    await user.click(screen.getByRole('button', { name: 'Sincronizar ahora' }));
+    await vi.waitFor(() => expect(navegar).toHaveBeenCalledWith('/app/integraciones?tn_sync=completa'));
+    expect(pasoSincronizacionTiendanube).toHaveBeenCalledTimes(3);
+  });
+
+  it('muestra en qué paso va y se puede detener', async () => {
+    let soltar: (v: string) => void = () => undefined;
+    pasoSincronizacionTiendanube.mockReset().mockResolvedValueOnce('parcial')
+      .mockImplementationOnce(() => new Promise((resolve) => { soltar = resolve; }));
+    navegar.mockReset();
+    const user = userEvent.setup();
+    render(<TiendanubeTarjeta state={ACTIVA} />);
+    await user.click(screen.getByRole('button', { name: 'Sincronizar ahora' }));
+    expect(await screen.findByRole('status', { name: 'Avance de la sincronización' })).toHaveTextContent('paso 2');
+    await user.click(screen.getByRole('button', { name: 'Detener' }));
+    await act(async () => { soltar('parcial'); });
+    await vi.waitFor(() => expect(navegar).toHaveBeenCalledWith('/app/integraciones?tn_sync=parcial'));
+    expect(pasoSincronizacionTiendanube).toHaveBeenCalledTimes(2);
+  });
+
+  it('un resultado que no es parcial corta enseguida (error, en curso o reautorización)', async () => {
+    pasoSincronizacionTiendanube.mockReset().mockResolvedValueOnce('requiere_reauth');
+    navegar.mockReset();
+    const user = userEvent.setup();
+    render(<TiendanubeTarjeta state={ACTIVA} />);
+    await user.click(screen.getByRole('button', { name: 'Sincronizar ahora' }));
+    await vi.waitFor(() => expect(navegar).toHaveBeenCalledWith('/app/integraciones?tn_sync=requiere_reauth'));
+    expect(pasoSincronizacionTiendanube).toHaveBeenCalledTimes(1);
+  });
+
+  it('sin sesión va al login', async () => {
+    pasoSincronizacionTiendanube.mockReset().mockResolvedValueOnce('login');
+    navegar.mockReset();
+    const user = userEvent.setup();
+    render(<TiendanubeTarjeta state={ACTIVA} />);
+    await user.click(screen.getByRole('button', { name: 'Sincronizar ahora' }));
+    await vi.waitFor(() => expect(navegar).toHaveBeenCalledWith('/login?next=%2Fapp%2Fintegraciones'));
   });
 });

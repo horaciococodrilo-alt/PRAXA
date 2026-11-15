@@ -40,7 +40,8 @@ export type TiendanubeSyncLimits = Readonly<{
 export const DEFAULT_TN_SYNC_LIMITS: TiendanubeSyncLimits = Object.freeze({
   stepMs: 240_000,
   finalizationReserveMs: 15_000,
-  maxPages: 25,
+  // 25 → 30 (2026-11-15): con la tienda real, 25 páginas tardaron hasta 171 s; 30 quedan bajo 240 s.
+  maxPages: 30,
   perPage: 200,
   max429WaitMs: 30_000,
   maxTransientRetries: 2,
