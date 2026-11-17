@@ -285,6 +285,49 @@ describe('M26a.1: diagnóstico por Data API y worker_api reales', () => {
     await admin.query('update public.integration_connections set credential_generation = 0 where id=$1', [main.connectionId]);
   }, 60_000);
 
+  it('M16f-T-09/C-12 (0031): v3 con GA4 por el cliente real; la purga de GA4 lo borra y Meta sigue', async () => {
+    const ga4Id = randomUUID();
+    await admin.query(`select 1 from worker_api.create_pending_connection($1,$2,$3,'ga4',null,'AAAA',
+      'AAAAAAAAAAAAAAAA','AAAAAAAAAAAAAAAAAAAAAA==',1,'google_refresh_token','123456789',
+      array['https://www.googleapis.com/auth/analytics.readonly'],null)`, [main.user.id, main.ctx.company_id, ga4Id]);
+    await admin.query(`select 1 from worker_api.confirm_connection($1,$2,$3,'123456789','USD','UTC',true)`,
+      [main.user.id, main.ctx.company_id, ga4Id]);
+    await admin.query(`update public.diagnostic_reports set generated_at = now() - interval '25 hours'
+      where company_id=$1`, [main.ctx.company_id]);
+    await setSummary(admin, main.connectionId, 'completed', '1 minute', '-1 minute');
+    const eligibility = await diag.readEligibility(rpcOf(main.user), main.connectionId);
+    expect(eligibility.eligible).toBe(true);
+    const ctx = { ...main.ctx, request_id: randomUUID() };
+    expect(await diag.reserveDiagnostic(worker, ctx, { connectionId: main.connectionId, generation: 0,
+      syncFinishedAt: eligibility.sync_finished_at as string })).toBe('reserved');
+    const report = (schema: number, method: string, ga4: boolean) => ({ schema_version: schema,
+      methodology_version: method, window: diag.windowsFor(eligibility.window_to as string),
+      settings: { goal_kind: 'purchase', metric_ref: 'actions:purchase' },
+      sync_finished_at: eligibility.sync_finished_at,
+      evidence: { items: [], totals: {}, manifest: {}, ...(ga4 ? { ga4: { source: 'ga4' } } : {}) },
+      output: { marker: 'sitio' }, web_sources: [], model_requested: 'm', model_reported: null,
+      usage: { calls: 0, batches: 0, steps: [] } });
+    // Un v1 con conexión de GA4 se rechaza en la base; el v3 se publica con el octavo argumento.
+    await expect(diag.publishDiagnostic(worker, ctx, { connectionId: main.connectionId, generation: 0,
+      report: report(1, 'meta-diag-1', false), ga4ConnectionId: ga4Id })).rejects.toThrow();
+    expect(await diag.publishDiagnostic(worker, ctx, { connectionId: main.connectionId, generation: 0,
+      report: report(3, 'meta-fuentes-diag-1', true), ga4ConnectionId: ga4Id })).toBe('published');
+    const read = await main.user.client.from('diagnostic_reports')
+      .select('schema_version, methodology_version, ga4_connection_id, store_connection_id, output');
+    expect(read.error).toBeNull();
+    expect(read.data).toEqual([{ schema_version: 3, methodology_version: 'meta-fuentes-diag-1',
+      ga4_connection_id: ga4Id, store_connection_id: null, output: { marker: 'sitio' } }]);
+    expect((await stranger.client.from('diagnostic_reports').select('id')).data).toEqual([]);
+    await admin.query('select 1 from worker_api.begin_disconnect($1,$2,$3)', [main.user.id, main.ctx.company_id, ga4Id]);
+    expect((await main.user.client.from('diagnostic_reports').select('id')).data).toEqual([]);
+    expect((await admin.query('select worker_api.purge_connection($1,$2,$3) p',
+      [main.user.id, main.ctx.company_id, ga4Id])).rows[0].p).toBe(true);
+    expect(Number((await admin.query('select count(*) from public.diagnostic_reports where company_id=$1',
+      [main.ctx.company_id])).rows[0].count)).toBe(0);
+    expect((await admin.query('select status from public.integration_connections where id=$1',
+      [main.connectionId])).rows[0].status).toBe('active');
+  }, 60_000);
+
   it('T-25 y T-23 (.3): generación con modelo simulado, descarga y ocultamiento tras desconectar', async () => {
     const orchestrator = await import('@/modules/diagnostics/orchestrator');
     const compose = await import('@/modules/diagnostics/compose');
