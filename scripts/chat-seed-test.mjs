@@ -8,6 +8,7 @@ import pg from 'pg';
 import { refFromApiUrl, refFromDbUrl, resolveTarget } from './lib/target.mjs';
 import { resolveIntegrationsTestTarget, resolveSqlTestTarget } from './lib/sql-target.mjs';
 import { supabaseTlsConfig } from '../src/modules/integrations/db/connection-url.mjs';
+import { seedGa4, seedStore } from './lib/demo-seed-sources.mjs';
 import { RICH_DAYS, richBreakdownRows, richDailyRows, richEntities, richIds } from './lib/chat-seed-rich.mjs';
 
 const RUN_EMAIL_PREFIX = 'praxa-chat+';
@@ -212,7 +213,7 @@ async function seedData(client, actor, company, id, { rich = false } = {}) {
   return connection;
 }
 
-async function serve(env, roleUrl, { rich = false } = {}) {
+async function serve(env, roleUrl, { rich = false, demo = false, check = false } = {}) {
   const id = randomUUID();
   const email = runEmail(id);
   const password = `${randomBytes(24).toString('base64url')}Aa1!`;
@@ -228,7 +229,7 @@ async function serve(env, roleUrl, { rich = false } = {}) {
     const signIn = await user.auth.signInWithPassword({ email, password });
     if (signIn.error) throw new Error('No se pudo iniciar sesión sintética.');
     const company = await user.rpc('create_company_for_current_user',
-      { p_name: `Empresa sintética de chat ${id}` }).single();
+      { p_name: demo ? `Tienda Demo (datos sintéticos) ${id}` : `Empresa sintética de chat ${id}` }).single();
     if (company.error || !company.data?.id) throw new Error('No se pudo crear la empresa sintética.');
     sql = new pg.Client({ connectionString: roleUrl.split('?')[0], ...supabaseTlsConfig(),
       application_name: 'praxa-chat-seed-test' });
@@ -236,8 +237,31 @@ async function serve(env, roleUrl, { rich = false } = {}) {
     await sql.query(`set statement_timeout = ${rich ? 90000 : 15000}`);
     await sql.query('set lock_timeout = 15000');
     await seedData(sql, data.user.id, company.data.id, id, { rich });
+    if (demo) {
+      // Empresa demo (fuera de microfase, a pedido del usuario): Tiendanube y GA4 sintéticos,
+      // con las campañas 201 y 202 de Meta en el UTM de GA4 para la comparación por campaña.
+      const query = (text, values) => sql.query(text, values);
+      const store = await seedStore(query, data.user.id, company.data.id);
+      await seedGa4(query, data.user.id, company.data.id, ['201', '202']);
+      console.log(`Tienda demo: ${store.orders} pedidos sintéticos; GA4 demo: 365 días.`);
+    }
     await sql.end();
     sql = null;
+    if (check) {
+      // Lectura bajo RLS con el JWT del dueño sintético, sin levantar Next; después se limpia.
+      const [tn, ga4] = await Promise.all(['get_tn_sync_status', 'get_ga4_sync_status'].map(async (fn) => {
+        const conn = await user.from('integration_connections').select('id')
+          .eq('provider', fn.includes('ga4') ? 'ga4' : 'tiendanube').single();
+        if (conn.error) throw new Error('No se leyó la conexión sintética.');
+        const res = await user.rpc(fn, { p_connection_id: conn.data.id });
+        if (res.error || !res.data?.[0]) throw new Error('No se leyó el estado sintético.');
+        return res.data[0];
+      }));
+      console.log(JSON.stringify({ tiendanube: { cubierto_hasta: tn.covered_through, estado: tn.last_run_status },
+        ga4: { cobertura: [ga4.coverage_from, ga4.coverage_through], estado: ga4.last_step_status,
+          regla_productos: ga4.item_mapping_rule } }));
+      return;
+    }
     console.log(`Corrida sintética: ${id}`);
     console.log(`Correo local: ${email}`);
     console.log(`Contraseña local: ${password}`);
@@ -274,21 +298,28 @@ async function serve(env, roleUrl, { rich = false } = {}) {
 async function main() {
   const args = process.argv.slice(2);
   const serveRich = args.length === 2 && args[0] === '--serve' && args[1] === '--rich';
-  if (!((args.length === 1 && args[0] === '--serve') || serveRich ||
+  const demo = args.length === 2 && args[0] === '--serve' && args[1] === '--demo';
+  const check = args.length === 1 && args[0] === '--check-demo';
+  if (!((args.length === 1 && args[0] === '--serve') || serveRich || demo || check ||
         (args.length === 2 && args[0] === '--clean'))) {
-    throw new Error('Usá --serve, --serve --rich o --clean <identificador>.');
+    throw new Error('Usá --serve, --serve --rich, --serve --demo, --check-demo o --clean <identificador>.');
   }
   const { env, roleUrl } = preflight({ requireModel: args[0] === '--serve' });
+  if (check) {
+    await serve(env, roleUrl, { rich: true, demo: true, check: true });
+    return;
+  }
   if (args[0] === '--clean') {
     const result = await cleanRun(env, args[1]);
     console.log(`Limpieza sintética: ${result.alreadyAbsent ? 'ya estaba ausente' : `${result.removedCompanies} empresa(s) borrada(s)`}; otra cuenta ${result.otherAccountIntact ? 'intacta' : 'sin testigo disponible'}.`);
     return;
   }
-  await serve(env, roleUrl, { rich: serveRich });
+  await serve(env, roleUrl, { rich: serveRich || demo, demo });
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  main().catch(() => {
+  main().catch((error) => {
+    if (process.env.PRAXA_SEED_DEBUG === '1') console.error(error?.message ?? error);
     console.error('La operación sintética falló. Revisá el destino de pruebas y usá --clean si la corrida quedó abierta.');
     process.exitCode = 1;
   });

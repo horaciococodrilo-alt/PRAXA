@@ -26,7 +26,6 @@ vi.mock('@/modules/app-data', () => ({
   }); },
   getEmpresa: lectura('getEmpresa'),
   getIntegraciones: lectura('getIntegraciones'),
-  getUso: lectura('getUso'),
   getDiagnostico: lectura('getDiagnostico'),
   configuracionPendiente: () => false,
 }));
@@ -69,7 +68,7 @@ function paginas(dir: string): string[] {
   );
 }
 
-/** `src/app/(app)/app/uso-y-costos/page.tsx` → `/app/uso-y-costos`. */
+/** `src/app/(app)/app/anomalias/page.tsx` → `/app/anomalias`. */
 const ruta = (archivo: string) => {
   const carpeta = relative(RAIZ, archivo).split(sep).slice(0, -1).join('/');
   return carpeta ? `/app/${carpeta}` : '/app';
@@ -83,7 +82,7 @@ describe('verificación de sesión en cada página de /app', () => {
     requireAppSession.mockRejectedValue(SIN_SESION);
   });
 
-  it('encuentra las ocho pantallas', () => {
+  it('encuentra las siete pantallas', () => {
     expect(PAGINAS.map(([r]) => r).sort()).toEqual([
       '/app',
       '/app/anomalias',
@@ -92,7 +91,6 @@ describe('verificación de sesión en cada página de /app', () => {
       '/app/diagnostico',
       '/app/integraciones',
       '/app/perfil',
-      '/app/uso-y-costos',
     ]);
   });
 

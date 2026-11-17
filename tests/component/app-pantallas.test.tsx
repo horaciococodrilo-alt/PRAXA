@@ -7,8 +7,6 @@ import { Configuracion } from '@/components/app/configuracion';
 import { Diagnostico } from '@/components/app/diagnostico';
 import { Perfil } from '@/components/app/perfil';
 import { AppShell } from '@/components/app/shell';
-import { UsoCostos } from '@/components/app/uso-costos';
-import { usoEnCero } from '@/modules/app-data/mock';
 import type { DiagnosticoVista } from '@/modules/app-data/types';
 
 /**
@@ -57,14 +55,16 @@ vi.mock('@/modules/chat/actions', () => ({
 
 describe('AppShell', () => {
   it('marca la sección actual y lleva avatar y fila de usuario a Mi perfil', () => {
-    pathname = '/app/uso-y-costos';
+    pathname = '/app/diagnostico';
     render(
       <AppShell nombre="Gonzalo" iniciales="GM" foto={null} conectada={null} configPendiente={false}>
         <h1>Contenido</h1>
       </AppShell>,
     );
     const nav = screen.getByRole('navigation', { name: 'Navegación principal' });
-    expect(within(nav).getByRole('link', { name: 'Uso y costos' })).toHaveAttribute('aria-current', 'page');
+    expect(within(nav).getByRole('link', { name: 'Diagnóstico' })).toHaveAttribute('aria-current', 'page');
+    // «Uso y costos» se quitó a pedido del usuario (2026-11-17): no medía nada.
+    expect(within(nav).queryByRole('link', { name: 'Uso y costos' })).not.toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: 'Inicio' })).not.toHaveAttribute('aria-current');
     expect(screen.getByRole('link', { name: 'Gonzalo, mi perfil' })).toHaveAttribute('href', '/app/perfil');
     // Uno en la barra superior de escritorio y otro en la barra móvil (el CSS muestra uno).
@@ -328,55 +328,6 @@ describe('Chat', () => {
   it('no afirma que está buscando en internet', () => {
     render(<Chat iniciales="GM" conectadas={[]} />);
     expect(screen.queryByText(/Buscando en internet/)).not.toBeInTheDocument();
-  });
-});
-
-describe('Uso y costos', () => {
-  const uso = usoEnCero(new Date());
-
-  it('el desplegable y el control segmentado comparten el rango', async () => {
-    const user = userEvent.setup();
-    render(<UsoCostos uso={uso} kpis={null} />);
-    const selector = screen.getByRole('button', { name: /Últimos 30 días/ });
-    const segmentos = screen.getByRole('group', { name: 'Rango del gráfico' });
-    expect(within(segmentos).getByRole('button', { name: '30 días' })).toHaveAttribute('aria-pressed', 'true');
-
-    await user.click(selector);
-    expect(selector).toHaveAttribute('aria-expanded', 'true');
-    const lista = screen.getByRole('listbox');
-    expect(within(lista).getByRole('option', { name: 'Últimos 30 días' })).toHaveAttribute('aria-selected', 'true');
-    await user.click(within(lista).getByRole('option', { name: 'Últimos 7 días' }));
-
-    expect(selector).toHaveAttribute('aria-expanded', 'false');
-    expect(selector).toHaveTextContent('Últimos 7 días');
-    expect(within(segmentos).getByRole('button', { name: '7 días' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('img', { name: /últimos 7 días: sin consultas/ })).toBeInTheDocument();
-
-    await user.click(within(segmentos).getByRole('button', { name: '3 meses' }));
-    expect(selector).toHaveTextContent('Últimos 90 días');
-  });
-
-  it('se maneja con el teclado: flechas para moverse y Enter para elegir', async () => {
-    const user = userEvent.setup();
-    render(<UsoCostos uso={uso} kpis={null} />);
-    const selector = screen.getByRole('button', { name: /Últimos 30 días/ });
-    selector.focus();
-    await user.keyboard('{ArrowDown}');
-    expect(screen.getByRole('listbox')).toHaveFocus();
-    await user.keyboard('{ArrowDown}{Enter}');
-    expect(selector).toHaveTextContent('Últimos 90 días');
-    expect(selector).toHaveFocus();
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
-  });
-
-  it('el desplegable se cierra con Esc', async () => {
-    const user = userEvent.setup();
-    render(<UsoCostos uso={uso} kpis={null} />);
-    const selector = screen.getByRole('button', { name: /Últimos 30 días/ });
-    await user.click(selector);
-    await user.keyboard('{Escape}');
-    expect(selector).toHaveAttribute('aria-expanded', 'false');
-    expect(selector).toHaveFocus();
   });
 });
 

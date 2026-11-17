@@ -14,8 +14,8 @@ import { windowsFor } from '@/modules/diagnostics/evidence';
 import { DiagnosticReadError, readActionTypes } from '@/modules/diagnostics/repository';
 import { actionTypeOptions, catalogWindowTo } from '@/modules/diagnostics/settings';
 
-import { INTEGRACIONES_BASE, usoEnCero } from './mock';
-import type { DiagnosticoVista, Empresa, EstadoDiagnostico, Integracion, Uso, Usuario } from './types';
+import { INTEGRACIONES_BASE } from './mock';
+import type { DiagnosticoVista, Empresa, EstadoDiagnostico, Integracion, Usuario } from './types';
 
 export type * from './types';
 
@@ -107,12 +107,6 @@ export async function getIntegraciones(): Promise<Integracion[]> {
     conectada.google_analytics = ga4.status === 'fulfilled' && ga4.value?.status === 'active';
   } catch { /* sin empresa o sin sesión: nada conectado */ }
   return INTEGRACIONES_BASE.map((item) => ({ ...item, conectada: conectada[item.id] === true }));
-}
-
-/** MOCK: la IA todavía no se usa; todo en cero. */
-export async function getUso(): Promise<Uso> {
-  const hoy = new Date();
-  return usoEnCero(hoy);
 }
 
 const ESTADO_POR_MOTIVO: Readonly<Record<EligibilityReason, EstadoDiagnostico>> = {
