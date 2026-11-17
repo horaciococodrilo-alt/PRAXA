@@ -27,12 +27,13 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 | M26a — Diagnóstico de Meta Ads | `G-DIAG` | 2026-11-14 (instrucción expresa del usuario; con las excepciones H-E1-242 (sin `test:eval` pago), H-E1-216, H-E1-250 y H-E1-252; revisión abreviada del asistente en lugar de `/implementation-review` y `/qa-review`; publicación, `0022` en `app`, recorrido y comunicación al dueño acreditados por declaración del usuario, sin evidencia verificada; detalle en la sesión) | [sesiones/M26a.md](FASES/FASE1/meta_first/sesiones/M26a.md) |
 | M16e — Conector Tiendanube y cohortes de compradores | `G-TIENDA` | 2026-11-15 (aprobación expresa del usuario; acta comunicada al dueño por declaración del usuario; con las excepciones C-09 sin cambio de estado acreditado, sin conteos en `app`, diagnóstico con tienda sin probar en `app`, T-13 no ejecutada, H-06 no verificada (monto cobrado deshabilitado), `H-E1-216` y `H-E1-258`; sin `/implementation-review` ni `/qa-review` sobre el HEAD cerrado; PR #41 a #46 integrados; detalle en la sesión) | [sesiones/M16e.md](FASES/FASE1/meta_first/sesiones/M16e.md) |
 | M16f — Conector GA4 y comparación entre fuentes | `G-GA4-FUSION` | 2026-11-17 (respuesta «sí» del usuario a la aprobación del gate y a la comunicación del acta al dueño, ambas por declaración del usuario; con las excepciones: diagnóstico v3 sin informe real por falta de actividad de Meta, comparación 1 con gasto de Meta en cero, conciliación y chat acreditados por declaración sin cifras registradas, T-12 no ejecutada; sin `/implementation-review` ni `/qa-review` sobre el HEAD cerrado; PR #53 y #55 integrados; detalle en la sesión) | [sesiones/M16f.md](FASES/FASE1/meta_first/sesiones/M16f.md) |
+| M25b — Detector de anomalías de Meta Ads (trabajo paralelo) | `G-ANOMALIES` | 2026-11-17 (instrucción expresa del usuario, «apruebo lo de anomalías así ya la cerrás»; con las excepciones: recorrido autenticado M25b-T-26 no realizado en `app`, 6 suites históricas de `test:app` no ejecutadas en la sesión de implementación, sin `/implementation-review` ni `/qa-review`; integrada en `main` con el PR #38) | [sesiones/M25b.md](FASES/FASE1/M25b/sesiones/M25b.md) |
 
 ## Siguiente habilitada
 
-**Ninguna microfase de la ruta habilitada por ahora (2026-11-17).** `M28.3a` espera además `G-ANOMALIES` (M25b, trabajo paralelo con el gate pendiente). No se inicia sin pedido expreso del usuario.
+**M28.3a — Cierre del piloto: HABILITADA (2026-11-17), sin iniciar.** Sus cinco gates de entrada están aprobados. No se inicia sin pedido expreso del usuario.
 
-`M28.3a` espera `G-CHAT`, `G-ANOMALIES`, `G-DIAG`, `G-TIENDA` y `G-GA4-FUSION`; solo falta `G-ANOMALIES`.
+`G-CHAT`, `G-ANOMALIES`, `G-DIAG`, `G-TIENDA` y `G-GA4-FUSION` aprobados habilitan `M28.3a`.
 
 **Pendientes abiertos de M25a y M26a, sin bloquear el avance:**
 
@@ -43,14 +44,7 @@ Evidencia en [sesiones/M25a.md](FASES/FASE1/meta_first/sesiones/M25a.md) y [sesi
 
 ## Trabajo paralelo autorizado
 
-**M25b — IMPLEMENTACIÓN TERMINADA; GATE PENDIENTE** en `feat/m25b-meta-anomalies`, habilitada
-por `G-SYNC` y aprobada por el usuario el 2026-11-11. El detector determinístico y reutilizable,
-la pantalla, el demo separado y sus pruebas están implementados sin tocar diagnóstico, chat ni
-reporting. `G-ANOMALIES` sigue pendiente del recorrido autenticado, integración, despliegue y
-aprobación del usuario; la prueba contra el proyecto desechable no se acreditó porque este entorno
-no tiene sus variables. M25b y M25a deben estar integradas antes de M28.3a; ninguna habilita ni
-bloquea la implementación de la otra. Evidencia en
-[sesiones/M25b.md](FASES/FASE1/M25b/sesiones/M25b.md).
+Ninguno en curso. M25b se cerró el 2026-11-17 (ver «Cerradas»).
 
 ## Fuera de la ruta o pospuesto
 
