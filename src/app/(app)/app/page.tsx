@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-import { IconBase, IconEdificio } from '@/components/app/icons';
+import { IconEdificio } from '@/components/app/icons';
 import s from '@/components/app/inicio.module.css';
 import { IntegracionLogo } from '@/components/app/integracion-logo';
 import { Badge, Button, Card, PageHeader, TileIcon } from '@/components/app/ui';
@@ -62,15 +62,6 @@ export default async function InicioPage() {
           </ul>
         </Card>
 
-        <Card as="article" className={s.card} aria-labelledby="uso-ia-title">
-          <h2 className={s.eyebrow} id="uso-ia-title">Uso de la IA</h2>
-          <div className={s.id}>
-            <TileIcon>
-              <IconBase size={20} />
-            </TileIcon>
-            <span className={s.big}>Todavía no disponible</span>
-          </div>
-        </Card>
       </section>
 
       <Card className={s.next} aria-label="Próximo paso">

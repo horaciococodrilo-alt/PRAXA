@@ -36,34 +36,6 @@ export type Usuario = {
   fotoUrl: string | null;
 };
 
-/** Uso de la IA de Praxa. Los importes son costo de la IA en dólares, no datos del negocio. */
-export type ResumenUso = {
-  costoMesUsd: number;
-  consultas: number;
-  latenciaPromedioS: number;
-  costoPorConsultaUsd: number;
-  /** Variación contra el mes anterior, en puntos porcentuales. */
-  variacionCostoPct: number;
-  variacionConsultasPct: number;
-};
-
-export type RendimientoIA = {
-  latenciaPromedioS: number;
-  latenciaP95S: number;
-  procesadasPct: number;
-  erroresPct: number;
-};
-
-/** Un día de costo de la IA. `fecha` es `AAAA-MM-DD` en la zona horaria de Argentina. */
-export type CostoDia = { fecha: string; usd: number };
-
-export type Uso = {
-  resumen: ResumenUso;
-  rendimiento: RendimientoIA;
-  /** Últimos 90 días, del más viejo al más nuevo; el último es hoy. */
-  costoDiario: CostoDia[];
-};
-
 export type EstadoDiagnostico = 'sin_empresa' | 'sin_conexion' | 'sin_objetivo' | 'sincronizacion_requerida'
   | 'sincronizacion_en_curso' | 'espera' | 'listo';
 
