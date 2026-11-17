@@ -47,6 +47,11 @@ nada hasta que exista.
    del usuario por sí misma: recibe actor y empresa del servidor.
 4. **Servidor Next → Meta (Graph API).** Meta es la fuente de los datos y emisora del token.
    Sus respuestas se validan; sus errores se redactan antes de guardarse o mostrarse.
+4b. **Servidor Next → Google (OAuth, Admin API y Data API de GA4; M16f).** Google emite el
+   refresh token con `analytics.readonly` y es la fuente de los agregados de la propiedad. PRAXA
+   solo lee: no escribe en Google ni revoca el token de forma remota (D-M16f-05). Las respuestas
+   se validan con una lista cerrada de campos y la calidad de cada informe se normaliza; los
+   errores se clasifican en una lista cerrada, sin guardar el cuerpo de Google.
 5. **Servidor Next → proveedor del modelo (DeepInfra).** Recibe la pregunta del dueño **tal cual**
    (sin redacción), las preguntas previas y resultados de herramientas; su salida es no confiable
    y **no se verifica** (`H-E1-228`).
@@ -59,7 +64,9 @@ nada hasta que exista.
    Con Tiendanube activa y cubierta (M16e, etapa .5), el paso de informe recibe además las
    ventas de la tienda de las dos ventanas, sumadas por moneda (pedidos pagados y pagos
    parciales), con las dos zonas horarias; nunca pedidos, clientes, productos, el dominio ni el
-   ID de la tienda.
+   ID de la tienda. Con GA4 activa y cubierta (M16f), recibe además las sesiones y las visitas
+   desde Meta de las dos ventanas, en la zona de la propiedad; nunca el número ni el nombre de
+   la propiedad, eventos individuales ni identificadores de visitantes.
 6. **Entorno de ejecución (Vercel) y panel de Supabase.** Quien los controla controla todo
    lo anterior. Están fuera del modelo de amenazas que la aplicación puede mitigar.
 7. **Entorno de pruebas → proyecto desechable.** Las pruebas destructivas nunca cruzan hacia
@@ -137,6 +144,8 @@ spec, con decisión del usuario.
 | Navegador manipulado (cookies, formularios, rutas alteradas) | Verificación de identidad con `getClaims()` en cada página, Server Action y Route Handler; K01 construido solo en el servidor | Vigente para el camino interactivo; K01 existe (`src/modules/tenant/context.ts`) | `proxy.ts` no es frontera: un cambio de `matcher` puede dejar una ruta sin refresco, y la verificación tiene que estar en el handler |
 | `company_id` o `connection_id` manipulados | INV-01; RLS con `private.is_company_member()`; en `worker_api`, pertenencia del actor y propiedad de la conexión verificadas dentro de cada función (errores indistinguibles entre "ajena" e "inexistente") | Vigente en la base (`0001`–`0012`, pgTAP `01`, `08`, `09`) | — |
 | Mezcla de proveedores: un id de conexión de Tiendanube usado en un flujo de Meta, o al revés (M16e) | Proveedor explícito en intentos, conexiones y credenciales, sin default; FK compuestas que fijan el proveedor de la credencial y del intento de reautorización; las funciones de Tiendanube rechazan una conexión de otro proveedor y la sincronización y el diagnóstico de Meta, una de Tiendanube (PX001) | Vigente en la base (`0023`, pgTAP `18`) y en K02–K04. Vigente en código desde la etapa .2: el OAuth de Tiendanube consume solo intentos de Tiendanube, y la purga perezosa destruye una credencial de Tiendanube sin leerla ni llamar a Meta (pruebas unitarias y de app de M16e, con Tiendanube simulada) | — |
+| Mezcla de proveedores con GA4 (M16f) | Mismo control que con Tiendanube: proveedor `ga4` explícito, scope exacto y tipo de token propio; las funciones de GA4 rechazan otro proveedor; el informe v3 exige que su conexión de GA4 sea de ese proveedor | Vigente en la base (`0026`–`0031`, pgTAP `20` y `17`) y en código (pruebas unitarias y de app con Google simulado) | — |
+| Propiedad GA4 ajena o equivocada (M16f) | `analytics.readonly` lee todas las propiedades de la cuenta de Google: solo se activa una propiedad ordinaria, presente en el listado del token, verificada contra el flujo web y confirmada por el dueño; reautorizar con otra propiedad se rechaza | Vigente en código y probado con Google simulado; usado en el recorrido real | La confirmación del sitio es una declaración del dueño cuando el host no coincide con el de la tienda |
 | Webhook de privacidad falsificado, repetido o desordenado (M16e) | Firma HMAC del cuerpo crudo antes de parsear; funciones de privacidad idempotentes, en transacciones cortas, que solo marcan y borran; cerrojo de empresa compartido con la publicación | Vigente: funciones en la base (`0023`, pgTAP `18`) y handler firmado con tope de 64 KB y presupuesto de 2 s (etapa .3, pruebas unitarias y de app). Falta la verificación con un webhook real (H-09, T-15) | Un aviso de desinstalación atrasado puede borrar una conexión reinstalada dentro de las 48 horas (D-M16e-28) |
 | Acceso cross-tenant por error del servidor | RLS (camino interactivo) y chequeo por actor/empresa en `worker_api` (camino privilegiado) | Vigente | En el camino privilegiado la base confía en el actor y la empresa que manda el servidor; protege contra **mezclarlos**, no contra un servidor que mienta |
 | Escalada por membresías | Sin privilegio de escritura sobre `company_members`; la membresía inicial la crea un trigger `SECURITY DEFINER` en la misma transacción que el alta; `owner_id` inmutable | Vigente | Una cuenta administra una sola empresa (ver "Limitaciones") |
@@ -214,6 +223,12 @@ Garantías de la base, vigentes y probadas en pgTAP:
   misma empresa, esté `active` o `needs_reauth`; la base admite solo las parejas de versión
   aprobadas, exige la conexión de la tienda si y solo si el informe es v2 y la publicación la
   vuelve a comprobar activa después de los bloqueos (`0024`, pgTAP `17`).
+  El informe con sección de GA4 (v3, M16f) exige igual su conexión de GA4 `active` o
+  `needs_reauth` en la lectura y activa al publicar, y la base exige esa conexión si y solo si
+  el informe es v3 (`0031`, pgTAP `17`).
+- Los agregados y la calidad de GA4 (M16f) se leen bajo RLS solo con membresía y la conexión de
+  GA4 `active` o `needs_reauth`; las filas de ítems y campañas con identificadores externos
+  viven en `private`, sin grants (`0027`, pgTAP `20`).
 
 La matriz exacta de privilegios vive en cada migración y en su pgTAP. No se copia acá.
 
@@ -227,6 +242,7 @@ La matriz exacta de privilegios vive en cada migración y en su pgTAP. No se cop
 | Privilegiado de integraciones | `PRAXA_INTEGRATIONS_DB_URL` (rol `praxa_integrations`) | Solo `EXECUTE` sobre funciones de `worker_api`; ninguna lectura directa de tablas. Confinada a un único módulo `server-only` (CA-27) |
 | Pruebas de aplicación | `SUPABASE_TEST_SECRET_KEY` (`service_role`) | Solo fixtures administrativos en Node (sección 11) |
 | Preflight local de Meta | `META_APP_SECRET` del `.env.local` del usuario | Una consulta de lectura a Graph; salida cerrada sin identificadores ni respuesta de Meta. Se ejecuta en el equipo del usuario, fuera del asistente y del despliegue |
+| Cliente OAuth de Google (M16f) | `GOOGLE_OAUTH_CLIENT_SECRET` y el refresh token cifrado de cada conexión GA4 | El secreto vive solo en el entorno del servidor; el refresh token se guarda cifrado como cualquier credencial de integración y se usa solo para pedir tokens de acceso de corta vida. Un refresh token rotado que devuelva Google se descarta sin guardarlo. El preflight de variables corre en el equipo del usuario y no imprime valores |
 | Operación administrativa | Rol administrativo desde el panel de Supabase | Fuera de la aplicación: cierre del piloto (CA-67) y migraciones ejecutadas por el usuario |
 
 Las capacidades exactas del rol `praxa_integrations` son las funciones que le concede la
@@ -328,6 +344,17 @@ system user, Meta rechaza la revocación por esta vía, así que quitar a Praxa 
 queda a cargo del dueño. Estas operaciones están probadas con Meta simulada y en el
 recorrido real con el dueño.
 
+### OAuth con Google (M16f)
+
+Rige lo mismo que para Meta: `state` aleatorio con solo su hash en la base, intento atado al
+actor, la empresa y el navegador, consumo único y atómico, inicio solo por `POST` del propio
+origen, `code` y tokens fuera de URLs, cookies, HTML y logs, y redirección final a una URL
+limpia. Además se pide `access_type=offline` y `prompt=consent`, sin `include_granted_scopes`;
+sin refresh token o con un scope distinto de `analytics.readonly`, la conexión no se activa. La
+app de Google está en modo Testing (D-M16f-07). La desconexión es solo local: PRAXA purga la
+credencial y los datos y no llama a Google (D-M16f-05). Vigente, probado con Google simulado y
+usado en el recorrido real del piloto.
+
 ## 8. Frontera del LLM (DEC-06, DEC-19; CA-48 a CA-50c, CA-54, CA-66)
 
 Invariantes del chat implementados y probados con datos sintéticos en la rama; el tratamiento
@@ -365,6 +392,14 @@ de cinco aplicada en SQL. Nunca viajan IDs de tienda, pedidos, clientes ni las c
 producto, ni el dominio de la tienda, que solo ve la pantalla. Vigente en código, con pruebas
 unitarias y de app con datos sintéticos.
 
+Con GA4 conectada (M16f), el modelo recibe además seis herramientas que leen solo las funciones
+`get_ga4_*` bajo RLS y, para el gasto de las campañas, la misma lectura pública de Meta que usan
+sus herramientas. Nunca viajan el número ni el nombre de la propiedad, `itemId`, `utm_id` ni las
+claves internas de ítem o producto. Las cohortes de visitantes llegan con la regla de cinco
+aplicada y sin conteos ni retenciones deducibles de una celda oculta. Los nombres de productos y
+campañas son texto no confiable. Vigente en código, con pruebas unitarias y de app con datos
+sintéticos, y usado en el recorrido real.
+
 **Diagnóstico de Meta Ads (M26a), con Anthropic.** Vigente en el código y probado con un
 proveedor simulado; la evaluación con el modelo real no se ejecutó por decisión del usuario
 (`H-E1-242`), y los datos reales esperan la aprobación del acta y la comunicación al dueño:
@@ -395,6 +430,7 @@ Estado de cada pieza, sin repetir los plazos (la fuente es la spec):
 | Foto de perfil | Al reemplazarla o eliminarla se borra el archivo de Storage. Si ese borrado falla, el archivo puede quedar sin referencia en la carpeta del usuario. Con la baja de cuenta, igual que el resto (`H-E1-06`) |
 | Correos de Auth en Resend | El proveedor conserva los mensajes de confirmación y recuperación durante su retención; el borrado de la base activa no los alcanza. Al cerrar el piloto se pide su borrado anticipado (CA-67). Alcance y procedimiento en el [acta de datos reales](FASES/FASE1/M03a/acta-meta.md) |
 | Datos de Tiendanube (M16e) | Pedidos, líneas, ID opaco de cliente y catálogo en `private`, sin grants; los usuarios leen solo agregados, por RLS y con la conexión vigente. Solo el estado vigente de cada pedido (D-M16e-16). La purga al desconectar y `app/store_redact` borran todo lo de la conexión; `customer/redact` borra los pedidos del cliente y deja una marca de supresión por pedido, sin PII, que cae con la purga. Excepciones de reversibilidad en `meta_first/spec.md` §17.6. Vigente en la base (`0023`, pgTAP `18`) y en código desde la etapa .3: la extracción proyecta en memoria solo la lista cerrada de campos y los webhooks borran por tienda o por cliente (pruebas unitarias y de app con datos sintéticos). Sin datos reales hasta la primera publicación y el acta |
+| Datos de GA4 (M16f) | Solo agregados por día y por cohorte, con su calidad por informe y ventana; nunca personas ni eventos individuales. `itemId` y `utm_id` quedan en `private`, sin grants. La purga al desconectar borra credencial, ejecuciones, filas privadas, agregados, calidad, claves de ítem y el informe con sección de GA4; la republicación reemplaza los agregados de su ventana. Excepciones de reversibilidad en `meta_first/spec.md` §17.6 y en la sección 7 de `M16f/spec.md`: GA4 sigue siendo la fuente. Vigente en la base (`0027`–`0031`, pgTAP `20`) y en código; con datos reales desde el recorrido del piloto, según el acta ampliada |
 | Informe del diagnóstico (M26a) | Uno por empresa. Se conserva tras desconectar, oculto por la política de lectura (excepción de retención de `meta_first/spec.md` §16); se borra al publicar uno nuevo (excepción de reversibilidad) o al borrar la empresa. La purga de Meta no lo toca. El informe con sección de tienda (v2, M16e) cuelga además de la conexión de Tiendanube: se oculta al desconectarla y la purga o `app/store_redact` lo borran por cascada (nota «Enmienda D-M16e-15» de §16); `customer/redact` no lo toca, porque solo tiene totales. Un PDF descargado no se revoca. Vigente en la base, probado en pgTAP y en `test:app` (v2 desde `0024`) |
 | Reserva técnica del diagnóstico | Vence sola; se libera al terminar o fallar la generación |
 | Copias de seguridad del proveedor | Un dato borrado de la base activa puede seguir en las copias durante su plazo (CA-38b). Es un límite declarado, no se mitiga |
@@ -473,6 +509,11 @@ Cubierto por `05_delete_carveout.test.sql`.
   Integraciones o hasta el cierre del piloto; en `customer/redact`, hasta la siguiente
   sincronización (D-M16e-26). Un aviso de desinstalación atrasado puede borrar una conexión
   reinstalada dentro de las 48 horas (D-M16e-28).
+- **GA4 (M16f), riesgos aceptados por el usuario.** Sin revocación remota, un refresh token
+  desconectado sigue válido en Google hasta que vence o el dueño quita el acceso desde su
+  cuenta (D-M16f-05). En modo Testing, Google pide volver a autorizar cada 7 días (D-M16f-07).
+  `analytics.readonly` permite leer todas las propiedades de la cuenta que autoriza: la
+  selección se limita a una propiedad confirmada por el dueño.
 - **Diagnóstico sin evaluación con el modelo real** (`H-E1-242`): la calidad interpretativa y los
   umbrales de C-17 no se midieron con Anthropic; la validación de cifras y referencias sí está
   probada con un proveedor simulado.

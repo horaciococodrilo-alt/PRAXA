@@ -33,6 +33,7 @@ para lo previsto.
 src/
   app/                      rutas (landing, auth y la aplicación protegida `/app`)
     api/integraciones/meta/ Route Handlers del OAuth con Meta: inicio (POST) y callback (GET)
+    api/integraciones/ga4/  Route Handlers del OAuth con Google para GA4: inicio (POST) y callback (GET)
   components/               UI compartida
     landing/                landing pública: secciones, tokens claro/oscuro y tema
     auth/                   pantallas de acceso: tarjeta, campos y mensajes de Auth
@@ -57,6 +58,9 @@ src/
                             de la conexión viva bajo RLS
     integrations/meta/      Graph API, cliente HTTP, OAuth, listado, prueba, revocación y
                             resultados del flujo
+    integrations/ga4/       cliente de Google (Admin y Data API) de solo lectura, OAuth,
+                            selección de propiedad, catálogo y preflight, sincronización
+                            por pasos y lectura de agregados para la pantalla
     integrations/           orquestación del ciclo de vida y Server Actions
   proxy.ts                  refresco de sesión y redirección (NO autorización); Next.js
                             solo lo carga al mismo nivel que app/
@@ -112,7 +116,23 @@ etapa .5, el chat ofrece al modelo solo las herramientas de las fuentes activas:
 herramientas cerradas de la tienda (`chat/tools/tiendanube`, solo `get_tn_*`), se habilita con
 cualquiera de las dos conexiones y registra cada turno en la conexión de la fuente usada. El
 diagnóstico suma «Ventas de la tienda» con Tiendanube activa y cubierta: el informe pasa a la
-versión 2, que cuelga también de la conexión de la tienda (`0024`). GA4 queda para M16f. La ruta no
+versión 2, que cuelga también de la conexión de la tienda (`0024`).
+
+GA4 entró con M16f. Existen el proveedor `ga4` en K02–K04 y en la base (`0026`), las tablas
+privadas de ejecuciones, claves de ítem y filas con identificadores externos, las proyecciones
+públicas de agregados y de calidad por informe y ventana, las funciones de sincronización y las
+lecturas `get_ga4_*` (`0027`–`0030`). El módulo `integrations/ga4` tiene el cliente de Google de
+solo lectura, el OAuth con las rutas `iniciar` y `callback`, la selección y verificación de la
+propiedad, el catálogo cerrado de seis informes con su preflight por capacidad y la
+sincronización por pasos (backfill de 365 días en ventanas, incremental con días
+provisionales, cohortes de visitantes, lease, checkpoint y presupuesto de llamadas). La
+desconexión es local, sin llamar a Google. Integraciones tiene la tarjeta y el panel de GA4,
+con las tres comparaciones entre fuentes armadas en el servidor; `getIntegraciones()` lee
+también GA4. El chat suma seis herramientas cerradas (`chat/tools/ga4`, solo `get_ga4_*` y la
+lectura pública del gasto de Meta), se habilita con cualquiera de las tres conexiones y
+registra cada turno según la regla Meta → Tiendanube → GA4. El diagnóstico suma «Tráfico del
+sitio» con GA4 activa y cubierta: el informe pasa a la versión 3, que cuelga también de la
+conexión de GA4 (`0031`). La ruta no
 construye reportes publicados ni base vectorial. Solo admite las medidas y tasas del catálogo de la spec de la ruta, sin cálculos autoritativos del modelo.
 
 ## Base de datos
@@ -239,6 +259,12 @@ motivación y las alternativas descartadas están en la spec, sección 7.
 
 Desde el camino B, en el servidor. Versión de la Graph API en una sola constante. Solo
 lectura.
+
+Google, para GA4 (M16f), sigue el mismo camino: inicio por `POST` del propio origen, callback
+con consumo atómico del intento, canje y refresh en el cuerpo de un `POST`, refresh token
+cifrado y redirección limpia. Después, selección de propiedad por clave opaca, verificación del
+flujo web contra el dominio de la tienda y confirmación del dueño. La sincronización pide tokens
+de acceso de corta vida y lee Admin API, `getMetadata`, `checkCompatibility` y `runReport`.
 
 ```
 Navegador ──POST /api/integraciones/meta/iniciar (mismo origen)
@@ -381,6 +407,10 @@ Server Action ──► K01 ──► conexión, objetivo y elegibilidad (base, 
   ──► validación (forma, referencias, sin cifras libres, aserciones) y una reparación
   ──► sustitución de marcadores por valores del servidor ──► publicación atómica (camino B)
 ```
+
+Con Tiendanube activa y cubierta, el informe suma «Ventas de la tienda» (v2); con GA4 activa y
+cubierta, suma «Tráfico del sitio» (v3, con o sin la tienda). Cada sección se lee aparte bajo RLS
+y un fallo de lectura deja el informe sin ella.
 
 La pantalla y el PDF leen el informe vigente bajo RLS (la política exige una conexión vigente)
 y lo componen con el mismo módulo; el PDF se genera en la descarga y no se guarda. El
