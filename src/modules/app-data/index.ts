@@ -93,17 +93,18 @@ export function configuracionPendiente(empresa: Empresa | null): boolean {
 }
 
 /**
- * Meta y Tiendanube reales bajo RLS (M16e, D-M16e-22): solo `active` se ve conectada; otro
- * estado o un error de lectura, no conectada. Google Analytics todavía no tiene conector.
+ * Meta, Tiendanube y GA4 reales bajo RLS: solo `active` se ve conectada;
+ * otro estado o un error de lectura, no conectada.
  */
 export async function getIntegraciones(): Promise<Integracion[]> {
   const conectada: Partial<Record<Integracion['id'], boolean>> = {};
   try {
     const ctx = await requireTenantContext();
-    const [meta, tienda] = await Promise.allSettled([readConnectionRecord(ctx),
-      readConnectionRecord(ctx, {}, 'tiendanube')]);
+    const [meta, tienda, ga4] = await Promise.allSettled([readConnectionRecord(ctx),
+      readConnectionRecord(ctx, {}, 'tiendanube'), readConnectionRecord(ctx, {}, 'ga4')]);
     conectada.meta_ads = meta.status === 'fulfilled' && meta.value?.status === 'active';
     conectada.tiendanube = tienda.status === 'fulfilled' && tienda.value?.status === 'active';
+    conectada.google_analytics = ga4.status === 'fulfilled' && ga4.value?.status === 'active';
   } catch { /* sin empresa o sin sesión: nada conectado */ }
   return INTEGRACIONES_BASE.map((item) => ({ ...item, conectada: conectada[item.id] === true }));
 }

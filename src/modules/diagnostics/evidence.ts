@@ -16,6 +16,7 @@ import {
   type Manifest,
   type Metric,
   type SectionStatus,
+  type Ga4Section,
   type StoreSection,
 } from './contract';
 import { DIAGNOSTIC_LIMITS } from './limits';
@@ -116,6 +117,8 @@ export type DiagnosticPackage = Readonly<{
   breakdowns: Readonly<Record<BreakdownDimension, PackageBreakdown>>;
   /** Ventas de la tienda (M16e §6): solo agregados por moneda, con sus ids de evidencia. */
   store?: StoreSection;
+  /** Tráfico del sitio (M16f §6): sesiones y visitas desde Meta de GA4, sin atribución. */
+  ga4?: Ga4Section;
 }>;
 
 export type SectionPlan = Readonly<{
@@ -133,8 +136,10 @@ export type PreparedDiagnostic =
     limits: readonly Cause[];
     manifest: Manifest;
     batches: readonly (readonly string[])[];
-    /** Presente solo si el informe lleva la sección de la tienda (v2). */
+    /** Presente solo si el informe lleva la sección de la tienda (v2, o v3 con tienda). */
     store?: StoreSection;
+    /** Presente solo si el informe lleva la sección de GA4 (v3). */
+    ga4?: Ga4Section;
   }>;
 
 const RAW_METRICS = new Set<Metric>(['spend', 'impressions', 'clicks', 'link_clicks', 'result_count', 'result_value']);
@@ -482,4 +487,101 @@ type Ready = Extract<PreparedDiagnostic, { status: 'ready' }>;
 export function attachStoreSection(prepared: Ready, section: PreparedStoreSection): Ready {
   return { ...prepared, evidence: [...prepared.evidence, ...section.evidence],
     package: { ...prepared.package, store: section.summary }, store: section.summary };
+}
+
+// ---------------------------------------------------------------------------
+// Tráfico del sitio (M16f §6, D-M16f-03). Mismas fechas de calendario que la ventana de Meta y
+// la anterior, en la zona de la propiedad. Las cifras son sumas de las filas diarias de
+// `get_ga4_traffic`; nunca se atribuyen a Meta ni se dividen por su gasto.
+// ---------------------------------------------------------------------------
+
+export type Ga4TrafficRead = Readonly<{
+  /** Fila de `get_ga4_sync_status`, o null si GA4 nunca se sincronizó. */
+  status: SqlRow | null;
+  current: readonly SqlRow[];
+  previous: readonly SqlRow[];
+}>;
+
+export type PreparedGa4Section = Readonly<{ summary: Ga4Section; evidence: readonly Evidence[] }>;
+
+function ga4Count(value: unknown): string {
+  const out = storeDecimal(value);
+  if (out.startsWith('-') || out.includes('.')) throw new DiagnosticPreparationError('invalid_window');
+  return out;
+}
+
+function hasQualityFlags(quality: unknown): boolean {
+  if (!quality || typeof quality !== 'object' || Array.isArray(quality)) return true;
+  const q = quality as Record<string, unknown>;
+  const list = (v: unknown) => Array.isArray(v) && v.length > 0;
+  return q.subject_to_thresholding === true || q.data_loss_from_other_row === true ||
+    list(q.data_truncation_reasons) || list(q.sampling_metadatas) || list(q.restricted_metrics) ||
+    q.zona_distinta === true || (typeof q.empty_reason === 'string' && q.empty_reason.length > 0);
+}
+
+export function prepareGa4Section(input: {
+  read: Ga4TrafficRead;
+  window: DiagnosticWindow;
+  ga4Timezone: string;
+  metaTimezone: string | null;
+  now: number;
+}): PreparedGa4Section | null {
+  const status = input.read.status;
+  const day = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null;
+  const coveredFrom = day(status?.coverage_from);
+  const coveredThrough = day(status?.coverage_through);
+  // Sin ninguna ventana cubierta no hay sección: el informe no la suma.
+  if (!coveredFrom || !coveredThrough) return null;
+  const w = input.window;
+  const windows = [
+    { tag: 'cur', key: 'current' as const, rows: input.read.current, period: { from: w.from, to: w.to } },
+    { tag: 'prev', key: 'previous' as const, rows: input.read.previous, period: { from: w.prev_from, to: w.prev_to } },
+  ];
+  const fetchedAt = instantZ(status?.last_fetched_at);
+  const covered = (period: { from: string; to: string }) => coveredFrom <= period.from && coveredThrough >= period.to;
+  const reasons: Ga4Section['partial_reasons'] = [];
+  if (!fetchedAt || input.now - Date.parse(fetchedAt) > STORE_STALE_MS) reasons.push('sync_stale');
+  if (!windows.every((x) => covered(x.period))) reasons.push('window_not_covered');
+  const dayRows = windows.flatMap((x) => x.rows.filter((row) => row.day !== null));
+  if (dayRows.some((row) => hasQualityFlags(row.traffic_quality) || hasQualityFlags(row.source_quality))) {
+    reasons.push('quality_flags');
+  }
+  if (dayRows.some((row) => row.provisional === true)) reasons.push('provisional');
+
+  const evidence: Evidence[] = [];
+  type WindowValues = Ga4Section['current'];
+  const values: Partial<Record<'current' | 'previous', WindowValues>> = {};
+  for (const x of windows) {
+    const mine = x.rows.filter((row) => row.day !== null);
+    const known = mine.length > 0 || covered(x.period);
+    const item = (metric: 'ga4_sessions' | 'ga4_meta_visits', value: string | null) => {
+      const id = `ev_ga4_${x.tag}_${metric.slice(4)}`;
+      evidence.push({ id, kind: 'system_fact', level: 'site', entity_alias: null, segment: null,
+        period: x.period, metric, value, unit: METRIC_UNITS[metric], currency: null, attribution: 'unknown',
+        coverage: { window_covered: covered(x.period) ? 1 : 0, days_with_rows: mine.length }, sample: 'ok',
+        provenance: { fn: 'get_ga4_traffic', window: x.period, fetched_at_min: fetchedAt, fetched_at_max: fetchedAt } });
+      return { id, value };
+    };
+    // Sin el informe de fuentes de un día, las visitas desde Meta quedan desconocidas (§3).
+    const metaKnown = known && mine.every((row) => row.meta_visits !== null && row.source_quality !== null);
+    values[x.key] = {
+      sessions: item('ga4_sessions', known ? sumDecimals(mine.map((row) => ga4Count(row.sessions))) : null),
+      meta_visits: item('ga4_meta_visits', metaKnown ?
+        sumDecimals(mine.map((row) => ga4Count(row.meta_visits))) : null),
+    };
+  }
+  return {
+    summary: { source: 'ga4', timezone: input.ga4Timezone, meta_timezone: input.metaTimezone,
+      window: { from: w.from, to: w.to, prev_from: w.prev_from, prev_to: w.prev_to },
+      partial: reasons.length > 0, partial_reasons: reasons, covered_from: coveredFrom,
+      covered_through: coveredThrough, fetched_at: fetchedAt,
+      current: values.current!, previous: values.previous! },
+    evidence,
+  };
+}
+
+/** Suma la sección de GA4 al paquete y a la evidencia; el informe pasa a v3 al publicarse. */
+export function attachGa4Section(prepared: Ready, section: PreparedGa4Section): Ready {
+  return { ...prepared, evidence: [...prepared.evidence, ...section.evidence],
+    package: { ...prepared.package, ga4: section.summary }, ga4: section.summary };
 }

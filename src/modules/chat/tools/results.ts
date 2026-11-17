@@ -31,13 +31,20 @@ const compositionSchema = z.strictObject({
 export const TN_METRICS = ['tn_paid_orders', 'tn_partially_paid_orders', 'tn_collected_amount', 'tn_units',
   'tn_cohort_size', 'tn_cohort_active', 'tn_cohort_retention'] as const;
 const TN_COUNTS_WITH_CURRENCY = new Set<string>(['tn_paid_orders', 'tn_partially_paid_orders']);
+/** Métricas de GA4 (M16f §6): conteos de visitas y eventos, nunca montos ni ventas. */
+export const GA4_METRICS = ['ga4_sessions', 'ga4_meta_visits', 'ga4_active_users', 'ga4_new_users',
+  'ga4_event_count', 'ga4_item_views', 'ga4_add_to_carts', 'ga4_purchases', 'ga4_campaign_sessions',
+  'ga4_unmatched_sessions', 'ga4_cohort_size', 'ga4_cohort_active', 'ga4_cohort_retention'] as const;
+/** Ausencias propias de GA4: no aditivo, futuro, desconocido, sin capacidad o sin cobertura. */
+const GA4_ABSENCES = new Set<string>(['no_aditivo', 'aun_no_disponible', 'desconocido', 'no_disponible',
+  'sin_cobertura']);
 
 const valueSchema = z.strictObject({
   path_key: z.enum(['day', 'total', 'daily_average', 'cost_per_result', 'share', 'a', 'b',
     'difference', 'change', 'entity', 'segment', 'segment_share', 'action_count',
     'action_value', 'list_count', 'excluded_count', 'product', 'cohort_cell']),
   metric: z.union([chatMetricSchema, z.enum(['cost_per_result', 'share', 'list_count', 'excluded_count']),
-    z.enum(TN_METRICS)]),
+    z.enum(TN_METRICS), z.enum(GA4_METRICS)]),
   unit: z.enum(['money', 'count', 'percent', 'ratio']),
   currency: z.string().nullable(),
   action_type: z.string().nullable(),
@@ -53,7 +60,8 @@ const valueSchema = z.strictObject({
   segment_secondary: z.string().nullable(),
   value: signedDecimalText.nullable(),
   absence: z.enum(['no_informado', 'sin_fila_reportada', 'no_observado', 'no_calculable',
-    'menos_de_5']).nullable(),
+    'menos_de_5', 'no_aditivo', 'aun_no_disponible', 'desconocido', 'no_disponible',
+    'sin_cobertura']).nullable(),
   presence: z.enum(['con_datos', 'sin_fila_reportada', 'no_observado']).nullable(),
   temporal_status: z.enum(['abierto', 'cerrado']).nullable(),
   captured_partial: z.boolean(),
@@ -65,13 +73,17 @@ const valueSchema = z.strictObject({
 }).superRefine((value, ctx) => {
   const hasA = value.period_a !== null;
   const hasB = value.period_b !== null;
-  const isStore = (TN_METRICS as readonly string[]).includes(value.metric);
+  const isStore = (TN_METRICS as readonly string[]).includes(value.metric) ||
+    (GA4_METRICS as readonly string[]).includes(value.metric);
+  const isGa4 = value.metric.startsWith('ga4_');
   if ((value.value === null) === (value.absence === null) ||
+      (value.absence !== null && GA4_ABSENCES.has(value.absence) && !isGa4 && value.metric !== 'tn_units') ||
       (value.day !== null) !== (value.presence !== null) ||
       hasA !== hasB || (value.period !== null && hasA) ||
       (value.day !== null && (value.period === null || value.composition !== null)) ||
       (value.unit !== 'money' && value.currency !== null && !TN_COUNTS_WITH_CURRENCY.has(value.metric)) ||
-      (value.absence === 'menos_de_5' && !value.metric.startsWith('tn_cohort_')) ||
+      (value.absence === 'menos_de_5' && !value.metric.startsWith('tn_cohort_') &&
+        !value.metric.startsWith('ga4_cohort_')) ||
       ((value.path_key === 'cohort_cell') !== (value.cohort_month !== null)) ||
       (value.month_offset !== null && value.path_key !== 'cohort_cell') ||
       (isStore && (value.entity_ref !== null || value.parent_ref !== null)) ||
@@ -200,8 +212,9 @@ export function modelMarkers(results: ToolResult[]): ModelMarkers {
 }
 
 const DATE_KEYS = ['history_from', 'history_to', 'last_finished_at', 'covered_through', 'last_fetched_at'];
-/** Datos que solo usa la pantalla: el dominio de la tienda nunca viaja al modelo. */
-const SCREEN_ONLY_KEYS = ['trends', 'last_result', 'nearest_before', 'nearest_after', 'store_domain'];
+/** Datos que solo usa la pantalla: el dominio de la tienda y la propiedad GA4 nunca viajan al modelo. */
+const SCREEN_ONLY_KEYS = ['trends', 'last_result', 'nearest_before', 'nearest_after', 'store_domain',
+  'property_name'];
 
 export function toModelView(result: ToolResult, markers: ModelMarkers = modelMarkers([result])) {
   const extra = { ...result.extra };

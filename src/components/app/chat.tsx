@@ -26,12 +26,23 @@ const SUGERENCIAS_TIENDA = [
   '¿Hasta qué día están actualizados los datos de la tienda?',
 ];
 
+const SUGERENCIAS_GA4 = [
+  '¿Cuántas sesiones tuvo el sitio en los últimos siete días?',
+  '¿Cuántas visitas llegaron desde Meta este mes?',
+  '¿Qué productos se vieron más en el sitio?',
+  '¿Cuántos visitantes vuelven al sitio?',
+];
+
 /** Sugerencias de las fuentes conectadas; sin ninguna, las de Meta, como antes (M16e-C-15). */
 function sugerenciasPara(conectadas: Pick<Integracion, 'id'>[]): string[] {
-  const meta = conectadas.some((fuente) => fuente.id === 'meta_ads');
-  const tienda = conectadas.some((fuente) => fuente.id === 'tiendanube');
-  if (meta && tienda) return [...SUGERENCIAS_META.slice(0, 2), ...SUGERENCIAS_TIENDA.slice(0, 2)];
-  return tienda ? SUGERENCIAS_TIENDA : SUGERENCIAS_META;
+  const listas = [
+    ...(conectadas.some((fuente) => fuente.id === 'meta_ads') ? [SUGERENCIAS_META] : []),
+    ...(conectadas.some((fuente) => fuente.id === 'tiendanube') ? [SUGERENCIAS_TIENDA] : []),
+    ...(conectadas.some((fuente) => fuente.id === 'google_analytics') ? [SUGERENCIAS_GA4] : []),
+  ];
+  if (listas.length === 0) return SUGERENCIAS_META;
+  if (listas.length === 1) return listas[0];
+  return listas.flatMap((lista) => lista.slice(0, listas.length === 2 ? 2 : 1));
 }
 
 type Message = { id: number; kind: 'user' | 'assistant'; text?: string;

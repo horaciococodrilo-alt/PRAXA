@@ -1,18 +1,19 @@
-import { IconFlecha } from '@/components/app/icons';
 import i from '@/components/app/integraciones.module.css';
-import { IntegracionLogo } from '@/components/app/integracion-logo';
-import { Badge, Button, ButtonLink, Card, Img, PageHeader } from '@/components/app/ui';
-import { getIntegraciones, requireAppSession } from '@/modules/app-data';
+import { Card, Img, PageHeader } from '@/components/app/ui';
+import { requireAppSession } from '@/modules/app-data';
 import { META_OAUTH_MESSAGES, parseMetaOAuthOutcome } from '@/modules/integrations/meta/outcomes';
 import { loadMetaSyncView, parseMetaSyncResult, syncNotice, type MetaSyncView } from '@/modules/integrations/meta/insights';
 import { loadMetaCardState } from '@/modules/integrations/lifecycle';
 import { loadTiendanubeView } from '@/modules/integrations/tiendanube/analysis';
+import { loadGa4View } from '@/modules/integrations/ga4/analysis';
+import { ga4Notice, ga4SyncNotice } from '@/modules/integrations/ga4/outcomes';
 import { TIENDANUBE_OAUTH_MESSAGES, parseTiendanubeOAuthOutcome } from '@/modules/integrations/tiendanube/oauth';
 import { TN_SYNC_MESSAGES, parseTiendanubeSyncResult } from '@/modules/integrations/tiendanube/sync';
 import { GuiaIntegraciones } from './guia-integraciones';
 import { MetaSyncButton, MetaSyncPanel } from './meta-sync-control';
 import { MetaTarjeta } from './meta-tarjeta';
 import { TiendanubePanel, TiendanubeTarjeta } from './tiendanube-tarjeta';
+import { Ga4Panel, Ga4Tarjeta } from './ga4-tarjeta';
 
 export const metadata = { title: 'Integraciones' };
 
@@ -20,8 +21,8 @@ export const metadata = { title: 'Integraciones' };
 export const maxDuration = 300;
 
 /**
- * Meta y Tiendanube tienen tarjetas propias con conexión, reautorización, sincronización y
- * desconexión; Google Analytics sigue como tarjeta informativa. La guía de integraciones
+ * Meta, Tiendanube y Google Analytics tienen tarjetas propias con conexión, reautorización,
+ * sincronización y desconexión. La guía de integraciones
  * explica cómo conectar y desconectar (M16e, DP-02).
  *
  * Los callbacks vuelven acá con `?meta=<resultado>` o `?tiendanube=<resultado>`, y las
@@ -43,12 +44,14 @@ export default async function IntegracionesPage(props: PageProps<'/app/integraci
     syncError = metaState.kind === 'activa' || metaState.kind === 'requiere_reauth';
   }
   const notice = syncNotice(parseMetaSyncResult(searchParams.sync), syncView?.status.effective_status ?? null);
-  const integraciones = await getIntegraciones();
   const tiendanube = await loadTiendanubeView();
+  const ga4 = await loadGa4View();
   const tnResultado = parseTiendanubeOAuthOutcome(searchParams.tiendanube);
   const tnSync = parseTiendanubeSyncResult(searchParams.tn_sync);
   const avisosTiendanube = [tnResultado === null ? null : TIENDANUBE_OAUTH_MESSAGES[tnResultado],
     tnSync === null ? null : TN_SYNC_MESSAGES[tnSync]].filter((a) => a !== null);
+  const avisosGa4 = [ga4Notice(searchParams.ga4), ga4SyncNotice(searchParams.ga4_sync)]
+    .filter((a) => a !== null);
 
   return (
     <>
@@ -64,6 +67,11 @@ export default async function IntegracionesPage(props: PageProps<'/app/integraci
         </Card>
       ) : null}
       {avisosTiendanube.map((a) => (
+        <Card key={a.text} as="div" role={a.tone === 'error' ? 'alert' : 'status'}>
+          <p>{a.text}</p>
+        </Card>
+      ))}
+      {avisosGa4.map((a) => (
         <Card key={a.text} as="div" role={a.tone === 'error' ? 'alert' : 'status'}>
           <p>{a.text}</p>
         </Card>
@@ -87,43 +95,14 @@ export default async function IntegracionesPage(props: PageProps<'/app/integraci
         <div className={i.cards}>
           <MetaTarjeta state={metaState} syncControl={syncView?.canSync ? <MetaSyncButton /> : undefined} />
           <TiendanubeTarjeta state={tiendanube.tarjeta} />
-          {integraciones.filter((int) => int.id !== 'meta_ads' && int.id !== 'tiendanube').map((int) => (
-            <article key={int.id} className={i.card}>
-              <div className={i.cardTop}>
-                <span className={i.logo}>
-                  <IntegracionLogo id={int.id} size={30} />
-                </span>
-                <div className={i.nm}>
-                  <h3>{int.nombre}</h3>
-                  <p>
-                    {int.descripcion[0]}
-                    <br />
-                    {int.descripcion[1]}
-                  </p>
-                </div>
-              </div>
-              <Badge on={int.conectada} className={i.estado}>
-                {int.conectada ? 'Conectado' : 'No conectado'}
-              </Badge>
-              {int.conectada ? (
-                <ButtonLink href="/app/configuracion" variant="small" className={i.act}>
-                  <span>Configurar</span>
-                  <IconFlecha size={13} stroke={2.1} />
-                </ButtonLink>
-              ) : (
-                <Button variant="small" className={i.act} disabled title="Todavía no disponible">
-                  <span>Conectar</span>
-                  <IconFlecha size={13} stroke={2.1} />
-                </Button>
-              )}
-            </article>
-          ))}
+          <Ga4Tarjeta state={ga4.card} />
         </div>
       </section>
 
       {syncView ? <MetaSyncPanel view={syncView} notice={notice} /> : null}
       {syncError ? <Card as="div" role="alert"><p>No pudimos leer los datos de Meta. Probá de nuevo más tarde.</p></Card> : null}
       <TiendanubePanel datos={tiendanube.datos} error={tiendanube.error} />
+      <Ga4Panel data={ga4.data} error={ga4.error} />
     </>
   );
 }

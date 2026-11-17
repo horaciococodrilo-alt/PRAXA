@@ -30,21 +30,25 @@ export const REQUIRED_SCOPE = 'ads_read';
  * orden. Cualquier otro conjunto, con uno de más o de menos, se rechaza.
  */
 export const TIENDANUBE_SCOPES = Object.freeze(['read_customers', 'read_orders', 'read_products'] as const);
+export const GA4_READONLY_SCOPE = 'https://www.googleapis.com/auth/analytics.readonly';
 
 /**
  * CA-11c (enmendado por M16e): tipo de token por proveedor. DEC-02 fija el token de system
  * user de integración para Meta (H-02; M16.1 traduce `debug_token` a este valor); Tiendanube
  * entrega un token de la app para la tienda, sin vencimiento.
  */
-export const tokenTypeSchema = z.enum(['system_user', 'store_app_token']);
+export const tokenTypeSchema = z.enum(['system_user', 'store_app_token', 'google_refresh_token']);
 export type TokenType = z.infer<typeof tokenTypeSchema>;
 
 export const TOKEN_TYPE_BY_PROVIDER: Readonly<Record<IntegrationProvider, TokenType>> = Object.freeze({
   meta: 'system_user',
   tiendanube: 'store_app_token',
+  ga4: 'google_refresh_token',
 });
 
-const scopeSchema = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/);
+const scopeSchema = z.string().refine(
+  (value) => /^[a-z][a-z0-9_]{0,63}$/.test(value) || value === GA4_READONLY_SCOPE,
+);
 
 /** Los permisos son exactamente los tres de Tiendanube, sin repetir. */
 export function isExactTiendanubeScopes(scopes: readonly string[]): boolean {
@@ -59,14 +63,24 @@ export function isExactTiendanubeScopes(scopes: readonly string[]): boolean {
  */
 export function credentialProviderIssues(input: {
   provider: IntegrationProvider; token_type: TokenType; granted_scopes: readonly string[];
-  expires_at: string | null;
+  expires_at: string | null; issued_for_app_id: string;
 }): string[] {
   const issues: string[] = [];
   if (input.token_type !== TOKEN_TYPE_BY_PROVIDER[input.provider]) issues.push('token_type');
-  if (input.provider === 'meta' && !input.granted_scopes.includes(REQUIRED_SCOPE)) issues.push('granted_scopes');
+  if (input.provider === 'meta' &&
+      (!input.granted_scopes.includes(REQUIRED_SCOPE) || input.granted_scopes.includes(GA4_READONLY_SCOPE))) {
+    issues.push('granted_scopes');
+  }
   if (input.provider === 'tiendanube') {
     if (!isExactTiendanubeScopes(input.granted_scopes)) issues.push('granted_scopes');
     if (input.expires_at !== null) issues.push('expires_at');
+  }
+  if (input.provider === 'ga4') {
+    if (input.granted_scopes.length !== 1 || input.granted_scopes[0] !== GA4_READONLY_SCOPE) {
+      issues.push('granted_scopes');
+    }
+    if (input.expires_at !== null) issues.push('expires_at');
+    if (!/^[1-9][0-9]*$/.test(input.issued_for_app_id)) issues.push('issued_for_app_id');
   }
   return issues;
 }

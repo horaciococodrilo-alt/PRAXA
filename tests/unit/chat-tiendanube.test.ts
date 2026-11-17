@@ -88,8 +88,9 @@ function project(name: string, flat: Record<string, unknown>) {
 describe('M16e-T-11: contrato de las cuatro herramientas', () => {
   it('suma exactamente cuatro herramientas cerradas al catálogo, sin tocar las trece de Meta', () => {
     expect([...TN_TOOL_NAMES]).toEqual(['tn_ventas', 'tn_cohortes', 'tn_productos', 'tn_cobertura']);
-    expect(TOOL_NAMES).toHaveLength(17);
-    expect(TOOL_NAMES.slice(13)).toEqual([...TN_TOOL_NAMES]);
+    // M16f suma después las seis de GA4: las de la tienda siguen en las posiciones 13 a 16.
+    expect(TOOL_NAMES).toHaveLength(23);
+    expect(TOOL_NAMES.slice(13, 17)).toEqual([...TN_TOOL_NAMES]);
     for (const name of TN_TOOL_NAMES) expect(isTiendanubeTool(name)).toBe(true);
     expect(isTiendanubeTool('total')).toBe(false);
   });

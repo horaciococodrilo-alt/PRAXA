@@ -28,6 +28,8 @@ vi.mock('@/modules/integrations/actions', () => ({ confirmarCuentaMeta: vi.fn(),
 vi.mock('server-only', () => ({}));
 vi.mock('@/modules/integrations/tiendanube/analysis', () => ({
   loadTiendanubeView: async () => ({ tarjeta: { kind: 'sin_conexion' }, datos: null, error: false }) }));
+vi.mock('@/modules/integrations/ga4/analysis', () => ({
+  loadGa4View: async () => ({ card: { kind: 'sin_conexion' }, data: null, error: false }) }));
 vi.mock('@/modules/integrations/tiendanube/oauth', () => ({ TIENDANUBE_OAUTH_MESSAGES: {},
   parseTiendanubeOAuthOutcome: () => null }));
 vi.mock('@/modules/integrations/tiendanube/sync', () => ({ TN_SYNC_MESSAGES: {}, parseTiendanubeSyncResult: () => null }));
@@ -91,14 +93,15 @@ describe('aviso del resultado de Meta en /app/integraciones', () => {
     }
   });
 
-  it('Conectar Meta y Tiendanube están habilitados (M16e); Google Analytics sigue deshabilitado', async () => {
+  it('Conectar Meta, Tiendanube y Google Analytics están habilitados', async () => {
     await renderPage({ meta: 'pendiente' });
     const buttons = screen.getAllByRole('button', { name: 'Conectar' });
     expect(buttons).toHaveLength(3);
     expect(buttons[0]).toBeEnabled();
     expect(buttons[1]).toBeEnabled();
     expect(buttons[1].closest('form')).toHaveAttribute('action', '/api/integraciones/tiendanube/iniciar');
-    expect(buttons[2]).toBeDisabled();
+    expect(buttons[2]).toBeEnabled();
+    expect(buttons[2].closest('form')).toHaveAttribute('action', '/api/integraciones/ga4/iniciar');
     expect(screen.getByRole('button', { name: 'Ver guía de integraciones' })).toBeEnabled();
   });
 

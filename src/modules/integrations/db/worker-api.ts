@@ -15,7 +15,8 @@ export type WorkerApiFunction =
   | 'begin_chat_turn' | 'end_chat_turn' | 'record_query' | 'set_feedback'
   | 'save_diagnostic_settings' | 'reserve_diagnostic' | 'release_diagnostic' | 'publish_diagnostic'
   | 'tn_start_sync' | 'tn_publish_orders' | 'tn_publish_catalog' | 'tn_finish_sync' | 'tn_fail_sync'
-  | 'tn_privacy_store_redact' | 'tn_privacy_customer_redact' | 'email_has_account';
+  | 'tn_privacy_store_redact' | 'tn_privacy_customer_redact' | 'email_has_account'
+  | 'ga4_start_sync' | 'ga4_set_preflight' | 'ga4_publish_report' | 'ga4_finish_sync' | 'ga4_fail_sync';
 
 export interface Queryable {
   query<Row extends pg.QueryResultRow = pg.QueryResultRow>(
@@ -97,8 +98,9 @@ const SQL_CASTS: Record<WorkerApiFunction, readonly string[]> = {
   // p_expected_sync_finished_at viaja como el mismo texto ISO que devolvió la elegibilidad.
   reserve_diagnostic: ['uuid', 'uuid', 'uuid', 'uuid', 'integer', 'timestamptz', 'integer'],
   release_diagnostic: ['uuid', 'uuid', 'uuid'],
-  // M16e (0024): la conexión de la tienda, nula para un informe v1.
-  publish_diagnostic: ['uuid', 'uuid', 'uuid', 'uuid', 'integer', 'jsonb', 'uuid'],
+  // M16e (0024) y M16f (0031): las conexiones de la tienda y de GA4, nulas cuando el informe no
+  // lleva su sección.
+  publish_diagnostic: ['uuid', 'uuid', 'uuid', 'uuid', 'integer', 'jsonb', 'uuid', 'uuid'],
   // Tiendanube (0023): las seis primeras posiciones son actor, empresa, conexión,
   // generación, ejecución y lease.
   tn_start_sync: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'uuid', 'timestamptz'],
@@ -109,6 +111,11 @@ const SQL_CASTS: Record<WorkerApiFunction, readonly string[]> = {
   // Privacidad sin sesión (D-M16e-14): solo la tienda, verificada por firma en el servidor.
   tn_privacy_store_redact: ['text', 'integer'],
   tn_privacy_customer_redact: ['text', 'text', 'text[]'],
+  ga4_start_sync: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'uuid', 'timestamptz', 'text'],
+  ga4_set_preflight: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'uuid', 'text', 'text', 'text', 'jsonb', 'text[]'],
+  ga4_publish_report: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'uuid', 'text', 'integer', 'date', 'date', 'jsonb', 'jsonb', 'jsonb'],
+  ga4_finish_sync: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'uuid', 'date', 'date'],
+  ga4_fail_sync: ['uuid', 'uuid', 'uuid', 'integer', 'uuid', 'uuid', 'text', 'text'],
   // H-E1-259 (0025): sin actor, se usa antes de iniciar sesión; devuelve solo un booleano.
   email_has_account: ['text'],
 };

@@ -4,8 +4,9 @@ import { maskExternalAccountId } from '@/modules/integrations/contract';
 import type { MetaCapturedEntity, MetaSyncStatus } from '@/modules/integrations/meta/insights';
 
 import { CHAT_LIMITS } from '../limits';
+import { executeGa4Tool, type Ga4Connection, type MetaSpendRow } from './ga4';
 import { parseToolResult, type ToolResult } from './results';
-import { isTiendanubeTool, projectToolArgs, ToolArgumentError, ToolEntityNotFoundError, TOOL_NAMES,
+import { isGa4Tool, isTiendanubeTool, projectToolArgs, ToolArgumentError, ToolEntityNotFoundError, TOOL_NAMES,
   type ProjectedToolCall,
   type ToolName } from './schema';
 import { executeTiendanubeTool, supabaseRpc, type StoreConnection } from './tiendanube';
@@ -23,6 +24,9 @@ export type TurnContext = Readonly<{
   }> | null;
   /** Conexión de Tiendanube; solo la usan las herramientas `tn_*` (M16e §6). */
   store?: StoreConnection | null;
+  /** Conexión de GA4 y su día local; solo la usan las herramientas `ga4_*` (M16f §6). */
+  ga4?: Ga4Connection | null;
+  ga4Today?: string | null;
 }>;
 
 type ToolDeps = {
@@ -31,7 +35,20 @@ type ToolDeps = {
   listEntities?: (connectionId: string, level: 'account' | 'campaign' | 'adset' | 'ad') => Promise<MetaCapturedEntity[]>;
   readStatus?: (connectionId: string) => Promise<MetaSyncStatus | null>;
   collectedAmountEnabled?: boolean;
+  metaCampaignSpend?: (connectionId: string, from: string, to: string) => Promise<readonly MetaSpendRow[]>;
 };
+
+/** Gasto diario por campaña de Meta: la misma lectura pública bajo RLS que usan sus herramientas. */
+async function metaCampaignSpend(connectionId: string, from: string, to: string, deps: ToolDeps,
+  signal?: AbortSignal): Promise<readonly MetaSpendRow[]> {
+  if (deps.metaCampaignSpend) return deps.metaCampaignSpend(connectionId, from, to);
+  void signal;
+  const { readMetaDailyCoverage } = await import('@/modules/integrations/meta/insights');
+  const found = await readMetaDailyCoverage({ connectionId, level: 'campaign', from, to },
+    { supabase: await client(deps) });
+  return found.map((row) => ({ day: row.day, entity_ref: row.entity_ref, name: row.name,
+    presence: row.presence, spend: row.spend, currency: row.currency, fetched_at: row.fetched_at }));
+}
 
 export class ToolExecutionError extends Error {
   constructor() { super('No se pudo ejecutar la herramienta.'); }
@@ -63,7 +80,7 @@ const DEFAULT_ENTITY_TOOLS = new Set<ToolName>([
 /** Resolver asincrónico de la entidad de cuenta, con lectura paginada completa bajo RLS. */
 export async function resolveToolCall(name: string, flat: Record<string, unknown>,
   ctx: TurnContext, period: Period & { month?: string }, deps: ToolDeps = {}): Promise<ProjectedToolCall> {
-  if (isTiendanubeTool(name)) {
+  if (isTiendanubeTool(name) || isGa4Tool(name)) {
     return projectToolArgs(name, flat, { period: { from: period.from, to: period.to },
       accountEntityRef: null, month: period.month });
   }
@@ -149,6 +166,17 @@ export async function executeTool(call: ProjectedToolCall, ctx: TurnContext, too
       const rpc = deps.rpc ?? supabaseRpc(await client(deps), signal);
       return await executeTiendanubeTool(call, ctx.store, toolCallId,
         { rpc, collectedAmountEnabled: deps.collectedAmountEnabled });
+    } catch { throw new ToolExecutionError(); }
+  }
+  if (isGa4Tool(call.name)) {
+    try {
+      if (!ctx.ga4Today) throw new ToolExecutionError();
+      const rpc = deps.rpc ?? supabaseRpc(await client(deps), signal);
+      const metaId = ctx.connection && ['active', 'needs_reauth'].includes(ctx.connection.status) ?
+        ctx.connection.id : null;
+      return await executeGa4Tool(call, ctx.ga4, toolCallId, { rpc, today: ctx.ga4Today,
+        metaConnectionId: metaId,
+        metaCampaignSpend: (id, from, to) => metaCampaignSpend(id, from, to, deps, signal) });
     } catch { throw new ToolExecutionError(); }
   }
   const accountRef = ctx.connection?.external_account_id

@@ -119,10 +119,10 @@ export const integrationConnectionRecordSchema = z
   .discriminatedUnion('status', [pendingSchema, activeSchema, needsReauthSchema, disconnectedSchema])
   .superRefine((record, ctx) => {
     // M16e: espejo de `integration_connections_provider_shape` (0023).
-    if (record.provider === 'tiendanube') {
+    if (record.provider === 'tiendanube' || record.provider === 'ga4') {
       if (record.client_business_id !== null || record.current_sync_run_id !== null) {
         ctx.addIssue({ code: 'custom', path: ['provider'],
-          message: 'una conexión de Tiendanube no tiene negocio ni ejecución de Meta' });
+          message: 'esta conexión no tiene negocio ni ejecución de Meta' });
       }
       if (record.external_account_id !== null && !tiendanubeStoreIdSchema.safeParse(record.external_account_id).success) {
         ctx.addIssue({ code: 'custom', path: ['external_account_id'], message: 'debe ser un ID de tienda' });

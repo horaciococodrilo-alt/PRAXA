@@ -58,7 +58,8 @@ describe('M16e-T-11: elección con las herramientas de Tiendanube', () => {
       expect(item.args.required).toContain(key);
     }
     const all = CHOICE_FORMAT.json_schema.schema as unknown as typeof schema;
-    expect(all.properties.calls.items.properties.name.enum).toHaveLength(17);
+    // M16f: el catálogo completo suma las seis herramientas de GA4 (13 + 4 + 6).
+    expect(all.properties.calls.items.properties.name.enum).toHaveLength(23);
   });
 
   it('acepta abstain con connection_not_active y los argumentos nuevos, y sigue aceptando la forma vieja', () => {

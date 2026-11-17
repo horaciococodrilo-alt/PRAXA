@@ -48,6 +48,12 @@ Cada una es una microfase única por etapas, con excepción expresa al límite d
 
 La enmienda **no aprueba las specs ni los planes de `M16e` y `M16f`**, ni el acta de datos ampliada. Las decisiones 2 a 6 de §7 de la propuesta quedan como preguntas abiertas de esas specs. `SECURITY.md`, `ARCHITECTURE.md` y el acta `M03a` se actualizan dentro de cada microfase, que los lista como archivos previstos. **El texto enmendado es vigente.**
 
+**Enmienda correctiva M16f, aprobada por el usuario el 2026-11-16:** tras aplicar `0027` en el proyecto desechable, H-E1-262 detectó mensajes SQL con acentos corruptos en tres funciones reemplazadas. M16f agrega una migración nueva `0028_ga4_text_fix.sql` para corregir solo esos mensajes, sin editar `0027`; la migración de diagnóstico prevista pasa a `0029_ga4_diag.sql`. Se repite el control del paso 5 antes de avanzar. El detalle operativo queda en el plan de M16f y su sesión; `G-GA4-FUSION` permanece abierto.
+
+**Segunda enmienda correctiva M16f, aprobada por el usuario el 2026-11-16:** H-E1-266 exige completar los getters de cohortes y calidad que `0027` ya aplicada no cubre. Se autoriza `0029_ga4_sync_getters.sql` para el control `.2`; diagnóstico se desplaza a `0030_ga4_diag.sql`. `0027` y `0028` permanecen intactas. El usuario aplica `0029` solo en el desechable tras el ensayo reversible; el gate continúa abierto.
+
+**Tercera enmienda correctiva M16f, solicitada por el usuario el 2026-11-16:** H-E1-268 exige recuperar un run `running` cuyo lease venció. Se agrega `0030_ga4_expired_lease.sql` con la misma firma y privilegios de `ga4_start_sync`, sin modificar las migraciones aplicadas; diagnóstico pasa a `0031_ga4_diag.sql`. El usuario aplica `0030` solo en el proyecto desechable después del ensayo reversible; el control `.2` continúa abierto hasta verificarlo.
+
 ---
 
 # Parte I — Enmienda 1 al ROADMAP v2.3
@@ -438,7 +444,7 @@ Las tres etapas se ejecutan en orden, en una sola corrida de `/microfase M16c` e
 |---|---|
 | **ID** | `M16f`. Microfase única por etapas, con excepción expresa al límite de 8 horas y un solo gate, `G-GA4-FUSION`. |
 | **Objetivo** | Autorizar la propiedad GA4 de la tienda. Extraer informes agregados fiables. Mostrar cohortes de visitantes, productos observados, embudo y comparaciones trazables con Tiendanube y Meta. |
-| **Implementación requerida** | (1) OAuth web de Google con `analytics.readonly`, `state` vinculado, acceso offline y refresh token cifrado; selección, con la Admin API, de la propiedad del sitio del dueño. (2) Data API (`getMetadata`, `checkCompatibility`, `runReport`, `cohortSpec`) con un catálogo cerrado de consultas. (3) Checkpoints, cuotas, frescura y metadatos de muestreo, umbrales y `(other)`; sincronización reanudable. (4) Agregados con fuente, zona, moneda, propiedad, consulta y versión, ventana, cobertura y banderas de calidad; RLS y purga. (5) Preflight de instrumentación ecommerce y UTMs. Cada análisis se habilita solo si pasa su preflight. (6) Mapeo documentado de ítem, pedido y campaña; conciliación; UI y consultas cerradas con las diferencias explícitas. (7) Desconexión, revocación local y reautorización al perder acceso. |
+| **Implementación requerida** | (1) OAuth web de Google con `analytics.readonly`, `state` vinculado, acceso offline y refresh token cifrado; selección, con la Admin API, de la propiedad del sitio del dueño. (2) Data API (`getMetadata`, `checkCompatibility`, `runReport`, `cohortSpec`) con un catálogo cerrado de consultas. (3) Checkpoints, cuotas, frescura y metadatos de muestreo, umbrales y `(other)`; sincronización reanudable. (4) Agregados con fuente, zona, moneda, propiedad, consulta y versión, ventana, cobertura y banderas de calidad; RLS y purga. (5) Preflight de instrumentación ecommerce y UTMs. Cada análisis se habilita solo si pasa su preflight. (6) Mapeo documentado de ítem y campaña, sin comparación por pedido (D-M16f-09, 2026-11-15); UI y consultas cerradas con las diferencias explícitas. (7) Desconexión, revocación local y reautorización al perder acceso. |
 | **Procedimiento del asistente** | Spec, plan y acta aprobados, con la definición de cada métrica acordada. Etapas: OAuth y propiedad; catálogo y persistencia; comparación y UI; pruebas reales. Verificar la API vigente antes del código y probar en el desechable antes de migrar `app`. |
 | **Evidencia de cierre** | Matriz dimensión × métrica comprobada con `checkCompatibility`. Respuesta sintética y real redactada. Metadatos de calidad, cuotas y reconciliación por consulta. Cobertura y ausencias. Recorrido real con tres fuentes, o degradación explícita donde no se puedan unir. |
 | **Criterio de aceptación** | La propiedad correcta queda conectada, con refresh y pérdida de acceso probados. Los informes son reproducibles y no mezclan zonas, monedas ni identidades. Las cohortes de visitantes no se confunden con las de compradores. La comparación con Tiendanube y Meta se hace solo por claves verificadas. Ninguna cifra autoritativa sale del modelo. La desconexión purga los agregados y la credencial. Sin eventos ecommerce reales, el gate no acredita las funciones ecommerce. |
@@ -923,7 +929,15 @@ Enmienda de conectores del 2026-11-14. Spec: [`M16e/spec.md`](../M16e/spec.md), 
 
 ## II.14c `M16f` — Conector GA4 y comparación entre fuentes
 
-Enmienda de conectores del 2026-11-14. Spec: [`M16f/spec.md`](../M16f/spec.md), borrador. Se revisa después de `G-TIENDA`, o antes si el usuario lo pide; no se implementa antes de `G-TIENDA`.
+Enmienda de conectores del 2026-11-14. Spec: [`M16f/spec.md`](../M16f/spec.md), aprobada por el usuario el 2026-11-15. Con `G-TIENDA` aprobado, su implementación requiere también el plan y el acta aprobados.
+
+La enmienda correctiva del 2026-11-16 autoriza `0028_ga4_text_fix.sql` para H-E1-262 y desplaza la migración de diagnóstico a `0029_ga4_diag.sql`. No cambia los contratos ni los criterios de aceptación de GA4.
+
+La segunda enmienda correctiva del 2026-11-16 autoriza `0029_ga4_sync_getters.sql` para H-E1-266 y desplaza diagnóstico a `0030_ga4_diag.sql`. Conserva los criterios de aceptación y agrega un paso de aplicación en el desechable antes del control `.2`.
+
+La tercera enmienda correctiva del 2026-11-16 agrega `0030_ga4_expired_lease.sql` para H-E1-268 y desplaza diagnóstico a `0031_ga4_diag.sql`. Recupera un run con lease vencido como `incomplete` y conserva su preflight, objetivo y checkpoint; un lease vigente sigue bloqueando otro inicio. El usuario aplica `0030` únicamente en el desechable antes de repetir el control `.2`.
+
+La decisión del usuario del 2026-11-16 sobre H-E1-265 autoriza actualizar en la rama `mf/M16f` las dependencias existentes `next` y `eslint-config-next` de 16.4.2 a 16.4.5 en `package.json` y `package-lock.json`, antes de cerrar el control `.1`. No cambia el alcance funcional de M16f; el control vuelve a exigir `npm run verify` con exit 0.
 
 **Etapas:** OAuth y propiedad; catálogo y persistencia; comparación y UI; pruebas reales.
 
@@ -932,9 +946,11 @@ Enmienda de conectores del 2026-11-14. Spec: [`M16f/spec.md`](../M16f/spec.md), 
 - documentos: los de II.14b, con `M16f/{spec,plan}.md`;
 - código: `src/modules/integrations/{contract,ga4,repository,db,crypto}/`, `src/app/api/integraciones/ga4/`, la UI de integraciones y análisis, y el módulo de chat si se amplía;
 - base y pruebas: migraciones nuevas, pgTAP y suites;
-- `package.json`, si corresponde.
+- `package.json` y `package-lock.json`, si corresponde; para H-E1-265, solo la actualización de `next` y `eslint-config-next` indicada arriba;
+- además (D-M16f-10, aprobado por el usuario el 2026-11-15): `src/modules/integrations/{lifecycle,actions}.ts`; `src/modules/diagnostics/` y `src/components/app/diagnostico.{tsx,module.css}`; `src/app/(app)/app/chat/page.tsx` y `src/components/app/chat.tsx`; `src/modules/app-data/{index,types}.ts`; los pgTAP existentes `08`, `09`, `09b`, `10`, `15` y `17`; `docs/FASES/FASE1/meta_first/entorno.md` y `scripts/ga4-preflight.mjs`;
+- además (D-M16f-06): `AGENTS.md`, solo para una línea en «Non-negotiables» que remita a §17.6 de la spec de la ruta por la excepción de reversibilidad de GA4.
 
-No se reutiliza el esquema de Meta mediante `default 'meta'`.
+GA4 entra al chat y al diagnóstico (D-M16f-03). La interfaz va dentro de Integraciones. No se reutiliza el esquema de Meta mediante `default 'meta'`.
 
 ---
 
@@ -1026,7 +1042,7 @@ El detalle y los criterios de aceptación están en la spec v1.0.
 | `M16e` | Aprobar spec, plan y acta ampliada, y comunicarla al dueño; crear la app en el Portal de Socios de Tiendanube, con scopes y URLs de instalación y privacidad; cargar credenciales fuera del chat; obtener la autorización del dueño; aplicar migraciones, publicar y aprobar `G-TIENDA` |
 | `M16f` | Configurar Google Cloud, la pantalla de consentimiento y las APIs Data y Admin; registrar URI y testers; cargar credenciales fuera del chat; garantizar acceso a la propiedad; revisar medición y consentimiento con el dueño; aprobar documentos, migrar, publicar y aprobar `G-GA4-FUSION` |
 | `M28.3a` | Coordinar la demostración. Pasar a Supabase Pro si el dueño lo va a usar sin acompañamiento |
-| Fin del piloto | Ejecutar los pasos de CA-67 que requieren dashboard y quitar al dueño como tester |
+| Fin del piloto | Ejecutar los pasos de CA-67 que requieren dashboard y quitar al dueño como tester. Para GA4 (M16f): quitarlo de los usuarios de prueba de Google Cloud y pedirle que quite el acceso de PRAXA en su cuenta de Google |
 | Para escalar (fuera de la ruta) | `M16d`: Business Verification, dominio y App Review |
 
 Ninguna clave se pega en el chat.
