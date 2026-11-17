@@ -119,6 +119,33 @@ describe('GA4 sync step', () => {
       restricted_metrics: [{ metric_name: 'sessions', restricted_metric_types: ['COST_DATA'] }] });
   });
 
+  it('H-E1-271: una ventana sin filas, como la manda Google (sin rowCount ni rows), es completa y vacía', async () => {
+    const calls: string[] = [];
+    const http = { runReport: async (_id: string, _token: SecretValue, body: Record<string, unknown>) => {
+      calls.push(body.offset as string);
+      // JSON de la API: los valores por omisión (0 y lista vacía) no se envían.
+      return { metadata: { currencyCode: 'USD', timeZone: 'UTC' }, kind: 'analyticsData#runReport' };
+    } } as Ga4Http;
+    const result = await fetchGa4Window({ report: GA4_REPORT_CATALOG[2],
+      window: { from: '2025-11-01', to: '2025-11-30' }, propertyId: '12345',
+      token: new SecretValue('access-synthetic'), today: '2026-11-16',
+      currency: 'USD', timezone: 'UTC', http });
+    expect(calls).toEqual(['0']);
+    expect(result.rows).toEqual([]);
+    expect(result.quality).toMatchObject({ subject_to_thresholding: false, data_loss_from_other_row: false });
+  });
+
+  it('H-E1-271: filas sin rowCount, o un rowCount que no coincide con las filas, siguen siendo inválidas', async () => {
+    const row = { dimensionValues: [{ value: '20251101' }, { value: '123' }], metricValues: [{ value: '1' }] };
+    for (const response of [{ metadata: {}, rows: [row] }, { metadata: {}, rowCount: 2, rows: [row] }]) {
+      const http = { runReport: async () => response } as unknown as Ga4Http;
+      await expect(fetchGa4Window({ report: GA4_REPORT_CATALOG[2],
+        window: { from: '2025-11-01', to: '2025-11-30' }, propertyId: '12345',
+        token: new SecretValue('access-synthetic'), today: '2026-11-16',
+        currency: 'USD', timezone: 'UTC', http })).rejects.toMatchObject({ kind: 'campo_invalido' });
+    }
+  });
+
   it('reanuda 365 días sin repetir preflight, nunca supera 25 llamadas por paso y cierra al final', async () => {
     const h = harness();
     expect(await syncGa4(h.deps)).toBe('parcial');

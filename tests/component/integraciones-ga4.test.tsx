@@ -60,6 +60,21 @@ describe('M16f-T-07/T-08: Integraciones GA4', () => {
     expect(screen.getByText(/separados de las cohortes de compradores/)).toBeInTheDocument();
   });
 
+  it('H-E1-270: un día observado por Meta sin gasto no se rotula como falta de cobertura', () => {
+    const traffic = ['2026-11-13', '2026-11-14', '2026-11-15'].map((day) => ({ day, sessions: 3, activeUsers: 2,
+      newUsers: 1, metaVisits: 0, provisional: false, quality: { row_count: 3 }, sourceQuality: { row_count: 3 } }));
+    const spend = (day: string, presence: string, value: string | null) => ({ day, spend: value,
+      currency: value ? 'USD' : null, timezone: 'UTC', presence, fetchedAt: '2026-11-16T12:00:00Z' });
+    render(<Ga4Panel data={data({ traffic, metaConnected: true, metaSpend: [
+      spend('2026-11-13', 'sin_fila_reportada', null), spend('2026-11-14', 'con_datos', '12.5')] })} error={false} />);
+    const table = screen.getByRole('region', { name: 'Comparación tráfico y gasto' });
+    const rows = within(table).getAllByRole('row').slice(1).map((row) => row.textContent ?? '');
+    expect(rows[0]).toContain('Meta no reportó gasto');
+    expect(rows[0]).not.toContain('Sin cobertura');
+    expect(rows[1]).toContain('12.5 USD');
+    expect(rows[2]).toContain('Sin cobertura');
+  });
+
   it('la selección pendiente exige vista previa y confirmación del sitio', async () => {
     preview.mockResolvedValueOnce({ name: 'Web sintética', maskedId: '***45',
       hosts: ['example.test'], storeHost: 'example.test', matchesStore: true });

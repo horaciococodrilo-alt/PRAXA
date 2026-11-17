@@ -202,7 +202,7 @@ export function ga4ProjectRows(reportId: Ga4ReportId, response: unknown,
     if (utc(iso) < utc(window.from) || utc(iso) > utc(window.to)) throw new Ga4SyncDataError('campo_invalido');
     return iso;
   };
-  return rows.map((row) => {
+  return rows.flatMap<Record<string, unknown>>((row) => {
     if (reportId === 'ga4_cohortes') {
       const [cohort, rawOffset] = read(row, 'dimensionValues', 2);
       const [size, active] = read(row, 'metricValues', 2).map(nonnegative).map(Number);
@@ -215,9 +215,15 @@ export function ga4ProjectRows(reportId: Ga4ReportId, response: unknown,
       }
       const monthWindow = { from: month, to: monthEnd(month) };
       const availability = ga4CohortCellAvailability(monthWindow, offset, today);
-      if (availability === 'aun_no_disponible') throw new Ga4SyncDataError('campo_invalido');
-      return { cohort_month: month, month_offset: offset, cohort_size: size >= 5 ? size : null,
-        active: size >= 5 && active >= 5 ? active : null, provisional: availability === 'provisional' };
+      // H-E1-271: GA4 completa con cero los meses N que todavía no empezaron. Esa fila no es un
+      // cero observado: se descarta y el getter sintetiza «aún no disponible». Con activos, la
+      // respuesta contradice los límites de 30 días y sigue siendo inválida.
+      if (availability === 'aun_no_disponible') {
+        if (active !== 0) throw new Ga4SyncDataError('campo_invalido');
+        return [];
+      }
+      return [{ cohort_month: month, month_offset: offset, cohort_size: size >= 5 ? size : null,
+        active: size >= 5 && active >= 5 ? active : null, provisional: availability === 'provisional' }];
     }
     const dimensions = reportId === 'ga4_trafico_dia' ? 1 : reportId === 'ga4_productos' ? 3 :
       reportId === 'ga4_trafico_fuente' ? 3 : 2;

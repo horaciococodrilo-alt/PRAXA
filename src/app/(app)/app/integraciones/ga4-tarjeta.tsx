@@ -272,9 +272,11 @@ export function Ga4Panel({ data, error }: { data: Ga4Data | null; error: boolean
               return <tr key={row.day}>
                 <td>{dayText(row.day)}</td><td>{valueText(row.sessions, row.quality, row.provisional)}</td>
                 <td>{valueText(row.metaVisits, row.sourceQuality, row.provisional)}</td>
-                <td>{meta?.spend === null || !meta ? 'Sin cobertura'
-                  : `${meta.spend} ${meta.currency ?? 'moneda no disponible'}`}
-                  {meta?.presence === 'sin_fila_reportada' ? ' · Sin fila reportada' : ''}</td>
+                {/* H-E1-270: un día que Meta observó sin fila no es falta de cobertura. */}
+                <td>{!meta || meta.presence === 'no_observado' ? 'Sin cobertura'
+                  : meta.spend === null ? (meta.presence === 'sin_fila_reportada'
+                    ? 'Meta no reportó gasto' : 'Sin dato')
+                    : `${meta.spend} ${meta.currency ?? 'moneda no disponible'}`}</td>
                 <td>{meta?.timezone ?? 'Sin zona'}</td>
                 <td>{meta?.fetchedAt ?? 'sin fecha'}</td>
               </tr>;
