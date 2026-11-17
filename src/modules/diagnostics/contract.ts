@@ -15,6 +15,9 @@ export const METHODOLOGY_VERSION = 'meta-diag-1' as const;
 /** Informe con la sección «Ventas de la tienda» (M16e §6, A-04): la base exige la pareja exacta. */
 export const STORE_SCHEMA_VERSION = 2 as const;
 export const STORE_METHODOLOGY_VERSION = 'meta-tn-diag-1' as const;
+/** Informe con la sección «Tráfico del sitio» de GA4 (M16f §6, 0031); puede llevar también la tienda. */
+export const GA4_SCHEMA_VERSION = 3 as const;
+export const GA4_METHODOLOGY_VERSION = 'meta-fuentes-diag-1' as const;
 
 export const GOAL_KINDS = ['purchase', 'inquiry', 'traffic'] as const;
 export type GoalKind = (typeof GOAL_KINDS)[number];
@@ -119,6 +122,7 @@ export const METRICS = [
   'spend', 'impressions', 'clicks', 'link_clicks', 'result_count', 'result_value', 'ctr', 'cpc',
   'cpm', 'cost_per_result', 'attributed_return', 'var_spend', 'var_ctr', 'var_cost_per_result',
   'var_attributed_return', 'tn_paid_orders', 'tn_partially_paid_orders', 'tn_collected_amount',
+  'ga4_sessions', 'ga4_meta_visits',
 ] as const;
 export type Metric = (typeof METRICS)[number];
 
@@ -131,6 +135,7 @@ export const METRIC_UNITS: Readonly<Record<Metric, Unit>> = {
   cost_per_result: 'money', attributed_return: 'ratio', var_spend: 'variation',
   var_ctr: 'variation', var_cost_per_result: 'variation', var_attributed_return: 'variation',
   tn_paid_orders: 'count', tn_partially_paid_orders: 'count', tn_collected_amount: 'money',
+  ga4_sessions: 'count', ga4_meta_visits: 'count',
 };
 
 /** Rótulos fijos. El retorno es siempre «atribuido por Meta»; nunca ganancia. */
@@ -145,9 +150,10 @@ export const METRIC_LABELS: Readonly<Record<Metric, string>> = {
   var_attributed_return: 'Variación del retorno atribuido por Meta',
   tn_paid_orders: 'Pedidos pagados', tn_partially_paid_orders: 'Pagos parciales',
   tn_collected_amount: 'Monto cobrado',
+  ga4_sessions: 'Sesiones del sitio (GA4)', ga4_meta_visits: 'Visitas desde Meta (GA4)',
 };
 
-export const evidenceLevelSchema = z.enum(['account', 'campaign', 'adset', 'ad', 'store']);
+export const evidenceLevelSchema = z.enum(['account', 'campaign', 'adset', 'ad', 'store', 'site']);
 
 /** Parcialidad de la sección de la tienda (M16e §6). */
 export const STORE_PARTIAL_REASONS = ['sync_stale', 'window_not_covered'] as const;
@@ -170,6 +176,25 @@ export const storeSectionSchema = z.strictObject({
     current: storeWindowValues, previous: storeWindowValues })),
 });
 export type StoreSection = z.infer<typeof storeSectionSchema>;
+
+/** Parcialidad de la sección de GA4 (M16f §6): extracción vieja, ventana sin cubrir o calidad con banderas. */
+export const GA4_PARTIAL_REASONS = ['sync_stale', 'window_not_covered', 'quality_flags', 'provisional'] as const;
+const ga4WindowValues = z.strictObject({ sessions: storeMetricRef, meta_visits: storeMetricRef });
+/** Resumen persistido en `evidence.ga4` de un informe v3: solo agregados, sin número de propiedad. */
+export const ga4SectionSchema = z.strictObject({
+  source: z.literal('ga4'),
+  timezone: z.string().min(1).max(64),
+  meta_timezone: z.string().min(1).max(64).nullable(),
+  window: z.strictObject({ from: isoDateSchema, to: isoDateSchema, prev_from: isoDateSchema, prev_to: isoDateSchema }),
+  partial: z.boolean(),
+  partial_reasons: z.array(z.enum(GA4_PARTIAL_REASONS)),
+  covered_from: isoDateSchema,
+  covered_through: isoDateSchema,
+  fetched_at: isoInstantTextSchema.nullable(),
+  current: ga4WindowValues,
+  previous: ga4WindowValues,
+});
+export type Ga4Section = z.infer<typeof ga4SectionSchema>;
 
 export const evidenceSchema = z.strictObject({
   id: evidenceIdSchema,

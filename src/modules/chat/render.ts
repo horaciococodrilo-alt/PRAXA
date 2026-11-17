@@ -23,7 +23,7 @@ export type BlockView = Readonly<{ type: string; title: string;
   suggestions?: { id: string; text: string }[];
   children?: { parent: string; rows: string[][] }[]; stack_ratios?: number[] }>;
 export type Footer = Readonly<{ account: string | null;
-  /** «Tiendanube» si la respuesta usa datos de la tienda; nunca su nombre ni su dominio. */
+  /** Fuentes distintas de Meta usadas («Tiendanube», «Google Analytics»); nunca nombre, dominio ni propiedad. */
   store?: string | null; period: string | null;
   defaulted: boolean; entity_defaulted: boolean; timezone: string | null;
   coverage: string | null; freshness: string | null;
@@ -38,7 +38,7 @@ export type RenderInput = Readonly<{ kind: ChatTurnView['kind'];
   accountRef: string | null; recordId: string | null; reason?: string;
   connectionStatus?: string | null;
   /** Proveedor de la conexión del registro: cambia el texto de reautorización. */
-  connectionProvider?: 'meta' | 'tiendanube';
+  connectionProvider?: 'meta' | 'tiendanube' | 'ga4';
   /** Fuentes activas del turno: con alguna, «connection_not_active» habla de la otra fuente. */
   connectedSources?: readonly string[] }>;
 
@@ -50,18 +50,36 @@ const STORE_SOURCE = 'Las ventas de la tienda vienen de Tiendanube y son otra fu
 const SOURCE_NOT_CONNECTED = 'Esa fuente no está conectada. Podés conectarla desde Integraciones.';
 const OUT_OF_SCOPE_BOTH = 'Con eso no te puedo ayudar: PRAXA solo lee tus datos de Meta Ads y de tu tienda en Tiendanube y no responde temas ajenos. Sí puedo mostrarte y comentar tus campañas, tus ventas, tus productos más vendidos y la retención de tus compradores.';
 const OUT_OF_SCOPE_STORE = 'Con eso no te puedo ayudar: PRAXA solo lee los datos de tu tienda en Tiendanube y no responde temas ajenos. Sí puedo mostrarte y comentar tus ventas, tus productos más vendidos y la retención de tus compradores.';
+const OUT_OF_SCOPE_SOURCES = 'Con eso no te puedo ayudar: PRAXA solo lee los datos de tus fuentes conectadas y no responde temas ajenos.';
+
+// Textos fijos de GA4 (M16f §5 y §6). Ninguno rotula una visita o una compra de GA4 como venta.
+const GA4_PARTIAL = 'Algunas cifras de Google Analytics son parciales o provisionales: los últimos días todavía pueden cambiar.';
+const GA4_FEWER_THAN_5 = 'Los grupos de menos de 5 visitantes se ocultan por privacidad y se muestran como «menos de 5».';
+const GA4_COHORTS = 'Las cohortes de Google Analytics son de visitantes por primera visita; el mes N es el de GA4 (bloques de 30 días) y no son las cohortes de compradores de Tiendanube.';
+const GA4_SOURCE = 'Las visitas del sitio vienen de Google Analytics y son otra fuente: no se atribuyen a Meta ni a la tienda, y no se calculan cocientes entre fuentes.';
+const GA4_NOT_ADDITIVE = 'Los usuarios de Google Analytics no se suman entre días: por mes no se informan.';
 
 function isStoreValue(value: { metric: string }): boolean {
-  return value.metric.startsWith('tn_');
+  return value.metric.startsWith('tn_') || value.metric.startsWith('ga4_');
+}
+
+function isGa4Result(result: ToolResult): boolean {
+  return (result.tool_name ?? '').startsWith('ga4_');
 }
 
 function isStoreResult(result: ToolResult): boolean {
+  return (result.tool_name ?? '').startsWith('tn_') || isGa4Result(result);
+}
+
+function isTiendaResult(result: ToolResult): boolean {
   return (result.tool_name ?? '').startsWith('tn_');
 }
 
-/** La fuente se nombra sin la tienda: ni su nombre ni su dominio (decisión del usuario, 2026-11-15). */
+/** Las fuentes se nombran sin la tienda ni la propiedad (decisión del usuario, 2026-11-15). */
 function storeSource(results: ToolResult[]): string | null {
-  return results.some(isStoreResult) ? 'Tiendanube' : null;
+  const names = [...(results.some(isTiendaResult) ? ['Tiendanube'] : []),
+    ...(results.some(isGa4Result) ? ['Google Analytics'] : [])];
+  return names.length ? names.join(' y ') : null;
 }
 
 const UNKNOWN = 'Meta no informa con qué atribución contó estos resultados: pueden mezclar ventanas distintas.';
@@ -120,6 +138,16 @@ const TOOL_LABELS: Record<string, string> = {
   percent_change: 'Variación porcentual', breakdown: 'Desglose',
   tn_ventas: 'Ventas de la tienda', tn_cohortes: 'Cohortes de compradores',
   tn_productos: 'Productos vendidos', tn_cobertura: 'Cobertura de la tienda',
+  ga4_trafico: 'Tráfico del sitio', ga4_embudo: 'Embudo del sitio', ga4_productos: 'Productos vistos',
+  ga4_campanias: 'Campañas con UTM', ga4_cohortes: 'Cohortes de visitantes', ga4_cobertura: 'Cobertura de GA4',
+};
+/** Filas que cada bloque toma de un resultado de GA4, y la única métrica de cada serie. */
+const GA4_ROWS: Record<string, readonly string[]> = {
+  lineas: ['day'], barras: ['day', 'total', 'segment', 'entity'], ranking: ['product'],
+};
+const GA4_SERIES: Record<string, string> = {
+  ga4_trafico: 'ga4_sessions', ga4_campanias: 'ga4_campaign_sessions', ga4_productos: 'ga4_item_views',
+  ga4_embudo: 'ga4_event_count',
 };
 /** Filas que cada bloque toma de un resultado de la tienda. */
 const STORE_ROWS: Record<string, readonly string[]> = {
@@ -133,11 +161,29 @@ const STORE_METHODS: Record<string, string> = {
   tn_cohort_size: 'Cohorte: clientes cuyo primer pedido pagado cae en ese mes.',
   tn_cohort_active: 'Clientes activos: clientes de la cohorte con al menos un pedido pagado en el mes N.',
   tn_cohort_retention: 'Retención = clientes activos en el mes N / clientes de la cohorte. En el mes 0 es 100 %.',
+  ga4_sessions: 'Sesiones: sesiones del sitio según Google Analytics, por día en la zona de la propiedad.',
+  ga4_meta_visits: 'Visitas desde Meta: sesiones cuya fuente de GA4 es Facebook o Instagram. Es una asociación débil con el gasto de Meta, sin causalidad.',
+  ga4_active_users: 'Usuarios activos: los informa GA4 por día; no se suman entre días.',
+  ga4_new_users: 'Usuarios nuevos: los informa GA4 por día; no se suman entre días.',
+  ga4_event_count: 'Eventos del embudo: conteos separados de view_item, add_to_cart, begin_checkout y purchase; no son tasas de paso.',
+  ga4_item_views: 'Vistas de producto: eventos view_item de GA4 por producto.',
+  ga4_add_to_carts: 'Carritos: eventos add_to_cart de GA4, solo para productos con correspondencia en Tiendanube.',
+  ga4_purchases: 'Compras de GA4: eventos purchase medidos en el sitio; no son pedidos ni ventas de la tienda.',
+  ga4_campaign_sessions: 'Sesiones por campaña: sesiones cuyo ID de campaña del UTM coincide exactamente con una sola campaña de Meta.',
+  ga4_unmatched_sessions: 'Sesiones sin correspondencia: sesiones con ID de campaña en el UTM que no coincide con ninguna campaña de Meta.',
+  ga4_cohort_size: 'Cohorte de visitantes: visitantes cuya primera visita cae en ese mes, en la zona de la propiedad.',
+  ga4_cohort_active: 'Visitantes activos: visitantes de la cohorte con actividad en el mes N de GA4 (bloques de 30 días).',
+  ga4_cohort_retention: 'Retención de visitantes = activos en el mes N de GA4 / visitantes de la cohorte.',
 };
 const STORE_METRIC_LABELS: Record<string, string> = {
   tn_paid_orders: 'Pedidos pagados', tn_partially_paid_orders: 'Pagos parciales',
   tn_collected_amount: 'Monto cobrado', tn_units: 'Unidades', tn_cohort_size: 'Clientes de la cohorte',
   tn_cohort_active: 'Clientes activos', tn_cohort_retention: 'Retención',
+  ga4_sessions: 'Sesiones', ga4_meta_visits: 'Visitas desde Meta', ga4_active_users: 'Usuarios activos',
+  ga4_new_users: 'Usuarios nuevos', ga4_event_count: 'Eventos', ga4_item_views: 'Vistas',
+  ga4_add_to_carts: 'Carritos', ga4_purchases: 'Compras de GA4', ga4_campaign_sessions: 'Sesiones',
+  ga4_unmatched_sessions: 'Sesiones sin correspondencia', ga4_cohort_size: 'Visitantes de la cohorte',
+  ga4_cohort_active: 'Visitantes activos', ga4_cohort_retention: 'Retención de visitantes',
 };
 const RUN_STATUS: Record<string, string> = {
   complete: 'Completa', incomplete: 'Parcial: hay que volver a sincronizar', failed: 'Falló',
@@ -160,7 +206,7 @@ const METRIC_LABELS: Record<string, string> = {
 };
 
 function metricLabel(value: ToolResult['values'][number]): string {
-  if (isStoreValue(value)) return STORE_METRIC_LABELS[value.metric] ?? value.metric;
+  if (isStoreValue(value) || value.metric === 'tn_units') return STORE_METRIC_LABELS[value.metric] ?? value.metric;
   const base = METRIC_LABELS[value.metric] ?? value.metric;
   return value.action_type ? `${base} (${value.action_type})` : base;
 }
@@ -189,6 +235,7 @@ function maskedAccount(value: string | null): string | null {
 function unique(items: string[]): string[] { return [...new Set(items)]; }
 
 function scopePhrase(result: ToolResult): string {
+  if (isGa4Result(result)) return 'del sitio';
   if (isStoreResult(result)) return 'de la tienda';
   const level = result.scope.level;
   if (result.tool_name === 'breakdown') {
@@ -295,14 +342,26 @@ function dataLimits(results: ToolResult[], blocks: Record<string, unknown>[]): s
   }
   if (results.some((result) => result.values.some((value) =>
     value.composition?.partial === true))) warnings.push(PARTIAL);
-  if (results.some(isStoreResult)) {
-    if (results.some((result) => result.values.some((value) =>
+  if (results.some(isTiendaResult)) {
+    if (results.some((result) => isTiendaResult(result) && result.values.some((value) =>
       isStoreValue(value) && value.captured_partial))) warnings.push(STORE_PARTIAL);
-    if (results.some((result) => result.values.some((value) => value.absence === 'menos_de_5'))) {
-      warnings.push(FEWER_THAN_5);
-    }
+    if (results.some((result) => isTiendaResult(result) &&
+      result.values.some((value) => value.absence === 'menos_de_5'))) warnings.push(FEWER_THAN_5);
     if (results.some((result) => result.tool_name === 'tn_cohortes')) warnings.push(COHORT_EXCLUSION);
     if (results.some((result) => !isStoreResult(result))) warnings.push(STORE_SOURCE);
+  }
+  if (results.some(isGa4Result)) {
+    const ga4 = results.filter(isGa4Result);
+    if (ga4.some((result) => result.values.some((value) => value.captured_partial))) warnings.push(GA4_PARTIAL);
+    if (ga4.some((result) => result.values.some((value) => value.absence === 'menos_de_5'))) {
+      warnings.push(GA4_FEWER_THAN_5);
+    }
+    if (ga4.some((result) => result.values.some((value) => value.absence === 'no_aditivo'))) {
+      warnings.push(GA4_NOT_ADDITIVE);
+    }
+    if (ga4.some((result) => result.tool_name === 'ga4_cohortes')) warnings.push(GA4_COHORTS);
+    if (results.some((result) => !isGa4Result(result)) || ga4.some((result) =>
+      result.tool_name === 'ga4_campanias' || result.tool_name === 'ga4_productos')) warnings.push(GA4_SOURCE);
   }
   for (const result of results) {
     const pairs = [[result.scope.period, result.composition],
@@ -346,8 +405,9 @@ function footer(input: RenderInput): Footer | null {
         periods.push(`cohortes de ${monthDisplay(from)} a ${monthDisplay(to)}`);
       }
       const through = result.extra.covered_through;
-      coverage.push(typeof through === 'string' ? `tienda cubierta hasta el ${dateDisplay(through)}` :
-        'la tienda todavía no tiene cobertura completa');
+      const who = isGa4Result(result) ? 'Google Analytics' : 'tienda';
+      coverage.push(typeof through === 'string' ? `${who} cubierto hasta el ${dateDisplay(through)}` :
+        `${who === 'tienda' ? 'la tienda' : 'Google Analytics'} todavía no tiene cobertura completa`);
       if (typeof result.extra.last_fetched_at === 'string') fetched.push(result.extra.last_fetched_at);
       continue;
     }
@@ -389,9 +449,15 @@ function storeRowLabel(value: ToolResult['values'][number], withMetric: boolean)
     return `${value.entity_name ?? 'Producto'}${detail ? ` (${detail})` : ''}`;
   }
   if (value.path_key === 'cohort_cell') {
-    const head = `Cohorte ${monthDisplay(value.cohort_month ?? '')}`;
+    const ga4 = value.metric.startsWith('ga4_');
+    const head = `${ga4 ? 'Cohorte de visitantes' : 'Cohorte'} ${monthDisplay(value.cohort_month ?? '')}`;
     return value.month_offset === null ? `${head} · ${metricLabel(value)}` :
-      `${head} · mes ${value.month_offset} · ${metricLabel(value)}`;
+      `${head} · mes ${value.month_offset}${ga4 ? ' de GA4' : ''} · ${metricLabel(value)}`;
+  }
+  if (value.path_key === 'segment' || value.path_key === 'entity') {
+    const name = value.path_key === 'segment' ? value.segment_primary ?? 'Evento' :
+      value.entity_name ?? 'Campaña';
+    return withMetric ? `${name} · ${metricLabel(value)}` : name;
   }
   const when = value.day ? dateDisplay(value.day) :
     value.period ? `${dateDisplay(value.period.from)} al ${dateDisplay(value.period.to)}` : '';
@@ -425,11 +491,16 @@ function barGroup(value: ToolResult['values'][number]): { group: string | null; 
     { group: value.segment_primary ?? null, member: value.segment_secondary } :
     { group: null, member: rowLabel(value) };
 }
+const GA4_ABSENCE_TEXT: Record<string, string> = {
+  no_aditivo: 'No se suma entre días', aun_no_disponible: 'Aún no disponible',
+  desconocido: 'Desconocido', no_disponible: 'No disponible', sin_cobertura: 'Sin cobertura',
+};
 function rowText(value: ToolResult['values'][number]): string {
   if (value.value === null) return value.absence === 'sin_fila_reportada' ?
     'Sin fila reportada' : value.absence === 'no_observado' ? 'No observado' :
       value.absence === 'no_informado' ? 'No informado' :
-        value.absence === 'menos_de_5' ? 'menos de 5' : 'No calculable';
+        value.absence === 'menos_de_5' ? 'menos de 5' :
+          GA4_ABSENCE_TEXT[value.absence ?? ''] ?? 'No calculable';
   if (isStoreValue(value)) {
     const unit = value.unit === 'percent' ? ' %' : '';
     const currency = value.unit === 'money' && value.currency ? `${value.currency} ` : '';
@@ -456,11 +527,15 @@ function selectedValues(block: Record<string, unknown>, result: ToolResult) {
   const paths = sources.filter((source) => source.tool_call_id === result.tool_call_id)
     .map((source) => source.path_prefix);
   const type = String(block.type);
-  const allowed = isStoreResult(result) ? STORE_ROWS[type] ?? ROWS[type] : ROWS[type];
-  // Una serie de la tienda muestra solo los pedidos pagados: los pagos parciales van en la tabla.
-  const serie = isStoreResult(result) && (type === 'lineas' || type === 'barras');
+  const ga4 = isGa4Result(result);
+  const allowed = ga4 ? GA4_ROWS[type] ?? ROWS[type] :
+    isStoreResult(result) ? STORE_ROWS[type] ?? ROWS[type] : ROWS[type];
+  // Una serie de la tienda muestra solo los pedidos pagados y una de GA4 solo su métrica
+  // principal: el resto va en la tabla, para no mezclar unidades en un mismo gráfico.
+  const serie = isStoreResult(result) && (type === 'lineas' || type === 'barras' || (ga4 && type === 'ranking'));
+  const metric = ga4 ? GA4_SERIES[result.tool_name ?? ''] ?? null : 'tn_paid_orders';
   return result.values.filter((value) => (paths.includes('/values') || paths.includes(value.path)) &&
-    (!allowed || allowed.includes(value.path_key)) && (!serie || value.metric === 'tn_paid_orders'));
+    (!allowed || allowed.includes(value.path_key)) && (!serie || value.metric === metric));
 }
 
 function noCoverageText(results: ToolResult[]): string {
@@ -524,6 +599,29 @@ function renderBlock(block: Record<string, unknown>, results: ToolResult[]): Blo
   }
   if (type === 'estado_datos' || type === 'fuentes_metodologia') {
     const rows = selected.flatMap((result) => {
+      if (isGa4Result(result)) {
+        const fetched = typeof result.extra.last_fetched_at === 'string' ?
+          dateDisplay(result.extra.last_fetched_at) : 'Sin fecha de extracción';
+        const name = typeof result.extra.property_name === 'string' ? result.extra.property_name : null;
+        if (type === 'fuentes_metodologia') {
+          return [['Fuente', 'Google Analytics 4'], ...(name ? [['Propiedad', name]] : []),
+            ['Zona horaria', result.scope.timezone ?? 'Sin zona'],
+            [TOOL_LABELS[result.tool_name ?? ''] ?? 'Consulta', fetched]];
+        }
+        const from = result.extra.covered_from;
+        const through = result.extra.covered_through;
+        const caps = result.extra.capabilities && typeof result.extra.capabilities === 'object' ?
+          Object.entries(result.extra.capabilities as Record<string, unknown>) : [];
+        return [['Fuente', 'Google Analytics 4'], ...(name ? [['Propiedad', name]] : []),
+          ['Cubierto', typeof from === 'string' && typeof through === 'string' ?
+            `${dateDisplay(from)} al ${dateDisplay(through)}` : 'Sin cobertura completa todavía'],
+          ['Días provisionales', String(result.extra.provisional_days ?? '')],
+          ...caps.map(([key, state]) => [`Capacidad: ${key}`,
+            state === 'disponible' ? 'Disponible' : `No disponible (${String(state)})`]),
+          ...(typeof result.extra.last_finished_at === 'string' ?
+            [['Último paso', dateDisplay(result.extra.last_finished_at)]] : []),
+          ['Última extracción', fetched]];
+      }
       if (isStoreResult(result)) {
         const fetched = typeof result.extra.last_fetched_at === 'string' ?
           dateDisplay(result.extra.last_fetched_at) : 'Sin fecha de extracción';
@@ -708,12 +806,14 @@ export function renderTurn(input: RenderInput): ChatTurnView {
   const reason = input.reason ?? '';
   const connected = input.connectedSources ?? [];
   const fixed = reason === 'connection_not_active' && connected.length > 0 ? SOURCE_NOT_CONNECTED :
-    reason === 'out_of_scope' && connected.includes('tiendanube') ?
-      connected.includes('meta') ? OUT_OF_SCOPE_BOTH : OUT_OF_SCOPE_STORE : FIXED[reason];
+    reason === 'out_of_scope' && connected.includes('ga4') ? OUT_OF_SCOPE_SOURCES :
+      reason === 'out_of_scope' && connected.includes('tiendanube') ?
+        connected.includes('meta') ? OUT_OF_SCOPE_BOTH : OUT_OF_SCOPE_STORE : FIXED[reason];
   const text = input.kind === 'answer' ? input.answer?.text ?? '' :
     input.kind === 'clarification' ? input.text ?? '' :
       reason === 'connection_not_active' && input.connectionStatus === 'needs_reauth' ?
-        `${input.connectionProvider === 'tiendanube' ? 'Tiendanube' : 'Meta'} pidió volver a autorizar a Praxa.` :
+        `${input.connectionProvider === 'tiendanube' ? 'Tiendanube' :
+          input.connectionProvider === 'ga4' ? 'Google Analytics' : 'Meta'} pidió volver a autorizar a Praxa.` :
         reason === 'no_coverage' ? noCoverageText(input.results) : fixed ?? 'No pudimos procesar la consulta.';
   const blocks = input.kind === 'answer' ? (input.answer?.blocks ?? []).map((block) =>
     renderBlock(block, input.results)) : [];

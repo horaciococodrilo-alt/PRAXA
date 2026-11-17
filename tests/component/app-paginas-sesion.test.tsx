@@ -39,6 +39,7 @@ vi.mock('@/modules/integrations/repository/connections', () => ({
 vi.mock('@/modules/integrations/actions', () => ({ confirmarCuentaMeta: vi.fn(), desconectarMeta: vi.fn(),
   desconectarTiendanube: vi.fn(), sincronizarTiendanube: vi.fn() }));
 vi.mock('@/modules/integrations/tiendanube/analysis', () => ({ loadTiendanubeView: lectura('loadTiendanubeView') }));
+vi.mock('@/modules/integrations/ga4/analysis', () => ({ loadGa4View: lectura('loadGa4View') }));
 vi.mock('@/modules/integrations/tiendanube/oauth', () => ({ TIENDANUBE_OAUTH_MESSAGES: {},
   parseTiendanubeOAuthOutcome: () => null }));
 vi.mock('@/modules/integrations/tiendanube/sync', () => ({ TN_SYNC_MESSAGES: {}, parseTiendanubeSyncResult: () => null }));
@@ -155,16 +156,31 @@ describe('verificación de sesión en cada página de /app', () => {
 
     connection.mockImplementation(async (_ctx: unknown, _deps: unknown, provider?: string) =>
       provider === 'tiendanube' ? { id: 'd0000000-0000-4000-8000-0000000000e5', status: 'needs_reauth' }
-        : { status: 'active' });
+        : provider === undefined ? { status: 'active' } : null);
     const onlyMeta = await ChatPage();
     expect(onlyMeta.props).toMatchObject({ conexionActiva: true,
       conectadas: [{ id: 'meta_ads', nombre: 'Meta Ads' }] });
 
     connection.mockImplementation(async (_ctx: unknown, _deps: unknown, provider?: string) =>
       provider === 'tiendanube' ? { id: 'd0000000-0000-4000-8000-0000000000e5', status: 'active' }
-        : { status: 'active' });
+        : provider === undefined ? { status: 'active' } : null);
     const both = await ChatPage();
     expect(both.props).toMatchObject({ conexionActiva: true, conectadas: [
+      { id: 'meta_ads', nombre: 'Meta Ads' }, { id: 'tiendanube', nombre: 'Tiendanube' }] });
+
+    // M16f-C-13: con solo GA4 activa, el chat se habilita y la lista como «Google Analytics».
+    connection.mockImplementation(async (_ctx: unknown, _deps: unknown, provider?: string) =>
+      provider === 'ga4' ? { id: 'd0000000-0000-4000-8000-0000000000f5', status: 'active' } : null);
+    const onlyGa4 = await ChatPage();
+    expect(onlyGa4.props).toMatchObject({ conexionActiva: true,
+      conectadas: [{ id: 'google_analytics', nombre: 'Google Analytics' }] });
+    expect(connection).toHaveBeenCalledWith(context, {}, 'ga4');
+
+    connection.mockImplementation(async (_ctx: unknown, _deps: unknown, provider?: string) =>
+      provider === 'ga4' ? { id: 'd0000000-0000-4000-8000-0000000000f5', status: 'needs_reauth' }
+        : { status: 'active' });
+    const ga4Reauth = await ChatPage();
+    expect(ga4Reauth.props).toMatchObject({ conexionActiva: true, conectadas: [
       { id: 'meta_ads', nombre: 'Meta Ads' }, { id: 'tiendanube', nombre: 'Tiendanube' }] });
 
     connection.mockImplementation(async () => null);

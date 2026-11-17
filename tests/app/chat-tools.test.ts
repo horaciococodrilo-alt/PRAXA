@@ -74,10 +74,27 @@ describe('M25a.1: consultas del chat por Data API real', () => {
           spend: '4503599627370496.5625', impressions: '10', clicks: '1' },
       ] }));
     };
+    // H-E1-241: el reloj local puede adelantarse al de PostgreSQL. El fixture
+    // publica con la hora de la base para probar el chat sin ese desfase.
+    const sqlTarget = resolveSqlTestTarget(process.env);
+    if (!sqlTarget.ok) throw new Error('Destino SQL de prueba inválido.');
+    const clockClient = new pg.Client(verifiedTestDbConfig(sqlTarget.connectionString, 'praxa-chat-clock-test'));
+    let dbTime: number;
+    let sampledAt: number;
+    try {
+      await clockClient.connect();
+      const clock = await clockClient.query<{ db_time: Date }>('select clock_timestamp() as db_time');
+      if (!clock.rows[0]) throw new Error('El reloj de la base no respondió.');
+      dbTime = clock.rows[0].db_time.getTime();
+      sampledAt = performance.now();
+    } finally {
+      await clockClient.end();
+    }
     const outcome = await insights.syncMetaInsights({ tenant: async () => ctx,
       workerApi: () => worker, keyring: () => keyring,
       readConnection: (actor) => connections.readConnectionRecord(actor, { supabase: owner.client }),
       http: (timeoutMs) => client.createMetaHttpClient({ fetch, timeoutMs }),
+      wallNow: () => new Date(dbTime + performance.now() - sampledAt),
       log: () => {}, limits: LIMITS, breakdowns: [] });
     expect(outcome.result).toBe('completa');
     const accounts = await insights.listCapturedEntities(connectionId, 'account', { supabase: owner.client });

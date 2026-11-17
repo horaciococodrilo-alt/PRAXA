@@ -150,8 +150,8 @@ function credential(): SecretCredential {
 // ---------------------------------------------------------------------------
 
 describe('primitivas', () => {
-  it('el proveedor es un enum cerrado: meta y tiendanube (CA-05 enmendado por M16e)', () => {
-    expect(integrationProviderSchema.options).toEqual(['meta', 'tiendanube']);
+  it('el proveedor es un enum cerrado: meta, tiendanube y ga4 (CA-05 enmendado por M16f)', () => {
+    expect(integrationProviderSchema.options).toEqual(['meta', 'tiendanube', 'ga4']);
     expect(integrationProviderSchema.safeParse('google').success).toBe(false);
     expect(integrationProviderSchema.safeParse('Meta').success).toBe(false);
   });
@@ -954,8 +954,51 @@ describe('M16e: contratos por proveedor', () => {
     expect(toConnectionDto(tiendanubeConnection()).provider).toBe('tiendanube');
   });
 
-  it('K02 acepta intentos de los dos proveedores y rechaza otro', () => {
+  it('K02 acepta intentos de los tres proveedores y rechaza otro', () => {
     expect(oauthAttemptSchema.safeParse({ ...initialAttempt(), provider: 'tiendanube' }).success).toBe(true);
+    expect(oauthAttemptSchema.safeParse({ ...initialAttempt(), provider: 'ga4' }).success).toBe(true);
     expect(oauthAttemptSchema.safeParse({ ...initialAttempt(), provider: 'google' }).success).toBe(false);
+  });
+});
+
+describe('M16f: contratos GA4', () => {
+  const ga4Credential = () => ({
+    ...credential(), provider: 'ga4', token_type: 'google_refresh_token',
+    issued_for_app_id: '123456789',
+    granted_scopes: ['https://www.googleapis.com/auth/analytics.readonly'],
+    expires_at: null,
+  });
+
+  it('K04 acepta el refresh token y el scope exacto de GA4', () => {
+    expect(secretCredentialSchema.safeParse(ga4Credential()).success).toBe(true);
+    expect(secretCredentialSchema.safeParse({
+      ...credential(), granted_scopes: ['ads_read', 'https://www.googleapis.com/auth/analytics.readonly'],
+    }).success).toBe(false);
+  });
+
+  it.each([
+    ['scope adicional', { granted_scopes: ['https://www.googleapis.com/auth/analytics.readonly', 'ads_read'] }],
+    ['scope distinto', { granted_scopes: ['analytics.readonly'] }],
+    ['token incorrecto', { token_type: 'system_user' }],
+    ['vencimiento', { expires_at: '2027-01-01T00:00:00.000Z' }],
+    ['prefijo no numérico', { issued_for_app_id: 'app_sintetica' }],
+    ['identificador con punto', { issued_for_app_id: '123.apps.googleusercontent.com' }],
+  ])('K04 rechaza GA4 con %s', (_label, change) => {
+    expect(secretCredentialSchema.safeParse({ ...ga4Credential(), ...change }).success).toBe(false);
+  });
+
+  it('K03 acepta solo el número de propiedad y ningún negocio de Meta', () => {
+    const base = { ...activeConnection(), provider: 'ga4', client_business_id: null,
+      external_account_id: '123456789' };
+    expect(integrationConnectionRecordSchema.safeParse(base).success).toBe(true);
+    expect(integrationConnectionRecordSchema.safeParse({ ...base, external_account_id: 'properties/123456789' }).success).toBe(false);
+    expect(integrationConnectionRecordSchema.safeParse({ ...base, client_business_id: 'negocio_sintetico' }).success).toBe(false);
+  });
+
+  it('el AAD de GA4 no coincide con Meta ni Tiendanube', () => {
+    const base = { company_id: COMPANY_ID, connection_id: CONNECTION_ID };
+    const ga4 = buildCredentialAad({ ...base, provider: 'ga4' });
+    expect(ga4).not.toBe(buildCredentialAad({ ...base, provider: 'meta' }));
+    expect(ga4).not.toBe(buildCredentialAad({ ...base, provider: 'tiendanube' }));
   });
 });

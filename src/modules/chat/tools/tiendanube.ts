@@ -56,7 +56,7 @@ const date = (value: unknown) => {
 };
 
 /** Número de SQL como texto decimal exacto (PostgREST entrega enteros y numeric como JSON). */
-function decimal(value: unknown): string {
+export function decimal(value: unknown): string {
   if (typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value)) return value;
   if (typeof value === 'number' && Number.isFinite(value)) {
     const out = String(value);
@@ -66,7 +66,7 @@ function decimal(value: unknown): string {
 }
 
 /** Multiplica un decimal por 100 corriendo la coma: exacto, sin pasar por coma flotante. */
-function timesHundred(value: string): string {
+export function timesHundred(value: string): string {
   const negative = value.startsWith('-');
   const [whole, fraction = ''] = value.replace('-', '').split('.');
   const digits = `${whole}${fraction.padEnd(2, '0')}`;

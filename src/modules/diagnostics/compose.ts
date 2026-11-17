@@ -11,6 +11,7 @@ import {
   manifestSchema,
   METHODOLOGY_VERSION,
   METRIC_LABELS,
+  ga4SectionSchema,
   storeSectionSchema,
   type BreakdownDimension,
   type Cause,
@@ -18,6 +19,7 @@ import {
   type EntityLevel,
   type Evidence,
   type Metric,
+  type Ga4Section,
   type StoreSection,
 } from './contract';
 import { DiagnosticReadError } from './repository';
@@ -82,11 +84,11 @@ export const storedReportSchema = z.object({
   prev_to: isoDate.nullable(),
   sync_finished_at: instant,
   // Ausentes en lecturas anteriores a 0024: se tratan como v1.
-  schema_version: z.union([z.literal(1), z.literal(2)]).optional(),
-  methodology_version: z.enum(['meta-diag-1', 'meta-tn-diag-1']).optional(),
+  schema_version: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+  methodology_version: z.enum(['meta-diag-1', 'meta-tn-diag-1', 'meta-fuentes-diag-1']).optional(),
   settings: z.object({ goal_kind: z.enum(GOAL_KINDS), metric_ref: z.string() }),
   evidence: z.object({ items: z.array(evidenceSchema), totals: totalsSchema, manifest: manifestSchema,
-    store: storeSectionSchema.optional() }),
+    store: storeSectionSchema.optional(), ga4: ga4SectionSchema.optional() }),
   output: storedOutputSchema,
   web_sources: z.array(z.object({ index: z.number().int(), url: z.string(), title: z.string(),
     page_age: z.string(), domain: z.string() })),
@@ -179,8 +181,9 @@ const LIMIT_TEXT: Readonly<Record<Cause, string>> = {
 const DIMENSION_LABEL: Readonly<Record<BreakdownDimension, string>> = {
   age_gender: 'Edad y género', country: 'País', region: 'Región',
 };
-const LEVEL_LABEL: Readonly<Record<'account' | 'store' | EntityLevel, string>> = {
+const LEVEL_LABEL: Readonly<Record<'account' | 'store' | 'site' | EntityLevel, string>> = {
   account: 'Cuenta', campaign: 'Campaña', adset: 'Conjunto de anuncios', ad: 'Anuncio', store: 'Tienda',
+  site: 'Sitio',
 };
 
 // Sección «Ventas de la tienda» (M16e §6, A-09, A-10). Textos fijos del servidor: ninguno
@@ -215,6 +218,38 @@ function storeSection(store: StoreSection, value: (id: string | undefined) => st
       : 'Última extracción de Tiendanube: sin fecha informada.' },
     ...(store.partial ? [{ kind: 'notice' as const,
       text: `Sección parcial: ${store.partial_reasons.map((r) => STORE_PARTIAL_TEXT[r]).join('; ')}.` }] : []),
+  ] };
+}
+// Sección «Tráfico del sitio» (M16f §6). Textos fijos del servidor: ninguno atribuye visitas ni
+// ventas a Meta ni calcula cocientes entre fuentes.
+const GA4_INTRO = 'Tráfico del sitio según Google Analytics 4 para las mismas fechas de calendario que el informe, en la zona horaria de la propiedad, al lado del gasto de Meta. Son series distintas con una asociación débil, sin causalidad: las visitas no se atribuyen a Meta.';
+const GA4_DEFINITIONS = [
+  'Sesiones: sesiones del sitio según GA4, sumadas por día en la zona de la propiedad.',
+  'Visitas desde Meta: sesiones cuya fuente de GA4 es Facebook o Instagram. No son clics de Meta ni ventas.',
+];
+const GA4_PARTIAL_TEXT: Readonly<Record<Ga4Section['partial_reasons'][number], string>> = {
+  sync_stale: 'la última extracción de Google Analytics tiene más de 24 horas',
+  window_not_covered: 'la ventana no tiene cobertura completa de Google Analytics',
+  quality_flags: 'Google Analytics informó umbrales, muestreo, filas agrupadas u otras restricciones',
+  provisional: 'los últimos días todavía son provisionales y pueden cambiar',
+};
+
+function ga4Section(ga4: Ga4Section, value: (id: string | undefined) => string): DocSection {
+  const w = ga4.window;
+  return { id: 'ga4', title: 'Tráfico del sitio', blocks: [
+    { kind: 'paragraph', text: GA4_INTRO },
+    { kind: 'table', columns: ['Métrica', 'Período actual', 'Período anterior'], rows: [
+      [METRIC_LABELS.ga4_sessions, value(ga4.current.sessions.id), value(ga4.previous.sessions.id)],
+      [METRIC_LABELS.ga4_meta_visits, value(ga4.current.meta_visits.id), value(ga4.previous.meta_visits.id)],
+    ] },
+    { kind: 'notice', text: `Períodos: del ${formatDate(w.from)} al ${formatDate(w.to)} y, el anterior, del ${formatDate(w.prev_from)} al ${formatDate(w.prev_to)}.` },
+    { kind: 'notice', text: `Zona horaria de Meta: ${ga4.meta_timezone ?? 'no informada'}. Zona horaria de la propiedad: ${ga4.timezone}.` },
+    { kind: 'list', items: GA4_DEFINITIONS },
+    { kind: 'notice', text: ga4.fetched_at
+      ? `Última extracción de Google Analytics: ${formatInstant(ga4.fetched_at)} (hora de Argentina).`
+      : 'Última extracción de Google Analytics: sin fecha informada.' },
+    ...(ga4.partial ? [{ kind: 'notice' as const,
+      text: `Sección parcial: ${ga4.partial_reasons.map((r) => GA4_PARTIAL_TEXT[r]).join('; ')}.` }] : []),
   ] };
 }
 const PRIORITY_LABEL = { high: 'Prioridad alta', medium: 'Prioridad media', low: 'Prioridad baja' } as const;
@@ -290,7 +325,9 @@ export function composeDocument(report: StoredReport): DiagnosticDocument {
   const out = report.output;
   // Un informe v1 (con o sin columnas de versión) no tiene sección de tienda.
   const store = report.evidence.store ?? null;
-  const methodology = report.methodology_version ?? (store ? 'meta-tn-diag-1' : METHODOLOGY_VERSION);
+  const ga4 = report.evidence.ga4 ?? null;
+  const methodology = report.methodology_version ??
+    (ga4 ? 'meta-fuentes-diag-1' : store ? 'meta-tn-diag-1' : METHODOLOGY_VERSION);
   const currentAttribution = attributionLabel(items, report.window_from, report.window_to);
   const value = (id: string | undefined) => {
     const evidence = id ? byId.get(id) : undefined;
@@ -442,14 +479,17 @@ export function composeDocument(report: StoredReport): DiagnosticDocument {
       { label: 'Moneda', value: totals.currency && totals.currency !== 'mixed' ? totals.currency : 'sin moneda única' },
       { label: 'Atribución', value: currentAttribution },
       { label: 'Ventanas de atribución', value: attributionWindowsLabel(totals.attribution_windows, currentAttribution) },
-      ...(store ? [{ label: 'Fuentes', value: 'Meta Ads y Tiendanube (dos series distintas)' }] : []),
+      ...(store && !ga4 ? [{ label: 'Fuentes', value: 'Meta Ads y Tiendanube (dos series distintas)' }] : []),
+      ...(ga4 ? [{ label: 'Fuentes', value: store ? 'Meta Ads, Tiendanube y Google Analytics (tres series distintas)'
+        : 'Meta Ads y Google Analytics (dos series distintas)' }] : []),
     ],
     summary: out.executive_summary.text,
     opportunities: out.opportunities.map((o) => ({ title: o.title, priority: PRIORITY_LABEL[o.priority] })),
     // La sección de la tienda va al lado del rendimiento de Meta, como otra serie (M16e §6).
-    sections: [summary, performance, ...(store ? [storeSection(store, value)] : []), comparison, entities, breakdowns,
+    sections: [summary, performance, ...(store ? [storeSection(store, value)] : []),
+      ...(ga4 ? [ga4Section(ga4, value)] : []), comparison, entities, breakdowns,
       opportunities, web, limits, method, evidence],
-    footer: `PRAXA · Diagnóstico de Meta Ads · metodología ${methodology}. Las acciones son sugerencias: PRAXA no cambia nada en Meta${store ? ' ni en Tiendanube' : ''}.`,
+    footer: `PRAXA · Diagnóstico de Meta Ads · metodología ${methodology}. Las acciones son sugerencias: PRAXA no cambia nada en Meta${store ? ' ni en Tiendanube' : ''}${ga4 ? ' ni en Google Analytics' : ''}.`,
   };
 }
 

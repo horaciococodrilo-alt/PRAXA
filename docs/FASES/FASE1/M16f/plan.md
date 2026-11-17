@@ -1,0 +1,121 @@
+# M16f — Plan de implementación
+
+**Estado:** APROBADO por el usuario el 2026-11-15, tras `plan-audit-4` APROBABLE (hash del plan previo `73fee8d649f124cfa7a3bcea0fe747fcda948b30`); enmiendas correctivas H-E1-262 y H-E1-266 aprobadas expresamente el 2026-11-16; continuación de H-E1-268 solicitada el 2026-11-16.
+
+Solo el usuario pasa este plan a `APROBADO` después de una auditoría APROBABLE. La spec está aprobada; este plan no autoriza código.
+
+**Spec base:** `docs/FASES/FASE1/M16f/spec.md`, hash anterior a la enmienda H-E1-262 `219be9dbd53295bc1e0d16d5e0fe6c6b50f7d137`; el usuario aprobo expresamente el cambio de numeracion del diagnostico el 2026-11-16.
+
+**Ruta:** `docs/FASES/FASE1/meta_first/plan.md`, ficha de M16f en Parte I y II.14c; `meta_first/spec.md` §17. M16f es una microfase por etapas con un solo gate, `G-GA4-FUSION`. `G-TIENDA` está aprobado en `PROJECT_STATE.md`.
+
+**Git.** Todo el trabajo ocurre en la rama `mf/M16f`. En el paso 0 el asistente la crea desde el HEAD actual con `git switch -c mf/M16f` (o `git switch mf/M16f` si ya existe), y conserva los cambios sin commit, que viajan con el árbol. El asistente no hace push, `reset --hard`, `rebase`, `clean`, `checkout --` sobre cambios ajenos ni ninguna otra operación destructiva, y no hace commits: cada commit de etapa lo hace el usuario. El push y la integración en `main` también son del usuario (paso 12).
+
+**Excepción de auditoría.** El usuario hizo auditar este plan sin una `spec-audit` APROBABLE de la versión aprobada de la spec («no importa es una excepcion, audita M16f plan», 2026-11-15; `revisiones/plan-audit-2.md`).
+
+**Hash de contenido de este plan.** Calcularlo al solicitar auditoría, excluyendo únicamente la línea de estado:
+
+```bash
+grep -v '^\*\*Estado:\*\*' docs/FASES/FASE1/M16f/plan.md | git hash-object --stdin
+```
+
+## Archivos
+
+La lista queda dentro de II.14c, que hereda los documentos, la base y las pruebas de II.14b, más los archivos de seguimiento. Los archivos concretos de cada grupo se anotan en la sesión antes de editarlos. Un archivo externo exige corregir la ruta y el plan antes de actuar. No se prevé una dependencia nueva. `package.json` y el lockfile están autorizados por la spec y por II.14c solo si hace falta una dependencia. La decisión expresa del usuario del 2026-11-16 amplía esa autorización para actualizar `next` y `eslint-config-next` de 16.4.2 a 16.4.5 por H-E1-265, sin otras dependencias; el motivo se registra en la sesión antes de instalar.
+
+| Archivo | Nuevo o modificado | Paso | Autorizado por |
+|---|---|---:|---|
+| `docs/FASES/FASE1/M16f/plan.md`, `M16f/revisiones/`, `meta_first/sesiones/M16f.md` | Nuevo o modificado | 0a–14 | II.14c y seguimiento |
+| `docs/FASES/FASE1/M03a/acta-meta.md`, `docs/SECURITY.md`, `docs/ARCHITECTURE.md`, `docs/PROJECT_STATE.md`, `docs/HALLAZGOS.md` | Modificados según el contrato documental | 0c, 0d, 14 | II.14b heredada |
+| `AGENTS.md`, `M16f/spec.md`, `meta_first/{plan,spec}.md` | Modificados previamente; preservar, salvo decisión expresa. Alinear la numeración de migraciones con la enmienda aprobada | 0, 5, 14 | II.14c |
+| `.env.example`, `docs/FASES/FASE1/meta_first/entorno.md`, `scripts/ga4-preflight.mjs` | Modificados y nuevo, respectivamente | 1 | II.14c |
+| `supabase/migrations/0026_ga4_enum.sql`, `0027_ga4.sql`, `0028_ga4_text_fix.sql`, `0029_ga4_sync_getters.sql`, `0030_ga4_expired_lease.sql`, `0031_ga4_diag.sql` | Nuevos; las migraciones aplicadas permanecen intactas | 2, 4, 5a, 8a, 8b, 10 | II.14c; enmiendas H-E1-262, H-E1-266 y H-E1-268 |
+| `supabase/tests/20_ga4.test.sql` y `{08_integration_isolation,09_integration_privileges,09b_integration_lifecycle,10_demo_closure,15_chat_queries,17_meta_diagnostics}.test.sql` | Nuevo y modificados | 2–10 | II.14c |
+| `src/modules/integrations/{contract,ga4,repository,db,crypto}/`, `src/modules/integrations/{lifecycle,actions}.ts`, `src/app/api/integraciones/ga4/` | Nuevos o modificados; `crypto/` solo si el AAD lo exige | 4–8 | II.14c |
+| `src/app/(app)/app/integraciones/`, `src/modules/app-data/{index,types}.ts` | Nuevos o modificados | 9 | II.14c |
+| `src/modules/chat/`, `src/app/(app)/app/chat/page.tsx`, `src/components/app/chat.tsx` | Nuevos o modificados | 10 | II.14c |
+| `src/modules/diagnostics/`, `src/components/app/{diagnostico.tsx,diagnostico.module.css}` | Modificados | 10 | II.14c |
+| `tests/{unit,component,app}/`; `tests/eval/` solo para T-12 autorizado | Nuevos o modificados | 1–10 | II.14c |
+| `package.json` y `package-lock.json` | Dependencia nueva necesaria o actualización acotada de Next por H-E1-265 | 4–10 | II.14c; decisión del usuario del 2026-11-16 |
+
+`SECURITY.md` se actualiza por la frontera OAuth, el modelo de secretos y los riesgos aceptados; `ARCHITECTURE.md`, por componentes y flujos que pasan a existir. `PROJECT_STATE.md` registra solo estado y gate. Resultados, conteos y limitaciones van en la sesión.
+
+## Pasos
+
+Antes de la primera modificación de código, migraciones o pruebas, el plan y el acta ampliada deben estar aprobados y `npm run verify` debe terminar con exit 0 sobre la base. En la comprobación de planificación, el intento con `TEMP` del sandbox falló por importación del arnés temporal; con `TEMP` local pasaron 1.417 pruebas unitarias y de componentes, pero el build no terminó y se interrumpió. A-04 permanece abierto. Registrar comando, entorno no secreto, resultado y causa; si resolverlo exige un archivo fuera de alcance, volver a la ruta y al plan.
+
+Recomprobar `git status`, `G-TIENDA` y la numeración antes del código, y preservar los cambios preexistentes. Leer la guía pertinente de `node_modules/next/dist/docs/` antes de editar rutas, páginas o componentes de Next. Para cada comportamiento automatizable: escribir la prueba, observar el rojo esperado, implementar y repetirla.
+
+| # | Acción | Archivos | Criterios y casos que cubre | Verificación del paso |
+|---:|---|---|---|---|
+| 0a | Pasar a la rama `mf/M16f` (ver «Git»); resolver A-04 de `spec-audit-6`; revisar `git status`, `G-TIENDA`, dependencias, numeración de migraciones y pgTAP, y las llamadas existentes a las funciones de `worker_api` que M16f reemplaza (lección de H-E1-254). | Sesión | Condición de entrada; CB-01, CB-03, CB-05 | Rama `mf/M16f` activa; `npm run verify` completo con exit 0. Se registran en la sesión todas las llamadas a `publish_diagnostic`, la única cuya firma cambia, y deben estar dentro de «Archivos»; si una cae fuera, se detiene. `create_pending_connection`, `replace_credential` y `purge_connection` conservan su firma: sus llamadas fuera de la tabla (pgTAP `13`, `14`, `16`, `18` y `scripts/chat-seed-test.mjs`) se registran sin tocarlas, y su regresión en verde se confirma en el paso 5. Si alguna de esas tres tuviera que cambiar de firma o de contrato, se detiene. |
+| 0b | Releer las páginas oficiales de Google citadas en la spec (OAuth web, canje, refresh y revocación; Admin API v1beta; Data API v1beta: `runReport`, `checkCompatibility`, `getMetadata`, cohortes, cuotas, errores) y los changelogs de las dos APIs. | Sesión | Ficha («Verificar la API vigente antes del código»); H-09; spec, «Cambios 2026» | Fecha, URL y resultado por página en la sesión. Una diferencia con la spec detiene la microfase y se corrige la spec antes del código. |
+| 0c | Redactar la ampliación del acta `M03a` para GA4: finalidad; datos agregados que se guardan (tráfico, embudo, ítems, campañas, cohortes, calidad, nombre de la propiedad) y que no se guardan (personas, eventos individuales); envío de agregados a DeepInfra (chat) y a Anthropic (diagnóstico); retención y purga al desconectar; revocación solo local y modo Testing; comunicación al dueño antes del primer dato real. | `M03a/acta-meta.md`, sesión | §17.7; ficha; spec, §6 «Proveedores de modelo», §7, D-M16f-05 y D-M16f-07 | Revisión cruzada acta ↔ spec registrada en la sesión, sin datos reales. |
+| 0d | **Usuario:** aprobar el plan y el acta ampliada. | Plan, acta | Condición de entrada | Aprobaciones registradas en la sesión y en `PROJECT_STATE.md`; sin ellas no empieza el código. |
+| 1 | TDD del preflight: primero una prueba unitaria en `tests/unit/` (variable faltante, URI que no termina en `/api/integraciones/ga4/callback`, client ID sin prefijo numérico, y que la salida nunca contenga los valores), rojo; después `scripts/ga4-preflight.mjs`, `.env.example` y `entorno.md`. **Usuario:** configura Google Cloud, APIs, consentimiento Testing, dominio autorizado, URI y tester, y carga las credenciales fuera del chat. | `.env.example`, `entorno.md`, preflight, `tests/unit/` | C-02, C-03; T-02, T-03; H-07 | La prueba pasa en `npm run verify`. El usuario corre `node --env-file=.env.local scripts/ga4-preflight.mjs` y copia la línea a la sesión; categoría del scope y dominio autorizado anotados, sin valores. |
+| 2 | TDD SQL para tres proveedores y privilegios; crear `0026` solo con `ALTER TYPE … ADD VALUE 'ga4'`. | Migración 0, pgTAP | C-01; CA-05; T-01 | Rojo previo y revisión de que la migración solo agrega el valor. |
+| 3 | **Usuario:** `npm run db:check:test` y `npm run db:push:test` de `0026`. | Migración 0, sesión | C-01; T-01 | Historial del desechable y valor `ga4` confirmado antes de `0027`; comprobar H-12. |
+| 4 | TDD SQL y de aplicación; crear `0027` con forma GA4, credencial, tablas, calidad, getters, funciones `worker_api`, RLS, grants y purga. Adaptar contratos y cliente acotado sin cambiar firmas OAuth existentes. Ninguna columna ni función nueva lleva `default 'meta'` ni otro proveedor por defecto: todo flujo de GA4 pasa `'ga4'` explícito. | Migración 1, pgTAP, integraciones | C-01, C-10; CA-11c, DEC-09; T-01 | Antes de aplicar: pgTAP y pruebas nuevas en rojo contra la base sin `0027`, y revisión estática de la migración (matriz del encabezado, `REVOKE` explícitos, ningún `default` de proveedor: búsqueda de `default 'meta'` y de `default 'ga4'` sin resultados en `0027`). El verde se acredita en el paso 5. |
+| 5 | **Usuario:** `db:check:test` y `db:push:test` de `0027`. El asistente corre el control SQL y de aplicación. | Migración 1, pruebas, sesión | C-01, C-10; T-01 | Historial del desechable con `0027`; matriz del encabezado igual a pgTAP, aislamiento, una GA4 viva, purga idempotente y regresión de Meta y Tiendanube en verde (incluidos los pgTAP `13`, `14`, `16` y `18`, que llaman sin cambios a las funciones reemplazadas): `verify`, `test:policies` y `test:app`, con solo la salvedad D-M16f-13. |
+| 5a | Corrección H-E1-262 aprobada el 2026-11-16: crear `0028_ga4_text_fix.sql` con `CREATE OR REPLACE` de `create_pending_connection`, `replace_credential` y `purge_connection`, sin cambio de firma, SQLSTATE, condición, grant ni comportamiento salvo once mensajes mal codificados. **Usuario:** `db:check:test` y `db:push:test` de `0028` después del ensayo reversible del asistente. El asistente repite el control completo del paso 5. | Migración correctiva, pgTAP, sesión | C-01, C-10; T-01; H-E1-262 | `0027` intacta; historial del desechable con `0028`; `08`, `09b`, `20` y las demás suites requeridas en verde, `verify`, `test:policies` y `test:app`, con solo la salvedad D-M16f-13. No avanzar al paso 6 antes del verde. |
+| 6 | TDD de inicio/callback OAuth, refresh cifrado, selección de propiedad, confirmación del sitio, reautorización, clasificación de errores y desconexión local. | Integraciones, rutas GA4, pruebas | C-02–C-04; CA-37b, CA-37c, CA-38, DEC-17; T-02–T-04 | Replay, otro navegador, token/scope incorrectos, propiedad inválida, pérdida de acceso, URL y logs limpios; ninguna revocación remota. Control `.1` tras 6a. |
+| 6a | Corrección H-E1-265 aprobada por el usuario: actualizar solo `next` y `eslint-config-next` a 16.4.5 en esta rama y regenerar el lockfile. Repetir `verify` una vez; usar la evidencia integral SQL/app ya acreditada en el paso 6 y repetir solo las pruebas focales afectadas por el cambio de Next. | `package.json`, `package-lock.json`, sesión | Control `.1`; H-E1-265 | `npm run verify` exit 0, build sin aviso de seguridad; OAuth GA4 focal en verde. Commit del usuario al terminar el control `.1`. |
+| 7 | TDD del catálogo cerrado de seis informes, `getMetadata`, `checkCompatibility` y preflight por capacidad. | GA4, pruebas | C-05; T-05 | Tres informes base obligatorios; opcionales ausentes con motivo, sin cobertura ni falso cero. |
+| 8 | TDD de backfill e incremental, cuotas, paginación, checkpoints, calidad por informe y ventana, republicación y cohortes con regla de cinco y límites de 30 días. Incluye CA-38c: un paso en vuelo cuando la conexión se desconecta o se reautoriza no escribe (lease y generación desplazados). Preparar `0029_ga4_sync_getters.sql` para H-E1-266 y ensayarla en una transacción reversible. | GA4, SQL, pruebas | C-05–C-08; CA-38c; T-06, T-07; H-E1-266 | 365 días, 25.000 filas, 25 solicitudes por paso, hasta 20 pasos, fallos y reanudación; getters de cohortes y zona completos; publicación y mapeo solo al completar. Control `.2` después de 8a y commit del usuario. |
+| 8a | **Usuario:** `db:check:test` y `db:push:test` de `0029` en el proyecto desechable tras el ensayo reversible. El asistente comprueba el historial y ejecuta el control `.2` sin repetir suites innecesarias. | Migración correctiva, pgTAP, sesión | T-06, T-07; H-E1-266 | `0027`/`0028` intactas; `0029` en el historial del desechable; getters y regresiones en verde. No tocar `app`. |
+| 8b | Corrección H-E1-268 solicitada el 2026-11-16: probar primero el rechazo de un reinicio tras vencer el lease, crear `0030_ga4_expired_lease.sql` y ensayar pgTAP con rollback. **Usuario:** aplicar `0030` solo en el desechable con `db:check:test` y `db:push:test`; el asistente comprueba el historial y corre el control `.2`. | Migración correctiva, pgTAP, sesión | T-06; H-E1-268 | Un run vencido queda `incomplete` y transfiere preflight, objetivo y checkpoint; un lease vivo sigue exclusivo. `0027`–`0029` intactas; `0030` en el historial antes de acreditar `.2`. |
+| 9 | TDD de las tres comparaciones, tarjeta de Integraciones, siete estados, Inicio y menú. | Integraciones, app-data, pruebas | C-07–C-09, C-13; T-07, T-08 | Umbral y unicidad de productos, `utm_id` exacto, referencias internas estables, monedas separadas, cohortes distintas y ningún cociente entre fuentes. Control `.3a` y commit del usuario. |
+| 10 | TDD de seis herramientas GA4, abstención y registro con tres fuentes. Crear `0031` para diagnóstico v3, guarda, nueva firma de `publish_diagnostic` y purga; adaptar diagnóstico y chat. | Migración de diagnóstico, pgTAP, chat, diagnóstico, pruebas | C-10–C-12; CA-62, CA-70, §12, §16; T-01, T-09 | Unit y component en verde con `npm run verify` (cifras iguales a los fixtures SQL, sin IDs ni celdas ocultas para el modelo). Para SQL: pgTAP de `17` y `20` en rojo sin `0031` y revisión estática de la migración; el verde de v1/v2 legibles y v3 validado se acredita en el paso 11. T-12 solo con costo estimado y OK expreso; no es gate. |
+| 11 | **Usuario:** `db:check:test` y `db:push:test` de `0031`. El asistente corre el control `.3b` y T-11 integral. | Migración de diagnóstico, pruebas, sesión | C-01–C-13; T-01–T-09, T-11; CB-01–CB-06 | Historial del desechable con `0028`, `0029`, `0030` y `0031`; v1 y v2 legibles, v3 validado y firma vieja de `publish_diagnostic` inexistente en pgTAP; `npm run verify`, `npm run test:policies`, `npm run test:app` y `git diff --check` en verde, con solo la salvedad D-M16f-13; ninguna prueba requerida omitida. Commit del usuario. |
+| 12 | **Usuario:** comprobar `0025` en `app`; si falta, aplicarla y publicar su código por separado. Luego integrar y hacer push de M16f, aplicar `0026`–`0031` en orden con `db:push` en `app` y desplegar. | Código y migraciones aprobados, sesión | CB-03–CB-06; preparación de T-10 | El usuario aporta el historial de migraciones de `app` (desde el dashboard de Supabase o su propia corrida) y el commit desplegado en Vercel; el asistente lo registra en la sesión **sin consultar `app` ni producción**. Ninguna suite ni fixture corre contra `app`. Publicar no aprueba el gate. |
+| 13 | El usuario comunica el acta al dueño y revisa medición y consentimiento. El dueño aprueba las definiciones fijas de cada métrica y que sus eventos significan lo que dicen (ficha: «definición de cada métrica acordada»); queda redactado en la sesión antes de validar lo ecommerce y las comparaciones. Ejecutar el recorrido real redactado con su propiedad. | Sesión | C-03, C-05–C-09, C-11–C-14; T-10 | Conciliar cada informe disponible en siete días, tráfico, cohortes, chat, diagnóstico y comparación 1; registrar «no disponible» donde corresponda. Desconexión real solo si el dueño la acepta. |
+| 14 | Revisar evidencia, documentos transversales y hallazgos; presentar `G-GA4-FUSION` para aprobación expresa. | Sesión, SECURITY, ARCHITECTURE, PROJECT_STATE, HALLAZGOS | C-01–C-14; T-01–T-11; CB-01–CB-06 | Gate abierto hasta acta comunicada, controles, propiedad y lectura reales, preflight, comparación validada y aprobación. **Usuario:** commit y push de los documentos del cierre, con su hash en la sesión. No iniciar M28.3a automáticamente. |
+
+## Verificación final
+
+En cada control de etapa y al final, ejecutar y registrar `npm run db:check:test`, `npm run verify`, `npm run test:policies`, `npm run test:app` y `git diff --check`. `verify` corre lint, typegen, typecheck, unit, component y build, pero no pgTAP ni `test:app`. Inspeccionar matriz SQL, esquema expuesto, archivos previstos, migraciones antiguas intactas y ausencia de secretos, tokens, IDs de cuentas y montos reales. Ninguna suite automatizada ni fixture se ejecuta contra `app` o producción.
+
+Toda prueba requerida omitida cuenta como no ejecutada (CB-06). La única salvedad D-M16f-13 se limita a fallos de `meta-sync` y `meta-precision` causados por H-E1-241, con casos y causa registrados. T-12 no es requisito del gate.
+
+`meta_first/sesiones/M16f.md` registra hashes, comandos, exit codes, matrices de `checkCompatibility` y privilegios, respuesta sintética y respuesta real redactada por informe, cuotas, calidad, cobertura, ausencias, conciliación, comparación validada y versión publicada. Cada hallazgo nuevo lleva ID estable, impacto, evidencia y microfase asignada.
+
+## Intervenciones del usuario y acciones reservadas
+
+| Paso | Acción del usuario | Cómo se verifica después |
+|---:|---|---|
+| 0d | Aprobar plan y acta ampliada | Aprobaciones registradas antes del código |
+| 1 | Configurar Google Cloud, testers y secretos fuera del chat; correr el preflight | Línea del preflight y anotaciones redactadas en la sesión |
+| 3, 5, 5a, 8a, 8b, 11 | Ejecutar `npm run db:push:test` para cada migración, tras `db:check:test` | Historial del desechable y suites correspondientes |
+| 6, 8, 9, 11 | Hacer los commits de etapa | Hashes registrados; ningún control rojo pendiente |
+| 12 | Revisar `0025`, integrar, hacer push, ejecutar `db:push` en `app` y desplegar | El usuario aporta el historial `0025` → `0026` → `0027` → `0028` → `0029` → `0030` → `0031` y el commit desplegado; el asistente lo registra sin consultar producción |
+| 13 | Comunicar el acta y coordinar la propiedad del dueño | Recorrido T-10 redactado |
+| 14 | Aprobar expresamente `G-GA4-FUSION`; hacer el commit y el push de los documentos del cierre (sesión, `SECURITY.md`, `ARCHITECTURE.md`, `PROJECT_STATE.md`, `HALLAZGOS.md`) | Estado del gate en `PROJECT_STATE.md`; hash del commit de cierre registrado en la sesión |
+| Opcional | Autorizar costo de T-12 | Resultado u omisión opcional registrados |
+
+El asistente no ejecuta acciones reservadas ni pide secretos en el chat. Al final del piloto, `M28.3a` se ocupa de quitar al dueño como tester y pedirle que retire el acceso de PRAXA en Google; no se adelanta ese cierre.
+
+## Migraciones
+
+El último número observado al iniciar M16f era `0025`. `0026_ga4_enum.sql`, `0027_ga4.sql`, `0028_ga4_text_fix.sql` y `0029_ga4_sync_getters.sql` ya figuran en el desechable. Por H-E1-268 y la instrucción del usuario del 2026-11-16 se agrega `0030_ga4_expired_lease.sql`, seguida de `0031_ga4_diag.sql` para diagnóstico. Cada archivo se aplica y verifica primero en el desechable. La separación de `0026` permite usar `ga4` en `0027` después de confirmar el enum. Una corrección posterior a la aplicación se hace con una migración nueva autorizada; nunca se edita una existente. La purga y la republicación siguen las excepciones expresas de la spec; recuperar datos exige reconectar y resincronizar desde GA4, dentro de su retención.
+
+### Corrección H-E1-268 (paso 8b)
+
+El control `.2` detectó que `worker_api.ga4_start_sync` rechaza toda ejecución `running`, incluso con `lease_expires_at <= now()`. Como `private.ga4_locked_run` exige lease vigente para cerrar una ejecución, un corte del proceso bloquea los siguientes pasos y T-06 no se cumple. `0027`, `0028` y `0029` ya están aplicadas en el desechable y permanecen intactas.
+
+1. Preparar en `supabase/tests/20_ga4.test.sql` un caso con ejecución `running` de lease vencido, preflight y checkpoint guardados. Antes de la corrección, el nuevo inicio debe fallar por `PX003`. Cubrir también que una ejecución con lease vigente sigue rechazando un segundo inicio, y que una conexión o generación distinta no hereda el checkpoint.
+2. Crear `0030_ga4_expired_lease.sql` con `CREATE OR REPLACE` de **la misma firma** de `worker_api.ga4_start_sync`. Bajo el bloqueo de empresa y conexión existente, pasar a `incomplete` únicamente las ejecuciones `running` de esa conexión cuyo lease haya vencido; registrar `finished_at` y `error_kind='transitorio'`, conservando preflight, objetivo y checkpoint. Mantener el rechazo `PX003` para un lease vigente. La selección posterior de la ejecución incompleta debe conservar el filtro de empresa, generación y fase antes de insertar el nuevo run. Mantener firma, `SECURITY DEFINER`, `search_path`, validaciones, grants y RLS; no abrir acceso directo a tablas privadas.
+3. Ensayar la migración y pgTAP en una transacción con `ROLLBACK` contra el desechable. Verificar que el run vencido pasa a `incomplete`, el nuevo run toma el checkpoint y que el índice único impide dos runs vivos. Probar desde aplicación un reinicio que publica cada ventana una sola vez, más el rechazo de un segundo paso con lease vigente. No modificar las migraciones aplicadas.
+4. Después del ensayo, actualizar la ruta `meta_first`, la spec y las referencias de este plan: el diagnóstico previsto pasa de `0030_ga4_diag.sql` a `0031_ga4_diag.sql`. Pedir al usuario que ejecute `npm run db:check:test` y `npm run db:push:test` **solo en el proyecto desechable** para `0030`. El asistente confirma el historial y corre el control `.2` una vez, sin duplicar suites que ya pasaron y sin tocar `app`.
+
+Hasta aplicar `0030` en el desechable y pasar el control `.2`, H-E1-268 mantiene bloqueado el paso 8; el commit de etapa y el paso 9 no se acreditan.
+
+## Riesgos
+
+- A-04 mantiene bloqueado el código hasta un `verify` completo con exit 0. Las 1.417 pruebas aprobadas durante la planificación no acreditan el build.
+- El modo Testing puede exigir reautorización semanal. La propiedad del dueño será el primer caso real; datos o instrumentación insuficientes pueden dejar abierto el gate.
+- Debe confirmarse el estado de `0025` en `app` antes de publicar M16f. Una publicación parcial mezclaría código y esquema.
+- El gasto Meta del piloto puede ser cero; esa limitación se registra si la comparación 1 no demuestra valores positivos. La calidad de GA4, la zona y la moneda impiden presentar ausencia como cero o unir cifras incompatibles.
+- Si hacen falta archivos fuera de II.14c o dos correcciones no convergen, detenerse y registrar el hallazgo en la microfase correspondiente. Una dependencia nueva no detiene la microfase: se registra en la sesión con su motivo antes de instalarla, como dice la spec.
+
+## Qué no se hace
+
+No se escribe en Google, Meta ni Tiendanube, ni se revoca el token remotamente. No se unen visitantes individuales con compradores, se comparan pedidos con eventos GA4, se atribuyen ventas a Meta ni se calcula un cociente entre fuentes. No se usan propiedades ajenas al dueño en `app`, no se ejecutan suites contra `app` y no se inicia M28.3a como parte de M16f.

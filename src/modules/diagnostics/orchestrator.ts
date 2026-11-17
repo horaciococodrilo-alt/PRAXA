@@ -9,6 +9,8 @@ import type { TenantContext } from '@/modules/tenant/context';
 
 import {
   BATCH_NOTES_JSON_SCHEMA,
+  GA4_METHODOLOGY_VERSION,
+  GA4_SCHEMA_VERSION,
   METHODOLOGY_VERSION,
   reportJsonSchema,
   SCHEMA_VERSION,
@@ -25,8 +27,8 @@ import {
   type UsageStep,
 } from './contract';
 import { readDiagnosticSettings } from './eligibility';
-import { attachStoreSection, DiagnosticPreparationError, prepareDiagnostic, prepareStoreSection, windowsFor,
-  type PreparedDiagnostic } from './evidence';
+import { attachGa4Section, attachStoreSection, DiagnosticPreparationError, prepareDiagnostic, prepareGa4Section,
+  prepareStoreSection, windowsFor, type PreparedDiagnostic } from './evidence';
 import { DIAGNOSTIC_LIMITS } from './limits';
 import {
   DIAGNOSTIC_MODEL_ID,
@@ -45,6 +47,7 @@ import {
   readAllEntities,
   readBreakdowns,
   readEligibility,
+  readGa4Traffic,
   readStoreSales,
   releaseDiagnostic,
   reserveDiagnostic,
@@ -92,6 +95,8 @@ export type GenerationContext = Readonly<{
   metaTimezone?: string | null;
   /** Conexión viva de Tiendanube; solo con `active` el informe suma la sección (M16e §6). */
   store?: Readonly<{ id: string; status: string; timezone: string | null }> | null;
+  /** Conexión viva de GA4; solo con `active` el informe suma «Tráfico del sitio» (M16f §6). */
+  ga4?: Readonly<{ id: string; status: string; timezone: string | null }> | null;
 }>;
 
 export type StructuredStep = 'report' | 'repair' | 'batch' | 'synthesis';
@@ -176,6 +181,12 @@ const REPORT_SYSTEM = [
 const STORE_RULE = [
   'El paquete trae store: ventas de la tienda en Tiendanube para las mismas fechas de calendario, cada fuente en su zona horaria. Son pedidos pagados y pagos parciales por moneda, solo agregados.',
   'Las ventas de la tienda y la publicidad de Meta son dos series distintas: no las atribuyas a Meta, no infieras que el gasto las causó y no calcules retornos con ellas. Si las mencionás, citá su evidencia ev_tn_* y presentalas como ventas de la tienda.',
+].join('\n');
+
+/** Solo cuando el paquete trae la sección de GA4 (M16f §6). */
+const GA4_RULE = [
+  'El paquete trae ga4: sesiones del sitio y visitas desde Meta según Google Analytics 4, para las mismas fechas de calendario, en la zona de la propiedad. Son visitas, no ventas.',
+  'El tráfico del sitio y el gasto de Meta son series distintas con una asociación débil, sin causalidad: no atribuyas visitas ni ventas a Meta, no calcules costos por visita ni otros cocientes entre fuentes. Si lo mencionás, citá su evidencia ev_ga4_* y presentalo como tráfico del sitio.',
 ].join('\n');
 
 const BATCH_SYSTEM = [
@@ -335,7 +346,8 @@ export async function runModelSteps(input: {
   // Informe o síntesis, con una sola reparación.
   const step: StructuredStep = batched ? 'synthesis' : 'report';
   const user = batched ? synthesisUser(prepared, ctx, web, notes) : reportUser(prepared, ctx, web);
-  const reportSystem = prepared.package.store ? `${REPORT_SYSTEM}\n${STORE_RULE}` : REPORT_SYSTEM;
+  const reportSystem = [REPORT_SYSTEM, ...(prepared.package.store ? [STORE_RULE] : []),
+    ...(prepared.package.ga4 ? [GA4_RULE] : [])].join('\n');
   let raw = await call(step, reportSystem, user, schema);
   let checked = raw === undefined ? { ok: false as const, reason: 'shape' as const } : validateReportOutput(raw, ctx);
   observe(step, checked.ok ? 'accepted' : checked.reason);
@@ -369,15 +381,17 @@ export function buildReport(input: { prepared: Ready; run: ModelRun; syncFinishe
   for (const m of JSON.stringify(raw).matchAll(MARKER)) cited.add(m[1]);
   const shownAliases = new Set(output.top_entities.map((e) => e.alias));
   const items: Evidence[] = prepared.evidence.filter((e) => cited.has(e.id) || e.level === 'account'
-    || e.level === 'store' || (e.entity_alias !== null && shownAliases.has(e.entity_alias)));
+    || e.level === 'store' || e.level === 'site' || (e.entity_alias !== null && shownAliases.has(e.entity_alias)));
   const store = prepared.store;
+  const ga4 = prepared.ga4;
   const entities = Object.fromEntries(pkg.entities.filter((e) => shownAliases.has(e.alias)
     || items.some((i) => i.entity_alias === e.alias)).map((e) => [e.alias, { level: e.level, name: e.name,
     status: e.status, low_sample: e.low_sample }]));
   return {
-    // Con la sección de la tienda, v2 (la base exige la pareja exacta y la conexión de la tienda).
-    schema_version: store ? STORE_SCHEMA_VERSION : SCHEMA_VERSION,
-    methodology_version: store ? STORE_METHODOLOGY_VERSION : METHODOLOGY_VERSION,
+    // Con GA4, v3 (con o sin tienda); si no, con la tienda, v2. La base exige la pareja exacta y
+    // las conexiones de cada sección (0024, 0031).
+    schema_version: ga4 ? GA4_SCHEMA_VERSION : store ? STORE_SCHEMA_VERSION : SCHEMA_VERSION,
+    methodology_version: ga4 ? GA4_METHODOLOGY_VERSION : store ? STORE_METHODOLOGY_VERSION : METHODOLOGY_VERSION,
     window: { from: pkg.window.from, to: pkg.window.to,
       prev_from: pkg.comparison ? pkg.window.prev_from : null, prev_to: pkg.comparison ? pkg.window.prev_to : null },
     settings: { goal_kind: pkg.goal.goal_kind, metric_ref: pkg.goal.metric_ref },
@@ -394,6 +408,7 @@ export function buildReport(input: { prepared: Ready; run: ModelRun; syncFinishe
       },
       manifest: prepared.manifest,
       ...(store ? { store } : {}),
+      ...(ga4 ? { ga4 } : {}),
     },
     output,
     web_sources: run.web.sources,
@@ -497,6 +512,20 @@ export async function generateDiagnostic(deps: DiagnosticDeps): Promise<Generati
         }
       } catch { /* Sin sección de tienda. */ }
     }
+    // Tráfico del sitio: solo con GA4 activa y alguna ventana cubierta. Igual que la tienda, un
+    // fallo de lectura deja el informe sin la sección.
+    let ga4ConnectionId: string | null = null;
+    const ga4 = context.ga4;
+    if (ga4 && ga4.status === 'active' && ga4.timezone) {
+      try {
+        const section = prepareGa4Section({ read: await readGa4Traffic(deps.rpc, ga4.id, window), window,
+          ga4Timezone: ga4.timezone, metaTimezone: context.metaTimezone ?? null, now: now() });
+        if (section) {
+          prepared = attachGa4Section(prepared, section);
+          ga4ConnectionId = ga4.id;
+        }
+      } catch { /* Sin sección de GA4. */ }
+    }
 
     const run = await runModelSteps({ prepared, profile: context.profile, model: deps.model,
       deadlineAt: started + DIAGNOSTIC_LIMITS.totalDeadlineMs, now });
@@ -505,7 +534,7 @@ export async function generateDiagnostic(deps: DiagnosticDeps): Promise<Generati
     const report = buildReport({ prepared, run, syncFinishedAt: eligibility.sync_finished_at,
       attributionWindows });
     const published = await publishDiagnostic(deps.worker as WorkerApi, deps.ctx, { connectionId: connection.id,
-      generation: connection.credentialGeneration, report, storeConnectionId });
+      generation: connection.credentialGeneration, report, storeConnectionId, ga4ConnectionId });
     if (published === 'published' || published === 'already_published') {
       reserved = false;
       return { code: 'generado' };
@@ -577,5 +606,12 @@ export async function loadGenerationContext(ctx: TenantContext, supabase: Supaba
     store = found && found.status !== 'disconnected' ?
       { id: found.id, status: found.status, timezone: found.timezone } : null;
   } catch { store = null; }
-  return { connection, settings, profile, levelStatus, syncFinishedAt, metaTimezone, store };
+  // GA4 también se lee aparte y nunca bloquea el informe.
+  let ga4: GenerationContext['ga4'] = null;
+  try {
+    const found = await readConnectionRecord(ctx, { supabase }, 'ga4');
+    ga4 = found && found.status !== 'disconnected' ?
+      { id: found.id, status: found.status, timezone: found.timezone } : null;
+  } catch { ga4 = null; }
+  return { connection, settings, profile, levelStatus, syncFinishedAt, metaTimezone, store, ga4 };
 }

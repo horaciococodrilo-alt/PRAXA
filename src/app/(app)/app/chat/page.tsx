@@ -13,6 +13,7 @@ export default async function ChatPage() {
   let tieneEmpresa = false;
   let metaActiva = false;
   let tiendaActiva = false;
+  let ga4Activa = false;
   try {
     const ctx = await requireTenantContext();
     tieneEmpresa = true;
@@ -23,11 +24,16 @@ export default async function ChatPage() {
       // Solo «Tiendanube», sin el nombre de la tienda (decisión del usuario, 2026-11-15).
       tiendaActiva = (await readConnectionRecord(ctx, {}, 'tiendanube'))?.status === 'active';
     } catch { tiendaActiva = false; }
+    try {
+      // Solo «Google Analytics», sin el nombre ni el número de la propiedad (M16f-C-13).
+      ga4Activa = (await readConnectionRecord(ctx, {}, 'ga4'))?.status === 'active';
+    } catch { ga4Activa = false; }
   } catch { tieneEmpresa = false; }
 
   const conectadas = [
     ...(metaActiva ? [{ id: 'meta_ads' as const, nombre: 'Meta Ads' }] : []),
     ...(tiendaActiva ? [{ id: 'tiendanube' as const, nombre: 'Tiendanube' }] : []),
+    ...(ga4Activa ? [{ id: 'google_analytics' as const, nombre: 'Google Analytics' }] : []),
   ];
 
   return (

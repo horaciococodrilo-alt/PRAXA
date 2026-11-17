@@ -189,9 +189,11 @@ describe('M16e-T-12: publicación por el cliente real de worker_api', () => {
       expect(await publishDiagnostic(worker, CTX, { connectionId: META, generation: 4, report: {},
         storeConnectionId })).toBe('published');
     }
+    // M16f (0031): el octavo argumento es la conexión de GA4, nula sin su sección.
     expect(sent[0].text).toBe('select * from worker_api.publish_diagnostic($1::uuid, $2::uuid, $3::uuid, '
-      + '$4::uuid, $5::integer, $6::jsonb, $7::uuid)');
+      + '$4::uuid, $5::integer, $6::jsonb, $7::uuid, $8::uuid)');
     expect(sent.map((s) => s.values[6])).toEqual([STORE, null]);
+    expect(sent.map((s) => s.values[7])).toEqual([null, null]);
   });
 });
 
@@ -206,8 +208,9 @@ describe('M16e-T-12: generación con y sin Tiendanube', () => {
       { fn: 'get_tn_sales', args: { p_connection_id: STORE, p_from: W.prev_from, p_to: W.prev_to, p_grain: 'day' } },
     ]);
     const { args, report: stored } = h.published();
-    expect(args).toHaveLength(7);
+    expect(args).toHaveLength(8);
     expect(args[6]).toBe(STORE);
+    expect(args[7]).toBeNull();
     expect(stored).toMatchObject({ schema_version: 2, methodology_version: 'meta-tn-diag-1' });
     expect(Object.keys(stored.evidence).sort()).toEqual(['items', 'manifest', 'store', 'totals']);
     expect(stored.evidence.store).toMatchObject({ source: 'tiendanube', timezone: TZ, meta_timezone: 'UTC' });

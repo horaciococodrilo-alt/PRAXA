@@ -39,7 +39,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 10. Al terminar, informar el estado del gate, los archivos modificados, las verificaciones ejecutadas y cualquier pendiente. No hacer commit, push, despliegue ni otra publicación salvo que el usuario lo solicite.
 
 ### Reglas de las microfases
-- Cada microfase es independiente y revisable, de **hasta 8 horas de implementación**. Es un límite de tamaño del corte, no una estimación ni una asignación de tiempo al usuario.
 - Todas usan la misma plantilla operativa: ID, objetivo, implementación requerida, procedimiento del asistente, evidencia de cierre, aceptación, pruebas, condición para avanzar, dependencias y eventual intervención del usuario.
 - Los IDs con punto, por ejemplo `M07.2`, son subdivisiones del ID estable original.
 
@@ -71,6 +70,7 @@ Si una microfase cambia una propiedad de `SECURITY.md` o `ARCHITECTURE.md`, el a
 - Toda escritura es idempotente, reversible y verificable.
 - Excepción de reversibilidad: el reemplazo del informe del diagnóstico borra el anterior (ver `docs/FASES/FASE1/meta_first/spec.md` §16).
 - Excepción de reversibilidad de Tiendanube: cada pedido guarda solo su estado vigente, y la purga y los borrados por privacidad no se pueden restaurar desde PRAXA; Tiendanube sigue siendo la fuente (ver `docs/FASES/FASE1/meta_first/spec.md` §17.6 y la sección «Excepciones expresas» de `docs/FASES/FASE1/M16e/spec.md`).
+- Excepción de reversibilidad de GA4: la purga al desconectar y la republicación de agregados no se pueden restaurar desde PRAXA; GA4 sigue siendo la fuente (ver `docs/FASES/FASE1/meta_first/spec.md` §17.6 y la sección «Excepciones expresas» de `docs/FASES/FASE1/M16f/spec.md`).
 - El MVP es read-only sobre sistemas externos (Tiendanube, Meta, GA4).
 - Aislamiento multiempresa: el tenant se resuelve en el servidor por membresía; nunca se acepta un `company_id` del cliente.
 - Sin secretos, tokens, montos reales ni IDs de cuentas en código, logs, fixtures, docs ni mensajes.

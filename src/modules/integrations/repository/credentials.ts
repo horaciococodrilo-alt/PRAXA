@@ -166,7 +166,8 @@ function wrapPrepared(payload: PreparedPayload): PreparedCredentialOperation {
 /** Reglas de K04 por proveedor, las mismas que aplica SQL (0023). */
 function assertProviderRules(input: z.infer<typeof writeSchema>): void {
   if (credentialProviderIssues({ provider: input.provider, token_type: input.tokenType,
-    granted_scopes: input.grantedScopes, expires_at: input.expiresAt }).length > 0) invalidInput();
+    granted_scopes: input.grantedScopes, expires_at: input.expiresAt,
+    issued_for_app_id: input.issuedForAppId }).length > 0) invalidInput();
 }
 
 function makeSealedArgs(ctx: TenantContext, id: string, input: CredentialWriteInput, ring: CredentialKeyring) {

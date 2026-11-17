@@ -15,8 +15,8 @@ import { redactQuestion } from './redaction';
 import { renderTurn, type ChatTurnView } from './render';
 import { projectOutput, type FlatChatAnswer, type ChatChoice } from './output-schema';
 import type { ToolResult } from './tools/results';
-import { isTiendanubeTool, META_TOOL_NAMES, TN_TOOL_NAMES, ToolEntityNotFoundError,
-  type ProjectedToolCall, type ToolName } from './tools/schema';
+import { GA4_TOOL_NAMES, isGa4Tool, isTiendanubeTool, META_TOOL_NAMES, TN_TOOL_NAMES,
+  ToolEntityNotFoundError, type ProjectedToolCall, type ToolName } from './tools/schema';
 import { executeTool, missingAccountEntityResult, resolveToolCall,
   type TurnContext } from './tools/execute';
 import { maskExternalAccountId } from '@/modules/integrations/contract';
@@ -41,6 +41,8 @@ export type ChatDependencies = Readonly<{
   connection: (ctx: TenantContext) => Promise<ChatConnection | null>;
   /** Conexión viva de Tiendanube; sin esta dependencia el chat solo conoce Meta. */
   storeConnection?: (ctx: TenantContext) => Promise<ChatConnection | null>;
+  /** Conexión viva de GA4 (M16f §6); sin esta dependencia el chat no ofrece GA4. */
+  ga4Connection?: (ctx: TenantContext) => Promise<ChatConnection | null>;
   readCoverage?: (connectionId: string, level: 'account' | 'campaign' | 'adset' | 'ad',
     period: { from: string; to: string }, signal: AbortSignal) =>
     Promise<{ history_from?: string | null; history_to?: string | null;
@@ -86,6 +88,13 @@ export function createChatDependencies(): ChatDependencies {
     storeConnection: async (ctx) => {
       const found = await readConnectionRecord(ctx, {}, 'tiendanube');
       if (!found || found.status === 'disconnected') return null;
+      return { id: found.id, status: found.status, credential_generation: found.credential_generation,
+        external_account_id: null, currency: found.currency, timezone: found.timezone };
+    },
+    ga4Connection: async (ctx) => {
+      const found = await readConnectionRecord(ctx, {}, 'ga4');
+      if (!found || found.status === 'disconnected') return null;
+      // El número de la propiedad nunca entra al turno: solo id interno, estado, zona y moneda.
       return { id: found.id, status: found.status, credential_generation: found.credential_generation,
         external_account_id: null, currency: found.currency, timezone: found.timezone };
     },
@@ -208,10 +217,10 @@ function partialAnswer(answer: ReturnType<typeof projectOutput>,
       }
     }
   }
-  // En la tienda, un período sin cobertura completa llega como `captured_partial` (M16e §3).
+  // En la tienda y en GA4, un período sin cobertura completa llega como `captured_partial`.
   if (paths.size) return results.some((result) => result.values.some((value) =>
     paths.has(`${result.tool_call_id}:${value.path}`) && (value.composition?.partial ||
-      (value.metric.startsWith('tn_') && value.captured_partial))));
+      ((value.metric.startsWith('tn_') || value.metric.startsWith('ga4_')) && value.captured_partial))));
   return false;
 }
 
@@ -238,25 +247,31 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
   // Al modelo viaja la pregunta tal cual; el registro persistido sigue redactado.
   const question = typeof input.question === 'string' ? input.question.trim() : '';
   let store: ChatConnection | null = null;
+  let ga4: ChatConnection | null = null;
   let sources: ChatSource[] = [];
   // Conexión del corte sin fuentes activas (A-14); `undefined` aplica la regla de D-M16e-24.
   let cutConnection: ChatConnection | null | undefined;
+  const isMetaTool = (name: string) => !isTiendanubeTool(name) && !isGa4Tool(name);
+  // Registro (§6, CA-62 ampliado): Meta si se usó alguna herramienta de Meta; si no, Tiendanube
+  // si se usó alguna de la tienda; si no, GA4. Sin herramientas: la primera activa en ese orden.
   const recordConnection = (): ChatConnection | null => {
     if (cutConnection !== undefined) return cutConnection;
     const meta = connection?.status === 'active' ? connection : null;
     const shop = store?.status === 'active' ? store : null;
-    if (toolNames.some((name) => !isTiendanubeTool(name))) return meta;
-    if (toolNames.length > 0) return shop;
-    return meta ?? shop;
+    const site = ga4?.status === 'active' ? ga4 : null;
+    if (toolNames.some(isMetaTool)) return meta;
+    if (toolNames.some(isTiendanubeTool)) return shop;
+    if (toolNames.length > 0) return site;
+    return meta ?? shop ?? site;
   };
   const view = (kind: Finish['kind'], extra: Partial<Parameters<typeof renderTurn>[0]>,
     id: string | null) => {
     const target = recordConnection();
-    const metaUsed = results.length === 0 || results.some((r) => !isTiendanubeTool(r.tool_name ?? ''));
+    const metaUsed = results.length === 0 || results.some((r) => isMetaTool(r.tool_name ?? ''));
     return renderTurn({ kind, results, recordId: id,
       accountRef: metaUsed ? connection?.external_account_id ?? null : null,
       connectionStatus: target?.status ?? connection?.status ?? null,
-      connectionProvider: target && target === store ? 'tiendanube' : 'meta',
+      connectionProvider: target && target === store ? 'tiendanube' : target && target === ga4 ? 'ga4' : 'meta',
       connectedSources: sources, ...extra });
   };
   const finish = async (result: Finish): Promise<ChatTurnView> => {
@@ -332,26 +347,40 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
       try { store = await within(() => deps.storeConnection!(ctx!), workDeadline, deps.now); }
       catch { store = null; }
     }
+    // Igual que la tienda: un fallo al leer GA4 deja GA4 fuera del turno, sin cortar las otras.
+    if (deps.ga4Connection) {
+      try { ga4 = await within(() => deps.ga4Connection!(ctx!), workDeadline, deps.now); }
+      catch { ga4 = null; }
+    }
     const metaActive = connection?.status === 'active';
     const storeActive = store?.status === 'active';
-    if (!metaActive && !storeActive) {
-      cutConnection = connection ?? store ?? null;
+    const ga4Active = ga4?.status === 'active';
+    if (!metaActive && !storeActive && !ga4Active) {
+      cutConnection = connection ?? store ?? ga4 ?? null;
       return finish({ kind: 'abstention', reason: 'connection_not_active' });
     }
-    sources = [...(metaActive ? ['meta' as const] : []), ...(storeActive ? ['tiendanube' as const] : [])];
-    const catalog: ToolName[] = [...(metaActive ? META_TOOL_NAMES : []), ...(storeActive ? TN_TOOL_NAMES : [])];
+    sources = [...(metaActive ? ['meta' as const] : []), ...(storeActive ? ['tiendanube' as const] : []),
+      ...(ga4Active ? ['ga4' as const] : [])];
+    const catalog: ToolName[] = [...(metaActive ? META_TOOL_NAMES : []), ...(storeActive ? TN_TOOL_NAMES : []),
+      ...(ga4Active ? GA4_TOOL_NAMES : [])];
     const shop = storeActive ? store! : null;
-    const current = { connection: metaActive ? connection : null,
-      store: shop ? { id: shop.id, status: shop.status, currency: shop.currency, timezone: shop.timezone } : null };
-    const primary = metaActive ? connection! : shop!;
-    const timezone = primary.timezone ?? 'UTC';
+    const site = ga4Active ? ga4! : null;
     const date = deps.wallTime();
-    const defaults = defaultPeriod(date, timezone);
     const dayIn = (zone: string) => new Intl.DateTimeFormat('en-CA', { timeZone: zone,
       year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+    const siteTimezone = site?.timezone ?? 'UTC';
+    const current = { connection: metaActive ? connection : null,
+      store: shop ? { id: shop.id, status: shop.status, currency: shop.currency, timezone: shop.timezone } : null,
+      ga4: site ? { id: site.id, status: site.status, currency: site.currency, timezone: site.timezone } : null,
+      ga4Today: site ? dayIn(siteTimezone) : null };
+    const primary = metaActive ? connection! : shop ?? site!;
+    const timezone = primary.timezone ?? 'UTC';
+    const defaults = defaultPeriod(date, timezone);
     const storeTimezone = shop?.timezone ?? 'UTC';
     const storeDefaults = shop ? { ...defaultPeriod(date, storeTimezone),
       month: dayIn(storeTimezone).slice(0, 7) } : null;
+    const siteDefaults = site ? { ...defaultPeriod(date, siteTimezone),
+      month: dayIn(siteTimezone).slice(0, 7) } : null;
     const history = prepareHistory(input.previous, input.pendingClarification);
     const promptContext = { question, ...history,
       today: dayIn(timezone), timezone, currency: primary.currency,
@@ -360,7 +389,10 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
       defaultPeriod: defaults, sources, catalog,
       store: shop && storeDefaults ? { today: dayIn(storeTimezone), timezone: storeTimezone,
         currency: shop.currency, defaultPeriod: { from: storeDefaults.from, to: storeDefaults.to },
-        currentMonth: storeDefaults.month } : null };
+        currentMonth: storeDefaults.month } : null,
+      ga4: site && siteDefaults ? { today: dayIn(siteTimezone), timezone: siteTimezone,
+        currency: site.currency, defaultPeriod: { from: siteDefaults.from, to: siteDefaults.to },
+        currentMonth: siteDefaults.month } : null };
     for (;;) {
       let decision: ModelReply<ChatChoice>;
       try {
@@ -386,7 +418,8 @@ export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Pro
           if (!catalog.includes(call.name)) return finish({ kind: 'abstention', reason: 'tool_error' });
           let resolved: ProjectedToolCall;
           try {
-            const periodFor = isTiendanubeTool(call.name) ? storeDefaults! : defaults;
+            const periodFor = isTiendanubeTool(call.name) ? storeDefaults! :
+              isGa4Tool(call.name) ? siteDefaults! : defaults;
             resolved = await within((signal) => deps.resolve(call.name,
               call.args, current, periodFor, signal), workDeadline, deps.now);
           } catch (error) {

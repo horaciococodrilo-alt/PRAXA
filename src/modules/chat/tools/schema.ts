@@ -11,16 +11,25 @@ export const META_TOOL_NAMES = [
 ] as const;
 /** Herramientas cerradas de Tiendanube (M16e §6): leen solo las funciones `get_tn_*`. */
 export const TN_TOOL_NAMES = ['tn_ventas', 'tn_cohortes', 'tn_productos', 'tn_cobertura'] as const;
-export const TOOL_NAMES = [...META_TOOL_NAMES, ...TN_TOOL_NAMES] as const;
+/** Herramientas cerradas de GA4 (M16f §6): leen solo las funciones `get_ga4_*`. */
+export const GA4_TOOL_NAMES = ['ga4_trafico', 'ga4_embudo', 'ga4_productos', 'ga4_campanias',
+  'ga4_cohortes', 'ga4_cobertura'] as const;
+export const TOOL_NAMES = [...META_TOOL_NAMES, ...TN_TOOL_NAMES, ...GA4_TOOL_NAMES] as const;
 export type ToolName = typeof TOOL_NAMES[number];
 export type TiendanubeToolName = typeof TN_TOOL_NAMES[number];
+export type Ga4ToolName = typeof GA4_TOOL_NAMES[number];
 
 export function isTiendanubeTool(name: string): name is TiendanubeToolName {
   return (TN_TOOL_NAMES as readonly string[]).includes(name);
 }
+export function isGa4Tool(name: string): name is Ga4ToolName {
+  return (GA4_TOOL_NAMES as readonly string[]).includes(name);
+}
 
 /** Tope de la herramienta de cohortes (excepción de CA-70, §17.10): hasta 24 cohortes y 12 meses N. */
 export const TN_COHORT_LIMITS = { maxCohorts: 24, maxOffset: 11, defaultCohorts: 12, defaultOffset: 6 } as const;
+/** Cohortes de visitantes (excepción de CA-70, D-M16f-12): hasta 12 cohortes y 12 meses N. */
+export const GA4_COHORT_LIMITS = { maxCohorts: 12, maxOffset: 11, defaultCohorts: 12, defaultOffset: 6 } as const;
 const MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
 const monthIndex = (month: string) => {
   const match = MONTH.exec(month)!;
@@ -85,6 +94,19 @@ export const toolSchemas = {
     }),
   tn_productos: z.strictObject({ period: chatPeriodSchema, limit: z.number().int().min(1).max(20).default(10) }),
   tn_cobertura: z.strictObject({}),
+  ga4_trafico: z.strictObject({ period: chatPeriodSchema, granularity: z.enum(['day', 'month']) }),
+  ga4_embudo: z.strictObject({ period: chatPeriodSchema }),
+  ga4_productos: z.strictObject({ period: chatPeriodSchema, limit: z.number().int().min(1).max(20).default(10) }),
+  ga4_campanias: z.strictObject({ period: chatPeriodSchema }),
+  ga4_cohortes: z.strictObject({ from_month: chatMonthSchema, to_month: chatMonthSchema,
+    max_offset: z.number().int().min(0).max(GA4_COHORT_LIMITS.maxOffset) })
+    .superRefine((args, ctx) => {
+      const span = monthIndex(args.to_month) - monthIndex(args.from_month) + 1;
+      if (span < 1 || span > GA4_COHORT_LIMITS.maxCohorts) {
+        ctx.addIssue({ code: 'custom', message: 'Meses inválidos.' });
+      }
+    }),
+  ga4_cobertura: z.strictObject({}),
 } as const;
 
 const FLAT_KEYS = new Set([
@@ -150,13 +172,14 @@ export function projectToolArgs(
   if (toolName === 'breakdown' && args.level === 'campaign' && args.entity_ref === undefined) {
     throw new ToolArgumentError();
   }
-  if (toolName === 'tn_ventas' && args.granularity === undefined) {
+  if ((toolName === 'tn_ventas' || toolName === 'ga4_trafico') && args.granularity === undefined) {
     const period = args.period as { from?: unknown; to?: unknown } | undefined;
     const days = typeof period?.from === 'string' && typeof period?.to === 'string' ?
       (Date.parse(period.to) - Date.parse(period.from)) / 86_400_000 + 1 : 0;
     args.granularity = days > DAILY_GRANULARITY_MAX_DAYS ? 'month' : 'day';
   }
-  if (toolName === 'tn_cohortes') {
+  if (toolName === 'tn_cohortes' || toolName === 'ga4_cohortes') {
+    const limits = toolName === 'tn_cohortes' ? TN_COHORT_LIMITS : GA4_COHORT_LIMITS;
     if (args.to_month === undefined) {
       if (!defaults.month || !MONTH.test(defaults.month)) throw new ToolArgumentError();
       args.to_month = defaults.month;
@@ -166,9 +189,9 @@ export function projectToolArgs(
       throw new ToolArgumentError();
     }
     if (args.from_month === undefined) {
-      args.from_month = monthOf(monthIndex(args.to_month) - (TN_COHORT_LIMITS.defaultCohorts - 1));
+      args.from_month = monthOf(monthIndex(args.to_month) - (limits.defaultCohorts - 1));
     }
-    if (args.max_offset === undefined) args.max_offset = TN_COHORT_LIMITS.defaultOffset;
+    if (args.max_offset === undefined) args.max_offset = limits.defaultOffset;
   }
   const parsed = schema.safeParse(args);
   if (!parsed.success) throw new ToolArgumentError();

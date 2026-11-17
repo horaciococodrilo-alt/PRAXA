@@ -160,6 +160,12 @@ export async function disconnectTiendanube(partial: Partial<LifecycleDeps> = {})
     readConnection: partial.readConnection ?? ((ctx) => readConnectionRecord(ctx, {}, 'tiendanube')) });
 }
 
+/** GA4: desconexión y purga local. La rama de `runLazyPurge` omite toda revocación remota. */
+export async function disconnectGa4(partial: Partial<LifecycleDeps> = {}): Promise<DisconnectOutcome> {
+  return disconnect({ ...partial,
+    readConnection: partial.readConnection ?? ((ctx) => readConnectionRecord(ctx, {}, 'ga4')) });
+}
+
 export type AccountOption = Readonly<{ selectionKey: string; name: string | null; maskedId: string;
   currency: string; timezone: string }>;
 export type MetaCardState =

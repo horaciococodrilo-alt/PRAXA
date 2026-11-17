@@ -29,7 +29,7 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 
 ## Siguiente habilitada
 
-**M16f — GA4: habilitada por `G-TIENDA` (2026-11-15).** Necesita spec y plan aprobados antes del código.
+**M16f — GA4: EN CURSO, paso 9 (2026-11-16).** Controles `.1` y `.2` verificados; `0026`–`0030` aplicadas en el desechable. Los commits de etapa, reservados al usuario, siguen pendientes. Evidencia en [sesiones/M16f.md](FASES/FASE1/meta_first/sesiones/M16f.md). `G-GA4-FUSION` permanece abierto.
 
 `G-TIENDA` habilita `M16f`. `M28.3a` espera `G-CHAT`, `G-ANOMALIES`, `G-DIAG`, `G-TIENDA` y `G-GA4-FUSION`.
 

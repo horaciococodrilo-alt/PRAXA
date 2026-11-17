@@ -1,7 +1,7 @@
 -- M25a: registro, arriendo, privilegios y lecturas del chat. Datos sintéticos.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(171);
+select plan(177);
 
 create function pg_temp.sqlstate_of(p_sql text) returns text language plpgsql as $f$
 begin execute p_sql; return null;
@@ -1015,5 +1015,43 @@ select is(worker_api.purge_connection(
 select is((select count(*)::int from public.chat_query_records where connection_id =
   'cc000000-0000-4000-8000-0000000001e2'),0,
   'M16e-C-08: la purga de la tienda borra los registros del chat de esa conexión');
+
+-- M16f-T-09 (§6, CA-62 ampliado): el registro acepta la conexión de GA4 y los nombres de sus
+-- herramientas, que llevan dígitos (H-E1-269).
+select 1 from worker_api.create_pending_connection(
+  'aaaaaaaa-0000-4000-8000-000000000152','c0a00000-0000-4000-8000-000000000152',
+  'cc000000-0000-4000-8000-0000000001f2','ga4',null,'AAAA','AAAAAAAAAAAAAAAA',
+  'AAAAAAAAAAAAAAAAAAAAAA==',1,'google_refresh_token','123456789',
+  array['https://www.googleapis.com/auth/analytics.readonly'],null);
+select 1 from worker_api.confirm_connection(
+  'aaaaaaaa-0000-4000-8000-000000000152','c0a00000-0000-4000-8000-000000000152',
+  'cc000000-0000-4000-8000-0000000001f2','123456789','USD','UTC',true);
+select is((select written from worker_api.record_query(
+  'aaaaaaaa-0000-4000-8000-000000000152','c0a00000-0000-4000-8000-000000000152',
+  'fa000000-0000-4000-8000-0000000001f1','cc000000-0000-4000-8000-0000000001f2',
+  0,'Pregunta sintética del sitio','{ga4_trafico,ga4_cohortes}','answered',null,12,
+  'modelo_sintetico',null)),true,
+  'M16f-T-09: un turno solo con herramientas de GA4 se registra en la conexión de GA4');
+select ok(private.chat_valid_tool_names(array['ga4_trafico','ga4_embudo','ga4_productos',
+  'ga4_campanias','ga4_cohortes','ga4_cobertura','tn_ventas','total']),
+  'M16f-T-09: los nombres de las seis herramientas de GA4 son válidos para el registro');
+select ok(not private.chat_valid_tool_names(array['4ga']) and not private.chat_valid_tool_names(array['Ga4'])
+  and not private.chat_valid_tool_names(array['ga4-trafico']),
+  'M16f-T-09: el registro sigue rechazando nombres que no empiezan con letra, mayúsculas o guiones');
+update public.integration_connections set status = 'needs_reauth', last_error_class = 'authentication', last_error_message = 'Autorización sintética vencida.'
+ where id = 'cc000000-0000-4000-8000-0000000001f2';
+select is((select written from worker_api.record_query(
+  'aaaaaaaa-0000-4000-8000-000000000152','c0a00000-0000-4000-8000-000000000152',
+  'fa000000-0000-4000-8000-0000000001f2','cc000000-0000-4000-8000-0000000001f2',
+  0,'Pregunta sintética','{ga4_trafico}','answered',null,12,'modelo_sintetico',null)),false,
+  'M16f-T-09: una respuesta sobre GA4 que no está activa no se registra');
+select 1 from worker_api.begin_disconnect('aaaaaaaa-0000-4000-8000-000000000152',
+  'c0a00000-0000-4000-8000-000000000152','cc000000-0000-4000-8000-0000000001f2');
+select is(worker_api.purge_connection(
+  'aaaaaaaa-0000-4000-8000-000000000152','c0a00000-0000-4000-8000-000000000152',
+  'cc000000-0000-4000-8000-0000000001f2'),true,'M16f-C-10: la purga de GA4 procede');
+select is((select count(*)::int from public.chat_query_records where connection_id =
+  'cc000000-0000-4000-8000-0000000001f2'),0,
+  'M16f-C-10: la purga de GA4 borra los registros del chat de esa conexión');
 
 rollback;

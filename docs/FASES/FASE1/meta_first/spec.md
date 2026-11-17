@@ -692,9 +692,9 @@ Enmienda del 2026-11-14. Los contratos detallados son los de las specs [`M16e/sp
 3. **Datos mínimos.** De Tiendanube se guarda solo un ID opaco de cliente por empresa. Nombre, email, teléfono, documento, direcciones, notas y payload bruto se descartan. Los datos de clientes no van al modelo.
 4. **El LLM no calcula.** Las cifras, estados y cohortes los calcula SQL o el servidor. Por D-M16e-10, `M16e` amplía el chat con herramientas cerradas y el diagnóstico con una sección de ventas (§16). Al modelo solo llegan agregados, nunca cohortes ni celdas de cohorte de menos de cinco clientes.
 5. **Uniones solo con clave verificada.** Tiendanube–GA4 por `transaction_id` o `item_id`, y GA4–Meta por `utm_id`, después de comprobar la instrumentación. Sin clave, la comparación es descriptiva y se rotula como asociación débil, sin causalidad.
-6. **Excepciones de borrado.** La supresión por solicitud de privacidad y la purga al desconectar borran datos. Deben autorizarse expresamente en la spec de `M16e` o `M16f`, como CA-67. Para Tiendanube, las autoriza la sección «Excepciones expresas» de `M16e/spec.md` (D-M16e-04, D-M16e-16).
+6. **Excepciones de borrado.** La supresión por solicitud de privacidad y la purga al desconectar borran datos. Deben autorizarse expresamente en la spec de `M16e` o `M16f`, como CA-67. Para Tiendanube, las autoriza la sección «Excepciones expresas» de `M16e/spec.md` (D-M16e-04, D-M16e-16). Para GA4, la sección «Excepciones expresas» de `M16f/spec.md` (D-M16f-06).
 7. **Primer dato real.** Exige un acta ampliada, aprobada y comunicada al dueño (`H-E1-237`).
-8. **Decisiones de §7 de la propuesta.** Para Tiendanube, las decisiones 2, 3 y 6 se cerraron el 2026-11-14 (D-M16e-04 a D-M16e-11). Las decisiones 4 (instrumentación de GA4) y 5 (análisis entre fuentes) quedan abiertas para la spec de `M16f`.
+8. **Decisiones de §7 de la propuesta.** Para Tiendanube, las decisiones 2, 3 y 6 se cerraron el 2026-11-14 (D-M16e-04 a D-M16e-11). Las decisiones 4 (instrumentación de GA4) y 5 (análisis entre fuentes) se cerraron el 2026-11-15 (D-M16f-08 y D-M16f-09).
 9. **Excepciones acotadas de M16e, aprobadas por el usuario el 2026-11-14.**
    - **CB-04 e INV-10 (D-M16e-12).** Se permiten pruebas **manuales** en `app` solo con la tienda de demostración de Tiendanube y pedidos sintéticos, sin suites automatizadas. Al terminar, la tienda se desconecta y se verifica la purga.
    - **INV-01 (D-M16e-14).** Los webhooks de privacidad de Tiendanube no tienen sesión. Con la firma verificada, dos funciones de `worker_api` sin actor resuelven por ID de tienda todas sus conexiones. Solo pueden marcarlas como desconectadas (estado `disconnected`, generación incrementada y credencial destruida) y borrar; nunca activan una conexión ni devuelven datos. *(Ampliado el 2026-11-14, D-M16e-27: antes decía «solo borran».)*
@@ -710,6 +710,13 @@ Enmienda del 2026-11-14. Los contratos detallados son los de las specs [`M16e/sp
     - **CA-70:** el tope de 93 días no aplica a la herramienta `tn_cohortes`, que puede usar todo el histórico con un máximo de 24 cohortes y 12 meses.
     - **§16, punto 6, y excepción «Retención»:** el informe con sección de Tiendanube se borra con esa conexión (enmienda D-M16e-15 de §16).
     - **DEC-11, DEC-19, CA-50, CA-50b, CA-50c y CA-66:** rige para todo el chat la enmienda H-E1-228 de §12 (D-M16e-21).
+11. **CA enmendados para GA4 (M16f, aprobados por el usuario el 2026-11-15).** Para Meta y Tiendanube, cada CA conserva su texto.
+    - **CA-05:** el enum admite `meta`, `tiendanube` y `ga4`.
+    - **CA-11c:** el tipo de token admite `google_refresh_token`, solo para `ga4`, sin expiración fija. El permiso concedido de GA4 es exactamente `https://www.googleapis.com/auth/analytics.readonly`.
+    - **CA-38:** la desconexión de GA4 no revoca en Google; PRAXA destruye su credencial y purga (D-M16f-05).
+    - **CA-62:** la conexión del registro es la de Meta si el turno usó alguna herramienta de Meta; si no, la de Tiendanube si usó alguna de Tiendanube; si no, la de GA4. Sin herramientas, la primera activa en ese orden.
+    - **CA-70:** el tope de 93 días no aplica a la herramienta `ga4_cohortes`, que puede usar hasta 12 cohortes y 12 meses (D-M16f-12).
+    - **§16:** con GA4 activa, el informe suma una sección de tráfico del sitio y se borra con esa conexión (D-M16f-03).
 
 ## Fuentes
 

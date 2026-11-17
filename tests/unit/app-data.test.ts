@@ -203,9 +203,19 @@ describe('getIntegraciones', () => {
   it('M16e-T-08 un error al leer Tiendanube la deja no conectada sin afectar a Meta', async () => {
     readConnectionRecord.mockImplementation(async (_ctx: unknown, _deps?: unknown, provider = 'meta') => {
       if (provider === 'tiendanube') throw new Error('fallo sintético');
-      return { status: 'active' };
+      return provider === 'meta' ? { status: 'active' } : null;
     });
     expect((await getIntegraciones()).map((item) => item.conectada)).toEqual([true, false, false]);
+  });
+
+  it.each([
+    ['active', true], ['pending_selection', false], ['needs_reauth', false],
+  ])('M16f-T-07 GA4 %s se proyecta como conectada=%s', async (status, connected) => {
+    readConnectionRecord.mockImplementation(async (_ctx: unknown, _deps?: unknown, provider = 'meta') =>
+      provider === 'ga4' ? { status } : null);
+    expect((await getIntegraciones()).map((item) => item.conectada))
+      .toEqual([false, connected, false]);
+    expect(readConnectionRecord).toHaveBeenCalledWith(expect.anything(), {}, 'ga4');
   });
 
   it('T-46 falla cerrado sin propagar errores de tenant ni lectura', async () => {
