@@ -53,4 +53,19 @@ describe('GA4 sync core', () => {
     expect(rows).toEqual([{ cohort_month: '2026-01-01', month_offset: 1,
       cohort_size: 5, active: null, provisional: true }]);
   });
+
+  it('H-E1-271: un mes N futuro con cero activos se descarta sin cortar la sincronización', () => {
+    const may = { from: '2026-05-01', to: '2026-05-31' };
+    const cell = (offset: string, active: string) => ({
+      dimensionValues: [{ value: '2026-05' }, { value: offset }],
+      metricValues: [{ value: '40' }, { value: active }] });
+    // GA4 numera el mes N con ceros a la izquierda y completa con cero los meses que no empezaron.
+    const rows = ga4ProjectRows('ga4_cohortes', { rows: [cell('0000', '40'), cell('0003', '0')] },
+      may, '2026-06-15');
+    expect(rows).toEqual([{ cohort_month: '2026-05-01', month_offset: 0, cohort_size: 40, active: 40,
+      provisional: false }]);
+    // Un mes futuro con activos sigue siendo una respuesta inválida: no se reinterpreta.
+    expect(() => ga4ProjectRows('ga4_cohortes', { rows: [cell('0003', '7')] }, may, '2026-06-15'))
+      .toThrow(expect.objectContaining({ kind: 'campo_invalido' }));
+  });
 });

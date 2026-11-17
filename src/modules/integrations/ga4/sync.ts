@@ -157,8 +157,11 @@ function errorKind(error: unknown): string {
 function responseRows(body: unknown, offset: number): { count: number; rows: unknown[] } {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Ga4SyncDataError('campo_invalido');
   const response = body as Record<string, unknown>;
-  const count = response.rowCount;
   const rows = response.rows ?? [];
+  // H-E1-271: en JSON la API omite `rowCount` y `rows` cuando el informe no tiene filas. La
+  // ausencia vale 0 solo si tampoco llegaron filas; con filas, `rowCount` es obligatorio.
+  const count = response.rowCount === undefined && Array.isArray(rows) && rows.length === 0
+    ? 0 : response.rowCount;
   if (!Number.isInteger(count) || (count as number) < 0 || (count as number) > 25_000 ||
       !Array.isArray(rows) || rows.length !== Math.min(10_000, (count as number) - offset)) {
     throw new Ga4SyncDataError('campo_invalido');
