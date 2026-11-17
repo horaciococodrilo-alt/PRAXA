@@ -10,8 +10,7 @@ import { IconChevronAbajo } from './icons';
 export type Opcion<T extends string | number> = { valor: T; texto: string };
 
 /**
- * Desplegable del sistema: el selector "Últimos 30 días" del diseño, con su menú. Lo usan
- * Configuración, para que todos los selectores se vean igual (el `<select>`
+ * Desplegable del sistema, con su menú. Lo usa Configuración, para que todos los selectores se vean igual (el `<select>`
  * nativo abre la lista del sistema operativo, con otros colores y tipografía).
  *
  * Patrón de lista desplegable: botón con `aria-haspopup="listbox"` y una lista con

@@ -1,7 +1,6 @@
 /**
  * Formatos de números de la app, en castellano de Argentina (coma decimal, punto de miles).
- * Los importes son costo de la IA en dólares; "Sin datos reportados" nunca se muestra
- * como "$ 0": eso lo decide quien llama, no estas funciones.
+ * Un dato ausente nunca se muestra como cero: eso lo decide quien llama, no estas funciones.
  */
 
 // `useGrouping: 'always'`: en castellano ICU no agrupa números de 4 cifras ("1284").
@@ -12,19 +11,8 @@ const nf = (min: number, max: number) =>
     useGrouping: 'always',
   });
 
-const usdFmt = nf(2, 3);
-const unDecimal = nf(1, 1);
 const hastaUnDecimal = nf(0, 1);
 const entero = nf(0, 0);
-
-/** `US$ 18,42`, `US$ 0,014`, `US$ 0,00`. */
-export const usd = (valor: number) => `US$ ${usdFmt.format(valor)}`;
-
-/** Etiqueta del eje Y: `US$ 0`, `US$ 0,5`, `US$ 1,0`. */
-export const usdEje = (valor: number) => (valor === 0 ? 'US$ 0' : `US$ ${unDecimal.format(valor)}`);
-
-/** `0 s`, `2,4 s`. */
-export const segundos = (valor: number) => `${hastaUnDecimal.format(valor)} s`;
 
 /** `0%`, `99,7%`. */
 export const porcentaje = (valor: number) => `${hastaUnDecimal.format(valor)}%`;
@@ -37,12 +25,6 @@ export const variacion = (valor: number) =>
 export const cantidad = (valor: number) => entero.format(valor);
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-
-/** `AAAA-MM-DD` → `13 sep`. */
-export function diaCorto(fecha: string): string {
-  const [, mes, dia] = fecha.split('-').map(Number);
-  return `${dia} ${MESES[mes - 1]}`;
-}
 
 /** Fecha ISO → `ago. 2024`. */
 export function mesAnio(iso: string): string {
