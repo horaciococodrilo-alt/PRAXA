@@ -2,6 +2,8 @@
 
 ## Estado
 
+**Enmienda M27a, aprobada por el usuario el 2026-11-17** ([enmienda](revisiones/enmienda-rfm-cohortes-audiencias-2026-11-17.md)): agrega §18, con los criterios que hereda `M27a` (RFM, cohortes y propuestas de audiencias). No cambia §1 a §17.
+
 **Enmienda de conectores Tiendanube y GA4, aprobada por el usuario el 2026-11-14** ([propuesta](revisiones/propuesta-conectores-tiendanube-ga4-2026-11-12.md), [sesión](sesiones/enmienda-conectores-2026-11-14.md)):
 
 - agrega `M16e` (Tiendanube) y `M16f` (GA4 y comparación entre fuentes) después de `G-DIAG`;
@@ -717,6 +719,21 @@ Enmienda del 2026-11-14. Los contratos detallados son los de las specs [`M16e/sp
     - **CA-62:** la conexión del registro es la de Meta si el turno usó alguna herramienta de Meta; si no, la de Tiendanube si usó alguna de Tiendanube; si no, la de GA4. Sin herramientas, la primera activa en ese orden.
     - **CA-70:** el tope de 93 días no aplica a la herramienta `ga4_cohortes`, que puede usar hasta 12 cohortes y 12 meses (D-M16f-12).
     - **§16:** con GA4 activa, el informe suma una sección de tráfico del sitio y se borra con esa conexión (D-M16f-03).
+
+## 18. RFM, cohortes y propuestas de audiencias (M27a)
+
+Enmienda del 2026-11-17. El contrato detallado es el de [`M27a/spec.md`](../M27a/spec.md). Rigen además §17.1 a §17.7.
+
+1. **RFM completo.** Recencia, frecuencia y Monetary determinísticos y versionados, sobre pedidos elegibles de Tiendanube. Monetary es obligatorio: no se presenta RF como RFM.
+2. **Fórmula validada.** Monetary usa solo una definición acreditada por evidencia; no habilita montos globales (`TN_COLLECTED_AMOUNT_ENABLED` sigue en `false`) ni en consumidores previos.
+3. **Calidad.** Pagos, ediciones, devoluciones, ausencias y monedas se tratan explícitamente; un dato faltante o impreciso es ausencia, nunca cero ni aproximación. Una falla de calidad bloquea el gate.
+4. **Cohortes.** Solo métricas cuya validez esté acreditada; sin causalidad ni meses inventados.
+5. **Identidad.** ID opaco por empresa y conexión; invitados sin deduplicación personal; estado vigente por pedido; el borrado por privacidad y la purga alcanzan los derivados.
+6. **Pantalla y privacidad.** Pantalla integrada en `/app`, lectura bajo JWT y RLS, tenant resuelto en el servidor y supresión de grupos chicos sin deducción por totales.
+7. **Propuestas.** Cada propuesta lleva todos los campos del contrato y no promete alcance ni eficacia.
+8. **Sin audiencias operativas.** No se crean, exportan ni sincronizan audiencias; no hay identificadores externos, LLM ni ampliación del chat o del diagnóstico.
+9. **Ejecución.** Un solo gate (`G-SEGMENTOS-AUDIENCIAS`), TDD, pruebas solo con datos sintéticos y paralelismo coordinado con las demás microfases.
+10. **Finalidad.** El acta ampliada se aprueba y se comunica al dueño antes de usar datos reales.
 
 ## Fuentes
 

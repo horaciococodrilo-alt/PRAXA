@@ -54,6 +54,8 @@ La enmienda **no aprueba las specs ni los planes de `M16e` y `M16f`**, ni el act
 
 **Tercera enmienda correctiva M16f, solicitada por el usuario el 2026-11-16:** H-E1-268 exige recuperar un run `running` cuyo lease venció. Se agrega `0030_ga4_expired_lease.sql` con la misma firma y privilegios de `ga4_start_sync`, sin modificar las migraciones aplicadas; diagnóstico pasa a `0031_ga4_diag.sql`. El usuario aplica `0030` solo en el proyecto desechable después del ensayo reversible; el control `.2` continúa abierto hasta verificarlo.
 
+**Enmienda M27a (RFM, cohortes y propuestas de audiencias), aprobada por el usuario el 2026-11-17** ([enmienda](revisiones/enmienda-rfm-cohortes-audiencias-2026-11-17.md)): con `G-TIENDA` aprobado se ejecuta en paralelo `M27a`, microfase única por etapas, con excepción expresa al límite de 8 horas y un solo gate, `G-SEGMENTOS-AUDIENCIAS`. Agrega el mapa y la fila del gate, la ficha de `M27a`, II.14d y sus filas en III.2, III.3 y III.8, y la §18 de la spec de la ruta. `M28.3a` no cambia sus dependencias. La enmienda no aprueba el gate, el acta ampliada ni T-04. **El texto enmendado es vigente.**
+
 ---
 
 # Parte I — Enmienda 1 al ROADMAP v2.3
@@ -121,6 +123,7 @@ flowchart LR
   L --> P["M26a Diagnóstico de Meta Ads"]
   P --> Q["M16e Tiendanube"]
   Q --> R["M16f GA4 y comparación"]
+  Q --> S["M27a RFM, cohortes y audiencias (paralelo)"]
   R --> N["M28.3a Demo y cierre"]
   M --> N
   O["M16d App Review — fuera de la ruta"] -.-> N
@@ -147,8 +150,9 @@ flowchart LR
 | `G-CHAT` | `M25a` | `M26a` |
 | `G-ANOMALIES` | `M25b` | `M28.3a`, junto con `G-CHAT`, `G-DIAG`, `G-TIENDA` y `G-GA4-FUSION` |
 | `G-DIAG` | `M26a` | `M16e` |
-| `G-TIENDA` | `M16e` | `M16f` |
+| `G-TIENDA` | `M16e` | `M16f`; `M27a` en paralelo |
 | `G-GA4-FUSION` | `M16f` | `M28.3a`, junto con `G-CHAT` y `G-ANOMALIES` |
+| `G-SEGMENTOS-AUDIENCIAS` | `M27a` | — (trabajo paralelo; no bloquea `M28.3a`) |
 | `G-DEMO` | `M28.3a`, al completar la demostración | Cierre de la ruta. El piloto sigue hasta su fin, y entonces se ejecuta CA-67 (DEC-20) |
 
 ## I.4 Microfases
@@ -452,6 +456,21 @@ Las tres etapas se ejecutan en orden, en una sola corrida de `/microfase M16c` e
 | **Condición para avanzar** | `G-GA4-FUSION`, tras acta y controles, con una propiedad real y una lectura real, preflight de eventos y al menos una comparación validada. Lo que no tenga instrumentación se rotula como no disponible. Si es requisito del gate, el gate sigue abierto. |
 | **Dependencias / habilita** | `G-TIENDA` / `M28.3a`, junto con `G-CHAT` y `G-ANOMALIES`. |
 | **Intervención requerida del usuario** | Crear y configurar el proyecto de Google Cloud y la pantalla de consentimiento. Habilitar las APIs Data y Admin. Registrar la URI y el dominio, y agregar testers. Cargar las credenciales fuera del chat. Garantizar acceso de lectura a la propiedad. Revisar con el dueño la medición y el consentimiento. Aprobar acta, spec y plan. Aplicar migraciones y publicar. |
+
+### M27a — RFM, cohortes y propuestas de audiencias
+
+| Campo | Contenido |
+|---|---|
+| **ID** | `M27a`. Microfase única por etapas, con excepción expresa al límite de 8 horas y un solo gate, `G-SEGMENTOS-AUDIENCIAS`. Enmienda del 2026-11-17. |
+| **Objetivo** | Convertir comportamiento comercial verificable de Tiendanube en segmentos RFM, cohortes y propuestas publicitarias determinísticas, sin crear ni transferir audiencias. |
+| **Implementación requerida** | (1) RFM completo y versionado, con Monetary validado por T-04 (contrato A/B/C). (2) Cohortes mensuales con métricas válidas y ausencias explícitas. (3) Snapshot agregado por conexión y moneda, con invalidación, publicación atómica, privacidad y purga. (4) Pantalla `/app/clientes` con distribución, matriz, evolución y propuestas. (5) Motor de reglas cerrado para propuestas, sin LLM ni escrituras externas. |
+| **Procedimiento del asistente** | Spec y plan aprobados ([`M27a/spec.md`](../M27a/spec.md), [`M27a/plan.md`](../M27a/plan.md)). TDD por etapa; migración nueva; T-04 en tienda no productiva tras el lector estricto. Monetary arranca indisponible. No tocar migraciones existentes, OAuth, scopes ni consumidores previos. |
+| **Evidencia de cierre** | `sesiones/M27a.md`: rojo/verde, `verify`, `test:policies`, `test:app`, T-04 redactado por caso, medición de tamaño y recorrido sintético. |
+| **Criterio de aceptación** | §18.1 a §18.10 de la spec de la ruta, M27a-C-01 a M27a-C-18 y CB-01 a CB-06. Salida C de T-04 deja el gate bloqueado. |
+| **Pruebas** | M27a-T-01 a M27a-T-20, más `npm run verify`, `db:check:test`, `test:policies` y `test:app`. |
+| **Condición para avanzar** | `G-SEGMENTOS-AUDIENCIAS`, con Monetary validado (A o B) y el acta ampliada aprobada y comunicada antes de datos reales. |
+| **Dependencias / habilita** | `G-TIENDA` / — (trabajo paralelo) |
+| **Intervención requerida del usuario** | Autorizar tienda y entorno no productivos para T-04 y cargar credenciales fuera del chat; `db:push:test` en el desechable; aprobar y comunicar el acta; commit, push, PR, migración en `app`, despliegue y aprobación del gate. |
 
 ### M28.3a — Demo con el dueño y cierre del piloto
 
@@ -954,6 +973,26 @@ GA4 entra al chat y al diagnóstico (D-M16f-03). La interfaz va dentro de Integr
 
 ---
 
+## II.14d `M27a` — RFM, cohortes y propuestas de audiencias
+
+Enmienda del 2026-11-17. Spec: [`M27a/spec.md`](../M27a/spec.md); plan: [`M27a/plan.md`](../M27a/plan.md). Depende de `G-TIENDA`; corre en paralelo y no bloquea `M28.3a`. La lista exacta de archivos la fija el plan aprobado. Esta sección autoriza los grupos que citan la spec y el plan:
+
+- **customer-insights:** `src/modules/customer-insights/` (contrato, reglas, propuestas, carga y disponibilidad monetaria).
+- **pantalla:** `src/app/(app)/app/clientes/page.tsx`.
+- **componentes propios:** `src/components/customer-insights/`.
+- **navegación:** `src/components/app/shell.tsx`, solo la entrada Clientes.
+- **insumos monetarios:** `src/modules/integrations/tiendanube/{projection,sync,repository}.ts`, con la misma aridad RPC y sin cambios para consumidores previos.
+- **empresa demo:** `scripts/lib/demo-seed-sources.mjs`, solo para que la demo (`H-E1-273`) siga publicando pedidos con los campos nuevos.
+- **solo migraciones nuevas:** la siguiente libre (prevista `0032_customer_insights.sql`); reemplazos de `worker_api` con las mismas firmas y grants.
+- **suite SQL:** pgTAP nuevo (previsto `21_customer_insights.test.sql`) y regresiones en `09`, `10` y `18`.
+- **pruebas:** unit, component y app nuevas de customer-insights; regresiones de Tiendanube, chat, diagnóstico y `no-privileged-credentials`, modificadas solo en pruebas.
+- **documentos transversales:** `docs/SECURITY.md` y `docs/ARCHITECTURE.md`, solo por propiedades que pasen a vigentes; el acta `M03a/acta-meta.md`.
+- **seguimiento:** `M27a/{spec,plan}.md`, `M27a/revisiones/`, `sesiones/M27a.md`, `HALLAZGOS.md` y `PROJECT_STATE.md`.
+
+No autoriza `package.json`, el lockfile, `worker-api.ts`, `client.ts`, `analysis.ts`, `limits.ts`, OAuth, scopes ni migraciones existentes.
+
+---
+
 ## II.15 `M28.3a` — Demo con el dueño y cierre
 
 > Antes `II.14`; las referencias a `II.14` en documentos anteriores a la enmienda de `M26a` se refieren a esta demo.
@@ -1041,6 +1080,7 @@ El detalle y los criterios de aceptación están en la spec v1.0.
 | `M26a` | Aprobar la spec y el plan; crear la cuenta de Anthropic y cargar la clave sin compartirla por chat; aprobar de nuevo el acta y comunicar al dueño la transferencia a Anthropic antes de enviar datos reales; aplicar la migración en el desechable y en `app`; revisar los PDF sintéticos y aprobar `G-DIAG` |
 | `M16e` | Aprobar spec, plan y acta ampliada, y comunicarla al dueño; crear la app en el Portal de Socios de Tiendanube, con scopes y URLs de instalación y privacidad; cargar credenciales fuera del chat; obtener la autorización del dueño; aplicar migraciones, publicar y aprobar `G-TIENDA` |
 | `M16f` | Configurar Google Cloud, la pantalla de consentimiento y las APIs Data y Admin; registrar URI y testers; cargar credenciales fuera del chat; garantizar acceso a la propiedad; revisar medición y consentimiento con el dueño; aprobar documentos, migrar, publicar y aprobar `G-GA4-FUSION` |
+| `M27a` (en paralelo) | Autorizar la tienda y el entorno no productivos de T-04 y cargar credenciales fuera del chat; `db:push:test` en el desechable; aprobar el acta ampliada y comunicarla al dueño antes de datos reales; migrar en `app`, publicar y aprobar `G-SEGMENTOS-AUDIENCIAS` |
 | `M28.3a` | Coordinar la demostración. Pasar a Supabase Pro si el dueño lo va a usar sin acompañamiento |
 | Fin del piloto | Ejecutar los pasos de CA-67 que requieren dashboard y quitar al dueño como tester. Para GA4 (M16f): quitarlo de los usuarios de prueba de Google Cloud y pedirle que quite el acceso de PRAXA en su cuenta de Google |
 | Para escalar (fuera de la ruta) | `M16d`: Business Verification, dominio y App Review |
@@ -1071,6 +1111,7 @@ Ninguna clave se pega en el chat.
 | `M26a` | `test:policies`, `test:app`, `test:eval` del diagnóstico, inspección manual de PDF y recorrido de la pantalla |
 | `M16e` | `db:check:test`, `test:policies`, `test:app` en cada control de etapa; caso real con pedidos y caso de privacidad |
 | `M16f` | `db:check:test`, `test:policies`, `test:app`; `checkCompatibility` y preflight de instrumentación; lectura y comparación reales |
+| `M27a` | `db:check:test`, `test:policies`, `test:app`; T-04 manual en tienda no productiva; medición de tamaño y recorrido sintético |
 | `M28.3a` | Checklists de la demo y del cierre |
 
 Toda evidencia registra los comandos y sus resultados reales. Nada se declara probado si no se ejecutó (CB-05). Un gate no se aprueba si una prueba requerida se omitió por falta de configuración (CB-06).
@@ -1165,6 +1206,7 @@ IDs sugeridos. Si chocan con los existentes, se sigue la numeración vigente.
 | `M26a` | El dueño genera, lee y descarga un diagnóstico de 28 días de su cuenta de Meta, al aprobar `G-DIAG` |
 | `M16e` | La tienda conectada, con ventas pagadas, cohortes de compradores y productos vendidos, con cobertura |
 | `M16f` | Visitas, embudo y cohortes de visitantes de GA4, comparados con la tienda y con Meta solo donde hay clave verificada |
+| `M27a` | `/app/clientes` con segmentos RFM, cohortes y propuestas de audiencias, por moneda y con grupos chicos ocultos |
 | `M28.3a` | La demostración con el dueño. El piloto sigue hasta su fin |
 
 Si hay que elegir qué llega primero a una demostración, son `M16.1` y `M16.2`: prueban el conector.

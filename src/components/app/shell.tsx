@@ -17,17 +17,19 @@ import {
   IconEngranaje,
   IconInicio,
   IconMenu,
+  IconPersonas,
 } from './icons';
 import { TEMA_PRIMER_PINTADO, useTemaGuardado } from './tema';
 import { Avatar, Img, StatusChip } from './ui';
 
-type Pagina = 'inicio' | 'chat' | 'anomalias' | 'diagnostico' | 'integraciones' | 'configuracion' | 'perfil';
+type Pagina = 'inicio' | 'chat' | 'anomalias' | 'diagnostico' | 'clientes' | 'integraciones' | 'configuracion' | 'perfil';
 
 const PAGINAS: Record<string, Pagina> = {
   '/app': 'inicio',
   '/app/chat': 'chat',
   '/app/anomalias': 'anomalias',
   '/app/diagnostico': 'diagnostico',
+  '/app/clientes': 'clientes',
   '/app/integraciones': 'integraciones',
   '/app/configuracion': 'configuracion',
   '/app/perfil': 'perfil',
@@ -39,6 +41,7 @@ const NAV = [
   { href: '/app/chat', label: 'Chat', icon: <IconChat /> },
   { href: '/app/anomalias', label: 'Anomalías', icon: <IconAlerta /> },
   { href: '/app/diagnostico', label: 'Diagnóstico', icon: <IconBarras /> },
+  { href: '/app/clientes', label: 'Clientes', icon: <IconPersonas /> },
   { href: '/app/integraciones', label: 'Integraciones', icon: <IconEnlace /> },
 ] as const;
 

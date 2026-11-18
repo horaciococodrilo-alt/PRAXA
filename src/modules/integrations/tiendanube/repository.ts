@@ -95,10 +95,32 @@ export type OrdersWindow =
 
 const publishOrdersRow = z.strictObject({ orders_written: counter, orders_suppressed: counter, backfill_next: sqlDate });
 
+/**
+ * M27a §2: los cinco campos de calidad se validan acá, antes de serializar, y la base los
+ * revalida. Una clave extra o una combinación incoherente no sale del proceso.
+ */
+const AMOUNT = /^[0-9]{1,15}(?:\.[0-9]{1,6})?$/;
+const LEGACY_ORDER_KEYS = ['id', 'customer_id', 'status', 'payment_status', 'created_at', 'updated_at', 'paid_at',
+  'closed_at', 'cancelled_at', 'currency', 'subtotal', 'discount', 'total', 'total_paid_by_customer', 'storefront',
+  'cancel_reason', 'is_subscription', 'is_subscription_initial', 'refunded_amount'] as const;
+const publishableOrder = z.strictObject({
+  ...Object.fromEntries(LEGACY_ORDER_KEYS.map((key) => [key, z.unknown()])),
+  customer_id: z.string().nullable(),
+  insights_amount: z.string().regex(AMOUNT).nullable(),
+  insights_amount_status: z.enum(['verified', 'unverified', 'incomplete', 'inconsistent']),
+  insights_amount_definition: z.enum(['tn_paid_current_observed_v1', 'tn_paid_current_less_verified_refunds_v1']).nullable(),
+  insights_identity_status: z.enum(['verified', 'absent', 'invalid']),
+  insights_lines_status: z.enum(['complete', 'source_omitted', 'source_invalid', 'line_omitted']),
+}).refine((o) => (o.insights_amount_status === 'verified') ===
+  (o.insights_amount !== null && o.insights_amount_definition !== null) &&
+  (o.insights_amount_status === 'verified' || (o.insights_amount === null && o.insights_amount_definition === null)) &&
+  (o.insights_identity_status === 'verified') === (o.customer_id !== null));
+
 export async function publishOrders(ctx: TenantContext, input: Ownership & {
   window: OrdersWindow; orders: readonly ProjectedOrder[]; lines: readonly ProjectedLine[];
 }, deps: Deps = {}): Promise<{ written: number; suppressed: number; backfillNext: string | null }> {
   const args = ownershipArgs(ctx, input);
+  if (!input.orders.every((order) => publishableOrder.safeParse(order).success)) throw new TiendanubeRepositoryError();
   const row = one(publishOrdersRow, await api(deps).call('tn_publish_orders', [...args,
     JSON.stringify(input.window), JSON.stringify(input.orders), JSON.stringify(input.lines)]));
   return { written: row.orders_written, suppressed: row.orders_suppressed, backfillNext: isoDay(row.backfill_next) };
@@ -109,10 +131,18 @@ const publishCatalogRow = z.strictObject({ products_written: counter, products_d
 
 export async function publishCatalog(ctx: TenantContext, input: Ownership & {
   products: readonly ProjectedProduct[]; nextPage: number | null; store: ProjectedStore; complete: boolean;
+  /** M27a: `true` solo en la página 1 de un recorrido. */
+  newTraversal: boolean;
+  /** M27a: si esta página omitió algún producto con forma inválida. */
+  hasOmittedProducts: boolean;
 }, deps: Deps = {}): Promise<{ written: number; deleted: number; nextPage: number | null }> {
   const args = ownershipArgs(ctx, input);
+  if (typeof input.newTraversal !== 'boolean' || typeof input.hasOmittedProducts !== 'boolean') {
+    throw new TiendanubeRepositoryError();
+  }
   const row = one(publishCatalogRow, await api(deps).call('tn_publish_catalog', [...args,
-    JSON.stringify(input.products), JSON.stringify({ next_page: input.nextPage, store: input.store }), input.complete]));
+    JSON.stringify(input.products), JSON.stringify({ next_page: input.nextPage, store: input.store,
+      new_traversal: input.newTraversal, has_omitted_products: input.hasOmittedProducts }), input.complete]));
   return { written: row.products_written, deleted: row.products_deleted, nextPage: row.catalog_next_page };
 }
 

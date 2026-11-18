@@ -257,9 +257,18 @@ async function serve(env, roleUrl, { rich = false, demo = false, check = false }
         if (res.error || !res.data?.[0]) throw new Error('No se leyó el estado sintético.');
         return res.data[0];
       }));
+      // M27a: el análisis de clientes, leído con el JWT del dueño sintético (sin cifras).
+      const insights = await user.from('tn_customer_insights').select('currency, payload');
+      if (insights.error) throw new Error('No se leyó el análisis de clientes sintético.');
+      const clientes = (insights.data ?? []).map(({ currency, payload }) => ({ moneda: currency,
+        monetario: payload.quality.monetary.status, identidad: payload.quality.identity,
+        segmentos: payload.segments.status === 'available' ? 'disponibles' : payload.segments.absence,
+        cohortes: payload.cohorts.status === 'available' ? payload.cohorts.rows.length : payload.cohorts.absence,
+        venta_cruzada: payload.productEvidence.crossSell.status === 'available' ? 'disponible'
+          : payload.productEvidence.crossSell.absence }));
       console.log(JSON.stringify({ tiendanube: { cubierto_hasta: tn.covered_through, estado: tn.last_run_status },
         ga4: { cobertura: [ga4.coverage_from, ga4.coverage_through], estado: ga4.last_step_status,
-          regla_productos: ga4.item_mapping_rule } }));
+          regla_productos: ga4.item_mapping_rule }, clientes }));
       return;
     }
     console.log(`Corrida sintética: ${id}`);
@@ -270,7 +279,9 @@ async function serve(env, roleUrl, { rich = false, demo = false, check = false }
     const child = spawn(process.execPath, [nextBin, 'dev'], { cwd: process.cwd(), stdio: 'inherit',
       env: { ...process.env, NEXT_PUBLIC_SUPABASE_URL: env.SUPABASE_TEST_URL,
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: env.SUPABASE_TEST_PUBLISHABLE_KEY,
-        PRAXA_INTEGRATIONS_DB_URL: roleUrl, DEEPINFRA_API_KEY: env.DEEPINFRA_API_KEY } });
+        PRAXA_INTEGRATIONS_DB_URL: roleUrl, DEEPINFRA_API_KEY: env.DEEPINFRA_API_KEY,
+        // M27a, modo demo (H-E1-278): la pantalla Clientes acepta los montos sintéticos de la demo.
+        ...(demo ? { PRAXA_DEMO_MONETARY_DEFINITION: 'tn_paid_current_observed_v1' } : {}) } });
     const stop = () => child.kill();
     process.once('SIGINT', stop);
     process.once('SIGTERM', stop);

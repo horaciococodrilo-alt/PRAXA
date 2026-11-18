@@ -28,6 +28,7 @@ vigente: Parte I de [FASES/FASE1/meta_first/plan.md](FASES/FASE1/meta_first/plan
 | M16e — Conector Tiendanube y cohortes de compradores | `G-TIENDA` | 2026-11-15 (aprobación expresa del usuario; acta comunicada al dueño por declaración del usuario; con las excepciones C-09 sin cambio de estado acreditado, sin conteos en `app`, diagnóstico con tienda sin probar en `app`, T-13 no ejecutada, H-06 no verificada (monto cobrado deshabilitado), `H-E1-216` y `H-E1-258`; sin `/implementation-review` ni `/qa-review` sobre el HEAD cerrado; PR #41 a #46 integrados; detalle en la sesión) | [sesiones/M16e.md](FASES/FASE1/meta_first/sesiones/M16e.md) |
 | M16f — Conector GA4 y comparación entre fuentes | `G-GA4-FUSION` | 2026-11-17 (respuesta «sí» del usuario a la aprobación del gate y a la comunicación del acta al dueño, ambas por declaración del usuario; con las excepciones: diagnóstico v3 sin informe real por falta de actividad de Meta, comparación 1 con gasto de Meta en cero, conciliación y chat acreditados por declaración sin cifras registradas, T-12 no ejecutada; sin `/implementation-review` ni `/qa-review` sobre el HEAD cerrado; PR #53 y #55 integrados; detalle en la sesión) | [sesiones/M16f.md](FASES/FASE1/meta_first/sesiones/M16f.md) |
 | M25b — Detector de anomalías de Meta Ads (trabajo paralelo) | `G-ANOMALIES` | 2026-11-17 (instrucción expresa del usuario, «apruebo lo de anomalías así ya la cerrás»; con las excepciones: recorrido autenticado M25b-T-26 no realizado en `app`, 6 suites históricas de `test:app` no ejecutadas en la sesión de implementación, sin `/implementation-review` ni `/qa-review`; integrada en `main` con el PR #38) | [sesiones/M25b.md](FASES/FASE1/M25b/sesiones/M25b.md) |
+| M27a — RFM, cohortes y propuestas de audiencias (trabajo paralelo) | `G-SEGMENTOS-AUDIENCIAS` | 2026-11-17 (instrucción expresa del usuario, «quiero cerrar la microfase no importa dala por aprobada»; con las excepciones: **Monetary sin validar** — T-04 no ejecutado, `M27A_MONETARY_DEFINITION = null` y `H-E1-274` abierto, así que con una tienda real no hay M, alto valor ni propuestas que dependan de él; acta M03a ampliada no aprobada ni comunicada, sin datos reales; 10 fallas de Meta en `test:app` sin repetir (`H-E1-277`); pruebas de TypeScript del paso 3 sin rojo observado; modo demo de Monetary fuera de la spec (`H-E1-278`); sin `/implementation-review` ni `/qa-review`; sin commit ni integración) | [sesiones/M27a.md](FASES/FASE1/meta_first/sesiones/M27a.md) |
 
 ## Siguiente habilitada
 
@@ -44,7 +45,7 @@ Evidencia en [sesiones/M25a.md](FASES/FASE1/meta_first/sesiones/M25a.md) y [sesi
 
 ## Trabajo paralelo autorizado
 
-Ninguno en curso. M25b se cerró el 2026-11-17 (ver «Cerradas»).
+Ninguno en curso. M25b y M27a se cerraron el 2026-11-17 (ver «Cerradas»).
 
 ## Fuera de la ruta o pospuesto
 

@@ -18,7 +18,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(37);
+select plan(39);
 
 -- ---------------------------------------------------------------------------
 -- Parte 1: empresa con contexto activo y reporte, sin integración
@@ -221,6 +221,17 @@ values ('c0a00000-0000-4000-8000-000000000102', 'cc000000-0000-4000-8000-0000000
         '{"items":[],"totals":{},"manifest":{}}'::jsonb, '{}'::jsonb, '[]'::jsonb,
         'modelo_sintetico', 'modelo_sintetico', '{"calls":1,"batches":0,"steps":[]}'::jsonb);
 
+-- M27a: snapshot agregado de clientes; cae por cascada con la conexión y la empresa (CA-67).
+insert into public.tn_customer_insights
+  (company_id, connection_id, currency, generation, ruleset, as_of_day, fetched_at, payload)
+values ('c0a00000-0000-4000-8000-000000000102', 'cc000000-0000-4000-8000-000000000102', 'ARS', 0,
+        'rfm_v1', current_date - 1, now(),
+        jsonb_build_object('ruleset', 'rfm_v1', 'currency', 'ARS', 'asOfDay', (current_date - 1)::text));
+select is(
+  (select count(*)::int from public.tn_customer_insights
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  1, 'CIERRE 2: la empresa tiene un snapshot de clientes antes del cierre (M27a)');
+
 -- H-E1-06: el usuario no se puede borrar antes que su empresa.
 select throws_ok(
   $$delete from auth.users where id = 'aaaaaaaa-0000-4000-8000-000000000102'$$,
@@ -356,6 +367,11 @@ select is(
   (select count(*)::int from public.diagnostic_reports
     where company_id = 'c0a00000-0000-4000-8000-000000000102'),
   0, 'CIERRE 2: cero informes de diagnóstico, aunque no tengan FK a la conexión (M26a)');
+
+select is(
+  (select count(*)::int from public.tn_customer_insights
+    where company_id = 'c0a00000-0000-4000-8000-000000000102'),
+  0, 'CIERRE 2: cero snapshots de clientes (M27a)');
 
 select lives_ok(
   $$delete from auth.users where id = 'aaaaaaaa-0000-4000-8000-000000000102'$$,

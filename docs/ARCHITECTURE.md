@@ -47,6 +47,8 @@ src/
     tenant/                 K01 TenantContext: actor + empresa, solo en el servidor
     app-data/               datos de las pantallas de `/app`: contrato, lecturas reales y mock
     anomalies/              contrato, aritmética exacta, motor puro, adaptador y demo de anomalías
+    customer-insights/      análisis de clientes (M27a): contrato, reglas y textos fijos,
+                            propuestas, lector monetario estricto y loader de `/app/clientes`
     diagnostics/            diagnóstico de Meta Ads: contrato, lecturas SQL, preparación de la
                             evidencia, proveedor Anthropic, web, validación, orquestador,
                             composición compartida pantalla/PDF, PDF y Server Actions
@@ -89,6 +91,7 @@ Previsto dentro de `src/modules/`, con rutas sugeridas por el plan:
 | `app-data` | Única fuente de datos de las pantallas de `/app`. Lee lo real bajo RLS (usuario, empresa, estado e informe vigente del diagnóstico desde `diagnostic_reports` y conexión activa de Meta) y devuelve mock en cero para lo que no tiene backend (otras integraciones, uso de la IA) | Existe |
 | `diagnostics` | Diagnóstico de Meta Ads de 28 días (M26a). Lee agregados SQL bajo RLS (camino A), prepara evidencia tipada sin truncar (lotes si hace falta), llama a Anthropic en un paso web opcional y un paso de informe con salida estricta, valida y sustituye cifras, y publica por `worker_api` (camino B) con reserva por empresa. `compose` arma un único modelo de documento que consumen la pantalla y el PDF (`@react-pdf/renderer`, generado al descargar y sin guardar). Persistencia propia (`diagnostic_settings`, `diagnostic_reports`), no `reports` | Existe; probado con proveedor simulado (sin evaluación con el modelo real, `H-E1-242`) |
 | `anomalies` | Detecta cambios de CTR, CPC, CPM, gasto y CPA de compra en cuenta y campañas. El contrato y el motor son puros y reutilizables; `load.ts` resuelve tenant y cobertura persistida en servidor; `demo.ts` aporta un fixture sintético que nunca se mezcla con datos reales | Existe |
+| `customer-insights` | Segmentos RFM, cohortes y propuestas de audiencias sobre Tiendanube (M27a). SQL calcula el snapshot agregado; `contract.ts` lo valida estricto; `proposals.ts` aplica siete reglas fijas sobre grupos ya publicados; `monetary.ts` tiene el lector de montos (solo strings JSON decimales) y la definición acreditada por T-04, hoy nula; `load.ts` resuelve tenant y conexión en el servidor y lee con el JWT | Existe; Monetary sin definición hasta T-04 (`H-E1-274`) |
 | `reporting/contract` | Esquema del reporte y su evidencia tipada por procedencia | Existe; sin generación |
 | `integrations/contract` | Contratos Zod de intento OAuth, conexión (registro interno y DTO público separados) y credencial cifrada | Existe |
 | `integrations/crypto` | Llavero versionado y cifrado AES-256-GCM con AAD de empresa, conexión y proveedor; material descifrado en envoltorio redactado | Existe |
@@ -132,7 +135,21 @@ también GA4. El chat suma seis herramientas cerradas (`chat/tools/ga4`, solo `g
 lectura pública del gasto de Meta), se habilita con cualquiera de las tres conexiones y
 registra cada turno según la regla Meta → Tiendanube → GA4. El diagnóstico suma «Tráfico del
 sitio» con GA4 activa y cubierta: el informe pasa a la versión 3, que cuelga también de la
-conexión de GA4 (`0031`). La ruta no
+conexión de GA4 (`0031`).
+
+El análisis de clientes entró con M27a (enmienda del 2026-11-17). La sincronización de
+Tiendanube guarda en columnas privadas de cada pedido su procedencia de identidad y de líneas
+y, solo con una definición acreditada, el monto para M; el catálogo registra si su recorrido
+terminó y si omitió productos. Al cerrar un incremental completo, la misma transacción calcula
+un snapshot agregado por conexión y moneda (`public.tn_customer_insights`); iniciar o publicar
+una sincronización, una supresión de privacidad, el borrado de pedidos y un cambio de estado,
+generación, zona o moneda lo borran. Un cambio de generación o de zona, y la migración inicial,
+piden una relectura completa: un backfill desde el inicio que conserva la cobertura y el
+dataset de M16e, tras el cual el snapshot espera al siguiente incremental. La página
+`/app/clientes` lo lee con `get_tn_customer_insights` bajo RLS, eligiendo solo la moneda, y
+arma las propuestas en el servidor. No hay escrituras externas ni modelo de lenguaje (`0032`).
+
+La ruta no
 construye reportes publicados ni base vectorial. Solo admite las medidas y tasas del catálogo de la spec de la ruta, sin cálculos autoritativos del modelo.
 
 ## Base de datos

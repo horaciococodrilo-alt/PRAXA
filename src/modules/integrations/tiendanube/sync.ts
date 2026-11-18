@@ -2,6 +2,7 @@ import 'server-only';
 
 import { randomUUID } from 'node:crypto';
 
+import { insightsMonetaryFields, M27A_MONETARY_DEFINITION, type MonetaryDefinition } from '@/modules/customer-insights/monetary';
 import type { IntegrationConnectionRecord } from '@/modules/integrations/contract';
 import { NoCompanyError } from '@/modules/company/service';
 import { requireTenantContext, type TenantContext } from '@/modules/tenant/context';
@@ -165,6 +166,8 @@ export type TiendanubeSyncDeps = {
   randomUUID: () => string;
   limits: TiendanubeSyncLimits;
   log: (event: TiendanubeSyncLogEvent) => void;
+  /** M27a §3: definición monetaria acreditada por T-04; nula hasta entonces. */
+  monetaryDefinition: MonetaryDefinition | null;
 };
 
 function resolveDeps(partial: Partial<TiendanubeSyncDeps> = {}): TiendanubeSyncDeps {
@@ -180,6 +183,7 @@ function resolveDeps(partial: Partial<TiendanubeSyncDeps> = {}): TiendanubeSyncD
     randomUUID: partial.randomUUID ?? randomUUID,
     limits: partial.limits ?? DEFAULT_TN_SYNC_LIMITS,
     log: partial.log ?? ((event) => console.info(JSON.stringify(event))),
+    monetaryDefinition: partial.monetaryDefinition === undefined ? M27A_MONETARY_DEFINITION : partial.monetaryDefinition,
   };
 }
 
@@ -302,29 +306,42 @@ function fits(c: Context, total: number, pagesLeft: number): 'fits' | 'later' | 
   return pagesNeeded <= pagesLeft + 1 ? 'fits' : 'later';
 }
 
-/** Proyección de una página: sin duplicados (gana el `updated_at` más nuevo) y con reembolsos. */
+/**
+ * Proyección de una página: sin duplicados (gana el `updated_at` más nuevo) y con reembolsos.
+ * Los campos monetarios de M27a salen del objeto JSON decodificado con el lector estricto, no
+ * de `ProjectedOrder`; sin definición acreditada quedan `null`, `unverified`, `null`.
+ */
 async function projectPage(c: Context, body: unknown): Promise<{ orders: ProjectedOrder[]; lines: ProjectedLine[] }> {
   if (!Array.isArray(body)) throw new TiendanubeProjectionError();
-  const byId = new Map<string, { order: ProjectedOrder; lines: ProjectedLine[] }>();
+  const byId = new Map<string, { order: ProjectedOrder; lines: ProjectedLine[]; raw: unknown }>();
   for (const raw of body) {
     const projected = projectOrder(raw);
     c.step.skippedLines += projected.skippedLines;
     const seen = byId.get(projected.order.id);
-    if (!seen || seen.order.updated_at < projected.order.updated_at) byId.set(projected.order.id, projected);
+    if (!seen || seen.order.updated_at < projected.order.updated_at) byId.set(projected.order.id, { ...projected, raw });
   }
-  for (const { order } of byId.values()) {
-    if (order.payment_status !== 'refunded' && order.payment_status !== 'partially_refunded') continue;
-    if (c.step.historyCalls >= c.deps.limits.maxHistoryCalls || c.step.timeLeft() <= 0) continue;
-    c.step.historyCalls += 1;
-    try {
-      const history = await c.step.call(() => c.http.getJson(c.storeId, `orders/${order.id}/history/values`, {},
-        c.token, 'order'));
-      order.refunded_amount = refundedFromHistory(history.body);
-    } catch (error) {
-      // Un historial que no se puede leer deja el reembolso sin verificar (nulo), no en cero.
-      if (!(error instanceof TiendanubeApiError) || error.kind === 'credencial_invalida' ||
-          error.kind === 'permiso_faltante' || error.kind === 'tienda_suspendida') throw error;
+  const definition = c.deps.monetaryDefinition;
+  for (const entry of byId.values()) {
+    const { order } = entry;
+    const refunded = order.payment_status === 'refunded' || order.payment_status === 'partially_refunded';
+    // La definición B necesita el historial de todo pedido: no se infiere que uno pagado nunca
+    // tuvo una edición. Sin leerlo, el pedido queda `incomplete` (nunca cero).
+    const needsHistory = refunded || definition === 'tn_paid_current_less_verified_refunds_v1';
+    let history: unknown;
+    if (needsHistory && c.step.historyCalls < c.deps.limits.maxHistoryCalls && c.step.timeLeft() > 0) {
+      c.step.historyCalls += 1;
+      try {
+        history = (await c.step.call(() => c.http.getJson(c.storeId, `orders/${order.id}/history/values`, {},
+          c.token, 'order'))).body;
+        if (refunded) order.refunded_amount = refundedFromHistory(history);
+      } catch (error) {
+        // Un historial que no se puede leer deja el reembolso sin verificar (nulo), no en cero.
+        if (!(error instanceof TiendanubeApiError) || error.kind === 'credencial_invalida' ||
+            error.kind === 'permiso_faltante' || error.kind === 'tienda_suspendida') throw error;
+        history = undefined;
+      }
     }
+    Object.assign(order, insightsMonetaryFields({ rawOrder: entry.raw, definition, history }));
   }
   const values = [...byId.values()];
   return { orders: values.map((v) => v.order), lines: values.flatMap((v) => v.lines) };
@@ -443,6 +460,7 @@ async function runCatalog(c: Context, run: StartedRun): Promise<void> {
       }, c.token, 'product'));
       if (!Array.isArray(response.body)) throw new TiendanubeProjectionError();
       const byId = new Map<string, ProjectedProduct>();
+      const skippedBefore = c.step.skippedProducts;
       for (const raw of response.body) {
         // Un producto sin ID válido se omite y se cuenta: no frena el recorrido. Un pedido
         // inválido, en cambio, falla la página, porque omitirlo perdería ventas sin aviso.
@@ -455,8 +473,9 @@ async function runCatalog(c: Context, run: StartedRun): Promise<void> {
       }
       const hasNext = nextLink(response.headers) !== null && response.body.length > 0;
       const nextPage = hasNext ? page + 1 : null;
-      await publishCatalog(c.ctx, { ...c.own, products: [...byId.values()], nextPage, store, complete: !hasNext },
-        { workerApi: c.deps.workerApi() });
+      await publishCatalog(c.ctx, { ...c.own, products: [...byId.values()], nextPage, store, complete: !hasNext,
+        newTraversal: page === 1, hasOmittedProducts: c.step.skippedProducts > skippedBefore },
+      { workerApi: c.deps.workerApi() });
       store = null;
       c.step.products += byId.size;
       if (!hasNext) return;

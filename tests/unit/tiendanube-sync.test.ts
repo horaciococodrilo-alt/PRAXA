@@ -492,8 +492,10 @@ describe('M16e-T-10: proyección en memoria', () => {
   it('un pedido con contact_*, billing_* y customer completo se proyecta sin esos campos', () => {
     const { order, lines } = projection.projectOrder(rawOrder(42, '2026-01-05T15:00:00+0000'));
     expect(Object.keys(order).sort()).toEqual(['cancel_reason', 'cancelled_at', 'closed_at', 'created_at', 'currency',
-      'customer_id', 'discount', 'id', 'is_subscription', 'is_subscription_initial', 'paid_at', 'payment_status',
-      'refunded_amount', 'status', 'storefront', 'subtotal', 'total', 'total_paid_by_customer', 'updated_at']);
+      'customer_id', 'discount', 'id', 'insights_amount', 'insights_amount_definition', 'insights_amount_status',
+      'insights_identity_status', 'insights_lines_status', 'is_subscription', 'is_subscription_initial', 'paid_at',
+      'payment_status', 'refunded_amount', 'status', 'storefront', 'subtotal', 'total', 'total_paid_by_customer',
+      'updated_at']);
     expect(order.customer_id).toBe('500');
     expect(order.created_at).toBe('2026-01-05T15:00:00.000Z');
     const text = JSON.stringify({ order, lines });
@@ -591,5 +593,148 @@ describe('M16e-T-14: días y meses en la zona de la tienda', () => {
     expect(String(march?.window.window_to) <= '2026-03-31').toBe(true);
     expect(april?.ids).toEqual(['2']);
     expect(april?.window.window_from).toBe('2026-04-01');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M27a: procedencia de identidad, líneas, catálogo y Monetary (T-05, T-12, T-16)
+// ---------------------------------------------------------------------------
+
+describe('M27a-T-12: procedencia de identidad y líneas en la proyección', () => {
+  const statusOf = (over: Record<string, unknown>) => {
+    const { order } = projection.projectOrder(rawOrder(9, '2026-01-05T15:00:00+0000', over));
+    return [order.insights_identity_status, order.customer_id];
+  };
+  const without = (key: string) => {
+    const raw: Record<string, unknown> = { ...rawOrder(9, '2026-01-05T15:00:00+0000') };
+    delete raw[key];
+    return raw;
+  };
+
+  it('comprador ausente, nulo, sin ID, inválido o válido', () => {
+    expect(projection.projectOrder(without('customer')).order.insights_identity_status).toBe('absent');
+    expect(statusOf({ customer: null })).toEqual(['absent', null]);
+    expect(statusOf({ customer: { name: 'Persona' } })).toEqual(['absent', null]);
+    expect(statusOf({ customer: { id: null } })).toEqual(['absent', null]);
+    expect(statusOf({ customer: 'texto' })).toEqual(['invalid', null]);
+    expect(statusOf({ customer: [] })).toEqual(['invalid', null]);
+    expect(statusOf({ customer: { id: 'abc' } })).toEqual(['invalid', null]);
+    expect(statusOf({ customer: { id: 0 } })).toEqual(['invalid', null]);
+    expect(statusOf({ customer: { id: 501 } })).toEqual(['verified', '501']);
+  });
+
+  it('líneas: ausentes, no-array, recortadas, sin producto válido y completas', () => {
+    const lines = (over: Record<string, unknown>) =>
+      projection.projectOrder(rawOrder(9, '2026-01-05T15:00:00+0000', over)).order.insights_lines_status;
+    expect(projection.projectOrder(without('products')).order.insights_lines_status).toBe('source_omitted');
+    expect(lines({ products: null })).toBe('source_invalid');
+    expect(lines({ products: {} })).toBe('source_invalid');
+    expect(lines({ products: [{ product_id: 1, name: 'A', price: '1', quantity: 0 }] })).toBe('line_omitted');
+    expect(lines({ products: [{ product_id: null, name: 'A', price: '1', quantity: 1 }] })).toBe('line_omitted');
+    expect(lines({ products: Array.from({ length: 1001 }, () => ({ product_id: 1, name: 'A', price: '1', quantity: 1 })) }))
+      .toBe('line_omitted');
+    expect(lines({ products: [] })).toBe('complete');
+    expect(lines({})).toBe('complete');
+  });
+
+  it('una línea sin product_id válido se sigue guardando para los consumidores anteriores', () => {
+    const { lines } = projection.projectOrder(rawOrder(9, '2026-01-05T15:00:00+0000',
+      { products: [{ product_id: null, name: 'A', price: '1', quantity: 1 }] }));
+    expect(lines).toHaveLength(1);
+    expect(lines[0].product_id).toBeNull();
+  });
+});
+
+describe('M27a-T-05: Monetary en la sincronización', () => {
+  it('sin definición acreditada publica null, unverified, null en todo pedido, aun con historial', async () => {
+    const db = fakeDb();
+    const orders = [...janToMar(3), rawOrder(90, '2026-02-10T15:00:00+0000', { payment_status: 'partially_refunded' })];
+    await sync.syncTiendanube(deps(fakeTiendanube(orders), db));
+    expect(db.orders.size).toBe(4);
+    for (const order of db.orders.values()) {
+      expect([order.insights_amount, order.insights_amount_status, order.insights_amount_definition])
+        .toEqual([null, 'unverified', null]);
+    }
+    expect(db.orders.get('90')?.refunded_amount).toBe('30');
+  });
+
+  it('con A: un token numérico queda incomplete y un string conserva sus dígitos', async () => {
+    const db = fakeDb();
+    const orders = [rawOrder(1, '2026-01-05T15:00:00+0000', { total_paid_by_customer: 1234.5 }),
+      rawOrder(2, '2026-01-06T15:00:00+0000', { total_paid_by_customer: '1234.500000' })];
+    await sync.syncTiendanube(deps(fakeTiendanube(orders), db, { monetaryDefinition: 'tn_paid_current_observed_v1' }));
+    expect([db.orders.get('1')?.insights_amount, db.orders.get('1')?.insights_amount_status]).toEqual([null, 'incomplete']);
+    expect([db.orders.get('2')?.insights_amount, db.orders.get('2')?.insights_amount_status,
+      db.orders.get('2')?.insights_amount_definition]).toEqual(['1234.500000', 'verified', 'tn_paid_current_observed_v1']);
+    // El monto heredado de M16e no cambia de comportamiento.
+    expect(db.orders.get('1')?.total_paid_by_customer).toBe('1234.5');
+  });
+
+  it('con B lee el historial de todo pedido y, sin presupuesto, deja incomplete', async () => {
+    const db = fakeDb();
+    const tn = fakeTiendanube(janToMar(3));
+    await sync.syncTiendanube(deps(tn, db, { monetaryDefinition: 'tn_paid_current_less_verified_refunds_v1' },
+      { maxHistoryCalls: 2 }));
+    const statuses = [...db.orders.values()].map((o) => [o.insights_amount, o.insights_amount_status]);
+    expect(statuses.filter(([, s]) => s === 'verified')).toEqual([['70', 'verified'], ['70', 'verified']]);
+    expect(statuses.filter(([, s]) => s === 'incomplete')).toEqual([[null, 'incomplete']]);
+    expect(tn.calls.filter((u) => u.pathname.endsWith('/history/values'))).toHaveLength(2);
+  });
+});
+
+describe('M27a-T-12: procedencia del recorrido de catálogo', () => {
+  it('new_traversal solo en la página 1 y omisiones por página', async () => {
+    const states: Array<Record<string, unknown>> = [];
+    const db = fakeDb({
+      tn_publish_catalog: (args) => {
+        const state = JSON.parse(String(args[7]));
+        states.push(state);
+        return [{ products_written: 0, products_deleted: 0, catalog_next_page: state.next_page }];
+      },
+    });
+    const products = [{ id: 'x', name: 'Roto' },
+      ...Array.from({ length: 6 }, (_, i) => ({ id: 70 + i, name: `P${i}`, variants: [] }))];
+    await sync.syncTiendanube(deps(fakeTiendanube(janToMar(1), products), db, {}, { perPage: 5 }));
+    expect(states.map((s) => [s.new_traversal, s.has_omitted_products, s.next_page]))
+      .toEqual([[true, true, 2], [false, false, null]]);
+  });
+});
+
+describe('M27a-T-16: el repositorio valida el JSON extendido sin cambiar la aridad', () => {
+  const repository = () => import('@/modules/integrations/tiendanube/repository');
+  const own = { connectionId: CONNECTION_ID, expectedGeneration: 0, runId: randomUUID(), leaseToken: randomUUID() };
+  const base = () => ({ ...projection.projectOrder(rawOrder(5, '2026-01-05T15:00:00+0000')).order });
+
+  it('nueve argumentos, los cinco campos en el JSON de cada pedido', async () => {
+    const calls: Array<readonly unknown[]> = [];
+    const workerApi = { call: (async (_fn: string, args: readonly unknown[]) => {
+      calls.push(args);
+      return [{ orders_written: 1, orders_suppressed: 0, backfill_next: null }];
+    }) as WorkerApi['call'] };
+    const { publishOrders } = await repository();
+    await publishOrders(CTX, { ...own, window: { kind: 'incremental', last_page: true }, orders: [base()], lines: [] },
+      { workerApi });
+    expect(calls[0]).toHaveLength(9);
+    expect(Object.keys(JSON.parse(String(calls[0][7]))[0])).toEqual(expect.arrayContaining(['insights_amount',
+      'insights_amount_status', 'insights_amount_definition', 'insights_identity_status', 'insights_lines_status']));
+  });
+
+  it('rechaza clave extra y combinaciones incoherentes antes de llamar a la base', async () => {
+    const call = vi.fn();
+    const workerApi = { call: call as unknown as WorkerApi['call'] };
+    const { publishOrders, TiendanubeRepositoryError } = await repository();
+    for (const bad of [
+      { ...base(), extra: 1 },
+      { ...base(), insights_amount: '10' },
+      { ...base(), insights_amount_status: 'verified' },
+      { ...base(), insights_amount: 10 },
+      { ...base(), insights_identity_status: 'unverified' },
+      { ...base(), customer_id: null },
+      { ...base(), insights_lines_status: 'unverified' },
+    ]) {
+      await expect(publishOrders(CTX, { ...own, window: { kind: 'incremental', last_page: true },
+        orders: [bad as never], lines: [] }, { workerApi })).rejects.toBeInstanceOf(TiendanubeRepositoryError);
+    }
+    expect(call).not.toHaveBeenCalled();
   });
 });

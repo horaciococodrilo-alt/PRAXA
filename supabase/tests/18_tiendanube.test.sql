@@ -104,7 +104,11 @@ returns jsonb language sql immutable as $fn$
     'currency', p_currency, 'subtotal', p_total::text, 'discount', '0', 'total', p_total::text,
     'total_paid_by_customer', p_total::text, 'storefront', 'store', 'cancel_reason', null,
     'is_subscription', false, 'is_subscription_initial', false,
-    'refunded_amount', p_refunded::text)
+    'refunded_amount', p_refunded::text,
+    -- Calidad de M27a (0032): sin Monetary validado, identidad según el comprador.
+    'insights_amount', null, 'insights_amount_status', 'unverified', 'insights_amount_definition', null,
+    'insights_identity_status', case when p_customer is null then 'absent' else 'verified' end,
+    'insights_lines_status', 'complete')
 $fn$;
 
 create function pg_temp.l(p_order text, p_no integer, p_product text, p_variant text,
@@ -170,9 +174,10 @@ select results_eq(
            ('private', 'tn_orders', true, true), ('private', 'tn_product_variants', true, true),
            ('private', 'tn_products', true, true), ('private', 'tn_redaction_suppressions', true, true),
            ('private', 'tn_sync_runs', true, true), ('public', 'tn_cohort_cells', true, true),
+           ('public', 'tn_customer_insights', true, true),
            ('public', 'tn_product_units_daily', true, true), ('public', 'tn_sales_daily', true, true),
            ('public', 'tn_sync_status', true, true)$$,
-  'M16e-T-01: las once tablas existen con RLS habilitada y forzada');
+  'M16e-T-01: las once tablas (doce con el snapshot de M27a) existen con RLS habilitada y forzada');
 
 create function pg_temp.tn_table_privileges(p_role text)
 returns table (table_name text, privilege text) language sql as $fn$
@@ -203,6 +208,7 @@ select results_eq(
   $$select p.tablename::text collate "default", p.cmd::text, p.roles::text[] collate "default"
       from pg_policies p where p.tablename like 'tn\_%' order by 1$$,
   $$values ('tn_cohort_cells', 'SELECT', array['authenticated']),
+           ('tn_customer_insights', 'SELECT', array['authenticated']),
            ('tn_product_units_daily', 'SELECT', array['authenticated']),
            ('tn_sales_daily', 'SELECT', array['authenticated']),
            ('tn_sync_status', 'SELECT', array['authenticated'])$$,
@@ -212,7 +218,8 @@ select results_eq(
   $$select p.proname::text collate "default", p.prosecdef, p.proconfig = array['search_path=""']
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.proname like 'get\_tn\_%' order by 1$$,
-  $$values ('get_tn_cohorts', false, true), ('get_tn_product_units', false, true),
+  $$values ('get_tn_cohorts', false, true), ('get_tn_customer_insights', false, true),
+           ('get_tn_product_units', false, true),
            ('get_tn_sales', false, true), ('get_tn_sync_status', false, true)$$,
   'M16e-T-01: las cuatro lecturas son INVOKER y con search_path vacío');
 
@@ -222,7 +229,8 @@ select results_eq(
      cross join unnest(array['anon', 'authenticated', 'praxa_integrations', 'service_role']) as r(name)
      where n.nspname = 'public' and p.proname like 'get\_tn\_%'
        and has_function_privilege(r.name, p.oid, 'EXECUTE') order by 1, 2$$,
-  $$values ('get_tn_cohorts', 'authenticated'), ('get_tn_product_units', 'authenticated'),
+  $$values ('get_tn_cohorts', 'authenticated'), ('get_tn_customer_insights', 'authenticated'),
+           ('get_tn_product_units', 'authenticated'),
            ('get_tn_sales', 'authenticated'), ('get_tn_sync_status', 'authenticated')$$,
   'M16e-T-01: solo authenticated ejecuta las lecturas');
 
@@ -484,7 +492,8 @@ select is(pg_temp.state_of($$insert into public.tn_cohort_cells
 select worker_api.tn_publish_catalog(pg_temp.uid(1), pg_temp.cid(1), pg_temp.kid(11), 0,
   pg_temp.run(1), pg_temp.lease(1),
   '[{"id":"501","name":"Remera azul","visibility":"visible","variants":[{"id":"601","sku":"REM-1"}]}]',
-  '{"next_page":null,"store":{"original_domain":"tienda-sintetica.mitiendanube.com","country":"AR"}}',
+  '{"next_page":null,"store":{"original_domain":"tienda-sintetica.mitiendanube.com","country":"AR"},
+    "new_traversal":true,"has_omitted_products":false}',
   true);
 select results_eq(
   $$select name, sku, deleted, units from public.tn_product_units_daily

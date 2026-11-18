@@ -41,6 +41,9 @@ function order(id: string, customer: string | null, at: string, payment = 'paid'
     closed_at: null, cancelled_at: null, currency: 'ARS', subtotal: '100', discount: '0',
     total: '100', total_paid_by_customer: '100', storefront: 'store', cancel_reason: null,
     is_subscription: false, is_subscription_initial: false, refunded_amount: null,
+    // Calidad de M27a (0032): Monetary sin validar.
+    insights_amount: null, insights_amount_status: 'unverified', insights_amount_definition: null,
+    insights_identity_status: customer === null ? 'absent' : 'verified', insights_lines_status: 'complete',
   };
 }
 
@@ -168,7 +171,8 @@ describe('M16e etapa .1: Tiendanube por la Data API (proyecto desechable)', () =
   });
 
   it('T-07: ninguna fila pública expone el ID de la tienda, del pedido o del cliente', async () => {
-    const tables = ['tn_sync_status', 'tn_sales_daily', 'tn_product_units_daily', 'tn_cohort_cells'];
+    const tables = ['tn_sync_status', 'tn_sales_daily', 'tn_product_units_daily', 'tn_cohort_cells',
+      'tn_customer_insights'];
     for (const table of tables) {
       const { data, error } = await owner.user.client.from(table).select('*');
       expect(error).toBeNull();
