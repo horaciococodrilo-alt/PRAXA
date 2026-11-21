@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { IconEdificio } from '@/components/app/icons';
 import s from '@/components/app/inicio.module.css';
 import { IntegracionLogo } from '@/components/app/integracion-logo';
-import { Badge, Button, Card, PageHeader, TileIcon } from '@/components/app/ui';
+import { Badge, Card, PageHeader, TileIcon } from '@/components/app/ui';
 import { getEmpresa, getIntegraciones, requireAppSession } from '@/modules/app-data';
 
 export const metadata = { title: 'Inicio' };
@@ -63,21 +63,6 @@ export default async function InicioPage() {
         </Card>
 
       </section>
-
-      <Card className={s.next} aria-label="Próximo paso">
-        <div>
-          <span className={s.eyebrow}>Próximo paso</span>
-          <h2>Sincronizá tus datos</h2>
-          <p>
-            Traé la información de tus integraciones para que Praxa pueda responder con datos al
-            día.
-          </p>
-        </div>
-        {/* Todavía no hay nada que sincronizar: deshabilitado hasta que exista el backend. */}
-        <Button disabled title="Todavía no disponible">
-          Sincronizar
-        </Button>
-      </Card>
     </>
   );
 }
