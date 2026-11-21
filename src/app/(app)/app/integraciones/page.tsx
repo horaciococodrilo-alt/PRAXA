@@ -10,10 +10,11 @@ import { ga4Notice, ga4SyncNotice } from '@/modules/integrations/ga4/outcomes';
 import { TIENDANUBE_OAUTH_MESSAGES, parseTiendanubeOAuthOutcome } from '@/modules/integrations/tiendanube/oauth';
 import { TN_SYNC_MESSAGES, parseTiendanubeSyncResult } from '@/modules/integrations/tiendanube/sync';
 import { GuiaIntegraciones } from './guia-integraciones';
-import { MetaSyncButton, MetaSyncPanel } from './meta-sync-control';
+import { EstadoSincronizacion } from './estado-sincronizacion';
+import { MetaSyncButton } from './meta-sync-control';
 import { MetaTarjeta } from './meta-tarjeta';
-import { TiendanubePanel, TiendanubeTarjeta } from './tiendanube-tarjeta';
-import { Ga4Panel, Ga4Tarjeta } from './ga4-tarjeta';
+import { TiendanubeTarjeta } from './tiendanube-tarjeta';
+import { Ga4Tarjeta } from './ga4-tarjeta';
 
 export const metadata = { title: 'Integraciones' };
 
@@ -23,7 +24,8 @@ export const maxDuration = 300;
 /**
  * Meta, Tiendanube y Google Analytics tienen tarjetas propias con conexión, reautorización,
  * sincronización y desconexión. La guía de integraciones
- * explica cómo conectar y desconectar (M16e, DP-02).
+ * explica cómo conectar y desconectar (M16e, DP-02). Debajo de las tarjetas no hay paneles de
+ * datos: arriba solo se avisa qué fuente no terminó de sincronizar (2026-11-21).
  *
  * Los callbacks vuelven acá con `?meta=<resultado>` o `?tiendanube=<resultado>`, y las
  * sincronizaciones con `?sync=` o `?tn_sync=`. Solo se muestra el texto de cada lista
@@ -61,9 +63,16 @@ export default async function IntegracionesPage(props: PageProps<'/app/integraci
         subtitle="Conectá tus canales y sistemas para que Praxa analice tu operación."
       />
 
+      <EstadoSincronizacion meta={syncView} metaError={syncError} tiendanube={tiendanube.datos}
+        tiendanubeError={tiendanube.error} ga4={ga4.data} ga4Error={ga4.error} />
       {aviso ? (
         <Card as="div" role={aviso.tone === 'error' ? 'alert' : 'status'}>
           <p>{aviso.text}</p>
+        </Card>
+      ) : null}
+      {notice ? (
+        <Card as="div" role={notice.tone === 'error' ? 'alert' : 'status'}>
+          <p>{notice.text}</p>
         </Card>
       ) : null}
       {avisosTiendanube.map((a) => (
@@ -99,10 +108,6 @@ export default async function IntegracionesPage(props: PageProps<'/app/integraci
         </div>
       </section>
 
-      {syncView ? <MetaSyncPanel view={syncView} notice={notice} /> : null}
-      {syncError ? <Card as="div" role="alert"><p>No pudimos leer los datos de Meta. Probá de nuevo más tarde.</p></Card> : null}
-      <TiendanubePanel datos={tiendanube.datos} error={tiendanube.error} />
-      <Ga4Panel data={ga4.data} error={ga4.error} />
     </>
   );
 }

@@ -13,7 +13,8 @@ vi.mock('@/modules/integrations/actions', () => ({
 }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: navigate }) }));
 
-import { Ga4Panel, Ga4Tarjeta } from '@/app/(app)/app/integraciones/ga4-tarjeta';
+import { EstadoSincronizacion } from '@/app/(app)/app/integraciones/estado-sincronizacion';
+import { Ga4Tarjeta } from '@/app/(app)/app/integraciones/ga4-tarjeta';
 import type { Ga4Data } from '@/modules/integrations/ga4/analysis';
 
 const ACTIVE = { kind: 'activa' as const, name: 'Web sintética', currency: 'USD',
@@ -51,28 +52,19 @@ describe('M16f-T-07/T-08: Integraciones GA4', () => {
     expect(screen.getByRole('button', { name: 'Volver a autorizar' })).toBeInTheDocument();
   });
 
-  it('separa cero medido, ausencia, cohortes ocultas y fuentes desconectadas', () => {
-    render(<Ga4Panel data={data()} error={false} />);
-    expect(screen.getAllByText(/0 · Cero medido/).length).toBeGreaterThan(0);
-    expect(screen.getByText('Parcial')).toBeInTheDocument();
-    expect(screen.getAllByText('menos de 5')).toHaveLength(2);
-    expect(screen.getByText(/Conectá Meta para ver esta comparación/)).toBeInTheDocument();
-    expect(screen.getByText(/separados de las cohortes de compradores/)).toBeInTheDocument();
-  });
-
-  it('H-E1-270: un día observado por Meta sin gasto no se rotula como falta de cobertura', () => {
-    const traffic = ['2026-11-13', '2026-11-14', '2026-11-15'].map((day) => ({ day, sessions: 3, activeUsers: 2,
-      newUsers: 1, metaVisits: 0, provisional: false, quality: { row_count: 3 }, sourceQuality: { row_count: 3 } }));
-    const spend = (day: string, presence: string, value: string | null) => ({ day, spend: value,
-      currency: value ? 'USD' : null, timezone: 'UTC', presence, fetchedAt: '2026-11-16T12:00:00Z' });
-    render(<Ga4Panel data={data({ traffic, metaConnected: true, metaSpend: [
-      spend('2026-11-13', 'sin_fila_reportada', null), spend('2026-11-14', 'con_datos', '12.5')] })} error={false} />);
-    const table = screen.getByRole('region', { name: 'Comparación tráfico y gasto' });
-    const rows = within(table).getAllByRole('row').slice(1).map((row) => row.textContent ?? '');
-    expect(rows[0]).toContain('Meta no reportó gasto');
-    expect(rows[0]).not.toContain('Sin cobertura');
-    expect(rows[1]).toContain('12.5 USD');
-    expect(rows[2]).toContain('Sin cobertura');
+  it('arriba avisa solo mientras Google Analytics no terminó de sincronizar', () => {
+    const estado = (ga4: Ga4Data | null, ga4Error = false) => (
+      <EstadoSincronizacion meta={null} metaError={false} tiendanube={null} tiendanubeError={false}
+        ga4={ga4} ga4Error={ga4Error} />
+    );
+    const { rerender } = render(estado(data()));
+    expect(screen.queryByRole('status')).toBeNull();
+    rerender(estado(data({ lastStep: null, coverageFrom: null, coverageThrough: null })));
+    expect(screen.getByRole('status')).toHaveTextContent('Google Analytics: todavía no sincronizaste.');
+    rerender(estado(data({ lastStep: 'incomplete' })));
+    expect(screen.getByRole('status')).toHaveTextContent('la sincronización quedó incompleta');
+    rerender(estado(null, true));
+    expect(screen.getByRole('alert')).toHaveTextContent('Google Analytics: no pudimos leer el estado');
   });
 
   it('la selección pendiente exige vista previa y confirmación del sitio', async () => {

@@ -13,12 +13,13 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: navegar }) }));
 
 import { GuiaIntegraciones, PASOS_CONECTAR, PASOS_DESCONECTAR, abrirGuiaIntegraciones } from
   '@/app/(app)/app/integraciones/guia-integraciones';
-import { MENOS_DE_5, TN_RETENTION, TN_UNINSTALL, TiendanubePanel, TiendanubeTarjeta } from
+import { TN_RETENTION, TN_UNINSTALL, TiendanubeTarjeta } from
   '@/app/(app)/app/integraciones/tiendanube-tarjeta';
+import { EstadoSincronizacion } from '@/app/(app)/app/integraciones/estado-sincronizacion';
 import type { TiendanubeCardState, TiendanubeDatos } from '@/modules/integrations/tiendanube/analysis';
 
 /**
- * M16e etapa .4 (paso 8): tarjeta y panel de Tiendanube (T-08, parte de componente) y guía de
+ * M16e etapa .4 (paso 8): tarjeta y aviso de sincronización de Tiendanube (T-08, parte de componente) y guía de
  * integraciones (DP-02, P-02). Datos sintéticos.
  */
 
@@ -95,58 +96,37 @@ describe('M16e-T-08: tarjeta de Tiendanube', () => {
   });
 });
 
-describe('M16e-T-08: panel de Tiendanube', () => {
-  it('distingue cero real (período cubierto sin ventas) de ausencia (sin datos) y marca lo parcial', () => {
-    render(<TiendanubePanel datos={datos()} error={false} />);
-    const filas = within(screen.getAllByRole('table')[0]).getAllByRole('row').slice(1);
-    expect(filas.map((fila) => [...fila.querySelectorAll('td')].map((td) => td.textContent))).toEqual([
-      ['sep 2026', 'Sin ventas', '0', '0', '0', 'Completo'],
-      ['oct 2026', 'ARS', '12', '3', '1', 'Completo'],
-      ['oct 2026', 'USD', '2', '0', '0', 'Completo'],
-      ['nov 2026', 'Sin datos', '—', '—', '—', 'Parcial'],
-    ]);
-    expect(screen.getByText(/Pedidos pagados sin cliente identificado: 3 de 14/)).toBeInTheDocument();
-    expect(screen.getByText(/Datos completos hasta el 12\/11\/2026/)).toBeInTheDocument();
+describe('Integraciones: aviso de sincronización de Tiendanube (2026-11-21)', () => {
+  const estado = (tiendanube: TiendanubeDatos | null, tiendanubeError = false) => (
+    <EstadoSincronizacion meta={null} metaError={false} tiendanube={tiendanube} tiendanubeError={tiendanubeError}
+      ga4={null} ga4Error={false} />
+  );
+
+  it('con los datos completos no avisa nada', () => {
+    render(estado(datos()));
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('cohortes: tamaño y celda menores que cinco se muestran como «menos de 5»; la oculta no tiene celdas', () => {
-    render(<TiendanubePanel datos={datos()} error={false} />);
-    const tabla = screen.getAllByRole('table')[2];
-    const filas = within(tabla).getAllByRole('row').slice(1).map((fila) =>
-      [...fila.querySelectorAll('td')].map((td) => td.textContent));
-    expect(filas).toEqual([
-      ['ago 2026', MENOS_DE_5, '—', '—', '—'],
-      ['sep 2026', '12', '100%', MENOS_DE_5, '41,7% *'],
-    ]);
-    expect(screen.getByText(/Mes sin cobertura completa/)).toBeInTheDocument();
+  it('sin sincronizar, leyendo el histórico o confirmando lo reciente avisa qué falta', () => {
+    const base = datos().estado!;
+    const { rerender } = render(estado(datos({ estado: null })));
+    expect(screen.getByRole('status')).toHaveTextContent('Tiendanube: todavía no sincronizaste la tienda.');
+    rerender(estado(datos({ estado: { ...base, cubiertoHasta: null, backfillTerminado: false } })));
+    expect(screen.getByRole('status')).toHaveTextContent('todavía se está leyendo el histórico');
+    rerender(estado(datos({ estado: { ...base, cubiertoHasta: null, backfillTerminado: true } })));
+    expect(screen.getByRole('status')).toHaveTextContent('el histórico ya está leído');
+    rerender(estado(datos({ estado: { ...base, ultimaEjecucion: { ...base.ultimaEjecucion!, estado: 'incomplete' } } })));
+    expect(screen.getByRole('status')).toHaveTextContent('la última sincronización no terminó');
   });
 
-  it('ranking por unidades, con el producto eliminado rotulado', () => {
-    render(<TiendanubePanel datos={datos()} error={false} />);
-    const filas = within(screen.getAllByRole('table')[1]).getAllByRole('row').slice(1).map((fila) =>
-      [...fila.querySelectorAll('td')].map((td) => td.textContent));
-    expect(filas).toEqual([['1', 'Remera', 'R-1', '9'], ['2', 'Gorra (producto eliminado)', '—', '4']]);
-  });
-
-  it('vacíos: sin sincronizar, sin ventas, sin unidades y sin cohortes no se presentan como cero', () => {
-    render(<TiendanubePanel error={false} datos={datos({ estado: null,
-      ventas: { desde: '2026-10-01', hasta: '2026-11-13', filas: [] },
-      productos: { desde: '2026-10-17', hasta: '2026-11-13', cubierto: false, filas: [] },
-      cohortes: { desde: '2025-12-01', hasta: '2026-11-01', filas: [] } })} />);
-    expect(screen.getByText(/Todavía no sincronizaste la tienda/)).toBeInTheDocument();
-    expect(screen.getByText('Todavía no hay ventas sincronizadas.')).toBeInTheDocument();
-    expect(screen.getByText('Todavía no hay datos de productos para el período.')).toBeInTheDocument();
-    expect(screen.getByText(/Todavía no hay cohortes/)).toBeInTheDocument();
-    expect(screen.queryByRole('table')).toBeNull();
-  });
-
-  it('un error de lectura se informa y no se muestra como vacío', () => {
-    render(<TiendanubePanel datos={null} error />);
-    expect(screen.getByRole('alert')).toHaveTextContent('No pudimos leer los datos de Tiendanube');
+  it('un error de lectura se avisa como alerta', () => {
+    render(estado(null, true));
+    expect(screen.getByRole('alert')).toHaveTextContent('Tiendanube: no pudimos leer el estado');
   });
 
   it('ningún texto rotula una cifra como «ingreso neto» ni muestra importes cobrados', () => {
-    render(<><TiendanubeTarjeta state={ACTIVA} /><TiendanubePanel datos={datos()} error={false} /><GuiaIntegraciones /></>);
+    render(<><TiendanubeTarjeta state={ACTIVA} />{estado(datos({ estado: null }))}<GuiaIntegraciones /></>);
     const text = document.body.textContent ?? '';
     expect(text).not.toMatch(/ingreso neto/i);
     expect(text).not.toMatch(/cobrad/i);
