@@ -31,6 +31,7 @@ vi.mock('@/modules/app-data', () => ({
 }));
 vi.mock('@/modules/integrations/lifecycle', () => ({ loadMetaCardState: lectura('loadMetaCardState') }));
 vi.mock('@/modules/anomalies/load', () => ({ loadMetaAnomalyView: lectura('loadMetaAnomalyView') }));
+vi.mock('@/modules/customer-insights/load', () => ({ loadCustomerInsightsPage: lectura('loadCustomerInsightsPage') }));
 vi.mock('@/modules/tenant/context', () => ({ requireTenantContext: () => tenant() }));
 vi.mock('@/modules/integrations/repository/connections', () => ({
   readConnectionRecord: (...args: unknown[]) => connection(...args),
@@ -82,11 +83,12 @@ describe('verificación de sesión en cada página de /app', () => {
     requireAppSession.mockRejectedValue(SIN_SESION);
   });
 
-  it('encuentra las siete pantallas', () => {
+  it('encuentra las ocho pantallas', () => {
     expect(PAGINAS.map(([r]) => r).sort()).toEqual([
       '/app',
       '/app/anomalias',
       '/app/chat',
+      '/app/clientes',
       '/app/configuracion',
       '/app/diagnostico',
       '/app/integraciones',

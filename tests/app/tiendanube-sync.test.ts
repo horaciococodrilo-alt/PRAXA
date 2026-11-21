@@ -232,7 +232,8 @@ describe('M16e .3: extracción y privacidad de Tiendanube contra la base real', 
     const tables = ['private.tn_orders', 'private.tn_order_lines', 'private.tn_customers', 'private.tn_products',
       'private.tn_product_variants', 'private.tn_redaction_suppressions', 'private.tn_sync_runs',
       'private.integration_credentials', 'public.tn_sync_status', 'public.tn_sales_daily',
-      'public.tn_product_units_daily', 'public.tn_cohort_cells', 'public.chat_query_records'];
+      'public.tn_product_units_daily', 'public.tn_cohort_cells', 'public.chat_query_records',
+      'public.tn_customer_insights'];
     let total = 0;
     for (const table of tables) {
       const { rows } = await sql!.query<{ n: string }>(
@@ -290,6 +291,43 @@ describe('M16e .3: extracción y privacidad de Tiendanube contra la base real', 
     expect(await privateOrders(connectionId)).toEqual(['1001', '1002', '1003', '1004', '1005', '1006']);
     const { rows } = await sql!.query('select * from private.tn_customers where connection_id = $1', [connectionId]);
     expect(Object.keys(rows[0]).sort()).toEqual(['company_id', 'connection_id', 'external_customer_id']);
+  });
+
+  it('M27a-T-13: el incremental completo publica un snapshot por moneda; el dueño lo lee y otro no', async () => {
+    const owner = await company('m27a-snapshot');
+    const other = await company('m27a-ajena');
+    const store = storeId();
+    const connectionId = await connectStore(owner, store);
+    const tn = fakeTiendanube(store, fixture());
+    expect(await sync.syncTiendanube(syncDeps(owner, tn))).toBe('parcial');
+    const { rows: none } = await sql!.query('select 1 from public.tn_customer_insights where connection_id = $1',
+      [connectionId]);
+    expect(none).toEqual([]);
+    expect(await sync.syncTiendanube(syncDeps(owner, tn))).toBe('completa');
+
+    const mine = await owner.user.client.from('tn_customer_insights').select('currency, payload').order('currency');
+    expect(mine.error).toBeNull();
+    expect(mine.data?.map((row) => row.currency)).toEqual(['ARS', 'USD']);
+    const payload = (mine.data?.[0] as { payload: { quality: { monetary: unknown }; segments: unknown } }).payload;
+    // Sin T-04, la sincronización real publica Monetary sin validar: no hay segmentos.
+    expect(payload.quality.monetary).toEqual({ status: 'unverified', definition: null });
+    expect(payload.segments).toEqual({ status: 'unavailable', absence: 'monetario_no_validado',
+      definition: 'segment_partition_v1' });
+    expect(JSON.stringify(mine.data)).not.toContain(`"${store}"`);
+    for (const id of ['1001', '1002', '501']) expect(JSON.stringify(mine.data)).not.toContain(`"${id}"`);
+
+    const getter = await owner.user.client.rpc('get_tn_customer_insights', { p_connection_id: connectionId,
+      p_currency: 'ARS' });
+    expect(getter.error).toBeNull();
+    expect(getter.data).toHaveLength(1);
+    const foreign = await other.user.client.rpc('get_tn_customer_insights', { p_connection_id: connectionId,
+      p_currency: 'ARS' });
+    expect(foreign.error).toBeNull();
+    expect(foreign.data).toEqual([]);
+    const { rows } = await sql!.query<{ pending: boolean; started: boolean }>(
+      'select insights_rebuild_pending as pending, insights_rebuild_started as started from public.tn_sync_status where connection_id = $1',
+      [connectionId]);
+    expect(rows).toEqual([{ pending: false, started: false }]);
   });
 
   it('T-04: con pocas páginas por paso, cada paso sigue desde el checkpoint sin duplicar ni perder', async () => {

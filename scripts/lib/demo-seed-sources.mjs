@@ -103,13 +103,20 @@ export function buildStoreOrders(today) {
       const roll = r();
       const payment = roll < 0.9 ? 'paid' : roll < 0.94 ? 'partially_paid' : roll < 0.97 ? 'pending' : 'refunded';
       const amount = (total / 100).toFixed(2);
-      orders.push({ id, customer_id: r() < 0.97 ? customer : null, status: payment === 'refunded' ? 'cancelled' : 'closed',
+      const customerId = r() < 0.97 ? customer : null;
+      orders.push({ id, customer_id: customerId, status: payment === 'refunded' ? 'cancelled' : 'closed',
         payment_status: payment, created_at: at, updated_at: at, paid_at: payment === 'pending' ? null : at,
         closed_at: payment === 'paid' ? at : null, cancelled_at: payment === 'refunded' ? at : null,
         currency: 'ARS', subtotal: amount, discount: '0', total: amount,
         total_paid_by_customer: payment === 'paid' ? amount : '0', storefront: 'store',
         cancel_reason: payment === 'refunded' ? 'customer' : null, is_subscription: false,
-        is_subscription_initial: false, refunded_amount: payment === 'refunded' ? amount : '0' });
+        is_subscription_initial: false, refunded_amount: payment === 'refunded' ? amount : '0',
+        // M27a (0032), modo demo (H-E1-278): montos sintéticos verificados con la definición A,
+        // como string decimal, solo para mostrar la pantalla completa. Identidad según el
+        // comprador; líneas completas.
+        insights_amount: payment === 'paid' ? amount : '0', insights_amount_status: 'verified',
+        insights_amount_definition: 'tn_paid_current_observed_v1',
+        insights_identity_status: customerId === null ? 'absent' : 'verified', insights_lines_status: 'complete' });
     }
   }
   return { orders, lines };
@@ -152,7 +159,8 @@ export async function seedStore(query, actor, company) {
     await query(`select * from worker_api.tn_publish_catalog($1::uuid,$2::uuid,$3::uuid,$4::integer,$5::uuid,
       $6::uuid,$7::jsonb,$8::jsonb,true)`, [...args, JSON.stringify(DEMO_PRODUCTS.map((p) => ({ id: p.id,
       name: p.name, visibility: 'visible', variants: p.variants }))),
-    JSON.stringify({ next_page: null, store: { original_domain: 'tienda-demo.mitiendanube.com', country: 'AR' } })]);
+    JSON.stringify({ next_page: null, store: { original_domain: 'tienda-demo.mitiendanube.com', country: 'AR' },
+      new_traversal: true, has_omitted_products: false })]);
   });
   await step((args) => publishOrders(args, { kind: 'incremental', last_page: true }, [], []));
   return { connection, orders: total };

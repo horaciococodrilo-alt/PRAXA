@@ -39,6 +39,12 @@ export const ORDER_FIELDS = ['id', 'customer', 'status', 'payment_status', 'crea
 export const PRODUCT_FIELDS = ['id', 'name', 'visibility', 'published', 'variants'].join(',');
 export const STORE_SYNC_FIELDS = ['id', 'original_domain', 'country'].join(',');
 
+/** Procedencia de identidad y líneas de M27a (spec §2); nunca payload ni PII. */
+export const INSIGHTS_IDENTITY_STATUSES = ['verified', 'absent', 'invalid'] as const;
+export type InsightsIdentityStatus = (typeof INSIGHTS_IDENTITY_STATUSES)[number];
+export const INSIGHTS_LINES_STATUSES = ['complete', 'source_omitted', 'source_invalid', 'line_omitted'] as const;
+export type InsightsLinesStatus = (typeof INSIGHTS_LINES_STATUSES)[number];
+
 export type ProjectedOrder = {
   id: string;
   customer_id: string | null;
@@ -59,6 +65,12 @@ export type ProjectedOrder = {
   is_subscription: boolean | null;
   is_subscription_initial: boolean | null;
   refunded_amount: string | null;
+  /** M27a §3: los fija la sincronización con el lector estricto; acá, sin validar. */
+  insights_amount: string | null;
+  insights_amount_status: 'verified' | 'unverified' | 'incomplete' | 'inconsistent';
+  insights_amount_definition: 'tn_paid_current_observed_v1' | 'tn_paid_current_less_verified_refunds_v1' | null;
+  insights_identity_status: InsightsIdentityStatus;
+  insights_lines_status: InsightsLinesStatus;
 };
 
 export type ProjectedLine = {
@@ -153,10 +165,17 @@ export function projectOrder(raw: unknown): { order: ProjectedOrder; lines: Proj
     throw new TiendanubeProjectionError();
   }
   const customer = record(source.customer);
+  // M27a §2: comprador ausente/nulo o sin ID → `absent`; objeto o ID con forma inválida →
+  // `invalid`; solo un ID válido es `verified`. El `customer_id` heredado no cambia.
+  const customerId = customer ? externalId(customer.id) : null;
+  const identity: InsightsIdentityStatus = source.customer === undefined || source.customer === null ? 'absent'
+    : !customer ? 'invalid'
+      : customer.id === undefined || customer.id === null ? 'absent'
+        : customerId ? 'verified' : 'invalid';
 
   const order: ProjectedOrder = {
     id,
-    customer_id: customer ? externalId(customer.id) : null,
+    customer_id: customerId,
     status,
     payment_status: paymentStatus,
     created_at: createdAt,
@@ -174,6 +193,12 @@ export function projectOrder(raw: unknown): { order: ProjectedOrder; lines: Proj
     is_subscription: bool(source.is_subscription),
     is_subscription_initial: bool(source.is_subscription_initial),
     refunded_amount: null,
+    insights_amount: null,
+    insights_amount_status: 'unverified',
+    insights_amount_definition: null,
+    insights_identity_status: identity,
+    insights_lines_status: source.products === undefined ? 'source_omitted'
+      : Array.isArray(source.products) ? 'complete' : 'source_invalid',
   };
 
   const lines: ProjectedLine[] = [];
@@ -187,8 +212,11 @@ export function projectOrder(raw: unknown): { order: ProjectedOrder; lines: Proj
     if (!line || index >= MAX_LINES || !name || price === null || !Number.isInteger(quantity) ||
         quantity < 1 || quantity > 1_000_000) {
       skippedLines += 1;
+      order.insights_lines_status = 'line_omitted';
       continue;
     }
+    // Una línea sin `product_id` válido se guarda como antes, pero no completa la evidencia.
+    if (!externalId(line.product_id)) order.insights_lines_status = 'line_omitted';
     lines.push({
       order_id: id,
       line_no: index + 1,

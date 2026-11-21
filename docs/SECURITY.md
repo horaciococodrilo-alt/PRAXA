@@ -229,6 +229,12 @@ Garantías de la base, vigentes y probadas en pgTAP:
 - Los agregados y la calidad de GA4 (M16f) se leen bajo RLS solo con membresía y la conexión de
   GA4 `active` o `needs_reauth`; las filas de ítems y campañas con identificadores externos
   viven en `private`, sin grants (`0027`, pgTAP `20`).
+- El análisis de clientes (M27a) se lee bajo RLS solo con membresía, la conexión de Tiendanube
+  `active` y la misma generación con que se calculó. Es un agregado por conexión y moneda,
+  calculado en SQL con acceso privilegiado dentro de la transacción de sincronización: los
+  usuarios no tienen lectura de pedidos ni de clientes, y el payload no lleva IDs de tienda,
+  pedido, cliente ni producto. La pantalla resuelve empresa y conexión en el servidor; el
+  navegador solo elige la moneda (`0032`, pgTAP `21`).
 
 La matriz exacta de privilegios vive en cada migración y en su pgTAP. No se copia acá.
 
@@ -400,6 +406,10 @@ aplicada y sin conteos ni retenciones deducibles de una celda oculta. Los nombre
 campañas son texto no confiable. Vigente en código, con pruebas unitarias y de app con datos
 sintéticos, y usado en el recorrido real.
 
+El análisis de clientes (M27a) no usa el modelo: segmentos, cohortes y propuestas salen de SQL y
+de reglas fijas en el servidor, y nada de ese análisis llega al chat, al diagnóstico ni a Meta.
+Vigente en código, con pruebas unitarias y de app.
+
 **Diagnóstico de Meta Ads (M26a), con Anthropic.** Vigente en el código y probado con un
 proveedor simulado; la evaluación con el modelo real no se ejecutó por decisión del usuario
 (`H-E1-242`), y los datos reales esperan la aprobación del acta y la comunicación al dueño:
@@ -432,6 +442,7 @@ Estado de cada pieza, sin repetir los plazos (la fuente es la spec):
 | Datos de Tiendanube (M16e) | Pedidos, líneas, ID opaco de cliente y catálogo en `private`, sin grants; los usuarios leen solo agregados, por RLS y con la conexión vigente. Solo el estado vigente de cada pedido (D-M16e-16). La purga al desconectar y `app/store_redact` borran todo lo de la conexión; `customer/redact` borra los pedidos del cliente y deja una marca de supresión por pedido, sin PII, que cae con la purga. Excepciones de reversibilidad en `meta_first/spec.md` §17.6. Vigente en la base (`0023`, pgTAP `18`) y en código desde la etapa .3: la extracción proyecta en memoria solo la lista cerrada de campos y los webhooks borran por tienda o por cliente (pruebas unitarias y de app con datos sintéticos). Sin datos reales hasta la primera publicación y el acta |
 | Datos de GA4 (M16f) | Solo agregados por día y por cohorte, con su calidad por informe y ventana; nunca personas ni eventos individuales. `itemId` y `utm_id` quedan en `private`, sin grants. La purga al desconectar borra credencial, ejecuciones, filas privadas, agregados, calidad, claves de ítem y el informe con sección de GA4; la republicación reemplaza los agregados de su ventana. Excepciones de reversibilidad en `meta_first/spec.md` §17.6 y en la sección 7 de `M16f/spec.md`: GA4 sigue siendo la fuente. Vigente en la base (`0027`–`0031`, pgTAP `20`) y en código; con datos reales desde el recorrido del piloto, según el acta ampliada |
 | Informe del diagnóstico (M26a) | Uno por empresa. Se conserva tras desconectar, oculto por la política de lectura (excepción de retención de `meta_first/spec.md` §16); se borra al publicar uno nuevo (excepción de reversibilidad) o al borrar la empresa. La purga de Meta no lo toca. El informe con sección de tienda (v2, M16e) cuelga además de la conexión de Tiendanube: se oculta al desconectarla y la purga o `app/store_redact` lo borran por cascada (nota «Enmienda D-M16e-15» de §16); `customer/redact` no lo toca, porque solo tiene totales. Un PDF descargado no se revoca. Vigente en la base, probado en pgTAP y en `test:app` (v2 desde `0024`) |
+| Análisis de clientes (M27a) | Un snapshot agregado por conexión de Tiendanube y moneda, sin personas ni IDs. Se borra al iniciar o publicar una sincronización, al marcar una supresión de privacidad (antes del borrado de los pedidos), al borrar pedidos, al cambiar estado, generación, zona o moneda de la conexión, y por cascada con la conexión y la empresa; nunca se conserva uno viejo para ocultar un fallo. Grupos y celdas de 0 a 4 compradores no se publican. Los montos para M se guardan en columnas privadas del pedido y solo con una definición acreditada por T-04; hasta entonces no hay M, alto valor ni propuestas que dependan de él (`H-E1-274`). Vigente en la base (`0032`, pgTAP `21`) y en código; sin datos reales hasta el acta ampliada |
 | Reserva técnica del diagnóstico | Vence sola; se libera al terminar o fallar la generación |
 | Copias de seguridad del proveedor | Un dato borrado de la base activa puede seguir en las copias durante su plazo (CA-38b). Es un límite declarado, no se mitiga |
 
@@ -509,6 +520,10 @@ Cubierto por `05_delete_carveout.test.sql`.
   Integraciones o hasta el cierre del piloto; en `customer/redact`, hasta la siguiente
   sincronización (D-M16e-26). Un aviso de desinstalación atrasado puede borrar una conexión
   reinstalada dentro de las 48 horas (D-M16e-28).
+- **Inferencia residual en el análisis de clientes (M27a, D-M27a-06).** La regla de cinco no
+  impide deducciones con conocimiento externo ni comparando snapshots sucesivos; el usuario
+  aceptó ese límite. Las propuestas no son audiencias: PRAXA no crea, exporta ni sincroniza
+  listas, y un conteo identificado no es alcance publicitario.
 - **GA4 (M16f), riesgos aceptados por el usuario.** Sin revocación remota, un refresh token
   desconectado sigue válido en Google hasta que vence o el dueño quita el acceso desde su
   cuenta (D-M16f-05). En modo Testing, Google pide volver a autorizar cada 7 días (D-M16f-07).

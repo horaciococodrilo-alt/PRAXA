@@ -152,19 +152,6 @@ export const IconLuna = (p: IconProps) => (
   </Svg>
 );
 
-export const IconCalendario = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="3.5" y="5" width="17" height="15" rx="2.5" />
-    <path d="M3.5 10h17M8 3v4M16 3v4" />
-  </Svg>
-);
-
-export const IconRayo = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M13 3 5 13.5h6L10 21l8-10.5h-6z" />
-  </Svg>
-);
-
 export const IconDocumento = (p: IconProps) => (
   <Svg {...p}>
     <rect x="4" y="4" width="16" height="16" rx="2.5" />
