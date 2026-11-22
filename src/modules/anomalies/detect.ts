@@ -272,6 +272,11 @@ function evaluateMetric(
   };
 }
 
+/**
+ * EL MOTOR: compara los últimos 7 días contra los 7 anteriores, por cuenta y por campaña, aplica las
+ * reglas fijas (CTR, CPC, CPM, gasto, costo por compra) y devuelve las anomalías con su evidencia. Sin
+ * LLM.
+ */
 export function detectMetaAnomalies(input: DetectMetaAnomaliesInput): MetaAnomalyResult {
   const candidates: Candidate[] = [];
   const omittedScopes: MetaAnomalyResult['omittedScopes'][number][] = [];

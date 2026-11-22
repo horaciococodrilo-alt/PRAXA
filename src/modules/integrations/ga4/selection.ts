@@ -70,6 +70,7 @@ function depsOf(partial: Partial<Ga4SelectionDeps> = {}): Ga4SelectionDeps {
   };
 }
 
+/** Crea una clave opaca (hash) para elegir una propiedad sin mandar su ID al navegador. */
 export function selectionKeyFor(connectionId: string, propertyId: string): string {
   return createHash('sha256').update(`${connectionId}:${propertyId}`, 'utf8').digest('hex');
 }
@@ -82,6 +83,7 @@ function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
 
+/** Saca los dominios de los sitios web asociados a la propiedad. */
 export function parseWebStreamHosts(body: unknown): string[] {
   const value = record(body);
   if (!value || (value.dataStreams !== undefined && !Array.isArray(value.dataStreams))) {
@@ -97,6 +99,7 @@ export function parseWebStreamHosts(body: unknown): string[] {
   }
   return [...hosts].sort();
 }
+/** Dice si la propiedad de GA4 corresponde al dominio de tu tienda. */
 export function siteMatch(hosts: readonly string[], storeDomain: string | null): boolean {
   const domain = normalizeSiteHost(storeDomain?.includes('://') ? storeDomain :
     storeDomain ? `https://${storeDomain}` : null);
@@ -153,6 +156,7 @@ async function pending(ctx: TenantContext, deps: Ga4SelectionDeps) {
   return { connection, token, options: await optionsFor(connection.id, token, deps.http) };
 }
 
+/** Lista las propiedades de GA4 que podés elegir. */
 export async function listGa4Properties(partial: Partial<Ga4SelectionDeps> = {}):
 Promise<readonly Ga4PropertyOption[]> {
   const deps = depsOf(partial);
@@ -207,6 +211,7 @@ async function propertyFor(state: NonNullable<Awaited<ReturnType<typeof pending>
 
 export type Ga4PropertyPreview = Readonly<{ name: string | null; maskedId: string;
   hosts: readonly string[]; storeHost: string | null; matchesStore: boolean }>;
+/** Vista previa de una propiedad antes de confirmarla. */
 export async function previewGa4Property(selectionKey: string,
   partial: Partial<Ga4SelectionDeps> = {}): Promise<Ga4PropertyPreview | null> {
   const deps = depsOf(partial);
@@ -224,6 +229,7 @@ export async function previewGa4Property(selectionKey: string,
 
 export type Ga4ConfirmOutcome = 'conectado' | 'propiedad_no_disponible' | 'confirmacion_requerida' |
   'sin_flujo_web' | 'informe_base_no_disponible' | 'rechazado' | 'sin_empresa' | 'error';
+/** Confirma la propiedad elegida y deja la conexión activa. */
 export async function confirmGa4Property(selectionKey: string, siteConfirmed: boolean,
   partial: Partial<Ga4SelectionDeps> = {}): Promise<Ga4ConfirmOutcome> {
   const deps = depsOf(partial);

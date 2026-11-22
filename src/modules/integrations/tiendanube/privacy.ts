@@ -115,6 +115,10 @@ function parseBody(event: PrivacyEvent, raw: Buffer): Parsed | null {
   return { kind: 'customer', storeId, customerId, orderIds: [...new Set(orderIds as string[])] };
 }
 
+/**
+ * WEBHOOK DE PRIVACIDAD: verifica la firma de Tiendanube y borra los datos de un comprador o de toda la
+ * tienda.
+ */
 export async function handlePrivacyWebhook(event: PrivacyEvent, request: Request, partial?: Partial<PrivacyDeps>):
 Promise<Response> {
   const deps = resolveDeps(partial);

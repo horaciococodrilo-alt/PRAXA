@@ -27,6 +27,7 @@ import { DIAGNOSTIC_LIMITS } from './limits';
  * evidencia, decide qué secciones son evaluables y parte el conjunto en lotes sin truncar.
  */
 
+/** Error que se lanza cuando no se puede preparar la evidencia (demasiados datos o fechas inválidas). */
 export class DiagnosticPreparationError extends Error {
   readonly failureClass: 'too_large' | 'invalid_window';
   constructor(failureClass: 'too_large' | 'invalid_window') {
@@ -66,6 +67,7 @@ function below(value: string | null, threshold: number): boolean {
   return compareValues(parsed, { coefficient: BigInt(threshold), scale: 0 }) < 0;
 }
 
+/** Dice si hay pocos datos para opinar (pocas impresiones, clics o resultados). */
 export function isLowSample(sample: { impressions: string | null; clicks: string | null;
   results: string | null; resultUnavailable?: boolean }): boolean {
   const limits = DIAGNOSTIC_LIMITS.lowSample;
@@ -149,6 +151,10 @@ function compatibleAttribution(a: string, b: string): boolean {
   return !(a.startsWith('attr_') && b.startsWith('attr_') && a !== b);
 }
 
+/**
+ * Junta la EVIDENCIA de Meta: ordena y rotula los números reales de la base para el modelo, sin calcular
+ * cifras nuevas. Si no hay actividad, marca «datos insuficientes».
+ */
 export function prepareDiagnostic(input: PrepareInput): PreparedDiagnostic {
   const { current, previous } = input.account;
   if (current.activity_status === 'zero') return { status: 'insufficient', cause: 'no_activity' };
@@ -420,6 +426,7 @@ function instantZ(value: unknown): string | null {
 
 type StoreMetric = 'tn_paid_orders' | 'tn_partially_paid_orders' | 'tn_collected_amount';
 
+/** Prepara la sección de la tienda (Tiendanube) del diagnóstico, o null si no corresponde. */
 export function prepareStoreSection(input: {
   read: StoreSalesRead;
   window: DiagnosticWindow;
@@ -519,6 +526,7 @@ function hasQualityFlags(quality: unknown): boolean {
     q.zona_distinta === true || (typeof q.empty_reason === 'string' && q.empty_reason.length > 0);
 }
 
+/** Prepara la sección de Google Analytics del diagnóstico, o null si no corresponde. */
 export function prepareGa4Section(input: {
   read: Ga4TrafficRead;
   window: DiagnosticWindow;

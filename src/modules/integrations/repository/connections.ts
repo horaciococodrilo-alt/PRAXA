@@ -24,6 +24,7 @@ export type LiveConnection = Readonly<{
 
 const LIVE_STATUSES = ['pending_selection', 'active', 'needs_reauth'] as const;
 
+/** Error que se lanza cuando no se pudo leer la conexión. */
 export class ConnectionReadError extends Error {
   constructor() {
     super('No se pudo leer la conexión.');
@@ -31,6 +32,7 @@ export class ConnectionReadError extends Error {
   }
 }
 
+/** LEE la conexión vigente de un proveedor con tu sesión, y vuelve a verificar que sea de tu empresa. */
 export async function readLiveConnection(
   ctx: TenantContext,
   provider: IntegrationProvider,

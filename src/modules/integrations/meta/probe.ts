@@ -18,6 +18,10 @@ export type ProbeSummary = Readonly<{
 
 const unknownError = () => new MetaApiError({ errorClass: 'unknown', graphCode: null, graphSubcode: null });
 
+/**
+ * Prueba rápida de la cuenta publicitaria: pide gasto e impresiones de los últimos 28 días para ver que
+ * responde y tiene datos.
+ */
 export async function probeInsights(
   token: SecretValue,
   accountId: string,

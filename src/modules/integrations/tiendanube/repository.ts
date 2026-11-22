@@ -16,6 +16,7 @@ import type { ProjectedLine, ProjectedOrder, ProjectedProduct, ProjectedStore } 
 
 type Deps = { workerApi?: WorkerApi };
 
+/** Error que se lanza cuando la base responde algo inválido para Tiendanube. */
 export class TiendanubeRepositoryError extends Error {
   constructor() { super('Respuesta de Tiendanube en la base inválida.'); this.name = 'TiendanubeRepositoryError'; }
 }
@@ -77,6 +78,7 @@ const startRow = z.strictObject({
   backfill_next: sqlDate, incremental_from: dateOrNull, catalog_next_page: z.number().int().min(2).nullable(),
 });
 
+/** Empieza un paso de sincronización de Tiendanube y toma el lease (por worker_api). */
 export async function startSync(ctx: TenantContext, input: Ownership & { leaseExpiresAt: Date }, deps: Deps = {}):
 Promise<StartedRun> {
   const args = ownershipArgs(ctx, input);
@@ -116,6 +118,7 @@ const publishableOrder = z.strictObject({
   (o.insights_amount_status === 'verified' || (o.insights_amount === null && o.insights_amount_definition === null)) &&
   (o.insights_identity_status === 'verified') === (o.customer_id !== null));
 
+/** Guarda un tramo de pedidos ya sin datos personales (por worker_api). */
 export async function publishOrders(ctx: TenantContext, input: Ownership & {
   window: OrdersWindow; orders: readonly ProjectedOrder[]; lines: readonly ProjectedLine[];
 }, deps: Deps = {}): Promise<{ written: number; suppressed: number; backfillNext: string | null }> {
@@ -129,6 +132,7 @@ export async function publishOrders(ctx: TenantContext, input: Ownership & {
 const publishCatalogRow = z.strictObject({ products_written: counter, products_deleted: counter,
   catalog_next_page: z.number().int().min(2).nullable() });
 
+/** Guarda una página del catálogo de productos (por worker_api). */
 export async function publishCatalog(ctx: TenantContext, input: Ownership & {
   products: readonly ProjectedProduct[]; nextPage: number | null; store: ProjectedStore; complete: boolean;
   /** M27a: `true` solo en la página 1 de un recorrido. */
@@ -148,6 +152,7 @@ export async function publishCatalog(ctx: TenantContext, input: Ownership & {
 
 const finishRow = z.strictObject({ phase, coverage_until: dateOrNull, run_status: z.enum(['complete', 'incomplete']) });
 
+/** Cierra el paso de sincronización y anota hasta dónde llegó (por worker_api). */
 export async function finishSync(ctx: TenantContext, input: Ownership & { fetchedAt: Date; complete: boolean },
   deps: Deps = {}): Promise<{ phase: 'backfill' | 'incremental'; coverageUntil: Date | null; status: 'complete' | 'incomplete' }> {
   const args = ownershipArgs(ctx, input);
@@ -161,6 +166,7 @@ const failRow = z.strictObject({
   run_status: z.literal('failed'),
 });
 
+/** Marca el paso de sincronización como fallido (por worker_api). */
 export async function failSync(ctx: TenantContext, input: Ownership & {
   kind: TiendanubeErrorKind; errorClass: string;
 }, deps: Deps = {}): Promise<{ connectionStatus: z.infer<typeof failRow>['connection_status'] }> {
@@ -177,6 +183,7 @@ const STORE_ID = /^[1-9][0-9]{0,19}$/;
 const storeRedactRow = z.strictObject({ tn_privacy_store_redact: z.enum(['marked', 'more', 'done']) });
 const customerRedactRow = z.strictObject({ tn_privacy_customer_redact: z.enum(['marked', 'done']) });
 
+/** Privacidad: borra por tandas los datos de toda una tienda (por worker_api). */
 export async function privacyStoreRedact(storeId: string, maxRows: number, deps: Deps = {}):
 Promise<'marked' | 'more' | 'done'> {
   if (!STORE_ID.test(storeId) || !Number.isInteger(maxRows) || maxRows < 1 || maxRows > 100_000) {
@@ -185,6 +192,7 @@ Promise<'marked' | 'more' | 'done'> {
   return one(storeRedactRow, await api(deps).call('tn_privacy_store_redact', [storeId, maxRows])).tn_privacy_store_redact;
 }
 
+/** Privacidad: borra los datos de un comprador (por worker_api). */
 export async function privacyCustomerRedact(storeId: string, customerId: string, orderIds: readonly string[],
   deps: Deps = {}): Promise<'marked' | 'done'> {
   if (!STORE_ID.test(storeId) || !STORE_ID.test(customerId) || orderIds.length > 10_000 ||

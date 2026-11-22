@@ -11,6 +11,7 @@ export const ACCOUNTS_MAX_PAGES = 10;
 export type DelegatedAccount = Readonly<{ id: string; name: string | null; currency: string; timezone: string }>;
 export type DelegatedAccounts = Readonly<{ accounts: readonly DelegatedAccount[]; discarded: number; pages: number }>;
 
+/** Error que se lanza cuando no se pudo traer el listado completo de cuentas publicitarias. */
 export class AccountListLimitError extends Error {
   constructor() {
     super('No se pudo completar el listado de cuentas.');
@@ -20,6 +21,7 @@ export class AccountListLimitError extends Error {
 
 const unknownError = () => new MetaApiError({ errorClass: 'unknown', graphCode: null, graphSubcode: null });
 
+/** Lista las cuentas publicitarias a las que tenés acceso, para que elijas una. */
 export async function listDelegatedAccounts(
   token: SecretValue,
   systemUserId: string,

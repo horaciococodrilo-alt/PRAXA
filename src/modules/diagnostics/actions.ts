@@ -26,6 +26,10 @@ import { actionTypeOptions, catalogWindowTo, GoalInputError, parseGoalInput } fr
 const LOGIN = '/login?next=%2Fapp%2Fdiagnostico';
 const RESULT = '/app/diagnostico?resultado=';
 
+/**
+ * BOTÓN «Guardar objetivo» del diagnóstico: valida el objetivo elegido contra la lista armada con tu
+ * cuenta y lo guarda.
+ */
 export async function guardarObjetivoDiagnostico(formData: FormData): Promise<never> {
   let code: Resultado;
   let login = false;
@@ -55,6 +59,10 @@ export async function guardarObjetivoDiagnostico(formData: FormData): Promise<ne
   redirect(`${RESULT}${code}`);
 }
 
+/**
+ * BOTÓN «Generar diagnóstico»: ejecuta todo el proceso (evidencia → modelo → validación → publicación) y
+ * vuelve a la página con el resultado.
+ */
 export async function generarDiagnostico(): Promise<never> {
   let code: Resultado;
   let login = false;

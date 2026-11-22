@@ -40,6 +40,7 @@ const MESSAGES: Readonly<Record<TiendanubeErrorKind, string>> = Object.freeze({
   desconocido: 'Tiendanube respondió de forma inesperada.',
 });
 
+/** Traduce un código HTTP de Tiendanube (401, 403, 429…) a un tipo de error. */
 export function classifyTiendanubeStatus(status: number, resource: TiendanubeResource): TiendanubeFailure {
   if (status === 401) return { kind: 'credencial_invalida', errorClass: 'authentication' };
   if (status === 403) return { kind: 'permiso_faltante', errorClass: 'permission' };
@@ -52,6 +53,7 @@ export function classifyTiendanubeStatus(status: number, resource: TiendanubeRes
   return { kind: 'desconocido', errorClass: 'unknown' };
 }
 
+/** Error de una llamada a Tiendanube, con su tipo, código HTTP y espera sugerida. */
 export class TiendanubeApiError extends Error {
   readonly kind: TiendanubeErrorKind;
   readonly errorClass: IntegrationErrorClass | null;
@@ -74,10 +76,12 @@ export class TiendanubeApiError extends Error {
   }
 }
 
+/** Crea el error de «no se pudo conectar» con Tiendanube. */
 export function tiendanubeTransportError(): TiendanubeApiError {
   return new TiendanubeApiError({ kind: 'transporte', errorClass: 'transport' });
 }
 
+/** Crea el error de «Tiendanube tardó demasiado». */
 export function tiendanubeTimeoutError(): TiendanubeApiError {
   return new TiendanubeApiError({ kind: 'transitorio', errorClass: 'temporary' });
 }

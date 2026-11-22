@@ -78,6 +78,10 @@ function assertNoSecret(url: URL, secrets: readonly string[]) {
   }
 }
 
+/**
+ * Crea el cliente HTTP de Tiendanube: solo lectura, lista cerrada de rutas y respeta el límite de pedidos
+ * por minuto.
+ */
 export function createTiendanubeHttpClient(deps: { userAgent: string; fetch?: TiendanubeFetch; timeoutMs?: number }):
 TiendanubeHttpClient {
   const userAgent = deps.userAgent;

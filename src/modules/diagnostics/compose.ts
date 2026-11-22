@@ -101,6 +101,7 @@ export type StoredReport = z.infer<typeof storedReportSchema>;
 export const STORED_REPORT_COLUMNS = 'generated_at, window_from, window_to, prev_from, prev_to, sync_finished_at, '
   + 'schema_version, methodology_version, settings, evidence, output, web_sources, model_requested, model_reported, usage';
 
+/** Valida el informe guardado en la base. Si no tiene la forma correcta, lanza error. */
 export function parseStoredReport(raw: unknown): StoredReport {
   const parsed = storedReportSchema.safeParse(raw);
   if (!parsed.success) throw new DiagnosticReadError();
@@ -123,6 +124,7 @@ export const RESULTADOS = ['objetivo_guardado', 'objetivo_invalido', 'generado',
   'sin_cobertura', 'no_elegible', 'fallo_generacion', 'conexion_cambiada'] as const;
 export type Resultado = (typeof RESULTADOS)[number];
 
+/** Lee el código de resultado de la URL (?r=...) solo si es uno de los conocidos. */
 export function parseResultado(value: unknown): Resultado | null {
   return typeof value === 'string' && (RESULTADOS as readonly string[]).includes(value) ? value as Resultado : null;
 }
@@ -268,6 +270,7 @@ function statusLabel(status: string | null): string {
   return STATUS_LABEL[status] ?? status;
 }
 
+/** Texto del objetivo para mostrar, por ejemplo «Ventas: Compra». */
 export function goalLabel(settings: DiagnosticSettings): string {
   if (settings.goal_kind === 'traffic') return 'Tráfico: clics al enlace';
   return `${GOAL_LABEL[settings.goal_kind]}: ${goalActionLabel(settings.metric_ref.replace(/^actions:/, ''))}`;
@@ -291,6 +294,7 @@ export function formatInstant(value: string): string {
   return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}`;
 }
 
+/** Nombre del archivo PDF, con la fecha del informe. */
 export function pdfFileName(report: StoredReport): string {
   const p = argentinaParts(report.generated_at);
   return `diagnostico-meta-${p.year}-${p.month}-${p.day}.pdf`;
@@ -317,6 +321,10 @@ function attributionWindowsLabel(windows: readonly { event_type: string; days: n
   return `${prefix}${list.join(', ')}`;
 }
 
+/**
+ * Arma UN SOLO documento del diagnóstico que usan tanto la pantalla como el PDF, para que siempre digan lo
+ * mismo.
+ */
 export function composeDocument(report: StoredReport): DiagnosticDocument {
   const items = report.evidence.items;
   const byId = new Map(items.map((e) => [e.id, e]));

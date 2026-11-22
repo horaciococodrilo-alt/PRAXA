@@ -116,11 +116,13 @@ export const NEEDS_REAUTH_TEXTS: Readonly<Record<'authentication' | 'user_action
     asset_access: 'Meta retiró el acceso a la cuenta publicitaria. Volvé a autorizar.',
   });
 
+/** Según el tipo de error, dice si hay que pedir reautorización o dejar la conexión como está. */
 export function connectionEffectFor(errorClass: IntegrationErrorClass): ConnectionEffect {
   return errorClass === 'authentication' || errorClass === 'user_action' ||
     errorClass === 'permission' || errorClass === 'asset_access' ? 'needs_reauth' : 'unchanged';
 }
 
+/** Según el tipo de error, elige el mensaje para el usuario: «rechazado» o «Meta no disponible». */
 export function rejectionOutcomeFor(errorClass: IntegrationErrorClass): 'rechazado' | 'meta_no_disponible' {
   return errorClass === 'own_error' || errorClass === 'authentication' || errorClass === 'user_action' ||
     errorClass === 'permission' ? 'rechazado' : 'meta_no_disponible';

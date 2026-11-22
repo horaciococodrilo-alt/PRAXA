@@ -8,6 +8,7 @@ import { MetaApiError } from './errors';
 
 export type RevokeResult = Readonly<{ status: 'revoked' } | { status: 'failed'; errorClass: IntegrationErrorClass }>;
 
+/** Anula un token en Meta (cuando algo falla a mitad de camino o al desconectar). */
 export async function revokeToken(
   token: SecretValue,
   deps: { http: MetaHttpClient; config: MetaOAuthConfig },

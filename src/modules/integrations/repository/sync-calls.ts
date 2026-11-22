@@ -106,6 +106,7 @@ export type SyncFailureReason = z.infer<typeof failureReasonSchema>;
 export type PublishBreakdownInput = z.input<typeof breakdownInputSchema>;
 export type BreakdownFailureInput = z.input<typeof breakdownFailureInputSchema>;
 
+/** Empieza una sincronización de Meta y toma el lease (solo una a la vez). */
 export async function startSyncRun(ctx: TenantContext, input: StartSyncRunInput, deps: Deps = {}):
 Promise<{ runId: string; credentialGeneration: number; startedAt: Date; leaseExpiresAt: Date }> {
   const a = parsed(tenantContextSchema, ctx);
@@ -117,6 +118,7 @@ Promise<{ runId: string; credentialGeneration: number; startedAt: Date; leaseExp
     leaseExpiresAt: row.lease_expires_at };
 }
 
+/** Publica los datos de un nivel de Meta (cuenta, campaña, conjunto o anuncio) ya completos. */
 export async function publishSnapshot(ctx: TenantContext, input: PublishSnapshotInput, deps: Deps = {}):
 Promise<{ snapshotId: string; level: SyncLevel; complete: true }> {
   const a = parsed(tenantContextSchema, ctx);
@@ -127,6 +129,7 @@ Promise<{ snapshotId: string; level: SyncLevel; complete: true }> {
   return { snapshotId: row.snapshot_id, level: row.level, complete: row.complete };
 }
 
+/** Marca la sincronización de Meta como fallida. */
 export async function failSyncRun(ctx: TenantContext, input: FailSyncRunInput, deps: Deps = {}):
 Promise<{ runId: string; level: SyncLevel; status: z.infer<typeof failRowSchema>['status'];
   snapshotResult: z.infer<typeof failRowSchema>['snapshot_result'] }> {
@@ -139,6 +142,7 @@ Promise<{ runId: string; level: SyncLevel; status: z.infer<typeof failRowSchema>
   return { runId: row.run_id, level: row.level, status: row.status, snapshotResult: row.snapshot_result };
 }
 
+/** Publica un desglose de Meta (edad y género, país, región). */
 export async function publishBreakdown(ctx: TenantContext, input: PublishBreakdownInput, deps: Deps = {}): Promise<{ snapshotId: string }> {
   const a = parsed(tenantContextSchema, ctx);
   const i = parsed(breakdownInputSchema, input);
@@ -148,6 +152,7 @@ export async function publishBreakdown(ctx: TenantContext, input: PublishBreakdo
   return { snapshotId: row.snapshot_id };
 }
 
+/** Anota que un desglose no se pudo traer. */
 export async function recordBreakdownFailure(ctx: TenantContext, input: BreakdownFailureInput, deps: Deps = {}): Promise<void> {
   const a = parsed(tenantContextSchema, ctx);
   const i = parsed(breakdownFailureInputSchema, input);
@@ -156,6 +161,7 @@ export async function recordBreakdownFailure(ctx: TenantContext, input: Breakdow
   if (row.level !== i.level || row.dimension !== i.dimension) throw new SyncResponseError();
 }
 
+/** Anota un error de la conexión sin cambiar su estado. */
 export async function recordConnectionError(ctx: TenantContext, input: {
   connectionId: string; expectedGeneration: number; errorClass: string; message: string
 }, deps: Deps = {}): Promise<{ connectionId: string; status: 'active'; credentialGeneration: number }> {

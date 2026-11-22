@@ -13,6 +13,7 @@ import {
  * desconocido (§16.2). El formulario no lleva company_id ni connection_id (CA-00).
  */
 
+/** Error que se lanza cuando el objetivo elegido no es válido. */
 export class GoalInputError extends Error {
   constructor() {
     super('El objetivo elegido no es válido.');
@@ -91,6 +92,10 @@ export function goalActionLabel(actionType: string): string {
   return words ? `Otra acción: ${words}` : 'Otra acción';
 }
 
+/**
+ * Arma la lista de objetivos para elegir, con las acciones que realmente tuvo tu cuenta, ordenadas y en
+ * español.
+ */
 export function actionTypeOptions(rows: readonly ActionTypeRow[]): ActionTypeOption[] {
   const options = rows
     .filter((row) => ACTION_TYPE_PATTERN.test(row.action_type) && row.observed_days > 0)
@@ -113,6 +118,7 @@ const goalInputSchema = z.strictObject({
   action_type: z.string().regex(ACTION_TYPE_PATTERN).optional(),
 });
 
+/** Valida el objetivo que mandó el formulario: tiene que estar en la lista. No se acepta texto libre. */
 export function parseGoalInput(raw: unknown, catalog: readonly ActionTypeOption[]): DiagnosticSettings {
   const parsed = goalInputSchema.safeParse(raw);
   if (!parsed.success) throw new GoalInputError();

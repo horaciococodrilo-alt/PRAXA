@@ -82,6 +82,7 @@ async function readJson(response: Response): Promise<unknown> {
   return body;
 }
 
+/** Crea el cliente HTTP para hablar con Meta, con tiempo límite y errores clasificados. */
 export function createMetaHttpClient(deps: { fetch?: MetaFetch; timeoutMs?: number } = {}): MetaHttpClient {
   const send: MetaFetch = deps.fetch ?? ((input, init) => fetch(input, init));
   const timeoutMs = deps.timeoutMs ?? META_HTTP_TIMEOUT_MS;

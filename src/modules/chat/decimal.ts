@@ -66,11 +66,13 @@ export function parseDisplayedDecimals(raw: string): DecimalValue[] {
   });
 }
 
+/** Dice si dos textos muestran el mismo número (aunque estén escritos distinto). */
 export function sameDisplayedDecimal(left: string, right: string): boolean {
   return parseDisplayedDecimals(left).some((a) =>
     parseDisplayedDecimals(right).some((b) => compareValues(a, b) === 0));
 }
 
+/** Compara dos decimales exactos: -1, 0 o 1. */
 export function compareValues(left: DecimalValue, right: DecimalValue): -1 | 0 | 1 {
   const scale = Math.max(left.scale, right.scale);
   const a = left.coefficient * BigInt(10) ** BigInt(scale - left.scale);
@@ -78,6 +80,7 @@ export function compareValues(left: DecimalValue, right: DecimalValue): -1 | 0 |
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
+/** Compara dos números que vienen de la base como texto: -1, 0 o 1. */
 export function compareDecimal(left: string, right: string): -1 | 0 | 1 {
   const a = parseSqlDecimal(left);
   const b = parseSqlDecimal(right);
@@ -85,6 +88,7 @@ export function compareDecimal(left: string, right: string): -1 | 0 | 1 {
   return compareValues(a, b);
 }
 
+/** Redondea un decimal exacto a la cantidad de decimales pedida. */
 export function roundDecimal(value: DecimalValue, scale: number): DecimalValue {
   if (!Number.isInteger(scale) || scale < 0) throw new Error('Escala inválida.');
   if (value.scale <= scale) return { coefficient: value.coefficient *
@@ -97,6 +101,10 @@ export function roundDecimal(value: DecimalValue, scale: number): DecimalValue {
   return { coefficient: negative ? -rounded : rounded, scale };
 }
 
+/**
+ * Verifica que un número que aparece en la respuesta coincida con el calculado por el servidor (exacto o
+ * redondeado a 2 o 0 decimales).
+ */
 export function decimalMatches(display: string, expected: string,
   policy: 'exact' | 'round2' | 'round0'): boolean {
   const reference = parseSqlDecimal(expected);

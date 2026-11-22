@@ -3,6 +3,7 @@ export type Ga4ReadingState = 'disponible' | 'cero_medido' | 'ausencia' | 'parci
   'provisional' | 'restringido' | 'no_disponible';
 
 export type Ga4Quality = Record<string, unknown> | null;
+/** Fecha en que se trajeron los datos, según la calidad guardada. */
 export function qualityFetchedAt(quality: Ga4Quality): string | null {
   return typeof quality?.fetched_at === 'string' ? quality.fetched_at : null;
 }
@@ -11,6 +12,7 @@ function nonEmpty(value: unknown): boolean {
   return Array.isArray(value) && value.length > 0;
 }
 
+/** Lista las advertencias de calidad de un dato (umbral, truncamiento, etc.). */
 export function qualityFlags(quality: Ga4Quality): string[] {
   if (!quality) return ['sin_calidad'];
   const flags: string[] = [];
@@ -24,6 +26,7 @@ export function qualityFlags(quality: Ga4Quality): string[] {
   return flags;
 }
 
+/** Decide cómo mostrar un dato: disponible, parcial, restringido, provisional o no disponible. */
 export function readingState(input: { value: number | null; quality: Ga4Quality;
   provisional?: boolean; available?: boolean }): Ga4ReadingState {
   if (input.available === false) return 'no_disponible';
@@ -45,6 +48,7 @@ export type Ga4ProductRow = Readonly<{ key: string; name: string; mapped: boolea
   views: number; carts: number; purchases: number; tnUnits: number | null;
   flags: readonly string[]; fetchedAt: string | null }>;
 
+/** Agrupa las filas de productos de GA4 por producto. */
 export function groupGa4Items(rows: readonly Ga4ItemReading[]): Ga4ProductRow[] {
   const grouped = new Map<string, Ga4ProductRow>();
   for (const row of rows) {

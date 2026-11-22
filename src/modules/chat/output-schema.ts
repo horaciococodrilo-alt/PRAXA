@@ -123,6 +123,7 @@ export const answerSchema = z.strictObject({
 });
 export type FlatChatAnswer = z.infer<typeof answerSchema>;
 
+/** Error que se lanza cuando la salida del modelo no tiene la forma obligatoria. */
 export class OutputProjectionError extends Error {
   constructor() { super('Salida del modelo inválida.'); }
 }

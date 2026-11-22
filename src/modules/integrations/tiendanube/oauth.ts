@@ -118,6 +118,7 @@ export const TIENDANUBE_OAUTH_MESSAGES: Readonly<Record<TiendanubeOAuthOutcome,
 
 const KNOWN = new Set<string>(TIENDANUBE_OAUTH_OUTCOMES);
 
+/** Lee el resultado de la conexión de la URL solo si es uno de los conocidos. */
 export function parseTiendanubeOAuthOutcome(value: string | string[] | undefined): TiendanubeOAuthOutcome | null {
   return typeof value === 'string' && KNOWN.has(value) ? (value as TiendanubeOAuthOutcome) : null;
 }
@@ -308,6 +309,7 @@ async function executeWithRetry(ctx: TenantContext, operation: PreparedCredentia
 // POST /api/integraciones/tiendanube/iniciar
 // ---------------------------------------------------------------------------
 
+/** INICIO DE LA CONEXIÓN CON TIENDANUBE: verifica el origen, crea el intento y te manda a Tiendanube. */
 export async function handleTiendanubeStart(request: NextRequest, partial?: Partial<TiendanubeOAuthDeps>):
 Promise<NextResponse> {
   // DP-04: solo desde el propio origen, antes de leer la sesión.
@@ -392,6 +394,9 @@ Promise<NextResponse> {
 type Finish = (outcome: TiendanubeOAuthOutcome, etapa: Stage, options?: { clase?: IntegrationErrorClass | null }) =>
   NextResponse;
 
+/**
+ * VUELTA DE TIENDANUBE: consume el intento, canjea el código, confirma la tienda, cifra y guarda el token.
+ */
 export async function handleTiendanubeCallback(request: NextRequest, partial?: Partial<TiendanubeOAuthDeps>):
 Promise<NextResponse> {
   const deps = resolveDeps(partial);

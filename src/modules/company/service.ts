@@ -18,6 +18,7 @@ export type Company = {
   updated_at: string;
 };
 
+/** Error que se lanza cuando el usuario todavía no creó su empresa (tiene que completar Configuración). */
 export class NoCompanyError extends Error {
   constructor() {
     super('El usuario todavía no tiene un espacio de empresa.');

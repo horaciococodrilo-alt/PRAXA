@@ -21,10 +21,12 @@ export type DiagnosticStatus = Readonly<{
   eligibility: Eligibility | null;
 }>;
 
+/** Adaptador: convierte el cliente de Supabase en una función simple para llamar funciones de la base. */
 export function supabaseRpc(supabase: SupabaseClient): Rpc {
   return (fn, args) => supabase.rpc(fn, args);
 }
 
+/** Lee el objetivo del diagnóstico guardado por la empresa, o null si todavía no eligió. */
 export async function readDiagnosticSettings(supabase: SupabaseClient, companyId: string):
   Promise<DiagnosticSettings | null> {
   const { data, error } = await supabase.from('diagnostic_settings')
@@ -36,6 +38,10 @@ export async function readDiagnosticSettings(supabase: SupabaseClient, companyId
   return parsed.data;
 }
 
+/**
+ * Dice si se puede generar el diagnóstico: hay conexión con Meta, hay objetivo elegido y hay
+ * sincronización reciente.
+ */
 export async function readDiagnosticStatus(ctx: TenantContext, deps: { supabase?: SupabaseClient } = {}):
   Promise<DiagnosticStatus> {
   const supabase = deps.supabase ?? (await createSupabaseServerClient());

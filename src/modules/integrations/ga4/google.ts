@@ -12,6 +12,7 @@ export type Ga4ErrorKind = 'autorizacion_perdida' | 'sin_acceso_propiedad' | 'cu
 export type Ga4ErrorClass = 'authentication' | 'permission' | 'rate_limit' | 'temporary' | 'transport' |
   'own_error' | 'asset_access' | 'unknown';
 
+/** Error de una llamada a Google, con su tipo. */
 export class Ga4ApiError extends Error {
   constructor(readonly kind: Ga4ErrorKind, readonly errorClass: Ga4ErrorClass) {
     super('No se pudo completar la operación de GA4.');
@@ -19,10 +20,12 @@ export class Ga4ApiError extends Error {
   }
 }
 
+/** Error que se lanza cuando Google devolvió una autorización incompleta. */
 export class Ga4TokenRejectedError extends Error {
   constructor() { super('Autorización de Google incompleta.'); this.name = 'Ga4TokenRejectedError'; }
 }
 
+/** Traduce un código HTTP de Google (401, 403, 404, 429…) a un tipo de error. */
 export function classifyGa4Error(status: number): { kind: Ga4ErrorKind; errorClass: Ga4ErrorClass } {
   if (status === 401) return { kind: 'autorizacion_perdida', errorClass: 'authentication' };
   if (status === 403) return { kind: 'sin_acceso_propiedad', errorClass: 'permission' };
@@ -33,6 +36,7 @@ export function classifyGa4Error(status: number): { kind: Ga4ErrorKind; errorCla
   return { kind: 'desconocido', errorClass: 'unknown' };
 }
 
+/** Lee y valida la configuración de Google desde las variables de entorno. */
 export function readGa4Config(env: NodeJS.ProcessEnv = process.env): Ga4Config {
   const clientId = env.GOOGLE_OAUTH_CLIENT_ID ?? '';
   const clientSecret = env.GOOGLE_OAUTH_CLIENT_SECRET ?? '';
@@ -48,6 +52,7 @@ export function readGa4Config(env: NodeJS.ProcessEnv = process.env): Ga4Config {
   return { clientId, clientSecret, redirectUri: url.toString(), appId: match[1] };
 }
 
+/** Arma la URL a la que vas para autorizar a PRAXA en Google. */
 export function authorizationUrl(config: Ga4Config, state: string): URL {
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   url.searchParams.set('client_id', config.clientId);
@@ -68,6 +73,7 @@ function validToken(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0 && value.length <= 4096 && !/\s/.test(value);
 }
 
+/** Valida la respuesta del canje del código: token de acceso y refresh token, con el permiso correcto. */
 export function parseTokenExchange(body: unknown): { accessToken: SecretValue; refreshToken: SecretValue } {
   const value = record(body);
   if (!value || !validToken(value.access_token) || !validToken(value.refresh_token) ||
@@ -78,6 +84,7 @@ export function parseTokenExchange(body: unknown): { accessToken: SecretValue; r
   return { accessToken: new SecretValue(value.access_token), refreshToken: new SecretValue(value.refresh_token) };
 }
 
+/** Valida la respuesta al pedir un token de acceso nuevo con el refresh token. */
 export function parseRefreshResponse(body: unknown): { accessToken: SecretValue; rotated: boolean } {
   const value = record(body);
   if (!value || !validToken(value.access_token) || value.token_type !== 'Bearer' ||
@@ -88,12 +95,14 @@ export function parseRefreshResponse(body: unknown): { accessToken: SecretValue;
   return { accessToken: new SecretValue(value.access_token), rotated: validToken(value.refresh_token) };
 }
 
+/** Saca el ID de la propiedad de un nombre como "properties/123". */
 export function propertyIdFromName(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const match = /^properties\/(.+)$/.exec(value);
   return match && GA4_PROPERTY_ID.test(match[1]) ? match[1] : null;
 }
 
+/** Deja un dominio en forma comparable: sin https, sin www y en minúsculas. */
 export function normalizeSiteHost(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   try {
@@ -104,6 +113,7 @@ export function normalizeSiteHost(value: unknown): string | null {
 }
 
 export type Ga4Property = Readonly<{ id: string; name: string | null; currency: string; timezone: string }>;
+/** Valida los datos de una propiedad de GA4 (moneda, zona horaria). Null si no sirve. */
 export function parseProperty(body: unknown, expectedId: string): Ga4Property | null {
   const value = record(body);
   if (!value || propertyIdFromName(value.name) !== expectedId || value.deleteTime !== undefined ||
@@ -125,6 +135,7 @@ export type Ga4Http = Readonly<{
   runReport: (propertyId: string, token: SecretValue, body: Record<string, unknown>) => Promise<unknown>;
 }>;
 
+/** Crea el cliente HTTP para hablar con Google, con tiempo límite y errores clasificados. */
 export function createGa4Http(fetcher: Fetch = fetch): Ga4Http {
   async function request(url: URL, init: RequestInit): Promise<unknown> {
     let response: Response;

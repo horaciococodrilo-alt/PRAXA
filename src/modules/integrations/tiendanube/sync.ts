@@ -70,6 +70,7 @@ export const TN_SYNC_MESSAGES: Readonly<Record<TiendanubeSyncResult,
   error: { tone: 'error', text: 'No pudimos sincronizar la tienda. Probá de nuevo más tarde.' },
 });
 
+/** Lee el resultado de la sincronización de la URL solo si es uno de los conocidos. */
 export function parseTiendanubeSyncResult(value: string | string[] | undefined): TiendanubeSyncResult | null {
   return typeof value === 'string' && (TN_SYNC_RESULTS as readonly string[]).includes(value)
     ? value as TiendanubeSyncResult : null;
@@ -129,6 +130,7 @@ export function zonedDayStart(day: string, timeZone: string): Date {
   return new Date(instant);
 }
 
+/** Suma días a una fecha "AAAA-MM-DD". */
 export function addDays(day: string, days: number): string {
   const [y, m, d] = day.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
@@ -502,6 +504,10 @@ function resultForApiError(error: TiendanubeApiError): TiendanubeSyncResult {
   return 'parcial';
 }
 
+/**
+ * UN PASO DE SINCRONIZACIÓN DE TIENDANUBE: sigue desde el checkpoint, trae pedidos y productos, les quita
+ * los datos personales y los guarda.
+ */
 export async function syncTiendanube(partial: Partial<TiendanubeSyncDeps> = {}): Promise<TiendanubeSyncResult> {
   const deps = resolveDeps(partial);
   let ctx: TenantContext;

@@ -31,10 +31,12 @@ export const GA4_SYNC_MESSAGES = {
   error: { text: 'No pudimos completar la sincronización.', tone: 'error' },
 } as const;
 
+/** Texto del aviso de conexión de GA4 según el código de la URL. */
 export function ga4Notice(value: unknown): { text: string; tone: 'info' | 'error' } | null {
   return typeof value === 'string' && Object.hasOwn(GA4_MESSAGES, value)
     ? GA4_MESSAGES[value as keyof typeof GA4_MESSAGES] : null;
 }
+/** Texto del aviso de sincronización de GA4 según el código de la URL. */
 export function ga4SyncNotice(value: unknown): { text: string; tone: 'info' | 'error' } | null {
   return typeof value === 'string' && Object.hasOwn(GA4_SYNC_MESSAGES, value)
     ? GA4_SYNC_MESSAGES[value as keyof typeof GA4_SYNC_MESSAGES] : null;

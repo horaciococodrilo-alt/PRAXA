@@ -96,6 +96,7 @@ function storeView(context: PromptContext) {
     ...(context.ga4 ? { ga4: view(context.ga4) } : {}) };
 }
 
+/** Arma los mensajes para la fase 1: el modelo tiene que ELEGIR una herramienta de la lista cerrada. */
 export function choiceMessages(context: PromptContext, results: ToolResult[]): ChatMessage[] {
   const markers = modelMarkers(results);
   return [
@@ -111,6 +112,7 @@ export function choiceMessages(context: PromptContext, results: ToolResult[]): C
   ];
 }
 
+/** Arma los mensajes para la fase 2: el modelo REDACTA la respuesta usando marcadores en vez de números. */
 export function answerMessages(context: PromptContext, results: ToolResult[]): ChatMessage[] {
   const markers = modelMarkers(results);
   return [

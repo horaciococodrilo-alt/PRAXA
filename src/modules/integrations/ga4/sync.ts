@@ -168,6 +168,7 @@ function responseRows(body: unknown, offset: number): { count: number; rows: unk
   }
   return { count: count as number, rows };
 }
+/** Trae de Google un informe completo para un rango de fechas, página por página. */
 export async function fetchGa4Window(input: { report: Ga4ReportDefinition; window: Ga4Window;
   propertyId: string; token: SecretValue; today: string; currency: string; timezone: string;
   http: Ga4Http }): Promise<{ rows: Record<string, unknown>[]; quality: ReturnType<typeof mergeGa4Quality> }> {

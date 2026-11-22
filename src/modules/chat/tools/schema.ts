@@ -19,9 +19,11 @@ export type ToolName = typeof TOOL_NAMES[number];
 export type TiendanubeToolName = typeof TN_TOOL_NAMES[number];
 export type Ga4ToolName = typeof GA4_TOOL_NAMES[number];
 
+/** Dice si el nombre es una herramienta de Tiendanube. */
 export function isTiendanubeTool(name: string): name is TiendanubeToolName {
   return (TN_TOOL_NAMES as readonly string[]).includes(name);
 }
+/** Dice si el nombre es una herramienta de Google Analytics. */
 export function isGa4Tool(name: string): name is Ga4ToolName {
   return (GA4_TOOL_NAMES as readonly string[]).includes(name);
 }
@@ -121,9 +123,11 @@ const DEFAULT_ENTITY_TOOLS = new Set<ToolName>([
   'cost_per_result', 'percent_change',
 ]);
 
+/** Error que se lanza cuando el modelo eligió una herramienta con parámetros inválidos. */
 export class ToolArgumentError extends Error {
   constructor() { super('Argumentos de herramienta inválidos.'); }
 }
+/** Error que se lanza cuando el modelo pidió una campaña o anuncio que no existe en la cuenta. */
 export class ToolEntityNotFoundError extends Error {
   constructor() { super('Entidad de cuenta no disponible.'); }
 }

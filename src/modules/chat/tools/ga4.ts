@@ -35,6 +35,7 @@ export type Ga4ToolDeps = Readonly<{
   today: string;
 }>;
 
+/** Error que se lanza cuando una herramienta de GA4 no pudo leer los datos. */
 export class Ga4ToolError extends Error {
   constructor() { super('No se pudo leer GA4.'); }
 }
@@ -415,6 +416,10 @@ async function cobertura(call: ProjectedToolCall, conn: Ga4Connection, id: strin
     composition: null, extra: { ...common(status) } }, id, null, call.name);
 }
 
+/**
+ * Ejecuta una herramienta de Google Analytics (tráfico, embudo, productos, campañas, cohortes, cobertura)
+ * leyendo la base.
+ */
 export async function executeGa4Tool(call: ProjectedToolCall, conn: Ga4Connection | null | undefined,
   toolCallId: string, deps: Ga4ToolDeps): Promise<ToolResult> {
   if (!isGa4Tool(call.name) || !conn || !['active', 'needs_reauth'].includes(conn.status)) {

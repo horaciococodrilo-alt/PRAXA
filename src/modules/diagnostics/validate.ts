@@ -32,6 +32,10 @@ export type ValidationContext = Readonly<{
   comparison: boolean;
 }>;
 
+/**
+ * Prepara lo necesario para validar el informe: la evidencia, las entidades y las secciones que se pueden
+ * evaluar.
+ */
 export function validationContext(prepared: Ready, options: { webSources: number }): ValidationContext {
   const evaluable = (Object.entries(prepared.sectionPlan.breakdowns) as [BreakdownDimension, { status: string }][])
     .filter(([, plan]) => plan.status === 'evaluable').map(([dimension]) => dimension);
@@ -129,6 +133,10 @@ function evidenceLists(output: ReportOutput): string[][] {
     ...output.opportunities.map((o) => o.evidence_ids)];
 }
 
+/**
+ * EL CONTROL CENTRAL: revisa el informe del modelo. Si tiene la forma mal, números sueltos o marcadores
+ * que no existen, lo RECHAZA.
+ */
 export function validateReportOutput(raw: unknown, ctx: ValidationContext): ValidationResult<ReportOutput> {
   // 1. Forma y exactamente las secciones evaluables.
   const parsed = reportOutputSchema.safeParse(raw);
@@ -196,6 +204,7 @@ function formatDecimal(text: string, scale: number): string | null {
 
 const ATTRIBUTED = ' (atribuido por Meta)';
 
+/** Convierte una evidencia en el texto que se muestra (plata, porcentaje, cantidad), o «no calculable». */
 export function formatEvidenceValue(evidence: Evidence): string {
   if (evidence.value === null) return 'no calculable';
   const scale = evidence.unit === 'count' ? 0 : evidence.unit === 'variation' ? 1 : 2;
@@ -221,6 +230,7 @@ function formatDate(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
+/** Reemplaza cada marcador [[...]] del texto por su valor real. */
 export function substituteMarkers(text: string, ctx: ValidationContext): string {
   return text.replace(MARKER, (whole, token: string) => {
     if (EVIDENCE_TOKEN.test(token)) {

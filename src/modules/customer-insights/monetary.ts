@@ -26,6 +26,10 @@ export const M27A_MONETARY_DEFINITION: MonetaryDefinition | null = null;
  */
 export const DEMO_MONETARY_ENV = 'PRAXA_DEMO_MONETARY_DEFINITION';
 
+/**
+ * Solo para la demo local: permite mostrar montos si está la variable de entorno. En producción siempre
+ * devuelve null.
+ */
 export function demoMonetaryDefinition(env: Record<string, string | undefined> = process.env): MonetaryDefinition | null {
   if (env.NODE_ENV === 'production') return null;
   return env[DEMO_MONETARY_ENV] === 'tn_paid_current_observed_v1' ? 'tn_paid_current_observed_v1' : null;

@@ -25,6 +25,7 @@ export type StoreConnection = Readonly<{
 export type StoreRpc = (fn: string, args: Record<string, unknown>) => Promise<unknown>;
 export type StoreToolDeps = Readonly<{ rpc: StoreRpc; collectedAmountEnabled?: boolean }>;
 
+/** Error que se lanza cuando una herramienta de Tiendanube no pudo leer la tienda. */
 export class StoreToolError extends Error {
   constructor() { super('No se pudo leer la tienda.'); }
 }
@@ -220,6 +221,7 @@ async function cobertura(call: ProjectedToolCall, store: StoreConnection, id: st
     composition: null, extra: { ...common(status), ...status.extra } }, id, null, call.name);
 }
 
+/** Ejecuta una herramienta de Tiendanube (ventas, productos, cohortes, cobertura) leyendo la base. */
 export async function executeTiendanubeTool(call: ProjectedToolCall, store: StoreConnection | null | undefined,
   toolCallId: string, deps: StoreToolDeps): Promise<ToolResult> {
   if (!isTiendanubeTool(call.name) || !store || !['active', 'needs_reauth'].includes(store.status)) {

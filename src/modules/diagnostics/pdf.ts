@@ -81,6 +81,7 @@ export function treeTexts(node: ReactNode): string[] {
   return treeTexts(props.children);
 }
 
+/** Genera el archivo PDF a partir del documento del diagnóstico. */
 export async function renderDiagnosticPdf(doc: DiagnosticDocument): Promise<Uint8Array> {
   return new Uint8Array(await renderToBuffer(pdfTree(doc) as Parameters<typeof renderToBuffer>[0]));
 }

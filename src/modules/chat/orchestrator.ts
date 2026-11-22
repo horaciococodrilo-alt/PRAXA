@@ -64,6 +64,10 @@ export type ChatDependencies = Readonly<{
     lease_released: boolean; detail: string | null }) => void;
 }>;
 
+/**
+ * Arma las piezas reales que usa el chat (base, modelo, herramientas, reloj). En los tests se reemplazan
+ * por piezas falsas.
+ */
 export function createChatDependencies(): ChatDependencies {
   return {
     context: requireTenantContext,
@@ -149,6 +153,10 @@ async function within<T>(task: (signal: AbortSignal) => Promise<T>, deadline: nu
   } finally { if (timer) clearTimeout(timer); }
 }
 
+/**
+ * Período por defecto cuando la pregunta no dice fechas: los últimos días terminando ayer, en la zona
+ * horaria de la cuenta.
+ */
 export function defaultPeriod(now: Date, timezone: string): { from: string; to: string } {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: timezone,
     year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
@@ -160,6 +168,7 @@ export function defaultPeriod(now: Date, timezone: string): { from: string; to: 
   return { from: iso(-CHAT_DEFAULT_PERIOD_DAYS), to: iso(-1) };
 }
 
+/** Recorta y limpia las preguntas anteriores que se le mandan al modelo como contexto. */
 export function prepareHistory(previous: string[] = [],
   pendingClarification?: string): { previous: string[]; pendingClarification: string | null } {
   const questions = previous.slice(-CHAT_LIMITS.previousQuestions)
@@ -227,6 +236,10 @@ function partialAnswer(answer: ReturnType<typeof projectOutput>,
 type Finish = { kind: ChatTurnView['kind']; reason?: string;
   answer?: ReturnType<typeof projectOutput>; text?: string };
 
+/**
+ * EL DIRECTOR DEL CHAT: toma el lease, pide al modelo que elija herramienta, la ejecuta en el servidor,
+ * pide la redacción, verifica cada número y guarda el registro. Todo con tiempo límite.
+ */
 export async function runChatTurn(input: ChatInput, deps: ChatDependencies): Promise<ChatTurnView> {
   const start = deps.now();
   const workDeadline = start + CHAT_LIMITS.turnDeadlineMs - CHAT_LIMITS.finalizationReserveMs;

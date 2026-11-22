@@ -17,6 +17,7 @@ export type Ga4Quality = Readonly<{
   time_zone: string;
 }>;
 
+/** Error que se lanza cuando Google devuelve datos inválidos para la sincronización. */
 export class Ga4SyncDataError extends Error {
   constructor(readonly kind: 'calidad_inconsistente' | 'solicitud_invalida' | 'campo_invalido') {
     super('Respuesta de GA4 inválida para la sincronización.');
@@ -34,15 +35,18 @@ function utc(day: string): number {
   }
   return n;
 }
+/** Suma o resta días a una fecha "AAAA-MM-DD". */
 export function shiftGa4Day(day: string, delta: number): string {
   return new Date(utc(day) + delta * DAY_MS).toISOString().slice(0, 10);
 }
+/** Fecha de hoy en la zona horaria de la propiedad. */
 export function ga4LocalDay(now: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit',
     day: '2-digit' }).formatToParts(now);
   const part = (type: string) => parts.find((item) => item.type === type)?.value ?? '';
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
+/** Decide qué rangos de días pedir: el último año la primera vez, o solo lo reciente después. */
 export function ga4DailyWindows(today: string, phase: 'backfill' | 'incremental',
   coverageThrough: string | null): readonly Ga4Window[] {
   const end = shiftGa4Day(today, -1);
@@ -63,6 +67,7 @@ function shiftMonth(day: string, months: number): string {
   return date.toISOString().slice(0, 10);
 }
 function monthEnd(day: string): string { return shiftGa4Day(shiftMonth(day, 1), -1); }
+/** Los últimos 12 meses, para las cohortes. */
 export function ga4CohortMonths(today: string): readonly Ga4Window[] {
   const newest = monthStart(today);
   return Array.from({ length: 12 }, (_, index) => {
@@ -70,6 +75,7 @@ export function ga4CohortMonths(today: string): readonly Ga4Window[] {
     return { from, to: monthEnd(from) };
   });
 }
+/** Dice si una celda de la cohorte todavía no está disponible, es provisional o ya está cerrada. */
 export function ga4CohortCellAvailability(month: Ga4Window, offset: number, today: string):
   'aun_no_disponible' | 'provisional' | 'cerrada' {
   if (!Number.isInteger(offset) || offset < 0 || offset > 11) throw new Ga4SyncDataError('solicitud_invalida');
@@ -78,6 +84,7 @@ export function ga4CohortCellAvailability(month: Ga4Window, offset: number, toda
   return today < start ? 'aun_no_disponible'
     : today <= shiftGa4Day(end, GA4_PROVISIONAL_DAYS) ? 'provisional' : 'cerrada';
 }
+/** Arma el pedido de un informe del catálogo fijo para un rango de fechas. */
 export function ga4ReportRequest(report: Ga4ReportDefinition, window: Ga4Window,
   today: string, offset: number): Record<string, unknown> {
   const common: Record<string, unknown> = {
@@ -108,6 +115,7 @@ function stringList(value: unknown): string[] {
   }
   return [...new Set(value)].sort();
 }
+/** Lee la calidad de una respuesta de GA4 (muestreo, umbrales, moneda) para saber si se puede confiar. */
 export function ga4PageQuality(response: unknown, property: { currency: string; timezone: string }): Ga4Quality {
   const body = object(response);
   const metadata = object(body?.metadata);
@@ -150,6 +158,7 @@ export function ga4PageQuality(response: unknown, property: { currency: string; 
     data_truncation_reasons: stringList(metadata.dataTruncationReasons), restricted_metrics,
     empty_reason: empty, currency_code: property.currency, time_zone: property.timezone };
 }
+/** Junta la calidad de varias páginas y verifica que sean coherentes entre sí. */
 export function mergeGa4Quality(pages: readonly Ga4Quality[]): Ga4Quality {
   if (!pages.length) throw new Ga4SyncDataError('calidad_inconsistente');
   const first = pages[0];
@@ -171,6 +180,7 @@ export function mergeGa4Quality(pages: readonly Ga4Quality[]): Ga4Quality {
     restricted_metrics: [...restrictions].sort(([a], [b]) => a.localeCompare(b))
       .map(([metric_name, types]) => ({ metric_name, restricted_metric_types: [...types].sort() })) };
 }
+/** Dice si a la propiedad le queda poca cuota de Google. */
 export function ga4QuotaLow(response: unknown): boolean | null {
   const quota = object(object(response)?.propertyQuota);
   if (!quota) return null;
@@ -182,6 +192,7 @@ export function ga4QuotaLow(response: unknown): boolean | null {
   return false;
 }
 
+/** Convierte las filas de la respuesta de GA4 en filas para guardar. */
 export function ga4ProjectRows(reportId: Ga4ReportId, response: unknown,
   window: Ga4Window, today: string): Record<string, unknown>[] {
   const body = object(response);
@@ -242,6 +253,7 @@ export function ga4ProjectRows(reportId: Ga4ReportId, response: unknown,
   });
 }
 
+/** Arma el checkpoint: qué informes ya se completaron, para seguir desde ahí. */
 export function ga4Checkpoint(completed: readonly string[]): { completed_reports: string[]; version: number } {
   return { completed_reports: [...new Set(completed)], version: GA4_REPORT_VERSION };
 }

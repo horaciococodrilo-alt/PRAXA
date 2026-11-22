@@ -18,6 +18,7 @@ const TIENDANUBE_RESULT = '/app/integraciones?tiendanube=';
 const TIENDANUBE_SYNC_RESULT = '/app/integraciones?tn_sync=';
 const GA4_RESULT = '/app/integraciones?ga4=';
 
+/** BOTÓN «Confirmar cuenta» de Meta: guarda la cuenta publicitaria elegida y vuelve a Integraciones. */
 export async function confirmarCuentaMeta(formData: FormData): Promise<never> {
   let result: MetaOAuthOutcome;
   let login = false;
@@ -47,6 +48,7 @@ export async function sincronizarMeta(): Promise<never> {
   redirect(`${SYNC_RESULT}${result}`);
 }
 
+/** BOTÓN «Desconectar» de Meta. */
 export async function desconectarMeta(): Promise<never> {
   let result: MetaOAuthOutcome;
   let login = false;
@@ -74,6 +76,7 @@ export async function desconectarTiendanube(): Promise<never> {
   redirect(`${TIENDANUBE_RESULT}${result}`);
 }
 
+/** BOTÓN «Desconectar» de Google Analytics. */
 export async function desconectarGa4(): Promise<never> {
   let result: Awaited<ReturnType<typeof disconnectGa4>>;
   let login = false;
@@ -84,6 +87,7 @@ export async function desconectarGa4(): Promise<never> {
   redirect(`${GA4_RESULT}${result}`);
 }
 
+/** BOTÓN «Confirmar propiedad» de Google Analytics. */
 export async function confirmarPropiedadGa4(formData: FormData): Promise<never> {
   let result: Awaited<ReturnType<typeof confirmGa4Property>>;
   let login = false;
@@ -97,6 +101,7 @@ export async function confirmarPropiedadGa4(formData: FormData): Promise<never> 
   redirect(`${GA4_RESULT}${result}`);
 }
 
+/** Muestra la vista previa de una propiedad de GA4 antes de confirmarla. */
 export async function previsualizarPropiedadGa4(formData: FormData) {
   const key = formData.get('propiedad');
   return previewGa4Property(typeof key === 'string' ? key : '');
@@ -131,6 +136,7 @@ export async function pasoSincronizacionTiendanube(): Promise<TiendanubeSyncResu
   return result;
 }
 
+/** BOTÓN «Sincronizar ahora» de Tiendanube: avanza un paso de la sincronización. */
 export async function sincronizarTiendanube(): Promise<never> {
   let result: TiendanubeSyncResult;
   let login = false;

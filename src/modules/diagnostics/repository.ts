@@ -34,6 +34,7 @@ import { DIAGNOSTIC_LIMITS } from './limits';
 
 export type Rpc = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: unknown }>;
 
+/** Error que se lanza cuando no se pudo leer el diagnóstico de la base. */
 export class DiagnosticReadError extends Error {
   constructor() {
     super('No se pudo leer el diagnóstico.');
@@ -50,17 +51,23 @@ async function rows<T>(rpc: Rpc, fn: string, args: Record<string, unknown>, sche
   return parsed.data;
 }
 
+/** Lee de la base si la conexión de Meta cumple las condiciones para generar. */
 export async function readEligibility(rpc: Rpc, connectionId: string): Promise<Eligibility> {
   const [row] = await rows(rpc, 'meta_diagnostic_eligibility', { p_connection_id: connectionId }, eligibilitySchema);
   if (!row) throw new DiagnosticReadError();
   return row;
 }
 
+/**
+ * Lee qué acciones de Meta (compras, carritos…) tuvo la cuenta en el período, para armar la lista de
+ * objetivos.
+ */
 export async function readActionTypes(rpc: Rpc, connectionId: string, window: DiagnosticWindow): Promise<ActionTypeRow[]> {
   return rows(rpc, 'meta_diagnostic_action_types',
     { p_connection_id: connectionId, p_from: window.from, p_to: window.to }, actionTypeRowSchema);
 }
 
+/** Lee las métricas de la cuenta del período actual y del anterior. */
 export async function readAccountMetrics(rpc: Rpc, args: { connectionId: string; window: DiagnosticWindow;
   metricRef: string }): Promise<{ current: AccountMetricsRow; previous: AccountMetricsRow | null }> {
   const found = await rows(rpc, 'meta_diagnostic_account_metrics', {
@@ -169,6 +176,7 @@ export const PUBLISH_OUTCOMES = ['published', 'already_published', 'reservation_
   'connection_changed', 'sync_changed'] as const;
 export type PublishOutcome = (typeof PUBLISH_OUTCOMES)[number];
 
+/** Error que se lanza cuando no se pudo escribir el diagnóstico en la base. */
 export class DiagnosticWriteError extends Error {
   constructor() {
     super('No se pudo escribir el diagnóstico.');
@@ -184,12 +192,14 @@ function single<T extends string>(found: Record<string, unknown>[], column: stri
   return value as T;
 }
 
+/** Guarda el objetivo del diagnóstico (por worker_api). */
 export async function saveSettings(worker: WorkerApi, ctx: TenantContext, settings: DiagnosticSettings): Promise<'saved'> {
   const found = await worker.call('save_diagnostic_settings',
     [ctx.user_id, ctx.company_id, settings.goal_kind, settings.metric_ref]);
   return single(found, 'save_diagnostic_settings', ['saved'] as const);
 }
 
+/** Reserva la generación para que no se generen dos diagnósticos a la vez (por worker_api). */
 export async function reserveDiagnostic(worker: WorkerApi, ctx: TenantContext, args: {
   connectionId: string; generation: number; syncFinishedAt: string; ttlSeconds?: number }): Promise<ReserveOutcome> {
   const found = await worker.call('reserve_diagnostic', [ctx.user_id, ctx.company_id, ctx.request_id,
@@ -198,6 +208,7 @@ export async function reserveDiagnostic(worker: WorkerApi, ctx: TenantContext, a
   return single(found, 'reserve_diagnostic', RESERVE_OUTCOMES);
 }
 
+/** Libera la reserva si la generación falló (por worker_api). */
 export async function releaseDiagnostic(worker: WorkerApi, ctx: TenantContext): Promise<boolean> {
   const found = await worker.call('release_diagnostic', [ctx.user_id, ctx.company_id, ctx.request_id]);
   const value = found[0]?.release_diagnostic;

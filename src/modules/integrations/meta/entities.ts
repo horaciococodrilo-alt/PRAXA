@@ -22,10 +22,12 @@ const MAX_CURSOR = 2048;
 const ENTITY_ID = /^[0-9]{1,32}$/;
 const EVENT_TYPE = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
 
+/** Error que se lanza cuando Meta responde algo con forma inesperada. */
 export class InvalidMetaResponseError extends Error {
   constructor() { super('Respuesta de Meta inválida.'); this.name = 'InvalidMetaResponseError'; }
 }
 
+/** Error que se lanza cuando la sincronización llegó a un tope (de páginas o de tiempo). */
 export class LevelLimitError extends Error {
   readonly reason: 'page_limit' | 'duration_limit';
   constructor(reason: 'page_limit' | 'duration_limit') {
@@ -42,6 +44,7 @@ export function normalizeAccountId(value: unknown): string | null {
   return /^[0-9]{1,60}$/.test(value) ? `act_${value}` : null;
 }
 
+/** Dice si un valor es un ID válido de campaña, conjunto o anuncio. */
 export function isEntityId(value: unknown): value is string {
   return typeof value === 'string' && ENTITY_ID.test(value);
 }

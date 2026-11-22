@@ -13,6 +13,7 @@ export type SealedCredential = {
   key_version: number;
 };
 
+/** Error que se lanza cuando el token a cifrar o el material cifrado no son válidos. */
 export class CredentialMaterialError extends Error {
   readonly code: 'invalid_plaintext' | 'invalid_material';
 
@@ -23,6 +24,7 @@ export class CredentialMaterialError extends Error {
   }
 }
 
+/** Error que se lanza cuando un token cifrado no se puede descifrar (fue alterado o es de otra fila). */
 export class CredentialDecryptionError extends Error {
   readonly code = 'decryption_failed';
 
@@ -34,6 +36,9 @@ export class CredentialDecryptionError extends Error {
 
 const inspectCustom: unique symbol = Symbol.for('nodejs.util.inspect.custom') as never;
 
+/**
+ * Caja para un secreto: si alguien lo imprime o lo loguea, sale «[redactado]». Solo .reveal() da el valor.
+ */
 export class SecretValue {
   readonly #value: string;
 
@@ -57,6 +62,7 @@ function aadBytes(aad: CredentialAadInput): Buffer {
   catch { throw new CredentialMaterialError('invalid_material'); }
 }
 
+/** CIFRA un token con AES-256-GCM, atado a la empresa, la conexión y el proveedor. */
 export function sealCredential(plaintext: string, aad: CredentialAadInput, keyring: CredentialKeyring): SealedCredential {
   if (typeof plaintext !== 'string' || plaintext.length === 0) throw new CredentialMaterialError('invalid_plaintext');
   const aadBuffer = aadBytes(aad);
@@ -74,6 +80,7 @@ export function sealCredential(plaintext: string, aad: CredentialAadInput, keyri
   };
 }
 
+/** DESCIFRA un token. Si se copió a otra fila o fue modificado, falla. */
 export function openCredential(sealed: SealedCredential, aad: CredentialAadInput, keyring: CredentialKeyring): SecretValue {
   const material = sealed as Partial<SealedCredential> | null;
   const ciphertext = decodeBase64(material?.ciphertext);

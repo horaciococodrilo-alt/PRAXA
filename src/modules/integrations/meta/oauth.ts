@@ -148,6 +148,7 @@ function withClearedCookie(response: NextResponse): NextResponse {
 // Diálogo y canje
 // ---------------------------------------------------------------------------
 
+/** Arma la URL a la que vas para autorizar a PRAXA en Meta. */
 export function buildAuthorizationUrl(config: MetaOAuthConfig, state: string): URL {
   return dialogUrl({
     client_id: config.appId,
@@ -163,6 +164,10 @@ export function buildAuthorizationUrl(config: MetaOAuthConfig, state: string): U
 // POST /api/integraciones/meta/iniciar
 // ---------------------------------------------------------------------------
 
+/**
+ * INICIO DE LA CONEXIÓN CON META: verifica que venga de nuestra página, crea el intento (state + cookie) y
+ * te manda a Meta.
+ */
 export async function handleMetaStart(request: NextRequest, partial?: Partial<MetaOAuthDeps>): Promise<NextResponse> {
   // D-M16.1-06: solo desde el propio origen, antes de leer la sesión.
   if (request.headers.get('origin') !== request.nextUrl.origin) {
@@ -255,6 +260,10 @@ export async function handleMetaStart(request: NextRequest, partial?: Partial<Me
 // GET /api/integraciones/meta/callback
 // ---------------------------------------------------------------------------
 
+/**
+ * VUELTA DE META: consume el intento, canjea el código por un token, lo verifica, lo cifra y lo guarda. Si
+ * algo falla, anula el token.
+ */
 export async function handleMetaCallback(request: NextRequest, partial?: Partial<MetaOAuthDeps>): Promise<NextResponse> {
   const deps = resolveDeps(partial);
   const params = request.nextUrl.searchParams;

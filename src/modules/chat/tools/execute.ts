@@ -50,6 +50,7 @@ async function metaCampaignSpend(connectionId: string, from: string, to: string,
     presence: row.presence, spend: row.spend, currency: row.currency, fetched_at: row.fetched_at }));
 }
 
+/** Error que se lanza cuando una herramienta del chat no pudo ejecutarse. */
 export class ToolExecutionError extends Error {
   constructor() { super('No se pudo ejecutar la herramienta.'); }
 }
@@ -159,6 +160,10 @@ function rpcArgs(call: ProjectedToolCall, connectionId: string): Record<string, 
   return args;
 }
 
+/**
+ * Ejecuta la herramienta que eligió el modelo: según el nombre la manda a Meta, Tiendanube o GA4, y lee la
+ * base con tu sesión.
+ */
 export async function executeTool(call: ProjectedToolCall, ctx: TurnContext, toolCallId: string,
   deps: ToolDeps = {}, signal?: AbortSignal): Promise<ToolResult> {
   if (isTiendanubeTool(call.name)) {

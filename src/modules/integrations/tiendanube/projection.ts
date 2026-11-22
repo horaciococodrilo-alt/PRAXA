@@ -12,6 +12,7 @@ import 'server-only';
  * `tn_publish_catalog` en `0023`.
  */
 
+/** Error que se lanza cuando Tiendanube devuelve un recurso con forma inesperada. */
 export class TiendanubeProjectionError extends Error {
   constructor() {
     super('Tiendanube devolvió un recurso con una forma inesperada.');

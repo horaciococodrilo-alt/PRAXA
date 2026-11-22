@@ -33,6 +33,7 @@ export type ConsumedAttempt = {
   returnPath: ReturnPath;
 };
 
+/** Error que se lanza cuando la empresa ya tiene una conexión activa con ese proveedor. */
 export class LiveConnectionExistsError extends Error {
   constructor() {
     super('La empresa ya tiene una conexión con Meta.');
@@ -40,6 +41,7 @@ export class LiveConnectionExistsError extends Error {
   }
 }
 
+/** Error que se lanza cuando la entrada o la respuesta de un intento OAuth es inválida. */
 export class AttemptRepositoryError extends Error {
   readonly code: 'invalid_input' | 'invalid_response';
 
@@ -98,6 +100,7 @@ function translated(error: unknown): unknown {
   return error;
 }
 
+/** Guarda un intento de conexión nuevo (solo los hashes del state y la cookie, nunca los valores). */
 export async function createOAuthAttempt(
   ctx: TenantContext,
   input: {
@@ -151,6 +154,7 @@ export async function createOAuthAttempt(
   return { attemptId: attemptId.data, purpose: shape.purpose, expiresAt: row.expires_at.toISOString() };
 }
 
+/** Consume el intento al volver del proveedor: verifica los hashes y lo marca usado (una sola vez). */
 export async function consumeOAuthAttempt(
   ctx: TenantContext,
   input: { provider: IntegrationProvider; stateHash: string; bindingHash: string },

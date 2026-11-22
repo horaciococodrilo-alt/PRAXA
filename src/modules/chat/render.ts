@@ -802,6 +802,10 @@ function renderBlock(block: Record<string, unknown>, results: ToolResult[]): Blo
     aria_label: `${title}: ${rows.length} filas` };
 }
 
+/**
+ * Arma la respuesta final que ve el usuario (bloques, cifras y avisos). Si el chat se abstuvo, elige el
+ * texto fijo que corresponde.
+ */
 export function renderTurn(input: RenderInput): ChatTurnView {
   const reason = input.reason ?? '';
   const connected = input.connectedSources ?? [];

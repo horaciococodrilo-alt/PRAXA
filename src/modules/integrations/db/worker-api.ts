@@ -58,6 +58,7 @@ const MESSAGES: Record<WorkerApiCode, string> = {
   config_invalid: 'La URL de conexión no es válida.',
 };
 
+/** Error de una llamada a worker_api, ya traducido a un código entendible (PX001…PX011). */
 export class WorkerApiError extends Error {
   readonly code: WorkerApiCode;
   readonly failureKind: WorkerFailureKind;
@@ -187,6 +188,7 @@ function translated(error: unknown): WorkerApiError {
   return new WorkerApiError('unexpected');
 }
 
+/** Crea la conexión a la base con el rol restringido praxa_integrations (valida la URL y usa TLS). */
 export function createWorkerApi(options: { connectionString: string } | { pool: Queryable }): WorkerApi & { end(): Promise<void> } {
   let pool: Queryable;
   if ('pool' in options) {
@@ -228,6 +230,7 @@ export function createWorkerApi(options: { connectionString: string } | { pool: 
 
 let runtimeWorkerApi: WorkerApi | undefined;
 
+/** Devuelve la conexión a worker_api (la crea una sola vez). Es el único camino para ESCRIBIR. */
 export function getWorkerApi(): WorkerApi {
   if (runtimeWorkerApi) return runtimeWorkerApi;
   const connectionString = process.env.PRAXA_INTEGRATIONS_DB_URL;

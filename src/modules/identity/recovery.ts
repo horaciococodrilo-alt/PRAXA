@@ -15,6 +15,10 @@ export type EstadoCorreo = 'existe' | 'no_existe' | 'desconocido';
 const CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAXIMO = 320;
 
+/**
+ * Recuperar contraseña: pregunta a la base si el correo tiene cuenta. Responde solo sí, no o «desconocido»
+ * (si el correo es inválido o la base falla).
+ */
 export async function correoTieneCuenta(email: unknown): Promise<EstadoCorreo> {
   if (typeof email !== 'string') return 'desconocido';
   const normalizado = email.trim().toLowerCase();

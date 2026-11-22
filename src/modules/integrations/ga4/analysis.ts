@@ -197,6 +197,10 @@ async function readData(ctx: TenantContext, db: SupabaseClient,
   };
 }
 
+/**
+ * Prepara la tarjeta de Google Analytics: estado de la conexión y de la sincronización (lee con tu
+ * sesión).
+ */
 export async function loadGa4View(partial: Partial<Ga4AnalysisDeps> = {}): Promise<Ga4View> {
   const deps = depsOf(partial);
   let ctx: TenantContext;

@@ -56,6 +56,10 @@ function cohortRefs(data: InsightsData, key: 'activeCustomers' | 'repeatPurchase
   return refs;
 }
 
+/**
+ * Arma las propuestas de audiencias («reactivar inactivos», etc.) a partir de los segmentos. Son solo
+ * sugerencias: no crea ni exporta nada a Meta.
+ */
 export function buildAudienceProposals(data: InsightsData): readonly AudienceProposal[] {
   const proposals: AudienceProposal[] = [];
   const identityComplete = data.quality.identity === 'completa';

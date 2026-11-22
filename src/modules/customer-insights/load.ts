@@ -87,6 +87,10 @@ Promise<{ view: CustomerInsightsView; nowMs: number }> {
   return { view: await loadCustomerInsightsView(requestedCurrency, { now: () => now }), nowMs: now.getTime() };
 }
 
+/**
+ * Prepara la pantalla Clientes: lee el análisis de Tiendanube ya calculado (RFM, cohortes) y arma la vista
+ * con las propuestas de audiencias.
+ */
 export async function loadCustomerInsightsView(requestedCurrency: unknown = null,
   partial: Partial<CustomerInsightsDeps> = {}): Promise<CustomerInsightsView> {
   const requested = parseCurrencyParam(requestedCurrency);

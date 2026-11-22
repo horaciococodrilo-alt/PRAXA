@@ -73,6 +73,10 @@ function toObservation(row: MetaCoverageRow): MetaAnomalyObservation | null {
   };
 }
 
+/**
+ * Prepara la pantalla de Anomalías: lee los datos de Meta con tu sesión y se los pasa al motor de
+ * detección. En modo demo usa los datos de ejemplo.
+ */
 export async function loadMetaAnomalyView(
   options: Readonly<{ mode: 'real' | 'synthetic_demo' }>,
   injected: Partial<MetaAnomalyLoadDeps> = {},

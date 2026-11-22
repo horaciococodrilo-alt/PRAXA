@@ -27,6 +27,10 @@ export const tenantContextSchema = z.strictObject({
 
 export type TenantContext = Readonly<z.infer<typeof tenantContextSchema>>;
 
+/**
+ * Error que se lanza cuando no se puede armar la credencial de empresa (por ejemplo, si la membresía no
+ * coincide).
+ */
 export class TenantContextError extends Error {
   constructor(message = 'No se pudo establecer el contexto de empresa.') {
     super(message);
@@ -34,6 +38,11 @@ export class TenantContextError extends Error {
   }
 }
 
+/**
+ * Arma la «credencial» de cada operación: verifica la sesión, busca tu empresa, confirma que seas miembro
+ * y devuelve { user_id, company_id, role, request_id } congelado. No recibe parámetros: nadie puede
+ * pasarle otra empresa desde afuera.
+ */
 export async function requireTenantContext(): Promise<TenantContext> {
   const user = await requireUserForAction();
   const { userId, companyId } = await requireCompanyMembership();

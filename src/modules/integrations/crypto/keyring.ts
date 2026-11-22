@@ -12,6 +12,7 @@ export type CredentialKeyring = {
 
 type KeyringCode = 'keyring_missing' | 'keyring_invalid' | 'current_invalid';
 
+/** Error de configuración del llavero de claves (falta, mal formado, etc.). */
 export class CredentialKeyringError extends Error {
   readonly code: KeyringCode;
 
@@ -22,6 +23,7 @@ export class CredentialKeyringError extends Error {
   }
 }
 
+/** Error que se lanza cuando un token fue cifrado con una versión de clave que ya no está en el llavero. */
 export class CredentialKeyVersionUnknownError extends Error {
   readonly code = 'unknown_key_version';
 
@@ -40,6 +42,7 @@ function validVersion(value: string): number | null {
   return Number.isSafeInteger(version) && version <= MAX_VERSION ? version : null;
 }
 
+/** Lee el llavero de claves desde las variables de entorno y valida cada clave. */
 export function parseCredentialKeyring(keys: string | undefined, current: string | undefined): CredentialKeyring {
   if (!keys?.trim()) throw new CredentialKeyringError('keyring_missing', 'Falta PRAXA_CREDENTIAL_KEYS.');
 
@@ -87,6 +90,7 @@ export function parseCredentialKeyring(keys: string | undefined, current: string
 
 let cached: CredentialKeyring | undefined;
 
+/** Devuelve el llavero de claves (lo lee una vez y lo guarda en memoria). */
 export function getCredentialKeyring(): CredentialKeyring {
   return cached ??= parseCredentialKeyring(
     process.env.PRAXA_CREDENTIAL_KEYS,

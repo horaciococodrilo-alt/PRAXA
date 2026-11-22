@@ -10,6 +10,7 @@ import type { ToolName } from './tools/schema';
 export const CHAT_MODEL_ID = 'deepseek-ai/DeepSeek-V4.1-Flash';
 const CHAT_COMPLETIONS_URL = 'https://api.deepinfra.com/v1/openai/chat/completions';
 
+/** Error del modelo del chat: no disponible, o devolvió algo con formato inválido. */
 export class ChatModelError extends Error {
   readonly reason: 'unavailable' | 'bad_output';
 
@@ -50,6 +51,10 @@ const envelopeSchema = z.object({
     completion_tokens: z.number().int().min(0), total_tokens: z.number().int().min(0) }).optional(),
 });
 
+/**
+ * Llama al modelo (DeepInfra) en una de sus dos fases: «choice» (elegir herramienta) o «answer» (redactar
+ * con marcadores). Tiene tiempo límite y valida el formato de lo que devuelve.
+ */
 export function requestChatModel(options: RequestOptions & { phase: 'choice' }): Promise<ModelResponse<ChatChoice>>;
 export function requestChatModel(options: RequestOptions & { phase: 'answer' }): Promise<ModelResponse<FlatChatAnswer>>;
 export async function requestChatModel(options: RequestOptions): Promise<ModelResponse<ChatChoice | FlatChatAnswer>> {

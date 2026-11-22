@@ -202,6 +202,7 @@ Promise<{ datos: TiendanubeDatos; dominio: string | null }> {
   };
 }
 
+/** Prepara la tarjeta de Tiendanube: estado de la conexión y de la sincronización (lee con tu sesión). */
 export async function loadTiendanubeView(partial: Partial<AnalysisDeps> = {}): Promise<TiendanubeVista> {
   const deps = resolveDeps(partial);
   let ctx: TenantContext;

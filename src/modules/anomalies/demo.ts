@@ -47,6 +47,10 @@ const DEMO_OBSERVATIONS = Object.freeze([
     { spend: '690', impressions: '8800', clicks: '240', purchases: '7' }),
 ]);
 
+/**
+ * Arma la pantalla de Anomalías con datos de ejemplo (?ejemplo=1), pasando por el mismo motor de detección
+ * que los datos reales.
+ */
 export function createMetaAnomalyDemo(): MetaAnomalyView {
   return {
     state: 'ready',

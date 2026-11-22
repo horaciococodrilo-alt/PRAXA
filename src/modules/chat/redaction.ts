@@ -19,6 +19,10 @@ function passesLuhn(value: string): boolean {
   return total % 10 === 0;
 }
 
+/**
+ * Tapa datos sensibles de la pregunta antes de guardarla: URLs, correos, tokens, CBU, teléfonos, números
+ * largos.
+ */
 export function redactQuestion(raw: string): string {
   const redacted = raw
     .replace(/\b(?:https?:\/\/|www\.)[^\s<>]+/giu, '[URL]')

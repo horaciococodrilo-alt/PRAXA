@@ -62,6 +62,7 @@ const ERROR_MESSAGES: Record<RepositoryCode, string> = {
   invalid_response: 'Respuesta de credenciales inválida.',
 };
 
+/** Error al guardar o leer una credencial. */
 export class CredentialRepositoryError extends Error {
   readonly code: RepositoryCode;
   constructor(code: RepositoryCode) {
@@ -71,11 +72,13 @@ export class CredentialRepositoryError extends Error {
   }
 }
 
+/** Error que se lanza cuando la credencial no existe. */
 export class CredentialNotFoundError extends Error {
   readonly code = 'credential_not_found';
   constructor() { super('Credencial no encontrada.'); this.name = 'CredentialNotFoundError'; }
 }
 
+/** Error que se lanza cuando la credencial cambió mientras se usaba: hay que empezar de nuevo. */
 export class CredentialChangedError extends Error {
   readonly code = 'credential_changed';
   constructor() { super('La credencial cambió; volvé a empezar.'); this.name = 'CredentialChangedError'; }
@@ -176,6 +179,10 @@ function makeSealedArgs(ctx: TenantContext, id: string, input: CredentialWriteIn
     input.tokenType, input.issuedForAppId, Object.freeze([...input.grantedScopes]), input.expiresAt] as const;
 }
 
+/**
+ * PREPARA (sin enviar) la creación de una conexión con su token cifrado. Así, si falla la red, se
+ * reintenta exactamente lo mismo.
+ */
 export function preparePendingConnectionWithCredential(
   ctx: TenantContext, input: PendingCredentialInput, deps: CredentialRepositoryDeps = {},
 ): PreparedCredentialOperation {
@@ -192,6 +199,7 @@ export function preparePendingConnectionWithCredential(
     kind: 'create', connectionId: id, args });
 }
 
+/** PREPARA (sin enviar) el reemplazo del token de una conexión. */
 export function prepareReplaceCredential(
   ctx: TenantContext, input: ReplaceCredentialInput, deps: CredentialRepositoryDeps = {},
 ): PreparedCredentialOperation {
@@ -209,6 +217,7 @@ export function prepareReplaceCredential(
 type Created = { connectionId: string; status: string; pendingExpiresAt: string; credentialGeneration: number };
 type Replaced = { connectionId: string; status: string; credentialGeneration: number };
 
+/** EJECUTA una operación ya preparada contra worker_api. */
 export async function executePreparedCredentialOperation(
   ctx: TenantContext, operation: PreparedCredentialOperation, deps: CredentialRepositoryDeps = {},
 ): Promise<Created | Replaced> {
@@ -236,6 +245,7 @@ export async function executePreparedCredentialOperation(
   return { connectionId: payload.connectionId, status: resultStatus, credentialGeneration: resultGeneration };
 }
 
+/** Crea la conexión con su token cifrado (prepara y ejecuta). */
 export async function createPendingConnectionWithCredential(
   ctx: TenantContext, input: PendingCredentialInput, deps: CredentialRepositoryDeps = {},
 ): Promise<Created> {
@@ -243,6 +253,7 @@ export async function createPendingConnectionWithCredential(
   return executePreparedCredentialOperation(ctx, operation, deps) as Promise<Created>;
 }
 
+/** Reemplaza el token de una conexión (prepara y ejecuta). */
 export async function replaceCredential(
   ctx: TenantContext, input: ReplaceCredentialInput, deps: CredentialRepositoryDeps = {},
 ): Promise<Replaced> {
@@ -274,6 +285,7 @@ export type ReadCredentialResult = {
   rewrap: CredentialRewrapResult;
 };
 
+/** Lee el token cifrado de una conexión (sin descifrarlo). */
 export async function readCredential(
   ctx: TenantContext, id: string, deps: CredentialRepositoryDeps = {},
 ): Promise<ReadCredentialResult> {
@@ -343,6 +355,7 @@ export async function readCredential(
 
 export type CredentialVersionCount = { keyVersion: number; credentialCount: number };
 
+/** Cuenta cuántos tokens hay cifrados con cada versión de clave. */
 export async function countCredentialsByKeyVersion(
   deps: CredentialRepositoryDeps = {},
 ): Promise<CredentialVersionCount[]> {
@@ -366,6 +379,7 @@ export async function countCredentialsByKeyVersion(
   });
 }
 
+/** Dice si una versión de clave se puede retirar (ningún token la usa). */
 export async function canRetireKeyVersion(version: number, deps: CredentialRepositoryDeps = {}): Promise<boolean> {
   const requested = validVersion(version);
   const counts = await countCredentialsByKeyVersion(deps);

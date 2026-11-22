@@ -115,6 +115,7 @@ async function executeCredentialWrite(ctx: TenantContext, operation: PreparedCre
   }
 }
 
+/** INICIO DE LA CONEXIÓN CON GOOGLE: verifica el origen, crea el intento y te manda a Google. */
 export async function handleGa4Start(request: NextRequest, partial: Partial<Ga4OAuthDeps> = {}): Promise<NextResponse> {
   if (request.headers.get('origin') !== request.nextUrl.origin) {
     return new NextResponse('Solicitud no permitida.', { status: 403,
@@ -187,6 +188,7 @@ Promise<Set<string>> {
   throw new Ga4ApiError('desconocido', 'unknown');
 }
 
+/** VUELTA DE GOOGLE: consume el intento, canjea el código, cifra y guarda el refresh token. */
 export async function handleGa4Callback(request: NextRequest, partial: Partial<Ga4OAuthDeps> = {}): Promise<NextResponse> {
   const deps = depsOf(partial);
   let returnPath: ReturnPath = RETURN_PATH_ALLOWLIST[0];

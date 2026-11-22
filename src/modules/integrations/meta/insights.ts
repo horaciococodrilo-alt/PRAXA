@@ -103,6 +103,10 @@ function collectActions(source: unknown, side: ActionSide, into: Map<string, Ins
   }
 }
 
+/**
+ * Valida y convierte una fila de métricas diarias de Meta. Las cifras quedan como texto para no perder
+ * decimales.
+ */
 export function parseInsightRow(raw: unknown, level: SyncLevel, root: string, window: SyncWindow): InsightDay {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new InvalidMetaResponseError();
   const record = raw as Record<string, unknown>;
@@ -141,6 +145,7 @@ export function localSyncWindow(now: Date, timezone: string, lookbackDays: numbe
 // Extracción de un nivel
 // ---------------------------------------------------------------------------
 
+/** Error que se lanza cuando la conexión cambió mientras se sincronizaba. */
 export class ConnectionChangedDuringSync extends Error {
   constructor() { super('La conexión cambió durante la sincronización.'); this.name = 'ConnectionChangedDuringSync'; }
 }
@@ -194,6 +199,10 @@ function payloadFits(entities: CapturedEntity[], days: InsightDay[], limits: Syn
   return Buffer.byteLength(JSON.stringify({ entities, days })) * 1.25 <= limits.maxPayloadBytes;
 }
 
+/**
+ * Trae de Meta todas las métricas diarias de un nivel (cuenta, campaña, conjunto o anuncio), página por
+ * página.
+ */
 export async function extractMetaLevel(
   level: SyncLevel,
   token: SecretValue,
@@ -362,6 +371,7 @@ function segment(value: unknown): string {
   return value;
 }
 
+/** Valida y convierte una fila de desglose (edad y género, país, región). */
 export function parseBreakdownRow(raw: unknown, target: BreakdownTarget, root: string, window: SyncWindow): BreakdownRow {
   const day = parseInsightRow(raw, target.level, root, window);
   const record = raw as Record<string, unknown>;
@@ -371,6 +381,7 @@ export function parseBreakdownRow(raw: unknown, target: BreakdownTarget, root: s
     ctr: day.ctr, cpc: day.cpc, cpm: day.cpm, actions: target.dimension === 'region' ? [] : day.actions };
 }
 
+/** Trae de Meta un desglose completo, página por página. */
 export async function extractMetaBreakdown(
   target: BreakdownTarget,
   token: SecretValue,
@@ -548,6 +559,10 @@ function overallResult(complete: number): SyncResult {
   return complete === SYNC_LEVELS.length ? 'completa' : complete > 0 ? 'parcial' : 'incompleta';
 }
 
+/**
+ * LA SINCRONIZACIÓN DE META: toma el lease, descifra el token, trae cada nivel y desglose, los publica y
+ * suelta el lease.
+ */
 export async function syncMetaInsights(partial: Partial<SyncDeps> = {}): Promise<SyncOutcome> {
   const deps = resolveDeps(partial);
   // El presupuesto incluye todo lo que corre desde la entrada, también las lecturas previas.
@@ -746,6 +761,7 @@ export async function syncMetaInsights(partial: Partial<SyncDeps> = {}): Promise
 // Lecturas con JWT
 // ---------------------------------------------------------------------------
 
+/** Error que se lanza cuando no se pudo leer el estado de la sincronización. */
 export class MetaSyncReadError extends Error {
   constructor() { super('No se pudo leer la sincronización.'); this.name = 'MetaSyncReadError'; }
 }
@@ -871,6 +887,7 @@ export async function readMetaSyncStatus(connectionId: string, deps: ReadDeps = 
   return rows[0] ?? null;
 }
 
+/** Lee qué días tienen datos guardados de Meta. */
 export function readMetaDailyCoverage(
   input: { connectionId: string; level: SyncLevel; from: string; to: string; entityRef?: string },
   deps: ReadDeps = {},
@@ -879,6 +896,7 @@ export function readMetaDailyCoverage(
     p_to: input.to, ...(input.entityRef ? { p_entity_ref: input.entityRef } : {}) }, coverageRowSchema, deps);
 }
 
+/** Lista las campañas, conjuntos o anuncios guardados. */
 export function listCapturedEntities(connectionId: string, level: SyncLevel, deps: ReadDeps = {}): Promise<MetaCapturedEntity[]> {
   return rpcAllRows('list_meta_entities', { p_connection_id: connectionId, p_level: level }, capturedEntitySchema, deps);
 }
@@ -923,6 +941,7 @@ export function readMetaBreakdown(
     p_from: input.from, p_to: input.to, ...(input.entityRef ? { p_entity_ref: input.entityRef } : {}) }, breakdownRowSchema, deps, MAX_BREAKDOWN_READ_ROWS);
 }
 
+/** Lee el estado de cada desglose (completo, fallido…). */
 export function readMetaBreakdownStatus(connectionId: string, deps: ReadDeps = {}): Promise<MetaBreakdownStatus[]> {
   return rpcRows('get_meta_breakdown_status', { p_connection_id: connectionId }, breakdownStatusSchema, deps);
 }

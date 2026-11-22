@@ -139,6 +139,7 @@ function sameInstant(a: string | null, b: string | null): boolean {
   return !Number.isNaN(ms(a)) && ms(a) === ms(b) && fraction(a) === fraction(b);
 }
 
+/** Arma la línea de log de un fallo (paso, tipo de error y código HTTP), sin contenido sensible. */
 export function failureLine(step: string, failureClass: string, httpStatus: number | null): string {
   return `praxa diagnostico: paso=${step} clase=${failureClass} http=${httpStatus ?? '-'}`;
 }
@@ -267,6 +268,10 @@ export type ModelRun = Readonly<{
   modelReported: string | null;
 }>;
 
+/**
+ * Corre los pasos del modelo: búsqueda web de contexto y después el informe con marcadores, que se valida
+ * antes de aceptarlo.
+ */
 export async function runModelSteps(input: {
   prepared: Ready;
   profile: CompanyProfile;
@@ -367,6 +372,7 @@ export async function runModelSteps(input: {
 
 const MARKER = /\[\[(ev_[a-z0-9][a-z0-9_-]{0,62})\]\]/g;
 
+/** Arma el informe final para guardar: el texto validado más la evidencia citada. */
 export function buildReport(input: { prepared: Ready; run: ModelRun; syncFinishedAt: string;
   attributionWindows?: readonly AttributionWindow[] }) {
   const { prepared, run } = input;
@@ -422,6 +428,10 @@ export function buildReport(input: { prepared: Ready; run: ModelRun; syncFinishe
 // Generación completa.
 // ---------------------------------------------------------------------------
 
+/**
+ * EL DIRECTOR DEL DIAGNÓSTICO: verifica que se pueda, reserva (para no generar ni pagar doble), junta
+ * evidencia, llama al modelo, valida, publica. Si algo falla, libera la reserva.
+ */
 export async function generateDiagnostic(deps: DiagnosticDeps): Promise<GenerationResult> {
   const now = deps.now ?? Date.now;
   const started = now();
@@ -562,6 +572,7 @@ export async function generateDiagnostic(deps: DiagnosticDeps): Promise<Generati
 // Dependencias reales (las arma la Server Action en `.3`).
 // ---------------------------------------------------------------------------
 
+/** Conecta los pasos del diagnóstico con el modelo real de Anthropic. */
 export function anthropicModelSteps(): ModelSteps {
   return {
     web: (prompt, signal) => requestWebSearch({ prompt, signal }),

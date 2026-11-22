@@ -19,6 +19,7 @@ export const ANTHROPIC_VERSION = '2026-10-21';
 
 export type ProviderFailureClass = 'unavailable' | 'timeout' | 'http' | 'invalid_output';
 
+/** Error de la llamada a Anthropic: guarda el tipo de fallo, el código HTTP y lo que se consumió. */
 export class DiagnosticProviderError extends Error {
   readonly failureClass: ProviderFailureClass;
   readonly httpStatus: number | null;

@@ -25,6 +25,7 @@ export const GRAPH_URL_FORBIDDEN_PARAMS = [
   'revoke_token',
 ] as const;
 
+/** Error que se lanza si alguien intenta poner un token en una URL de Meta (las URLs quedan en logs). */
 export class MetaUrlParamError extends Error {
   constructor() {
     super('Parámetro no permitido en una URL de Meta.');
@@ -32,6 +33,7 @@ export class MetaUrlParamError extends Error {
   }
 }
 
+/** Arma una URL de la API de Meta. Rechaza cualquier parámetro prohibido, como el token. */
 export function graphUrl(path: string, params: Record<string, string> = {}): URL {
   const url = new URL(`${GRAPH_ORIGIN}/${GRAPH_API_VERSION}/${path}`);
   for (const [name, value] of Object.entries(params)) {
@@ -41,6 +43,7 @@ export function graphUrl(path: string, params: Record<string, string> = {}): URL
   return url;
 }
 
+/** Arma la URL de la pantalla de autorización de Meta. */
 export function dialogUrl(params: Record<string, string>): URL {
   const url = new URL(`${DIALOG_ORIGIN}/${GRAPH_API_VERSION}/dialog/oauth`);
   for (const [name, value] of Object.entries(params)) url.searchParams.set(name, value);

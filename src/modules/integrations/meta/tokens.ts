@@ -37,6 +37,7 @@ const REJECTION_TEXTS: Record<TokenRejectionReason, string> = {
   missing_business: 'Meta no informó el negocio cliente.',
 };
 
+/** Error que se lanza cuando el token no sirve (no es de nuestra app, le falta ads_read, etc.). */
 export class TokenRejectedError extends Error {
   readonly reason: TokenRejectionReason;
 
@@ -66,6 +67,7 @@ function expiresAtOf(value: unknown): string | null {
   return isoDateTimeSchema.safeParse(iso).success ? iso : null;
 }
 
+/** Le pregunta a Meta si el token es válido, de nuestra app y con el permiso ads_read. */
 export async function inspectToken(
   token: SecretValue,
   deps: { http: MetaHttpClient; config: MetaOAuthConfig },
@@ -94,6 +96,7 @@ export async function inspectToken(
 
 export type SystemUser = Readonly<{ id: string; clientBusinessId: string }>;
 
+/** Trae el usuario de sistema y el negocio dueños del token. */
 export async function fetchSystemUser(token: SecretValue, deps: { http: MetaHttpClient }): Promise<SystemUser> {
   const body = await deps.http.getJson(graphUrl('me', { fields: 'id,client_business_id' }), { bearer: token });
   const fields = record(body);
@@ -106,6 +109,7 @@ export async function fetchSystemUser(token: SecretValue, deps: { http: MetaHttp
   return Object.freeze({ id, clientBusinessId: parsed.data });
 }
 
+/** Trae solo el ID del negocio dueño del token. */
 export async function fetchClientBusinessId(token: SecretValue, deps: { http: MetaHttpClient }): Promise<string> {
   return (await fetchSystemUser(token, deps)).clientBusinessId;
 }

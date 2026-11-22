@@ -16,6 +16,10 @@ export type AuthenticatedUser = {
   email: string | null;
 };
 
+/**
+ * Devuelve el usuario logueado (id y correo) verificando la firma del token de sesión, o null si no hay
+ * sesión válida.
+ */
 export async function getAuthenticatedUser(): Promise<AuthenticatedUser | null> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.getClaims();
@@ -38,6 +42,7 @@ export async function requireUser(nextPath?: string): Promise<AuthenticatedUser>
   redirect(target);
 }
 
+/** Error que se lanza cuando no hay sesión. Las acciones lo atrapan para mandar al login. */
 export class UnauthorizedError extends Error {
   constructor(message = 'Se requiere una sesión autenticada.') {
     super(message);

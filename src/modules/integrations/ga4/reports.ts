@@ -131,6 +131,10 @@ export type Ga4PreflightResult = Readonly<{
   checkedAt: string;
 }>;
 
+/**
+ * Prueba previa de la propiedad antes de confirmarla: verifica que exista, que tenga un sitio web y qué
+ * informes del catálogo puede responder.
+ */
 export async function runGa4Preflight(input: {
   propertyId: string; token: SecretValue; http: Ga4Http; today: string; now?: () => Date;
 }): Promise<Ga4PreflightResult> {

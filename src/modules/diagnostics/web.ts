@@ -23,6 +23,7 @@ export const WEB_TOPICS = {
 } as const;
 export type WebTopic = keyof typeof WEB_TOPICS;
 
+/** Elige el tema de la búsqueda web según el objetivo: estacionalidad (ventas) o buenas prácticas. */
 export function webTopicFor(goal: GoalKind): WebTopic {
   return goal === 'purchase' ? 'seasonality' : 'practices';
 }

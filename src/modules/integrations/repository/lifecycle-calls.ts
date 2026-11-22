@@ -50,6 +50,7 @@ function dateOrNull(value: unknown): boolean {
 
 function api(deps: Deps): WorkerApi { return deps.workerApi ?? getWorkerApi(); }
 
+/** Deja la conexión activa con su cuenta, moneda y zona horaria (por worker_api). */
 export async function confirmConnection(ctx: TenantContext, input: {
   connectionId: string; externalAccountId: string; currency: string; timezone: string
 }, deps: Deps = {}): Promise<{ connectionId: string; status: 'active'; credentialGeneration: number }> {
@@ -66,6 +67,7 @@ export async function confirmConnection(ctx: TenantContext, input: {
   return { connectionId, status: 'active', credentialGeneration: generation(row.credential_generation) };
 }
 
+/** Marca la conexión como «hay que volver a autorizar» (por worker_api). */
 export async function markNeedsReauth(ctx: TenantContext, input: {
   connectionId: string; expectedGeneration: number; errorClass: string; message: string
 }, deps: Deps = {}): Promise<{ connectionId: string; status: 'needs_reauth'; credentialGeneration: number }> {
@@ -81,6 +83,7 @@ export async function markNeedsReauth(ctx: TenantContext, input: {
   return { connectionId, status: 'needs_reauth', credentialGeneration: generation(row.credential_generation) };
 }
 
+/** Empieza la desconexión: marca la conexión para borrar (por worker_api). */
 export async function beginDisconnect(ctx: TenantContext, connectionId: string, deps: Deps = {}):
 Promise<{ connectionId: string; credentialGeneration: number }> {
   const a = actor(ctx); const requested = id(connectionId);
@@ -91,6 +94,7 @@ Promise<{ connectionId: string; credentialGeneration: number }> {
   return { connectionId: requested, credentialGeneration: generation(row.credential_generation) };
 }
 
+/** Borra el token y los datos de una conexión desconectada (por worker_api). */
 export async function purgeConnection(ctx: TenantContext, connectionId: string, deps: Deps = {}): Promise<boolean> {
   const a = actor(ctx); const requested = id(connectionId);
   const row = one(await api(deps).call('purge_connection', [a.user_id, a.company_id, requested]), ['purge_connection']);
@@ -103,6 +107,7 @@ export type PendingPurge = Readonly<{ connectionId: string; provider: Integratio
   status: 'pending_selection' | 'disconnected';
   reason: 'pending_expired' | 'disconnect_requested'; hasCredential: boolean }>;
 
+/** Lista las conexiones que quedaron pendientes de borrar. */
 export async function listPendingPurges(ctx: TenantContext, deps: Deps = {}): Promise<readonly PendingPurge[]> {
   const a = actor(ctx);
   const rows = await api(deps).call('list_pending_purges', [a.user_id, a.company_id]);

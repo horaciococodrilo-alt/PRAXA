@@ -129,6 +129,7 @@ const resultSchema = z.strictObject({
   }
 });
 
+/** Error que se lanza cuando el resultado de una herramienta no tiene la forma esperada. */
 export class ToolResultError extends Error {
   constructor() { super('Resultado de herramienta inválido.'); }
 }
@@ -140,6 +141,7 @@ export type ToolResult = Omit<z.infer<typeof resultSchema>, 'values'> & {
   values: (z.infer<typeof valueSchema> & { path: string; tool_call_id: string; account_ref: string | null })[];
 };
 
+/** Valida el resultado crudo de una herramienta y le pone a cada valor su identificador. */
 export function parseToolResult(raw: unknown, toolCallId: string, accountRef: string | null,
   toolName: ToolName | null = null): ToolResult {
   const parsed = resultSchema.safeParse(raw);
@@ -178,6 +180,10 @@ function markerFor(markers: ModelMarkers, kind: MarkerKind, text: string | null)
   return marker;
 }
 
+/**
+ * Crea los marcadores ([[...]]) que reemplazan a cada cifra y nombre, para que el modelo nunca vea ni
+ * escriba números reales.
+ */
 export function modelMarkers(results: ToolResult[]): ModelMarkers {
   const markers: ModelMarkers = new Map();
   const displayDate = (date: string) => {
@@ -216,6 +222,10 @@ const DATE_KEYS = ['history_from', 'history_to', 'last_finished_at', 'covered_th
 const SCREEN_ONLY_KEYS = ['trends', 'last_result', 'nearest_before', 'nearest_after', 'store_domain',
   'property_name'];
 
+/**
+ * Prepara lo que ve el modelo de un resultado: marcadores en vez de cifras y sin los datos que son solo
+ * para la pantalla.
+ */
 export function toModelView(result: ToolResult, markers: ModelMarkers = modelMarkers([result])) {
   const extra = { ...result.extra };
   for (const key of SCREEN_ONLY_KEYS) delete extra[key];

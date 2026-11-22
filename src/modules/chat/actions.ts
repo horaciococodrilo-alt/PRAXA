@@ -22,6 +22,10 @@ const voteSchema = z.strictObject({
   feedback: z.enum(['useful', 'not_useful']),
 });
 
+/**
+ * BOTÓN «Enviar pregunta» del chat: valida la pregunta y ejecuta todo el turno (modelo elige herramienta →
+ * servidor calcula → modelo redacta → se verifica).
+ */
 export async function preguntarChat(input: {
   question: string; previous?: string[]; pendingClarification?: string;
 }): Promise<ChatTurnView> {
@@ -36,6 +40,7 @@ export async function preguntarChat(input: {
   }
 }
 
+/** BOTÓN 👍/👎 del chat: guarda si la respuesta fue útil o no. */
 export async function votarRespuesta(input: {
   recordId: string; feedback: 'useful' | 'not_useful';
 }): Promise<{ ok: boolean }> {

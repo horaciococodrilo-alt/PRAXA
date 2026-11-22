@@ -26,6 +26,7 @@ export const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za
 /** Material binario codificado en base64 estándar, con relleno. */
 export const base64Schema = z.string().regex(BASE64_PATTERN, 'debe ser base64');
 
+/** Regla de validación: texto en base64 que tiene que decodificar a exactamente N bytes. */
 export function base64OfBytes(bytes: number) {
   return base64Schema.refine((value) => Buffer.from(value, 'base64').length === bytes, {
     message: `debe decodificar a ${bytes} bytes`,
@@ -63,11 +64,13 @@ export const CONNECTION_TRANSITIONS: Readonly<Record<ConnectionStatus, readonly 
     disconnected: Object.freeze([] as const),
   });
 
+/** Dice si un cambio de estado de la conexión está permitido (por ejemplo pending → active). */
 export function isDeclaredTransition(from: ConnectionStatus, to: ConnectionStatus): boolean {
   if (!Object.hasOwn(CONNECTION_TRANSITIONS, from)) return false;
   return CONNECTION_TRANSITIONS[from].includes(to);
 }
 
+/** Error que se lanza cuando se intenta un cambio de estado de conexión no permitido. */
 export class ConnectionTransitionError extends Error {
   constructor(
     readonly from: ConnectionStatus,
@@ -78,6 +81,7 @@ export class ConnectionTransitionError extends Error {
   }
 }
 
+/** Lanza error si el cambio de estado de la conexión no está permitido. */
 export function assertConnectionTransition(from: ConnectionStatus, to: ConnectionStatus): void {
   if (!isDeclaredTransition(from, to)) throw new ConnectionTransitionError(from, to);
 }

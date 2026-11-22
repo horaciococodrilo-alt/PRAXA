@@ -81,6 +81,7 @@ export type Known<T> = { known: true; value: T };
 export type Unknown = { known: false; reason: UnknownReason; detail?: string };
 export type KnownOr<T> = Known<T> | Unknown;
 
+/** Regla de validación: texto no vacío y con largo máximo. */
 export const nonEmptyText = (max = 2000) => z.string().trim().min(1).max(max);
 
 export const prioritySchema = z.enum(['high', 'medium', 'low']);

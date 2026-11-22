@@ -73,6 +73,10 @@ function selectionKeyFor(connectionId: string, accountId: string): string {
   return createHash('sha256').update(`${connectionId}:${accountId}`, 'utf8').digest('hex');
 }
 
+/**
+ * Termina los borrados pendientes «de paso» (no hay proceso de fondo): borra tokens y datos de conexiones
+ * desconectadas.
+ */
 export async function runLazyPurge(ctx: TenantContext, partial: Partial<LifecycleDeps> = {}):
 Promise<{ purged: number; revokeFailed: number; remaining: boolean }> {
   const deps = resolveDeps(partial);
@@ -124,6 +128,7 @@ Promise<{ purged: number; revokeFailed: number; remaining: boolean }> {
 
 export type DisconnectOutcome = Extract<MetaOAuthOutcome, 'desconectado' | 'desconexion_en_curso' | 'sin_empresa' | 'error'>;
 
+/** Desconecta Meta: marca la conexión para borrar y ejecuta la purga. */
 export async function disconnect(partial: Partial<LifecycleDeps> = {}): Promise<DisconnectOutcome> {
   const deps = resolveDeps(partial);
   let ctx: TenantContext;
@@ -185,6 +190,7 @@ function listOutcome(error: unknown): MetaOAuthOutcome {
   return 'error';
 }
 
+/** Decide qué muestra la tarjeta de Meta: sin conectar, elegir cuenta, conectada, reautorizar, error… */
 export async function loadMetaCardState(partial: Partial<LifecycleDeps> = {}): Promise<MetaCardState> {
   const deps = resolveDeps(partial);
   let ctx: TenantContext;
@@ -235,6 +241,7 @@ export async function loadMetaCardState(partial: Partial<LifecycleDeps> = {}): P
   }
 }
 
+/** Confirma la cuenta publicitaria elegida y deja la conexión activa. */
 export async function confirmAccount(selectionKey: string, partial: Partial<LifecycleDeps> = {}): Promise<MetaOAuthOutcome> {
   if (!sha256HexSchema.safeParse(selectionKey).success) return 'cuenta_invalida';
   const deps = resolveDeps(partial);
@@ -292,6 +299,10 @@ export async function confirmAccount(selectionKey: string, partial: Partial<Life
   return 'error';
 }
 
+/**
+ * Ante un error de Meta, decide qué hacer: pedir reautorización (si es de permisos) o solo anotar el
+ * error.
+ */
 export async function applyConnectionFailure(
   ctx: TenantContext,
   connection: { id: string; credentialGeneration: number },
@@ -334,6 +345,7 @@ export type AmbiguousWriteExpectation =
   | Readonly<{ kind: 'reauth'; connectionId: string; expectedGeneration: number }>;
 export type AmbiguousWriteResolution = 'applied' | 'not_applied' | 'unreadable';
 
+/** Si se cortó la red al guardar el token, averigua si se guardó o no leyendo la base. */
 export async function resolveAmbiguousWrite(
   ctx: TenantContext,
   token: SecretValue,
@@ -373,6 +385,10 @@ async function revokeNewToken(ctx: TenantContext, token: SecretValue, deps: Reau
     ...(result.status === 'failed' ? { clase: result.errorClass } : {}), request_id: ctx.request_id });
 }
 
+/**
+ * Termina la reautorización de Meta: canjea el código, verifica que sea la misma cuenta y reemplaza el
+ * token.
+ */
 export async function completeReauth(
   ctx: TenantContext,
   attempt: ConsumedAttempt,
